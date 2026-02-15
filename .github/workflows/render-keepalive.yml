@@ -1,0 +1,25 @@
+name: render-keepalive
+
+on:
+  schedule:
+    - cron: "*/14 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: render-keepalive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    if: ${{ secrets.RENDER_KEEPALIVE_URL != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /ping endpoint
+        env:
+          TARGET_URL: ${{ secrets.RENDER_KEEPALIVE_URL }}
+        run: |
+          set -euo pipefail
+          TARGET_URL="${TARGET_URL%/}"
+          curl -fsS --max-time 30 --retry 2 --retry-delay 5 "$TARGET_URL/ping" > /dev/null

@@ -1,0 +1,4859 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Interactive coding education platform with gamified quests">
+    <title>Code Adventures - Learn Programming</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+    <style>
+        /* ========================================
+           CODE ADVENTURES - WCAG AAA DESIGN
+           Post-anime aesthetic: Dark fantasy, 
+           refined gradients, subtle mystique
+           ======================================== */
+
+        :root {
+            /* Core palette - WCAG AAA contrast ratios */
+            --bg-void: #08080c;
+            --bg-deep: #0e0e14;
+            --bg-surface: #14141c;
+            --bg-elevated: #1a1a24;
+            --bg-hover: #222230;
+
+            /* Text - all meet 7:1 contrast on backgrounds */
+            --text-bright: #f5f5f7;
+            --text-primary: #e0e0e5;
+            --text-secondary: #9898a8;
+            --text-muted: #6a6a78;
+
+            /* Accent - mystical purple/violet */
+            --accent: #8b5cf6;
+            --accent-soft: #a78bfa;
+            --accent-glow: rgba(139, 92, 246, 0.3);
+
+            /* Status colors */
+            --success: #34d399;
+            --success-soft: rgba(52, 211, 153, 0.15);
+            --warning: #fbbf24;
+            --danger: #f87171;
+
+            /* Tier colors */
+            --tier-d: #22c55e;
+            --tier-c: #3b82f6;
+            --tier-b: #a855f7;
+            --tier-a: #f59e0b;
+            --tier-s: linear-gradient(135deg, #f43f5e, #f59e0b);
+
+            /* Layout */
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --shadow-glow: 0 0 40px var(--accent-glow);
+        }
+
+        /* ========== PERFORMANCE OPTIMIZATIONS ========== */
+        /* Reduce motion for users who prefer it + performance */
+        @media (prefers-reduced-motion: reduce) {
+
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* GPU acceleration for animated elements */
+        .particle,
+        .event-banner,
+        .achievement-popup,
+        .modal-overlay {
+            will-change: transform, opacity;
+            transform: translateZ(0);
+            backface-visibility: hidden;
+        }
+
+        /* Content visibility for off-screen panels */
+        .tab-panel:not(.active),
+        .modal-overlay:not(.active) {
+            content-visibility: hidden;
+        }
+
+        /* Contain layout for better paint performance */
+        .sidebar,
+        .main-area,
+        .quest-card,
+        .leader-item {
+            contain: layout style;
+        }
+
+        /* ========== RESET & BASE ========== */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            font-size: 16px;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-void);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Focus styles for accessibility */
+        :focus-visible {
+            outline: 3px solid var(--accent-soft);
+            outline-offset: 3px;
+        }
+
+        /* Skip link for screen readers */
+        .skip-link {
+            position: absolute;
+            top: -100%;
+            left: 16px;
+            background: var(--accent);
+            color: white;
+            padding: 12px 24px;
+            border-radius: var(--radius-sm);
+            z-index: 9999;
+            font-weight: 600;
+        }
+
+        .skip-link:focus {
+            top: 16px;
+        }
+
+        /* ========== AMBIENT BACKGROUND ========== */
+        .ambient-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+            background:
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(139, 92, 246, 0.08), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 100%, rgba(59, 130, 246, 0.05), transparent),
+                var(--bg-void);
+        }
+
+        /* Floating particles - subtle */
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: rgba(139, 92, 246, 0.4);
+            border-radius: 50%;
+            animation: float 20s infinite ease-in-out;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0) translateX(0);
+                opacity: 0.3;
+            }
+
+            50% {
+                transform: translateY(-100px) translateX(50px);
+                opacity: 0.6;
+            }
+        }
+
+        /* ========== LOGIN SCREEN ========== */
+        #login-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .login-card {
+            background: var(--bg-surface);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: var(--radius-lg);
+            padding: 48px 40px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: var(--shadow-glow);
+        }
+
+        .login-logo {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .login-logo .icon {
+            font-size: 48px;
+            display: block;
+            margin-bottom: 16px;
+            filter: drop-shadow(0 0 20px var(--accent-glow));
+        }
+
+        .login-logo h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-bright);
+            letter-spacing: -0.5px;
+        }
+
+        .login-logo p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--bg-deep);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: var(--radius-sm);
+            color: var(--text-bright);
+            font-size: 15px;
+            font-family: inherit;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 14px 28px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            width: 100%;
+            background: var(--accent);
+            color: white;
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-soft);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .login-status {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .login-status.scanning {
+            background: rgba(139, 92, 246, 0.1);
+            color: var(--accent-soft);
+        }
+
+        .login-status.connected {
+            background: var(--success-soft);
+            color: var(--success);
+        }
+
+        .login-status.error {
+            background: rgba(248, 113, 113, 0.1);
+            color: var(--danger);
+        }
+
+        /* ========== MAIN APP ========== */
+        #app {
+            display: none;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            padding: 16px 32px;
+            background: rgba(14, 14, 20, 0.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            font-size: 28px;
+            filter: drop-shadow(0 0 10px var(--accent-glow));
+        }
+
+        .logo-text {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-bright);
+            letter-spacing: -0.3px;
+        }
+
+        /* XP Bar */
+        .player-stats {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .xp-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .level-badge {
+            background: var(--accent);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .xp-bar {
+            width: 180px;
+            height: 8px;
+            background: var(--bg-hover);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .xp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-soft));
+            width: 0%;
+            transition: width 0.5s ease;
+            border-radius: 4px;
+        }
+
+        .xp-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .player-name {
+            font-weight: 600;
+            color: var(--text-bright);
+        }
+
+        /* Category Tabs */
+        .category-nav {
+            padding: 20px 32px;
+            background: var(--bg-deep);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .category-tabs {
+            display: flex;
+            gap: 8px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px 20px;
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .tab-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .tab-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .tab-icon {
+            font-size: 16px;
+        }
+
+        /* Quest Grid */
+        main {
+            flex-grow: 1;
+            padding: 32px;
+        }
+
+        .quest-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 24px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Quest Card */
+        .quest-card {
+            background: var(--bg-surface);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .quest-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .quest-card.completed {
+            opacity: 0.5;
+        }
+
+        .quest-card.locked {
+            opacity: 0.38;
+            cursor: not-allowed;
+        }
+
+        .quest-card.locked:hover {
+            transform: none;
+            border-color: rgba(255, 255, 255, 0.08);
+            box-shadow: none;
+        }
+
+        .quest-card.completed::before {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            color: var(--success);
+            z-index: 2;
+        }
+
+        .quest-card.pending {
+            border-color: #fbbf24;
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
+        }
+
+        .quest-card.pending::after {
+            content: '⏳';
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            font-size: 24px;
+            z-index: 2;
+        }
+
+        .quest-lock {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            width: 34px;
+            height: 34px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.45);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .tier-indicator {
+            position: absolute;
+            top: -1px;
+            right: 20px;
+            padding: 6px 14px;
+            border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .tier-D {
+            background: var(--tier-d);
+            color: #000;
+        }
+
+        .tier-C {
+            background: var(--tier-c);
+            color: #fff;
+        }
+
+        .tier-B {
+            background: var(--tier-b);
+            color: #fff;
+        }
+
+        .tier-A {
+            background: var(--tier-a);
+            color: #000;
+        }
+
+        .tier-S {
+            background: var(--tier-s);
+            color: #fff;
+        }
+
+        .quest-icon {
+            font-size: 40px;
+            filter: grayscale(0.2);
+        }
+
+        .quest-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-bright);
+        }
+
+        .quest-story {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .quest-reward {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--warning);
+        }
+
+        /* Empty State */
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 80px 40px;
+            color: var(--text-muted);
+        }
+
+        .empty-state .icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            font-size: 20px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        /* ========== MODAL ========== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-surface);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: var(--radius-lg);
+            width: 100%;
+            max-width: 1100px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            background: var(--bg-deep);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-bright);
+        }
+
+        .btn-close {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-secondary);
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-close:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            display: flex;
+            flex: 1 1 auto;
+            overflow: hidden;
+            min-height: 0;
+            /* Allow flex shrink */
+        }
+
+        .quest-sidebar {
+            width: 320px;
+            padding: 24px;
+            background: var(--bg-deep);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            overflow-y: auto;
+        }
+
+        .quest-sidebar h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--accent-soft);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .quest-sidebar .story {
+            font-size: 15px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            margin-bottom: 24px;
+            font-style: italic;
+        }
+
+        .quest-sidebar .task-box {
+            background: var(--bg-surface);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: var(--radius-sm);
+            padding: 16px;
+        }
+
+        .quest-sidebar .task-box p {
+            font-size: 14px;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .editor-area {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-void);
+        }
+
+        .code-editor {
+            flex: 1 1 auto;
+            min-height: 150px;
+            max-height: 400px;
+            overflow-y: auto;
+            background: #0d0d12;
+            color: #d4d4d8;
+            border: none;
+            padding: 20px;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+        }
+
+        .code-editor.frontend-mode {
+            min-height: 180px;
+            max-height: 260px;
+        }
+
+        .frontend-preview-wrap {
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            background: #0b0b11;
+            padding: 12px 16px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .preview-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .preview-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .preview-btn {
+            padding: 6px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .preview-btn:hover {
+            border-color: var(--accent);
+            color: var(--text-bright);
+            background: rgba(139, 92, 246, 0.18);
+        }
+
+        .mini-browser {
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            overflow: hidden;
+            background: #10131b;
+        }
+
+        .mini-browser-bar {
+            height: 30px;
+            padding: 0 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(180deg, #1d2230 0%, #141928 100%);
+        }
+
+        .mini-browser-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .mini-browser-dot.red {
+            background: #f87171;
+        }
+
+        .mini-browser-dot.yellow {
+            background: #fbbf24;
+        }
+
+        .mini-browser-dot.green {
+            background: #4ade80;
+        }
+
+        .mini-browser-address {
+            margin-left: 8px;
+            font-size: 11px;
+            color: #9fb0d8;
+            opacity: 0.9;
+        }
+
+        .mini-browser-frame {
+            width: 100%;
+            height: 250px;
+            border: none;
+            background: white;
+        }
+
+        .output-console {
+            height: 100px;
+            background: #000;
+            color: #4ade80;
+            padding: 16px 20px;
+            font-family: 'SF Mono', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            overflow-y: auto;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            background: var(--bg-deep);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: flex-end;
+            flex-shrink: 0;
+        }
+
+        .btn-run {
+            background: linear-gradient(135deg, var(--success) 0%, #22c55e 100%);
+            color: #000;
+            padding: 14px 32px;
+            font-weight: 700;
+            font-size: 15px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(74, 222, 128, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-run::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn-run:hover {
+            background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+            box-shadow: 0 6px 25px rgba(74, 222, 128, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .btn-run:hover::before {
+            left: 100%;
+        }
+
+        .btn-run:active {
+            transform: translateY(0) scale(0.98);
+            box-shadow: 0 2px 10px rgba(74, 222, 128, 0.3);
+        }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 768px) {
+            header {
+                padding: 12px 16px;
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .category-tabs {
+                flex-wrap: wrap;
+            }
+
+            .tab-btn {
+                flex: 0 0 calc(50% - 4px);
+            }
+
+            main {
+                padding: 16px;
+            }
+
+            .quest-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .modal-body {
+                flex-direction: column;
+            }
+
+            .quest-sidebar {
+                width: 100%;
+                max-height: 200px;
+            }
+
+            .preview-toolbar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .mini-browser-frame {
+                height: 190px;
+            }
+
+            #quest-modal {
+                align-items: flex-end;
+                padding: 10px;
+            }
+
+            #quest-modal .modal-content {
+                max-height: calc(100dvh - 20px);
+            }
+
+            #quest-modal .modal-body {
+                overflow-y: auto;
+            }
+
+            #quest-modal .editor-area {
+                min-height: 0;
+            }
+
+            #quest-modal .modal-footer {
+                padding: 12px 14px;
+                padding-bottom: calc(12px + env(safe-area-inset-bottom));
+            }
+
+            #quest-modal .btn-run {
+                width: 100%;
+                padding: 13px 16px;
+                font-size: 14px;
+            }
+        }
+
+        /* ========== GAMIFICATION UI ========== */
+
+        /* Event Banner */
+        .event-banner {
+            background: linear-gradient(135deg, #7c3aed 0%, #db2777 100%);
+            color: white;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        .event-banner.hidden {
+            display: none;
+        }
+
+        @keyframes pulse-glow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 20px rgba(124, 58, 237, 0.5);
+            }
+
+            50% {
+                box-shadow: 0 0 40px rgba(219, 39, 119, 0.7);
+            }
+        }
+
+        .event-bonus {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+
+        /* Rank Badge */
+        .rank-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            background: rgba(139, 92, 246, 0.2);
+            border: 1px solid rgba(139, 92, 246, 0.4);
+        }
+
+        /* Guild Banner */
+        .guild-banner {
+            background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-deep) 100%);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .guild-banner::before {
+            content: "⚔️ ГИЛЬДИЯ КОДА ⚔️";
+            display: block;
+            font-size: 12px;
+            letter-spacing: 3px;
+            color: var(--accent-soft);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .guild-banner h2 {
+            font-size: 18px;
+            color: var(--text-bright);
+        }
+
+        /* Profile Panel */
+        .profile-panel {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 380px;
+            height: 100vh;
+            background: var(--bg-surface);
+            border-left: 1px solid rgba(255, 255, 255, 0.08);
+            z-index: 200;
+            transition: right 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .profile-panel.open {
+            right: 0;
+        }
+
+        .profile-header {
+            padding: 24px;
+            text-align: center;
+            background: var(--bg-elevated);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .avatar-wrapper {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 16px;
+        }
+
+        .avatar-img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            background: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: white;
+            border: 3px solid var(--accent-soft);
+        }
+
+        .avatar-img img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .avatar-edit {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 32px;
+            height: 32px;
+            background: var(--accent);
+            border-radius: 50%;
+            border: 2px solid var(--bg-surface);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Avatar Gallery */
+        .avatar-gallery {
+            position: absolute;
+            top: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-surface);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            z-index: 100;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.2s ease;
+        }
+
+        .avatar-gallery.hidden {
+            display: none;
+        }
+
+        .avatar-gallery-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-bright);
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .avatar-upload-btn {
+            width: 100%;
+            margin-bottom: 8px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px dashed rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-primary);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .avatar-upload-btn:hover {
+            border-color: var(--accent-soft);
+            background: rgba(139, 92, 246, 0.16);
+            color: var(--text-bright);
+        }
+
+        .avatar-upload-note {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .avatar-gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .avatar-option {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--bg-hover);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.2s;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .avatar-option img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .avatar-option:focus-visible {
+            outline: 3px solid var(--accent-soft);
+            outline-offset: 2px;
+        }
+
+        .avatar-option:hover {
+            border-color: var(--accent-soft);
+            transform: scale(1.1);
+        }
+
+        .avatar-option.selected {
+            border-color: var(--accent);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        .profile-stats {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .profile-help {
+            margin: 0 20px 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: rgba(139, 92, 246, 0.10);
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            color: var(--text-secondary);
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 16px;
+            background: var(--bg-deep);
+            border-radius: var(--radius-sm);
+        }
+
+        .stat-item .value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent-soft);
+        }
+
+        .stat-item .label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .rank-progress {
+            padding: 20px;
+        }
+
+        .rank-progress-bar {
+            height: 10px;
+            background: var(--bg-deep);
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+
+        .rank-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-soft));
+            transition: width 0.5s ease;
+        }
+
+        /* Leaderboard Side Panel */
+        .leaderboard-sidebar {
+            position: fixed;
+            top: 0;
+            left: -320px;
+            width: 300px;
+            height: 100vh;
+            background: var(--bg-surface);
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+            z-index: 200;
+            transition: left 0.3s ease;
+            overflow-y: auto;
+        }
+
+        .leaderboard-sidebar.open {
+            left: 0;
+        }
+
+        .leaderboard-header {
+            padding: 20px;
+            background: var(--bg-elevated);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            position: sticky;
+            top: 0;
+        }
+
+        .leaderboard-header h3 {
+            font-size: 16px;
+            color: var(--text-bright);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .leader-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            transition: background 0.2s;
+        }
+
+        .leader-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .leader-position {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 12px;
+        }
+
+        .leader-position.gold {
+            background: #fbbf24;
+            color: #000;
+        }
+
+        .leader-position.silver {
+            background: #9ca3af;
+            color: #000;
+        }
+
+        .leader-position.bronze {
+            background: #cd7f32;
+            color: #fff;
+        }
+
+        .leader-position.default {
+            background: var(--bg-deep);
+            color: var(--text-secondary);
+        }
+
+        .leader-info {
+            flex: 1;
+        }
+
+        /* Chat Panel Tweaks */
+        .chat-panel {
+            z-index: 210 !important;
+            /* Ensure it's above leaderboard */
+        }
+
+        .form-input {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--text-bright);
+            border-radius: 6px;
+            font-family: inherit;
+            transition: all 0.2s;
+            min-height: 42px;
+            /* Ensure accessible height */
+            box-sizing: border-box;
+        }
+
+        .form-input:focus {
+            background: rgba(0, 0, 0, 0.5);
+            border-color: var(--accent);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+        }
+
+        /* Enhanced chat textarea */
+        .chat-textarea {
+            width: 100%;
+            min-height: 60px;
+            max-height: 150px;
+            padding: 12px 16px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            color: var(--text-bright);
+            font-family: inherit;
+            font-size: 14px;
+            line-height: 1.5;
+            resize: none;
+            overflow-y: auto;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+        }
+
+        .chat-textarea:focus {
+            background: rgba(0, 0, 0, 0.6);
+            border-color: var(--accent);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25);
+        }
+
+        .chat-textarea::placeholder {
+            color: var(--text-muted);
+        }
+
+        .chat-send-btn {
+            flex-shrink: 0;
+            padding: 12px 18px;
+            background: var(--accent);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chat-send-btn:hover {
+            background: var(--accent-soft);
+            transform: translateY(-1px);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #scratch-upload-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .leader-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .leader-rank {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .leader-xp {
+            font-weight: 700;
+            color: var(--accent-soft);
+        }
+
+        /* Header buttons */
+        .header-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-secondary);
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .header-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-bright);
+        }
+
+        .header-avatar {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            margin-right: 8px;
+            overflow: hidden;
+            vertical-align: middle;
+        }
+
+        .header-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Overlay */
+        .panel-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 199;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+
+        .panel-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* ========== ACHIEVEMENTS ========== */
+
+        .achievement-notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-150%);
+            background: linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-surface) 100%);
+            border: 2px solid var(--accent);
+            border-radius: 16px;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(139, 92, 246, 0.4), 0 0 60px rgba(139, 92, 246, 0.2);
+            opacity: 0;
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .achievement-notification.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .achievement-notification .ach-icon {
+            font-size: 48px;
+            animation: achievement-bounce 0.6s ease-in-out;
+        }
+
+        @keyframes achievement-bounce {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.3);
+            }
+        }
+
+        .achievement-notification .ach-text {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .achievement-notification .ach-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-secondary);
+        }
+
+        .achievement-notification .ach-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-bright);
+        }
+
+        .achievement-notification .ach-bonus {
+            font-size: 13px;
+            color: var(--success);
+        }
+
+        /* Rarity colors */
+        .achievement-notification.common {
+            border-color: #4ade80;
+        }
+
+        .achievement-notification.uncommon {
+            border-color: #60a5fa;
+        }
+
+        .achievement-notification.rare {
+            border-color: #a78bfa;
+        }
+
+        .achievement-notification.epic {
+            border-color: #f472b6;
+        }
+
+        .achievement-notification.legendary {
+            border-color: #fbbf24;
+            background: linear-gradient(135deg, #1a1a25 0%, #2d2d3a 100%);
+            animation: legendary-glow 2s ease-in-out infinite;
+        }
+
+        @keyframes legendary-glow {
+
+            0%,
+            100% {
+                box-shadow: 0 8px 32px rgba(251, 191, 36, 0.4), 0 0 60px rgba(251, 191, 36, 0.2);
+            }
+
+            50% {
+                box-shadow: 0 8px 40px rgba(251, 191, 36, 0.6), 0 0 80px rgba(251, 191, 36, 0.4);
+            }
+        }
+
+        /* Achievements section in profile */
+        .achievements-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            gap: 8px;
+            max-height: 210px;
+            overflow-y: auto;
+            padding-right: 4px;
+            align-content: start;
+        }
+
+        .ach-badge {
+            width: 56px;
+            height: 56px;
+            border-radius: 12px;
+            background: var(--bg-deep);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .ach-badge:hover {
+            transform: scale(1.1);
+            background: var(--bg-hover);
+        }
+
+        .ach-badge.locked {
+            filter: grayscale(1) opacity(0.3);
+        }
+
+        .ach-badge.common {
+            border-color: rgba(74, 222, 128, 0.3);
+        }
+
+        .ach-badge.uncommon {
+            border-color: rgba(96, 165, 250, 0.3);
+        }
+
+        .ach-badge.rare {
+            border-color: rgba(167, 139, 250, 0.3);
+        }
+
+        .ach-badge.epic {
+            border-color: rgba(244, 114, 182, 0.3);
+        }
+
+        .ach-badge.legendary {
+            border-color: rgba(251, 191, 36, 0.5);
+        }
+
+        .ach-badge.unlocked.legendary {
+            animation: legendary-badge-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes legendary-badge-pulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+            }
+
+            50% {
+                box-shadow: 0 0 20px rgba(251, 191, 36, 0.6);
+            }
+        }
+
+        .ach-tooltip {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-elevated);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 8px 12px;
+            min-width: 150px;
+            text-align: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .ach-badge:hover .ach-tooltip {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Achievements gallery modal */
+        .achievement-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 12px;
+            width: 100%;
+        }
+
+        .achievement-card {
+            background: rgba(0, 0, 0, 0.18);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 14px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .achievement-card.locked {
+            opacity: 0.65;
+            filter: grayscale(0.2);
+        }
+
+        .achievement-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            flex: 0 0 auto;
+        }
+
+        .achievement-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .achievement-title {
+            font-weight: 700;
+            color: var(--text-bright);
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .achievement-desc {
+            color: var(--text-secondary);
+            font-size: 12px;
+            line-height: 1.45;
+            margin-bottom: 10px;
+        }
+
+        .achievement-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .achievement-progress {
+            height: 8px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .achievement-progress>div {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, rgba(139, 92, 246, 0.7), rgba(167, 139, 250, 0.9));
+        }
+
+        .achievement-bonus {
+            font-weight: 700;
+            color: var(--success);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <!-- Ambient bg disabled for performance -->
+    <div class="ambient-bg" aria-hidden="true"></div>
+
+    <!-- ========== LOGIN SCREEN ========== -->
+    <div id="login-screen">
+        <div class="login-card">
+            <div class="login-logo">
+                <span class="icon" role="img" aria-label="Crystal">💎</span>
+                <h1>Code Adventures</h1>
+                <p>Begin your programming journey</p>
+            </div>
+
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-user" class="form-label">Username</label>
+                    <input type="text" id="login-user" class="form-input" placeholder="Enter your username" required
+                        autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="login-pass" class="form-label">Password</label>
+                    <input type="password" id="login-pass" class="form-input" placeholder="••••••••" required
+                        autocomplete="current-password">
+                </div>
+                <div class="form-group">
+                    <label for="login-server" class="form-label">Server IP <span
+                            style="color: var(--text-muted);">(optional)</span></label>
+                    <input type="text" id="login-server" class="form-input" placeholder="Leave empty for auto-scan">
+                </div>
+                <button type="submit" class="btn btn-primary">Enter Academy</button>
+            </form>
+
+            <div class="login-status scanning" id="login-status">
+                Scanning for server...
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== MAIN APP ========== -->
+    <div id="app">
+        <!-- Event Banner -->
+        <div class="event-banner hidden" id="event-banner">
+            <span>🎉</span>
+            <span id="event-name">Событие активно!</span>
+            <span class="event-bonus" id="event-bonus">+50% XP</span>
+        </div>
+
+        <!-- Guild Banner -->
+        <div class="guild-banner">
+            <h2>Академия Приключений</h2>
+        </div>
+
+        <header>
+            <div class="logo">
+                <button class="header-btn" onclick="toggleLeaderboard()" title="Рейтинг">🏆</button>
+                <button class="header-btn" onclick="toggleChatPanel()" title="Чат">💬</button>
+                <span class="logo-icon" aria-hidden="true">💎</span>
+                <span class="logo-text">Code Adventures</span>
+            </div>
+            <div class="player-stats">
+                <div class="xp-container">
+                    <span class="rank-badge" id="rank-badge">🌱 Новичок</span>
+                    <span class="level-badge" id="level-badge">LV 1</span>
+                    <div class="xp-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                        <div class="xp-fill" id="xp-fill"></div>
+                    </div>
+                    <span class="xp-text"><span id="xp-current">0</span>/100 XP</span>
+                </div>
+                <button class="header-btn" onclick="toggleProfile()" title="Профиль" id="profile-btn"
+                    aria-haspopup="dialog" aria-controls="profile-panel">
+                    <span class="header-avatar" id="header-avatar" aria-hidden="true">🧙</span>
+                    <span id="player-name">Adventurer</span>
+                    <span aria-hidden="true">⚙️</span>
+                </button>
+            </div>
+        </header>
+
+        <nav class="category-nav" aria-label="Quest categories">
+            <div class="category-tabs" role="tablist">
+                <button class="tab-btn active" role="tab" aria-selected="true" onclick="filterCategory('all', this)">
+                    <span class="tab-icon">🌟</span> All
+                </button>
+                <button class="tab-btn" role="tab" aria-selected="false" onclick="filterCategory('python', this)">
+                    <span class="tab-icon">🐍</span> Python
+                </button>
+                <button class="tab-btn" role="tab" aria-selected="false" onclick="filterCategory('javascript', this)">
+                    <span class="tab-icon">⚡</span> JavaScript
+                </button>
+                <button class="tab-btn" role="tab" aria-selected="false" onclick="filterCategory('frontend', this)">
+                    <span class="tab-icon">🎨</span> Frontend
+                </button>
+                <button class="tab-btn" role="tab" aria-selected="false" onclick="filterCategory('scratch', this)">
+                    <span class="tab-icon">🐱</span> Scratch
+                </button>
+            </div>
+        </nav>
+
+        <main id="main-content">
+            <div class="quest-grid" id="quest-grid" role="list">
+                <!-- Quests loaded by JS -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Panel Overlay -->
+    <div class="panel-overlay" id="panel-overlay" onclick="closePanels()"></div>
+
+    <!-- Achievement Notification Popup -->
+    <div class="achievement-notification" id="ach-notification">
+        <div class="ach-icon">🏆</div>
+        <div class="ach-text">
+            <div class="ach-label">Достижение разблокировано!</div>
+            <div class="ach-name" id="ach-notif-name">First Steps</div>
+            <div class="ach-bonus" id="ach-notif-bonus">+5 XP</div>
+        </div>
+    </div>
+
+    <!-- Leaderboard Sidebar -->
+    <div class="leaderboard-sidebar" id="leaderboard-panel">
+        <div class="leaderboard-header">
+            <h3>🏆 Мировой Рейтинг</h3>
+        </div>
+        <div id="leaderboard-list">
+            <!-- Populated by JS -->
+        </div>
+    </div>
+
+    <!-- Chat Panel -->
+    <div class="leaderboard-sidebar chat-panel" id="chat-panel">
+        <div class="leaderboard-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h3>💬 Общий Чат</h3>
+            <span id="chat-online" style="font-size:12px; color:var(--success);">● онлайн</span>
+        </div>
+        <div id="chat-list"
+            style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px;">
+            <div style="color:var(--text-secondary); text-align:center; font-size:13px;">Загрузка...</div>
+        </div>
+        <div style="padding:12px; border-top:1px solid rgba(255,255,255,0.05);">
+            <div style="display:flex; gap:10px; align-items:flex-end;">
+                <textarea id="chat-panel-input" class="chat-textarea" placeholder="Напишите сообщение..."
+                    maxlength="500" rows="2" oninput="autoResizeTextarea(this)"
+                    onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); sendChatFromPanel(); }"></textarea>
+                <button class="chat-send-btn" onclick="sendChatFromPanel()" title="Отправить">➤</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Panel -->
+    <div class="profile-panel" id="profile-panel">
+        <div class="profile-header">
+            <div class="avatar-wrapper" onclick="toggleAvatarGallery()" style="cursor:pointer;">
+                <div class="avatar-img" id="profile-avatar">🧙</div>
+                <div class="avatar-edit">✏️</div>
+            </div>
+            <!-- Avatar Gallery -->
+            <div id="avatar-gallery" class="avatar-gallery hidden">
+                <div class="avatar-gallery-title">Выберите аватарку или загрузите фото</div>
+                <button type="button" class="avatar-upload-btn"
+                    onclick="document.getElementById('avatar-file-input').click()">
+                    📷 Загрузить своё фото
+                </button>
+                <input type="file" id="avatar-file-input" accept="image/png,image/jpeg,image/webp,image/gif"
+                    style="display:none;" onchange="uploadAvatar(event)">
+                <div class="avatar-upload-note">JPG / PNG / WEBP / GIF до 5MB (с авто-сжатием)</div>
+                <div class="avatar-gallery-grid" id="avatar-gallery-grid"></div>
+            </div>
+            <h3 id="profile-display-name">Adventurer</h3>
+            <div class="rank-badge" id="profile-rank">🌱 Новичок</div>
+        </div>
+        <div class="profile-stats">
+            <div class="stat-item">
+                <div class="value" id="profile-quests">0</div>
+                <div class="label">Квестов</div>
+            </div>
+            <div class="stat-item">
+                <div class="value" id="profile-streak">0</div>
+                <div class="label" title="Дни подряд, когда вы завершали хотя бы 1 квест">Страйк квестов</div>
+            </div>
+            <div class="stat-item">
+                <div class="value" id="profile-position">#1</div>
+                <div class="label">Место</div>
+            </div>
+        </div>
+        <div class="profile-help">
+            Для страйка: закрывайте минимум 1 квест в день.
+            Для достижений: выполняйте квесты в разных категориях и без длинных пауз.
+        </div>
+        <div class="rank-progress">
+            <div style="display:flex; justify-content:space-between; font-size:13px;">
+                <span id="rank-current-label">🌱 Новичок</span>
+                <span id="rank-next-label">📚 Ученик</span>
+            </div>
+            <div class="rank-progress-bar">
+                <div class="rank-progress-fill" id="rank-progress-fill" style="width:0%"></div>
+            </div>
+            <div style="text-align:center; margin-top:8px; font-size:12px; color:var(--text-secondary);">
+                <span id="rank-xp-needed">100 XP до следующего ранга</span>
+            </div>
+        </div>
+
+        <!-- Achievements Section -->
+        <div style="padding:16px; border-bottom:1px solid rgba(255,255,255,0.05);">
+            <h4
+                style="margin-bottom:12px; color:var(--text-bright); display:flex; align-items:center; justify-content:space-between;">
+                🏆 Достижения
+                <span style="display:flex; align-items:center; gap:10px;">
+                    <span id="achievements-count" style="font-size:12px; color:var(--text-secondary);">0/0</span>
+                    <button class="btn btn-small" onclick="openAchievementsModal()" style="padding:6px 10px;">
+                        Галерея
+                    </button>
+                </span>
+            </h4>
+            <div id="achievements-grid" class="achievements-grid">
+                <div style="color:var(--text-secondary); font-size:13px; text-align:center; grid-column:1/-1;">
+                    Загрузка...</div>
+            </div>
+        </div>
+
+        <!-- My Rewards Section -->
+        <div style="padding:16px; border-bottom:1px solid rgba(255,255,255,0.05);">
+            <h4 style="margin-bottom:12px; color:var(--text-bright);">🏅 Мои награды</h4>
+            <div id="my-rewards-list" style="max-height:150px; overflow-y:auto;">
+                <div style="color:var(--text-secondary); font-size:13px; text-align:center;">Загрузка...</div>
+            </div>
+        </div>
+
+        <!-- My Submissions Section -->
+        <div style="padding:16px; border-bottom:1px solid rgba(255,255,255,0.05);">
+            <h4 style="margin-bottom:12px; color:var(--text-bright);">📝 Мои работы</h4>
+            <div id="my-submissions-list" style="max-height:200px; overflow-y:auto;">
+                <div style="color:var(--text-secondary); font-size:13px; text-align:center;">Загрузка...</div>
+            </div>
+        </div>
+
+        <!-- XP Progress Chart -->
+        <div style="padding:16px; border-bottom:1px solid rgba(255,255,255,0.05);">
+            <h4 style="margin-bottom:12px; color:var(--text-bright);">📈 Прогресс XP</h4>
+            <div id="xp-chart"
+                style="height:120px; position:relative; background:rgba(0,0,0,0.2); border-radius:8px; overflow:hidden;">
+                <canvas id="xp-canvas" style="width:100%; height:100%;"></canvas>
+                <div id="xp-chart-empty"
+                    style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--text-secondary); font-size:13px;">
+                    Выполните квесты для графика
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Section -->
+        <div style="padding:16px; border-bottom:1px solid rgba(255,255,255,0.05);">
+            <h4
+                style="margin-bottom:12px; color:var(--text-bright); display:flex; align-items:center; justify-content:space-between;">
+                💬 Общий чат
+                <span id="chat-status" style="font-size:11px; color:var(--success);">●</span>
+            </h4>
+            <div id="chat-messages"
+                style="height:180px; overflow-y:auto; background:rgba(0,0,0,0.2); border-radius:8px; padding:10px; margin-bottom:10px;">
+                <div style="color:var(--text-secondary); font-size:13px; text-align:center;">Загрузка...</div>
+            </div>
+            <div style="display:flex; gap:10px; align-items:flex-end;">
+                <textarea id="chat-input" class="chat-textarea" placeholder="Напишите сообщение..." maxlength="500"
+                    rows="2" oninput="autoResizeTextarea(this)"
+                    onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); sendChatMessage(); }"></textarea>
+                <button class="chat-send-btn" onclick="sendChatMessage()">Отправить</button>
+            </div>
+        </div>
+
+        <div style="padding:20px;">
+            <div class="form-group">
+                <label class="form-label">Изменить имя</label>
+                <input type="text" id="edit-display-name" class="form-input" placeholder="Новое имя">
+            </div>
+            <button class="btn btn-primary" onclick="saveProfile()" style="width:100%;">Сохранить</button>
+            <button class="btn" onclick="logout()"
+                style="width:100%; margin-top:12px; background:var(--danger); color:white;">🚪 Выйти</button>
+        </div>
+    </div>
+
+    <!-- ========== QUEST MODAL ========== -->
+    <div class="modal-overlay" id="quest-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Quest Title</h2>
+                <button class="btn-close" onclick="closeModal()">✕ Close</button>
+            </div>
+            <div class="modal-body">
+                <aside class="quest-sidebar">
+                    <h3>📖 Story</h3>
+                    <p class="story" id="modal-story"></p>
+                    <h3>📋 Task</h3>
+                    <div class="task-box">
+                        <p id="modal-task"></p>
+                        <div id="frontend-task-tools" style="display:none; margin-top:10px;">
+                            <button type="button" id="frontend-hint-btn"
+                                style="font-size:11px; padding:5px 9px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.08); color:var(--text-bright); cursor:pointer;"
+                                aria-expanded="false">
+                                💡 Показать подсказки
+                            </button>
+                            <div id="frontend-hints"
+                                style="display:none; margin-top:8px; border:1px dashed rgba(255,255,255,0.15); border-radius:10px; padding:10px; font-size:12px; color:var(--text-secondary); line-height:1.45;">
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+                <div class="editor-area">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-size:11px; color:var(--text-secondary);">📝 Редактор кода</span>
+                        <button id="paste-request-btn" onclick="requestPastePermission()"
+                            style="font-size:10px; padding:4px 8px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); border-radius:6px; color:var(--text-secondary); cursor:pointer;"
+                            title="Запросить разрешение на вставку">
+                            📋 Вставка
+                        </button>
+                    </div>
+                    <textarea class="code-editor" id="code-editor" placeholder="Write your code here..."
+                        aria-label="Code editor" onpaste="return handlePaste(event)"
+                        onkeydown="handleEditorKeydown(event)"></textarea>
+
+                    <div id="frontend-preview-wrap" class="frontend-preview-wrap hidden">
+                        <div class="preview-toolbar">
+                            <span>🌐 Мини-браузер для рендера задачи</span>
+                            <div class="preview-actions">
+                                <button class="preview-btn" type="button" onclick="renderFrontendPreview(true)">Рендер</button>
+                                <button class="preview-btn" type="button" onclick="openPreviewInNewTab()">Новая вкладка</button>
+                                <button class="preview-btn" type="button" onclick="downloadPreviewShot()">Скрин PNG</button>
+                            </div>
+                        </div>
+                        <div class="mini-browser">
+                            <div class="mini-browser-bar">
+                                <span class="mini-browser-dot red"></span>
+                                <span class="mini-browser-dot yellow"></span>
+                                <span class="mini-browser-dot green"></span>
+                                <span class="mini-browser-address">quest://frontend-preview</span>
+                            </div>
+                            <iframe id="frontend-preview-frame" class="mini-browser-frame"
+                                sandbox="allow-scripts allow-same-origin"></iframe>
+                        </div>
+                    </div>
+
+                    <div id="scratch-upload-container" style="display: none;">
+                        <div style="border: 2px dashed rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; text-align: center; background: rgba(0,0,0,0.2); transition: all 0.3s; cursor: pointer; margin-bottom: 16px;"
+                            onmouseover="this.style.borderColor='var(--accent)'; this.style.background='rgba(124, 58, 237, 0.1)'"
+                            onmouseout="this.style.borderColor='rgba(255,255,255,0.1)'; this.style.background='rgba(0,0,0,0.2)'"
+                            onclick="document.getElementById('scratch-file').click()">
+
+                            <div style="font-size: 32px; margin-bottom: 12px;">😺</div>
+                            <h3 style="color: var(--text-bright); font-size: 16px; margin-bottom: 8px;">Загрузка Проекта
+                            </h3>
+                            <p
+                                style="color: var(--text-secondary); font-size: 13px; margin-bottom: 16px; line-height: 1.5;">
+                                Загрузите файл <code>.sb3</code> для проверки.<br>Мастер оценит ваш код вручную.
+                            </p>
+
+                            <span class="btn btn-primary" style="display: inline-block; pointer-events: none;">📂
+                                Выбрать
+                                файл</span>
+
+                            <input type="file" id="scratch-file" accept=".sb3" style="display: none;"
+                                onchange="handleScratchFileSelected(this)">
+
+                            <div id="file-upload-name"
+                                style="margin-top: 12px; font-weight: 600; font-size: 13px; min-height: 20px;"></div>
+                        </div>
+                    </div>
+
+                    <div class="output-console" id="output-console" role="log" aria-live="polite">Ready to run...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-run" id="run-btn" onclick="runCode()">▶ Run Code</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Achievements Gallery Modal -->
+    <div class="modal-overlay" id="achievements-modal" role="dialog" aria-modal="true"
+        aria-labelledby="achievements-title">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="achievements-title">🏆 Достижения</h2>
+                <button class="btn-close" onclick="closeAchievementsModal()">✕ Close</button>
+            </div>
+            <div class="modal-body">
+                <div id="achievements-gallery" class="achievement-cards" role="list">
+                    <div style="color:var(--text-secondary); font-size:13px; text-align:center;">
+                        Загрузка...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Paste Confirmation (optional anti-cheat / UX) -->
+    <div class="modal-overlay" id="paste-modal" role="dialog" aria-modal="true" aria-labelledby="paste-title">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="paste-title">Вставить большой фрагмент?</h2>
+                <button class="btn-close" onclick="cancelPaste()">✕ Close</button>
+            </div>
+            <div class="modal-body">
+                <p style="color:var(--text-secondary); font-size:13px; margin-bottom:12px;">
+                    Вы пытаетесь вставить большой блок кода. Это нормально, но иногда такие вставки могут скрывать
+                    ошибки.
+                    Проверьте вставленный код перед отправкой.
+                </p>
+                <pre id="paste-preview"
+                    style="white-space:pre-wrap; max-height:220px; overflow:auto; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px; font-size:12px;"></pre>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-run" onclick="confirmPaste()">✅ Вставить</button>
+                <button class="btn btn-close" onclick="cancelPaste()">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== PUBLIC PROFILE MODAL ========== -->
+    <style>
+        .profile-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .profile-modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .profile-modal {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 20px;
+            padding: 24px;
+            max-width: 420px;
+            width: 90%;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+
+        .profile-modal-overlay.active .profile-modal {
+            transform: scale(1);
+        }
+
+        .profile-modal-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .profile-modal-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            border: 3px solid rgba(139, 92, 246, 0.5);
+        }
+
+        .profile-modal-avatar img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .profile-modal-info h2 {
+            margin: 0 0 4px;
+            font-size: 1.4rem;
+            color: var(--text-bright);
+        }
+
+        .profile-modal-rank {
+            font-size: 0.9rem;
+            color: var(--accent-soft);
+        }
+
+        .profile-modal-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .profile-modal-stat {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .profile-modal-stat-value {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: var(--accent-soft);
+        }
+
+        .profile-modal-stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .profile-modal-achievements {
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .profile-modal-achievements h3 {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .profile-achievement-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            margin-bottom: 6px;
+        }
+
+        .profile-achievement-icon {
+            font-size: 24px;
+        }
+
+        .profile-achievement-info {
+            flex: 1;
+        }
+
+        .profile-achievement-name {
+            font-size: 0.85rem;
+            color: var(--text-bright);
+        }
+
+        .profile-achievement-desc {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        .profile-modal-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 8px;
+        }
+
+        .profile-modal-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-bright);
+        }
+    </style>
+    <div class="profile-modal-overlay" id="public-profile-modal" onclick="closePublicProfile(event)">
+        <div class="profile-modal" onclick="event.stopPropagation()">
+            <button class="profile-modal-close" onclick="closePublicProfile()">&times;</button>
+            <div class="profile-modal-header">
+                <div class="profile-modal-avatar" id="public-profile-avatar">🧙</div>
+                <div class="profile-modal-info">
+                    <h2 id="public-profile-name">Loading...</h2>
+                    <div class="profile-modal-rank" id="public-profile-rank">🌱 Новичок</div>
+                </div>
+            </div>
+            <div class="profile-modal-stats">
+                <div class="profile-modal-stat">
+                    <div class="profile-modal-stat-value" id="public-profile-xp">0</div>
+                    <div class="profile-modal-stat-label">XP</div>
+                </div>
+                <div class="profile-modal-stat">
+                    <div class="profile-modal-stat-value" id="public-profile-quests">0</div>
+                    <div class="profile-modal-stat-label">Квестов</div>
+                </div>
+                <div class="profile-modal-stat">
+                    <div class="profile-modal-stat-value" id="public-profile-position">#1</div>
+                    <div class="profile-modal-stat-label">Рейтинг</div>
+                </div>
+            </div>
+            <div class="profile-modal-achievements" id="public-profile-achievements">
+                <h3>🏆 Достижения</h3>
+                <div id="public-profile-achievements-list">Загрузка...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== STATE ====================
+        let API_URL = null;
+        let authToken = null;
+        let currentUser = null;
+        let pyodide = null;
+        let tasks = [];
+        let currentTask = null;
+        let currentFilter = 'all';
+        let previewRenderTimer = null;
+        let frontendHintsExpanded = false;
+        const SCRATCH_CLIENT_MAX_MB = 10;
+
+        // ==================== INITIALIZATION ====================
+        async function init() {
+            bindFrontendHintButton();
+
+            // Try to restore session
+            const savedToken = localStorage.getItem('auth_token');
+            const savedApi = localStorage.getItem('api_url');
+
+            if (savedToken && savedApi) {
+                API_URL = savedApi;
+                authToken = savedToken;
+                await verifySession();
+            } else {
+                autoScanServer();
+            }
+
+            // Load Pyodide in background
+            loadPyodide().then(py => {
+                pyodide = py;
+                console.log('✓ Pyodide ready');
+            }).catch(e => console.warn('Pyodide load failed:', e));
+
+            // Chrome-compatible login form handler
+            const loginForm = document.getElementById('login-form');
+            if (loginForm) {
+                loginForm.addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleLogin(e);
+                    return false;
+                });
+            }
+        }
+
+        // ==================== SERVER DISCOVERY ====================
+        async function autoScanServer() {
+            const statusEl = document.getElementById('login-status');
+            statusEl.className = 'login-status scanning';
+            statusEl.innerText = 'Scanning for server...';
+
+            const ipsToTry = ['127.0.0.1', 'localhost'];
+            const savedIp = localStorage.getItem('server_ip');
+            if (savedIp) ipsToTry.unshift(savedIp);
+
+            // Add common LAN ranges
+            for (let i = 1; i <= 254; i++) {
+                ipsToTry.push(`192.168.1.${i}`);
+                ipsToTry.push(`192.168.0.${i}`);
+            }
+
+            for (const ip of ipsToTry.slice(0, 30)) {
+                try {
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 200);
+
+                    const res = await fetch(`http://${ip}:8000/ping`, {
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeout);
+
+                    if (res.ok) {
+                        API_URL = `http://${ip}:8000`;
+                        localStorage.setItem('server_ip', ip);
+                        statusEl.className = 'login-status connected';
+                        statusEl.innerText = `Connected to ${ip}`;
+                        return;
+                    }
+                } catch (e) { /* continue */ }
+            }
+
+            statusEl.className = 'login-status error';
+            statusEl.innerText = 'Server not found. Enter IP manually.';
+        }
+
+        // ==================== AUTHENTICATION ====================
+        async function handleLogin(event) {
+            event.preventDefault();
+
+            const username = document.getElementById('login-user').value.trim();
+            const password = document.getElementById('login-pass').value;
+            const serverIp = document.getElementById('login-server').value.trim();
+            const statusEl = document.getElementById('login-status');
+
+            if (serverIp) {
+                API_URL = `http://${serverIp}:8000`;
+                localStorage.setItem('server_ip', serverIp);
+            }
+
+            if (!API_URL) {
+                statusEl.className = 'login-status error';
+                statusEl.innerText = 'No server connection';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!res.ok) {
+                    statusEl.className = 'login-status error';
+                    statusEl.innerText = 'Invalid username or password';
+                    return;
+                }
+
+                const data = await res.json();
+                authToken = data.token;
+                currentUser = data.user;
+
+                localStorage.setItem('auth_token', authToken);
+                localStorage.setItem('api_url', API_URL);
+
+                enterApp();
+            } catch (e) {
+                statusEl.className = 'login-status error';
+                statusEl.innerText = 'Connection error: ' + e.message;
+            }
+        }
+
+        async function verifySession() {
+            try {
+                const res = await fetch(`${API_URL}/api/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (res.ok) {
+                    currentUser = await res.json();
+                    enterApp();
+                } else {
+                    logout();
+                }
+            } catch (e) {
+                autoScanServer();
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('auth_token');
+            authToken = null;
+            currentUser = null;
+            location.reload();
+        }
+
+        function enterApp() {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('app').style.display = 'flex';
+            document.getElementById('player-name').innerText = currentUser.display_name;
+            updateXPDisplay();
+            loadProfile(); // also updates avatar + rank
+            loadRoadmap();
+            loadLeaderboard(); // Load world leaderboard
+
+            // Initialize new features
+            setTimeout(() => {
+                injectMissionsWidget();
+                loadDailyMissions();
+                checkBonusQuest();
+            }, 500);
+        }
+
+        // ==================== TASKS ====================
+        let userPriorities = { python: 25, javascript: 25, frontend: 25, scratch: 25 };
+
+        async function loadRoadmap() {
+            try {
+                // Load tasks and priorities in parallel
+                const [tasksRes, prioritiesRes] = await Promise.all([
+                    fetch(`${API_URL}/api/roadmap`, {
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    }),
+                    fetch(`${API_URL}/api/user/priorities`, {
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    }).catch(() => null) // Graceful fallback if priorities API fails
+                ]);
+
+                const tasksData = await tasksRes.json();
+                tasks = tasksData.tasks || [];
+
+                // Load user priorities if available
+                if (prioritiesRes && prioritiesRes.ok) {
+                    try {
+                        const prioData = await prioritiesRes.json();
+                        userPriorities = {
+                            python: prioData.python_priority || 25,
+                            javascript: prioData.javascript_priority || 25,
+                            frontend: prioData.frontend_priority || 25,
+                            scratch: prioData.scratch_priority || 25
+                        };
+                    } catch (e) {
+                        console.warn('Could not parse priorities, using defaults');
+                    }
+                }
+
+                renderQuests();
+            } catch (e) {
+                console.error('Failed to load tasks:', e);
+            }
+        }
+
+        // Backwards-compatible alias (older code paths may call this)
+        async function loadTasks() {
+            return loadRoadmap();
+        }
+
+        function filterCategory(category, btn) {
+            currentFilter = category;
+            document.querySelectorAll('.tab-btn').forEach(t => {
+                t.classList.remove('active');
+                t.setAttribute('aria-selected', 'false');
+            });
+            btn.classList.add('active');
+            btn.setAttribute('aria-selected', 'true');
+            renderQuests();
+        }
+
+        function renderQuests() {
+            const grid = document.getElementById('quest-grid');
+            let filtered = tasks;
+
+            // Priority = number of visible tasks per category
+            // Max priority category shows ALL tasks, others show N tasks (N = priority value)
+            const tierOrder = { 'D': 0, 'C': 1, 'B': 2, 'A': 3, 'S': 4 };
+
+            // Find max priority value to determine which category shows all
+            const maxPriority = Math.max(...Object.values(userPriorities));
+
+            // Group tasks by category and limit by priority
+            const tasksByCategory = {};
+            tasks.forEach(t => {
+                if (!tasksByCategory[t.category]) tasksByCategory[t.category] = [];
+                tasksByCategory[t.category].push(t);
+            });
+
+            // Build filtered list respecting priority limits
+            let limitedTasks = [];
+            for (const [category, categoryTasks] of Object.entries(tasksByCategory)) {
+                const priority = userPriorities[category] || 25;
+
+                // Sort category tasks by tier (easier first)
+                const sorted = [...categoryTasks].sort((a, b) =>
+                    (tierOrder[a.tier] || 0) - (tierOrder[b.tier] || 0)
+                );
+
+                // If max priority - show all, otherwise limit to N tasks
+                const limit = (priority >= maxPriority) ? sorted.length : priority;
+                limitedTasks.push(...sorted.slice(0, limit));
+            }
+
+            // Apply current filter (All, Python, etc.)
+            if (currentFilter !== 'all') {
+                limitedTasks = limitedTasks.filter(t => t.category === currentFilter);
+            }
+
+            // Final sort: higher priority categories first, then by tier
+            filtered = limitedTasks.sort((a, b) => {
+                const prioA = userPriorities[a.category] || 25;
+                const prioB = userPriorities[b.category] || 25;
+                if (prioB !== prioA) return prioB - prioA;
+                return (tierOrder[a.tier] || 0) - (tierOrder[b.tier] || 0);
+            });
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">🔍</div>
+                        <h3>No quests found</h3>
+                        <p>Try a different category or check back later</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const completedIds = new Set(currentUser.completed_tasks || []);
+            const icons = { python: '🐍', javascript: '⚡', frontend: '🎨', scratch: '🐱' };
+
+            grid.innerHTML = filtered.map(task => {
+                const isCompleted = task.completed || completedIds.has(task.id);
+                const isLocked = Boolean(task.locked) && !isCompleted;
+                const isPending = Boolean(task.pending_review) && !isCompleted;
+                return `
+                    <article class="quest-card ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${isPending ? 'pending' : ''}" 
+                             role="listitem" 
+                             tabindex="0"
+                             onclick="openQuest('${task.id}')"
+                             onkeydown="if(event.key==='Enter') openQuest('${task.id}')">
+                        <div class="tier-indicator tier-${task.tier}">${task.tier}-Rank</div>
+                        ${isLocked ? `<div class="quest-lock" aria-hidden="true">🔒</div>` : ``}
+                        <div class="quest-icon">${icons[task.category] || '📜'}</div>
+                        <h3 class="quest-title">${task.title}</h3>
+                        <p class="quest-story">${task.story}</p>
+                        <div class="quest-reward">⭐ ${task.xp} XP${isPending ? ' (на проверке)' : ''}</div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        // ==================== QUEST MODAL ====================
+        function collectRegexMatches(text, pattern) {
+            const source = String(text || '');
+            if (!source) return [];
+
+            if (typeof source.matchAll === 'function') {
+                try {
+                    return Array.from(source.matchAll(pattern));
+                } catch (_err) {
+                    // Fallback below if matchAll is unavailable/buggy.
+                }
+            }
+
+            const hasGlobal = typeof pattern.flags === 'string' && pattern.flags.indexOf('g') >= 0;
+            const flags = hasGlobal ? pattern.flags : `${pattern.flags || ''}g`;
+            const fallback = new RegExp(pattern.source, flags);
+            const matches = [];
+            let match = null;
+
+            while ((match = fallback.exec(source)) !== null) {
+                matches.push(match);
+                if (match[0] === '') {
+                    fallback.lastIndex += 1;
+                }
+            }
+            return matches;
+        }
+
+        function extractInlineCodeTokens(text) {
+            return collectRegexMatches(text, /`([^`]+)`/g).map(m => (m[1] || '').trim()).filter(Boolean);
+        }
+
+        function buildFrontendMissionBrief(description) {
+            const raw = (description || '').trim();
+            if (!raw) return 'Соберите интерфейс по условиям задачи.';
+
+            // Keep selectors visible, mask direct solution commands.
+            let brief = raw.replace(/`([^`]+)`/g, function (_all, token) {
+                const t = String(token || '').trim();
+                if (/^[.#@]/.test(t)) return `\`${t}\``;
+                if (/^[a-zA-Z0-9_-]+$/.test(t) && !t.includes(':')) return `\`${t}\``;
+                return '`[уточни через подсказку]`';
+            });
+
+            // Mask explicit CSS snippets in plain-text descriptions.
+            brief = brief.replace(/\(([a-z-]+\s*:[^)]+)\)/gi, '([уточни через подсказку])');
+            brief = brief.replace(/'([a-z-]+\s*:[^']+)'/gi, '\'[уточни через подсказку]\'');
+            return brief;
+        }
+
+        function buildFrontendHints(task) {
+            const description = String((task && task.description) || '');
+            const tokens = extractInlineCodeTokens(description);
+            const selectorHintsFromQuotes = collectRegexMatches(description, /'([.#]?[a-zA-Z0-9_-]+(?:::[a-zA-Z-]+|:[a-zA-Z-]+)?)'/g)
+                .map(function (m) { return m[1]; });
+            const cssRulesFromText = collectRegexMatches(description, /\b([a-z-]+\s*:\s*[^`'".,)]+)/gi)
+                .map(function (m) { return m[1].trim(); });
+
+            const selectors = Array.from(new Set(
+                tokens.filter(function (t) { return /^[.#@]/.test(t) || /:(hover|focus|active)/i.test(t) || /::/.test(t); })
+                    .concat(selectorHintsFromQuotes)
+            ));
+            const cssRules = Array.from(new Set(
+                tokens.filter(function (t) { return t.includes(':') || /flex|grid|calc|var\(|gradient|keyframes|animation/i.test(t); })
+                    .concat(cssRulesFromText)
+            ));
+
+            const hints = [];
+            if (selectors.length > 0) {
+                hints.push(`Работай с селекторами: ${selectors.join(', ')}`);
+            }
+            if (cssRules.length > 0) {
+                hints.push(`Ключевые CSS-команды: ${cssRules.join(', ')}`);
+            }
+            hints.push(`Полная формулировка: ${description || 'описание отсутствует'}`);
+            return hints;
+        }
+
+        function renderFrontendHints(hintsEl, hints) {
+            const list = Array.isArray(hints) && hints.length > 0
+                ? hints
+                : ['Полная формулировка: описание отсутствует'];
+            hintsEl.innerHTML = list.map(function (hint, idx) {
+                return `
+                <div style="margin-top:${idx === 0 ? 0 : 8}px;">
+                    ${idx + 1}. ${escapeHtml(hint)}
+                </div>
+            `;
+            }).join('');
+        }
+
+        function bindFrontendHintButton() {
+            const hintBtn = document.getElementById('frontend-hint-btn');
+            if (!hintBtn) return;
+            if (hintBtn.getAttribute('data-bound-hint-toggle') === '1') return;
+
+            hintBtn.removeAttribute('onclick');
+            hintBtn.addEventListener('click', function (event) {
+                event.preventDefault();
+                toggleFrontendHints();
+            });
+            hintBtn.setAttribute('data-bound-hint-toggle', '1');
+        }
+
+        function setQuestInstructions(task) {
+            const taskEl = document.getElementById('modal-task');
+            const tools = document.getElementById('frontend-task-tools');
+            const hintsEl = document.getElementById('frontend-hints');
+            const hintBtn = document.getElementById('frontend-hint-btn');
+            if (!taskEl || !tools || !hintsEl || !hintBtn) return;
+
+            const taskCategory = task && task.category ? task.category : '';
+            const taskDescription = String((task && task.description) || '');
+            frontendHintsExpanded = false;
+            hintsEl.style.display = 'none';
+            hintBtn.textContent = '💡 Показать подсказки';
+            hintBtn.setAttribute('aria-expanded', 'false');
+
+            if (taskCategory !== 'frontend') {
+                tools.style.display = 'none';
+                taskEl.textContent = taskDescription || 'Complete the challenge!';
+                return;
+            }
+
+            tools.style.display = 'block';
+            taskEl.textContent = buildFrontendMissionBrief(taskDescription);
+
+            let hints = [];
+            try {
+                hints = buildFrontendHints(task);
+            } catch (e) {
+                console.warn('Failed to build frontend hints:', e);
+                hints = [`Полная формулировка: ${taskDescription || 'описание отсутствует'}`];
+            }
+            renderFrontendHints(hintsEl, hints);
+        }
+
+        function toggleFrontendHints() {
+            const hintsEl = document.getElementById('frontend-hints');
+            const hintBtn = document.getElementById('frontend-hint-btn');
+            if (!hintsEl || !hintBtn) return;
+
+            frontendHintsExpanded = !frontendHintsExpanded;
+            if (frontendHintsExpanded && !(hintsEl.innerHTML || '').trim()) {
+                if (currentTask && currentTask.category === 'frontend') {
+                    try {
+                        renderFrontendHints(hintsEl, buildFrontendHints(currentTask));
+                    } catch (e) {
+                        console.warn('Failed to render frontend hints on toggle:', e);
+                        renderFrontendHints(hintsEl, ['Полная формулировка: описание недоступно']);
+                    }
+                }
+            }
+            hintsEl.style.display = frontendHintsExpanded ? 'block' : 'none';
+            hintBtn.textContent = frontendHintsExpanded ? '💡 Скрыть подсказки' : '💡 Показать подсказки';
+            hintBtn.setAttribute('aria-expanded', frontendHintsExpanded ? 'true' : 'false');
+        }
+
+        function openQuest(taskId) {
+            currentTask = tasks.find(t => t.id === taskId);
+            if (!currentTask) return;
+
+            document.getElementById('modal-title').innerText = currentTask.title;
+            document.getElementById('modal-story').innerText = currentTask.story;
+            setQuestInstructions(currentTask);
+
+            const editor = document.getElementById('code-editor');
+            const scratchContainer = document.getElementById('scratch-upload-container');
+            const scratchInput = document.getElementById('scratch-file');
+            const runBtn = document.getElementById('run-btn');
+            const previewWrap = document.getElementById('frontend-preview-wrap');
+            const previewFrame = document.getElementById('frontend-preview-frame');
+
+            if (currentTask.category === 'scratch') {
+                editor.classList.add('hidden');
+                editor.classList.remove('frontend-mode');
+                scratchContainer.classList.remove('hidden');
+                scratchContainer.style.display = ''; // Clear inline if any
+                previewWrap.classList.add('hidden');
+                scratchInput.value = ''; // Reset file input
+                handleScratchFileSelected(scratchInput);
+            } else {
+                editor.classList.remove('hidden');
+                scratchContainer.classList.add('hidden');
+                editor.value = currentTask.initial_code || '';
+                if (currentTask.category === 'frontend') {
+                    editor.classList.add('frontend-mode');
+                    previewWrap.classList.remove('hidden');
+                    renderFrontendPreview(true);
+                } else {
+                    editor.classList.remove('frontend-mode');
+                    previewWrap.classList.add('hidden');
+                    if (previewFrame) previewFrame.srcdoc = '';
+                }
+            }
+
+            editor.disabled = Boolean(currentTask.locked);
+            if (runBtn) runBtn.disabled = Boolean(currentTask.locked);
+            if (previewWrap) {
+                previewWrap.style.opacity = currentTask.locked ? '0.6' : '1';
+                previewWrap.style.pointerEvents = currentTask.locked ? 'none' : '';
+            }
+
+            document.getElementById('output-console').innerText = currentTask.locked
+                ? ('🔒 Этот квест пока закрыт.\n\n' + formatUnlockInfo(currentTask.unlock))
+                : 'Готово к проверке...';
+            document.getElementById('quest-modal').classList.add('active');
+            if (currentTask.category !== 'scratch') editor.focus();
+        }
+
+        function closeModal() {
+            document.getElementById('quest-modal').classList.remove('active');
+            // Reset paste permission when closing modal
+            pasteAllowed = false;
+            updatePasteButton();
+            if (previewRenderTimer) {
+                clearTimeout(previewRenderTimer);
+                previewRenderTimer = null;
+            }
+        }
+
+        // ==================== PASTE PROTECTION & AUTO-INDENT ====================
+        let pasteAllowed = false;
+        let pasteRequestPending = false;
+
+        function updatePasteButton() {
+            const btn = document.getElementById('paste-request-btn');
+            if (!btn) return;
+
+            if (pasteAllowed) {
+                btn.innerHTML = '✅ Вставка ОК';
+                btn.style.background = 'rgba(74, 222, 128, 0.2)';
+                btn.style.borderColor = 'rgba(74, 222, 128, 0.5)';
+                btn.style.color = '#4ade80';
+            } else if (pasteRequestPending) {
+                btn.innerHTML = '⏳ Ожидание...';
+                btn.style.background = 'rgba(251, 191, 36, 0.2)';
+                btn.style.borderColor = 'rgba(251, 191, 36, 0.5)';
+                btn.style.color = '#fbbf24';
+            } else {
+                btn.innerHTML = '📋 Вставка';
+                btn.style.background = 'rgba(255,255,255,0.1)';
+                btn.style.borderColor = 'rgba(255,255,255,0.2)';
+                btn.style.color = 'var(--text-secondary)';
+            }
+        }
+
+        async function requestPastePermission() {
+            if (pasteAllowed) {
+                alert('Вставка уже разрешена для этой задачи.');
+                return;
+            }
+
+            if (pasteRequestPending) {
+                alert('Запрос уже отправлен. Ожидайте ответа от мастера.');
+                return;
+            }
+
+            if (!currentTask) {
+                alert('Сначала откройте задачу.');
+                return;
+            }
+
+            pasteRequestPending = true;
+            updatePasteButton();
+
+            try {
+                const res = await fetch(`${API_URL}/api/paste-request`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        task_id: currentTask.id,
+                        task_title: currentTask.title
+                    })
+                });
+
+                if (res.ok) {
+                    alert('Запрос отправлен мастеру. Вы получите уведомление о решении.');
+                    // Poll for approval
+                    checkPasteApproval();
+                } else {
+                    pasteRequestPending = false;
+                    updatePasteButton();
+                    alert('Ошибка отправки запроса.');
+                }
+            } catch (e) {
+                pasteRequestPending = false;
+                updatePasteButton();
+                console.error('Paste request error:', e);
+            }
+        }
+
+        async function checkPasteApproval() {
+            if (!pasteRequestPending || !currentTask) return;
+
+            try {
+                const res = await fetch(`${API_URL}/api/paste-request/status?task_id=${currentTask.id}`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.approved) {
+                        pasteAllowed = true;
+                        pasteRequestPending = false;
+                        updatePasteButton();
+                        alert('✅ Мастер разрешил вставку! Разрешено вставить до 50% кода.');
+                    } else if (data.rejected) {
+                        pasteRequestPending = false;
+                        updatePasteButton();
+                        alert('❌ Мастер отклонил запрос на вставку.');
+                    } else {
+                        // Still pending, check again in 3 seconds
+                        setTimeout(checkPasteApproval, 3000);
+                    }
+                }
+            } catch (e) {
+                console.error('Paste approval check error:', e);
+                setTimeout(checkPasteApproval, 5000);
+            }
+        }
+
+        function handlePaste(event) {
+            // Block paste if not allowed
+            if (!pasteAllowed) {
+                event.preventDefault();
+                const btn = document.getElementById('paste-request-btn');
+                btn.style.animation = 'shake 0.3s';
+                setTimeout(() => btn.style.animation = '', 300);
+                return false;
+            }
+
+            // Allow paste but limit to first half
+            event.preventDefault();
+            const clipboardData = event.clipboardData || window.clipboardData;
+            const pastedText = clipboardData.getData('text');
+
+            if (!pastedText) return false;
+
+            // Only allow first half of pasted content
+            const halfLength = Math.floor(pastedText.length / 2);
+            const allowedText = pastedText.substring(0, halfLength);
+
+            // Insert at cursor position
+            const editor = document.getElementById('code-editor');
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            const before = editor.value.substring(0, start);
+            const after = editor.value.substring(end);
+
+            editor.value = before + allowedText + after;
+            editor.selectionStart = editor.selectionEnd = start + allowedText.length;
+            editor.focus();
+
+            // Show notification about half-paste
+            const console_el = document.getElementById('output-console');
+            if (console_el) {
+                console_el.innerText = `📋 Вставлено ${allowedText.length} из ${pastedText.length} символов (50% лимит).\n\nПродолжайте кодить!`;
+            }
+
+            return false;
+        }
+
+        function handleEditorKeydown(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+
+                const editor = event.target;
+                const start = editor.selectionStart;
+                const value = editor.value;
+
+                // Get current line
+                const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+                const currentLine = value.substring(lineStart, start);
+
+                // Calculate indentation
+                let indent = '';
+                const leadingSpaces = currentLine.match(/^(\s*)/);
+                if (leadingSpaces) {
+                    indent = leadingSpaces[1];
+                }
+
+                // Check if we need to add extra indent (after : { [ etc)
+                const trimmedLine = currentLine.trim();
+                const lastChar = trimmedLine[trimmedLine.length - 1];
+
+                // Python: add indent after colon
+                // JS/CSS: add indent after { or [
+                if (lastChar === ':' || lastChar === '{' || lastChar === '[') {
+                    indent += '    '; // Add 4 spaces
+                }
+
+                // Insert newline with indentation
+                const before = value.substring(0, start);
+                const after = value.substring(editor.selectionEnd);
+                editor.value = before + '\n' + indent + after;
+                editor.selectionStart = editor.selectionEnd = start + 1 + indent.length;
+            }
+
+            // Tab key handling - insert 4 spaces
+            if (event.key === 'Tab') {
+                event.preventDefault();
+                const editor = event.target;
+                const start = editor.selectionStart;
+                const before = editor.value.substring(0, start);
+                const after = editor.value.substring(editor.selectionEnd);
+                editor.value = before + '    ' + after;
+                editor.selectionStart = editor.selectionEnd = start + 4;
+            }
+        }
+
+        // Add shake animation for paste button
+        const shakeStyle = document.createElement('style');
+        shakeStyle.textContent = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-4px); }
+                75% { transform: translateX(4px); }
+            }
+        `;
+        document.head.appendChild(shakeStyle);
+
+        function isFrontendQuestOpen() {
+            return Boolean(currentTask && currentTask.category === 'frontend');
+        }
+
+        function normalizeFrontendMarkup(src) {
+            const code = (src || '').trim();
+            if (!code) {
+                return `<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;padding:20px}</style></head><body><h2>Пустой рендер</h2><p>Добавьте HTML/CSS в редактор.</p></body></html>`;
+            }
+            if (/<(?:html|body|head)[\s>]/i.test(code)) return code;
+            return `<!doctype html><html><head><meta charset="utf-8"></head><body>${code}</body></html>`;
+        }
+
+        function renderFrontendPreview(showHint = false) {
+            if (!isFrontendQuestOpen()) return;
+            const frame = document.getElementById('frontend-preview-frame');
+            const editor = document.getElementById('code-editor');
+            if (!frame || !editor) return;
+
+            frame.srcdoc = normalizeFrontendMarkup(editor.value || '');
+            if (showHint) {
+                const out = document.getElementById('output-console');
+                if (out && !currentTask.locked) out.innerText = '🌐 Рендер обновлён в мини-браузере.';
+            }
+        }
+
+        function scheduleFrontendPreview() {
+            if (!isFrontendQuestOpen()) return;
+            if (previewRenderTimer) clearTimeout(previewRenderTimer);
+            previewRenderTimer = setTimeout(() => renderFrontendPreview(false), 220);
+        }
+
+        function openPreviewInNewTab() {
+            if (!isFrontendQuestOpen()) return;
+            const frame = document.getElementById('frontend-preview-frame');
+            const source = frame?.srcdoc || normalizeFrontendMarkup(document.getElementById('code-editor')?.value || '');
+            const win = window.open('', '_blank', 'noopener,noreferrer');
+            if (!win) return;
+            win.document.open();
+            win.document.write(source);
+            win.document.close();
+        }
+
+        function _downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        async function downloadPreviewShot() {
+            if (!isFrontendQuestOpen()) return;
+            const frame = document.getElementById('frontend-preview-frame');
+            const output = document.getElementById('output-console');
+            if (!frame) return;
+
+            const doc = frame.contentDocument;
+            if (!doc || !doc.documentElement) {
+                if (output) output.innerText = '❌ Не удалось получить рендер для скриншота.';
+                return;
+            }
+
+            const width = Math.max(360, frame.clientWidth || 360);
+            const height = Math.max(220, frame.clientHeight || 220);
+            let svgUrl = null;
+
+            try {
+                let markup = new XMLSerializer().serializeToString(doc.documentElement);
+                if (!/xmlns=/.test(markup)) {
+                    markup = markup.replace('<html', '<html xmlns="http://www.w3.org/1999/xhtml"');
+                }
+                const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+  <foreignObject width="100%" height="100%">${markup}</foreignObject>
+</svg>`;
+                const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+                svgUrl = URL.createObjectURL(svgBlob);
+
+                const img = new Image();
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = svgUrl;
+                });
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width * 2;
+                canvas.height = height * 2;
+                const ctx = canvas.getContext('2d');
+                ctx.scale(2, 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, width, height);
+                ctx.drawImage(img, 0, 0, width, height);
+
+                const pngBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 0.95));
+                if (!pngBlob) throw new Error('PNG conversion failed');
+
+                const taskId = currentTask?.id || 'frontend';
+                _downloadBlob(pngBlob, `${taskId}-render.png`);
+                if (output) output.innerText = '📸 Скриншот рендера сохранён (.png).';
+            } catch (e) {
+                const fallbackHtml = frame.srcdoc || normalizeFrontendMarkup(document.getElementById('code-editor')?.value || '');
+                _downloadBlob(new Blob([fallbackHtml], { type: 'text/html;charset=utf-8' }), `${currentTask?.id || 'frontend'}-render.html`);
+                if (output) output.innerText = '⚠️ PNG не создан. Сохранён HTML-снимок рендера.';
+            } finally {
+                if (svgUrl) URL.revokeObjectURL(svgUrl);
+            }
+        }
+
+        const codeEditorEl = document.getElementById('code-editor');
+        if (codeEditorEl) {
+            codeEditorEl.addEventListener('input', scheduleFrontendPreview);
+        }
+
+        // ==================== CODE EXECUTION (SERVER-VERIFIED) ====================
+        function safeJson(value) {
+            try {
+                return JSON.stringify(value);
+            } catch (e) {
+                return String(value);
+            }
+        }
+
+        function renderVerificationText(verification) {
+            if (!verification) return 'Нет данных проверки';
+
+            let out = '';
+            const cases = verification.cases || [];
+            const passedCount = cases.filter(c => c.passed).length;
+
+            if (verification.exec_error) {
+                out += `❌ Ошибка выполнения: ${verification.exec_error.type}: ${verification.exec_error.message}\n\n`;
+            }
+
+            if (cases.length > 0) {
+                out += `Тесты: ${passedCount}/${cases.length}\n\n`;
+                for (const c of cases) {
+                    const mark = c.passed ? '✓' : '✗';
+                    out += `${mark} ${c.label}\n`;
+                    if (!c.passed) {
+                        if (c.error) out += `   ошибка: ${c.error}\n`;
+                        out += `   ожидалось: ${safeJson(c.expected)}\n`;
+                        out += `   получено:  ${safeJson(c.actual)}\n`;
+                    }
+                }
+            } else {
+                out += verification.passed ? '✅ Проверка пройдена.\n' : '❌ Проверка не пройдена.\n';
+            }
+
+            if (verification.stdout) {
+                out += `\nВывод:\n${verification.stdout}\n`;
+            }
+
+            return out.trim();
+        }
+
+        function formatBytes(bytes) {
+            const value = Number(bytes || 0);
+            if (value < 1024) return `${value} B`;
+            if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+            return `${(value / (1024 * 1024)).toFixed(2)} MB`;
+        }
+
+        function getScratchUploadMaxBytes() {
+            return Math.max(1, SCRATCH_CLIENT_MAX_MB) * 1024 * 1024;
+        }
+
+        function getSelectedScratchFile() {
+            const fileInput = document.getElementById('scratch-file');
+            if (!fileInput || !fileInput.files || fileInput.files.length === 0) return null;
+            return fileInput.files[0];
+        }
+
+        function validateScratchUploadFile(file) {
+            if (!file) return `Пожалуйста, загрузите файл .sb3`;
+            const name = String(file.name || '').toLowerCase();
+            if (!name.endsWith('.sb3')) return 'Поддерживается только формат .sb3';
+            if (Number(file.size || 0) > getScratchUploadMaxBytes()) {
+                return `Файл слишком большой (макс ${SCRATCH_CLIENT_MAX_MB} MB)`;
+            }
+            return null;
+        }
+
+        function handleScratchFileSelected(input) {
+            const picker = input || document.getElementById('scratch-file');
+            const nameEl = document.getElementById('file-upload-name');
+            const output = document.getElementById('output-console');
+            if (!nameEl) return;
+
+            const file = picker && picker.files && picker.files.length > 0 ? picker.files[0] : null;
+            if (!file) {
+                nameEl.innerText = '';
+                return;
+            }
+
+            const validationError = validateScratchUploadFile(file);
+            if (validationError) {
+                nameEl.innerText = `⚠️ ${validationError}`;
+                nameEl.style.color = 'var(--danger)';
+                if (output && currentTask && currentTask.category === 'scratch') {
+                    output.innerText = `❌ ${validationError}`;
+                }
+                return;
+            }
+
+            nameEl.innerText = `📄 ${file.name} (${formatBytes(file.size)})`;
+            nameEl.style.color = 'var(--success)';
+            if (output && currentTask && currentTask.category === 'scratch') {
+                output.innerText = '✅ Файл выбран. Нажмите Run для отправки на проверку.';
+            }
+        }
+
+        function postFormDataWithProgress(url, formData, onProgress) {
+            return new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', url, true);
+                xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
+                xhr.responseType = 'json';
+
+                if (xhr.upload && typeof onProgress === 'function') {
+                    xhr.upload.onprogress = function (event) {
+                        if (!event || !event.lengthComputable) return;
+                        onProgress(event.loaded, event.total);
+                    };
+                }
+
+                xhr.onerror = function () {
+                    reject(new Error('Network error'));
+                };
+
+                xhr.onload = function () {
+                    let payload = xhr.response;
+                    if (!payload || typeof payload !== 'object') {
+                        try {
+                            payload = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+                        } catch (_e) {
+                            payload = {};
+                        }
+                    }
+                    if (xhr.status < 200 || xhr.status >= 300) {
+                        if (!payload || typeof payload !== 'object') payload = {};
+                        if (!payload.detail) payload.detail = `HTTP ${xhr.status}`;
+                    }
+                    resolve(payload || {});
+                };
+
+                xhr.send(formData);
+            });
+        }
+
+        function postRawScratchFileWithProgress(file, onProgress) {
+            return new Promise((resolve, reject) => {
+                const safeName = encodeURIComponent(String((file && file.name) || 'project.sb3'));
+                const url = `${API_URL}/api/tasks/attempt-scratch-fast?task_id=${encodeURIComponent(currentTask.id)}&filename=${safeName}`;
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', url, true);
+                xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
+                xhr.setRequestHeader('Content-Type', (file && file.type) || 'application/octet-stream');
+                xhr.responseType = 'json';
+
+                if (xhr.upload && typeof onProgress === 'function') {
+                    xhr.upload.onprogress = function (event) {
+                        if (!event || !event.lengthComputable) return;
+                        onProgress(event.loaded, event.total);
+                    };
+                }
+
+                xhr.onerror = function () {
+                    reject(new Error('Network error'));
+                };
+
+                xhr.onload = function () {
+                    let payload = xhr.response;
+                    if (!payload || typeof payload !== 'object') {
+                        try {
+                            payload = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+                        } catch (_e) {
+                            payload = {};
+                        }
+                    }
+                    if (xhr.status < 200 || xhr.status >= 300) {
+                        if (!payload || typeof payload !== 'object') payload = {};
+                        if (!payload.detail) payload.detail = `HTTP ${xhr.status}`;
+                    }
+                    resolve(payload || {});
+                };
+
+                xhr.send(file);
+            });
+        }
+
+        async function runCode() {
+            const output = document.getElementById('output-console');
+
+            if (!currentTask) {
+                output.innerText = '❌ Квест не выбран';
+                return;
+            }
+            if (currentTask.locked) {
+                output.innerText = '🔒 Этот квест пока закрыт.\n\n' + formatUnlockInfo(currentTask.unlock);
+                return;
+            }
+
+            // Scratch: submit file for manual review
+            if (currentTask.category === 'scratch') {
+                const runBtn = document.getElementById('run-btn');
+                const file = getSelectedScratchFile();
+                const validationError = validateScratchUploadFile(file);
+                if (validationError) {
+                    output.innerText = `❌ ${validationError}`;
+                    return;
+                }
+
+                let lastProgress = -1;
+                if (runBtn) runBtn.disabled = true;
+                output.innerText = '⏳ Подготовка отправки...';
+
+                try {
+                    await new Promise(resolve => setTimeout(resolve, 20));
+                    const sub = await submitForReview(null, file, (loaded, total) => {
+                        if (!total) return;
+                        const pct = Math.max(1, Math.min(100, Math.round((loaded / total) * 100)));
+                        if (pct === lastProgress) return;
+                        lastProgress = pct;
+                        output.innerText = `⏳ Загрузка проекта: ${pct}% (${formatBytes(loaded)} / ${formatBytes(total)})`;
+                    });
+
+                    if (sub && sub.detail) {
+                        output.innerText = '❌ Ошибка отправки: ' + (typeof sub.detail === 'string' ? sub.detail : safeJson(sub.detail));
+                        return;
+                    }
+
+                    if (sub?.status === 'pending_review' && sub?.message === 'Submission already pending review') {
+                        output.innerText = '⏳ У вас уже есть отправка этого Scratch-квеста на проверке.';
+                    } else {
+                        output.innerText = '📤 Отправлено на проверку мастеру!';
+                    }
+                    setTimeout(() => loadRoadmap(), 500);
+                } catch (e) {
+                    output.innerText = '❌ Ошибка загрузки: ' + (e.message || e);
+                } finally {
+                    if (runBtn) runBtn.disabled = Boolean(currentTask && currentTask.locked);
+                }
+                return;
+            }
+
+            const code = document.getElementById('code-editor').value || '';
+            if (currentTask.category === 'frontend') {
+                renderFrontendPreview(true);
+            }
+            output.innerText = '⏳ Проверка на сервере...';
+
+            try {
+                const res = await fetch(`${API_URL}/api/tasks/attempt`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ task_id: currentTask.id, code })
+                });
+
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    if (data && data.detail && data.detail.status === 'locked') {
+                        output.innerText = '🔒 Этот квест пока закрыт.\n\n' + formatUnlockInfo(data.detail.unlock);
+                        return;
+                    }
+                    output.innerText = '❌ Ошибка проверки: ' + safeJson(data.detail || data);
+                    return;
+                }
+
+                if (data.status === 'failed') {
+                    output.innerText = renderVerificationText(data.verification);
+                    return;
+                }
+
+                if (data.status === 'pending_review') {
+                    output.innerText =
+                        '✅ Тесты пройдены.\n' +
+                        (data.message === 'Submission already pending review'
+                            ? '📝 У вас уже есть отправка этого квеста на проверке.\n\n'
+                            : '📝 Квест отправлен на проверку мастеру.\n\n') +
+                        renderVerificationText(data.verification);
+                    return;
+                }
+
+                if (data.status === 'already_completed') {
+                    output.innerText = '✅ Этот квест уже выполнен ранее.';
+                    return;
+                }
+
+                if (data.status === 'completed') {
+                    // Update user state from server-truth
+                    if (typeof data.xp === 'number') currentUser.xp = data.xp;
+                    if (typeof data.level === 'number') currentUser.level = data.level;
+                    currentUser.completed_tasks = currentUser.completed_tasks || [];
+                    if (!currentUser.completed_tasks.includes(currentTask.id)) currentUser.completed_tasks.push(currentTask.id);
+
+                    updateXPDisplay();
+
+                    output.innerText =
+                        renderVerificationText(data.verification) +
+                        `\n\n🎉 КВЕСТ ВЫПОЛНЕН! +${data.xp_earned || 0} XP`;
+
+                    // Show penalty info if any
+                    if (data.attempt_penalty && data.attempt_penalty > 0) {
+                        output.innerText += `\n⚠️ Штраф за ${data.failed_attempts} неудачных попыток: -${data.attempt_penalty}%`;
+                    }
+
+                    if (data.comment_bonus_proposed && data.comment_bonus_proposed > 0) {
+                        output.innerText += `\n💬 Бонус за комментарии: +${data.comment_bonus_proposed} XP (ожидает одобрения)`;
+                    }
+
+                    if (data.new_achievements && data.new_achievements.length > 0) {
+                        setTimeout(() => showAchievementsQueue(data.new_achievements), 600);
+                    }
+
+                    // Refresh lists
+                    setTimeout(() => loadRoadmap(), 600);
+                    setTimeout(() => loadAchievements(), 900);
+                    return;
+                }
+
+                output.innerText = safeJson(data);
+            } catch (e) {
+                output.innerText = '❌ Ошибка сети: ' + (e.message || e);
+            }
+        }
+
+        async function submitForReview(content, file, onProgress) {
+            if (file && !content && typeof onProgress === 'function') {
+                try {
+                    const fastResp = await postRawScratchFileWithProgress(file, onProgress);
+                    const fastDetail = String((fastResp && fastResp.detail) || '');
+                    const fastNotAvailable = fastDetail === 'HTTP 404' || fastDetail.toLowerCase() === 'not found';
+                    if (!fastNotAvailable) {
+                        return fastResp;
+                    }
+                } catch (_e) {
+                    // Fallback to multipart for older backends.
+                }
+            }
+
+            const formData = new FormData();
+            formData.append('task_id', currentTask.id);
+
+            if (content) {
+                formData.append('content', content);
+                const link = content.match(/https?:\/\/[^\s]+/)?.[0];
+                if (link) formData.append('link', link);
+            }
+
+            if (file) {
+                formData.append('file', file);
+            }
+
+            if (file && typeof onProgress === 'function') {
+                return postFormDataWithProgress(`${API_URL}/api/progress/submit`, formData, onProgress);
+            }
+
+            const res = await fetch(`${API_URL}/api/progress/submit`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                    // Content-Type is set automatically for FormData
+                },
+                body: formData
+            });
+            return res.json().catch(() => ({}));
+        }
+
+        // ==================== PROGRESS ====================
+        async function completeQuest() {
+            const output = document.getElementById('output-console');
+
+            // Check if already completed
+            if (currentUser.completed_tasks?.includes(currentTask.id)) {
+                output.innerText += '\n\n(Already completed)';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/api/progress/complete`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        task_id: currentTask.id,
+                        xp_earned: currentTask.xp
+                    })
+                });
+
+                const data = await res.json();
+                currentUser.xp = data.xp;
+                currentUser.level = data.level;
+                currentUser.completed_tasks = currentUser.completed_tasks || [];
+                currentUser.completed_tasks.push(currentTask.id);
+
+                output.innerText += '\n\n🎉 QUEST COMPLETE! +' + currentTask.xp + ' XP';
+                updateXPDisplay();
+
+                // Show achievement notifications if any
+                if (data.new_achievements && data.new_achievements.length > 0) {
+                    setTimeout(() => showAchievementsQueue(data.new_achievements), 1500);
+                }
+
+                setTimeout(() => {
+                    renderQuests();
+                }, 1000);
+            } catch (e) {
+                console.error('Failed to save progress:', e);
+            }
+        }
+
+        function updateXPDisplay() {
+            const xpInLevel = currentUser.xp % 100;
+            document.getElementById('level-badge').innerText = 'LV ' + currentUser.level;
+            document.getElementById('xp-current').innerText = xpInLevel;
+            document.getElementById('xp-fill').style.width = xpInLevel + '%';
+        }
+
+        // ==================== KEYBOARD NAVIGATION ====================
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                closeModal();
+                closePanels();
+            }
+        });
+
+        // ==================== GAMIFICATION ====================
+
+        async function loadActiveEvents() {
+            try {
+                const res = await fetch(`${API_URL}/api/events/active`);
+                const data = await res.json();
+
+                if (data.events && data.events.length > 0) {
+                    const event = data.events[0]; // Show first active event
+                    const banner = document.getElementById('event-banner');
+                    document.getElementById('event-name').innerText = event.name;
+
+                    let bonusText = '';
+                    if (event.bonus_type === 'xp_multiplier') {
+                        bonusText = `x${event.bonus_value} XP`;
+                    } else if (event.bonus_type === 'streak_bonus') {
+                        bonusText = `+${event.bonus_value * 100}% за страйк`;
+                    }
+                    document.getElementById('event-bonus').innerText = bonusText;
+                    banner.classList.remove('hidden');
+                }
+            } catch (e) {
+                console.log('No events loaded');
+            }
+        }
+
+        async function loadLeaderboard() {
+            try {
+                const res = await fetch(`${API_URL}/api/leaderboard?limit=20`);
+                const data = await res.json();
+                const list = document.getElementById('leaderboard-list');
+                list.innerHTML = '';
+
+                data.leaderboard.forEach(user => {
+                    const posClass = user.position === 1 ? 'gold' :
+                        user.position === 2 ? 'silver' :
+                            user.position === 3 ? 'bronze' : 'default';
+
+                    // Lazy avatar - show placeholder then load
+                    const avatarId = `avatar-${user.id}`;
+                    list.innerHTML += `
+                        <div class="leader-item" onclick="openPublicProfile(${user.id})" style="cursor:pointer;">
+                            <div class="leader-position ${posClass}">${user.position}</div>
+                            <div id="${avatarId}" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;margin-right:8px;" data-user-id="${user.id}" data-has-avatar="${user.has_avatar}">
+                                <span style="font-size:24px;">🧙</span>
+                            </div>
+                            <div class="leader-info">
+                                <div class="leader-name">${user.display_name}</div>
+                                <div class="leader-rank">${user.rank_badge} ${user.rank_name}</div>
+                            </div>
+                            <div class="leader-xp">${user.xp.toLocaleString()} XP</div>
+                        </div>
+                    `;
+                });
+
+                // Lazy load avatars
+                lazyLoadAvatars();
+            } catch (e) {
+                console.error('Failed to load leaderboard:', e);
+            }
+        }
+
+        // Avatar cache to avoid re-fetching
+        const avatarCache = new Map();
+
+        async function lazyLoadAvatars() {
+            const avatarElements = document.querySelectorAll('[data-user-id][data-has-avatar="true"]');
+
+            for (const el of avatarElements) {
+                const userId = el.getAttribute('data-user-id');
+
+                if (avatarCache.has(userId)) {
+                    el.innerHTML = avatarCache.get(userId);
+                    continue;
+                }
+
+                try {
+                    const res = await fetch(`${API_URL}/api/avatar/${userId}`);
+                    const data = await res.json();
+
+                    if (data.avatar_data && data.avatar_data.startsWith('data:image')) {
+                        const html = `<img src="${data.avatar_data}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">`;
+                        el.innerHTML = html;
+                        avatarCache.set(userId, html);
+                    }
+                } catch (e) {
+                    // Keep default emoji
+                }
+            }
+        }
+
+        async function loadProfile() {
+            try {
+                const res = await fetch(`${API_URL}/api/profile`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const profile = await res.json();
+
+                // Update header rank badge (with null checks)
+                const rankBadge = document.getElementById('rank-badge');
+                if (profile.current_rank) {
+                    rankBadge.innerHTML = `${profile.current_rank.badge_emoji || '🌱'} ${profile.current_rank.name_ru || 'Новичок'}`;
+                    rankBadge.style.borderColor = profile.current_rank.color || '#4ade80';
+                    rankBadge.style.background = `${profile.current_rank.color || '#4ade80'}20`;
+                }
+
+                // Update profile panel (with null checks)
+                document.getElementById('profile-display-name').innerText = profile.display_name || 'Adventurer';
+                document.getElementById('profile-rank').innerHTML = profile.current_rank
+                    ? `${profile.current_rank.badge_emoji || '🌱'} ${profile.current_rank.name_ru || 'Новичок'}`
+                    : '🌱 Новичок';
+                document.getElementById('profile-quests').innerText = profile.stats?.total_quests || 0;
+                document.getElementById('profile-streak').innerText = profile.stats?.streak_days || 0;
+                document.getElementById('profile-position').innerText = '#' + (profile.leaderboard_position || 1);
+
+                // Rank progress (with null checks)
+                if (profile.current_rank) {
+                    document.getElementById('rank-current-label').innerText =
+                        `${profile.current_rank.badge_emoji || '🌱'} ${profile.current_rank.name_ru || 'Новичок'}`;
+                }
+
+                if (profile.next_rank && profile.current_rank) {
+                    document.getElementById('rank-next-label').innerText =
+                        `${profile.next_rank.badge_emoji || '📚'} ${profile.next_rank.name_ru || 'Ученик'}`;
+
+                    const progress = (profile.xp - (profile.current_rank.min_xp || 0)) /
+                        ((profile.next_rank.min_xp || 100) - (profile.current_rank.min_xp || 0)) * 100;
+                    document.getElementById('rank-progress-fill').style.width = Math.min(100, Math.max(0, progress)) + '%';
+                    document.getElementById('rank-xp-needed').innerText =
+                        `${(profile.next_rank.min_xp || 100) - (profile.xp || 0)} XP до ${profile.next_rank.name_ru || 'следующего'}`;
+                } else if (!profile.next_rank) {
+                    document.getElementById('rank-next-label').innerText = 'MAX';
+                    document.getElementById('rank-progress-fill').style.width = '100%';
+                    document.getElementById('rank-xp-needed').innerText = 'Максимальный ранг!';
+                }
+
+                const avatarData = String(profile.stats?.avatar_data || '').trim();
+                selectedAvatar = avatarData || '🧙';
+                applyAvatarToUi(selectedAvatar);
+
+            } catch (e) {
+                console.error('Failed to load profile:', e);
+            }
+        }
+
+        function toggleLeaderboard() {
+            const panel = document.getElementById('leaderboard-panel');
+            const overlay = document.getElementById('panel-overlay');
+            panel.classList.toggle('open');
+            overlay.classList.toggle('visible');
+            document.getElementById('profile-panel').classList.remove('open');
+            document.getElementById('chat-panel').classList.remove('open');
+        }
+
+        function toggleChatPanel() {
+            const panel = document.getElementById('chat-panel');
+            const overlay = document.getElementById('panel-overlay');
+            panel.classList.toggle('open');
+            overlay.classList.toggle('visible');
+            document.getElementById('profile-panel').classList.remove('open');
+            document.getElementById('leaderboard-panel').classList.remove('open');
+
+            // Load chat when opening
+            if (panel.classList.contains('open')) {
+                loadChatForPanel();
+                startChatPanelRefresh();
+                setTimeout(() => document.getElementById('chat-panel-input').focus(), 100);
+            }
+        }
+
+        function toggleProfile() {
+            const panel = document.getElementById('profile-panel');
+            const overlay = document.getElementById('panel-overlay');
+            panel.classList.toggle('open');
+            overlay.classList.toggle('visible');
+            document.getElementById('leaderboard-panel').classList.remove('open');
+
+            // Load rewards, submissions, avatar and achievements when opening
+            if (panel.classList.contains('open')) {
+                loadMyRewards();
+                loadMySubmissions();
+                loadProfileWithAvatar();
+                loadAchievements();
+                loadXPChart();
+                loadChatMessages();
+                startChatRefresh();
+            }
+        }
+
+        async function loadProfileWithAvatar() {
+            return loadProfile();
+        }
+
+        function closePanels() {
+            document.getElementById('leaderboard-panel').classList.remove('open');
+            document.getElementById('profile-panel').classList.remove('open');
+            document.getElementById('chat-panel').classList.remove('open');
+            document.getElementById('panel-overlay').classList.remove('visible');
+        }
+
+        // ==================== AVATAR GALLERY ====================
+        const AVATAR_OPTIONS = [
+            '🧙', '⚔️', '🛡️', '🏹', '🗡️', '🔮',
+            '🐉', '🦅', '🐺', '🦊', '🐱', '🌟',
+            '👑', '💎', '🔥', '❄️'
+        ];
+        let selectedAvatar = '🧙';
+
+        function applyAvatarToUi(avatarData) {
+            const profileAvatar = document.getElementById('profile-avatar');
+            const headerAvatar = document.getElementById('header-avatar');
+            const value = String(avatarData || '').trim() || '🧙';
+
+            const render = (element) => {
+                if (!element) return;
+                if (value.startsWith('data:image')) {
+                    element.innerHTML =
+                        `<img src="${value}" alt="avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+                } else {
+                    element.textContent = value;
+                }
+            };
+
+            render(profileAvatar);
+            render(headerAvatar);
+        }
+
+        function readFileAsDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = () => reject(new Error('Не удалось прочитать файл'));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function optimizeAvatarImage(file) {
+            const rawDataUrl = String(await readFileAsDataUrl(file) || '');
+            if (!rawDataUrl.startsWith('data:image')) return rawDataUrl;
+
+            const image = new Image();
+            image.src = rawDataUrl;
+            await new Promise((resolve, reject) => {
+                image.onload = resolve;
+                image.onerror = () => reject(new Error('Не удалось обработать изображение'));
+            });
+
+            const maxSide = 320;
+            const ratio = Math.min(1, maxSide / Math.max(image.width || 1, image.height || 1));
+            const width = Math.max(1, Math.round((image.width || 1) * ratio));
+            const height = Math.max(1, Math.round((image.height || 1) * ratio));
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return rawDataUrl;
+
+            ctx.drawImage(image, 0, 0, width, height);
+            let compressed = canvas.toDataURL('image/jpeg', 0.82);
+            if (compressed.length > 195000) {
+                compressed = canvas.toDataURL('image/jpeg', 0.70);
+            }
+            return compressed.length < rawDataUrl.length ? compressed : rawDataUrl;
+        }
+
+        function initAvatarGallery() {
+            const grid = document.getElementById('avatar-gallery-grid');
+            if (!grid) return;
+
+            grid.innerHTML = AVATAR_OPTIONS.map(avatar => `
+                <div class="avatar-option ${avatar === selectedAvatar ? 'selected' : ''}" 
+                     onclick="selectAvatar('${avatar}')">
+                    ${avatar}
+                </div>
+            `).join('');
+        }
+
+        function toggleAvatarGallery() {
+            const gallery = document.getElementById('avatar-gallery');
+            gallery.classList.toggle('hidden');
+            if (!gallery.classList.contains('hidden')) {
+                initAvatarGallery();
+            }
+        }
+
+        async function selectAvatar(avatar) {
+            selectedAvatar = avatar;
+
+            // Update UI immediately
+            applyAvatarToUi(avatar);
+
+            // Update gallery selection
+            document.querySelectorAll('.avatar-option').forEach(opt => {
+                opt.classList.toggle('selected', opt.textContent.trim() === avatar);
+            });
+
+            // Save to server
+            try {
+                const res = await fetch(`${API_URL}/api/profile`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ avatar_data: avatar })
+                });
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+
+                // Hide gallery after selection
+                document.getElementById('avatar-gallery').classList.add('hidden');
+            } catch (e) {
+                console.error('Failed to save avatar:', e);
+            }
+        }
+
+        async function uploadAvatar(event) {
+            const input = event.target;
+            const file = input?.files?.[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                alert('Выберите файл изображения (JPG / PNG / WEBP / GIF).');
+                input.value = '';
+                return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Файл слишком большой. Максимум: 5MB.');
+                input.value = '';
+                return;
+            }
+
+            try {
+                const avatarData = await optimizeAvatarImage(file);
+                if (!avatarData || avatarData.length > 200000) {
+                    alert('Изображение слишком большое после обработки. Выберите фото меньшего размера.');
+                    input.value = '';
+                    return;
+                }
+
+                const res = await fetch(`${API_URL}/api/profile`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ avatar_data: avatarData })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => null);
+                    throw new Error(err?.detail || `HTTP ${res.status}`);
+                }
+
+                selectedAvatar = avatarData;
+                applyAvatarToUi(avatarData);
+                document.getElementById('avatar-gallery')?.classList.add('hidden');
+            } catch (e) {
+                console.error('Failed to upload avatar:', e);
+                alert('Не удалось загрузить фото. Попробуйте другое изображение.');
+            } finally {
+                input.value = '';
+            }
+        }
+
+        async function saveProfile() {
+            const newName = document.getElementById('edit-display-name').value.trim();
+            if (!newName) return;
+
+            try {
+                await fetch(`${API_URL}/api/profile`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ display_name: newName })
+                });
+
+                currentUser.display_name = newName;
+                document.getElementById('player-name').innerText = newName;
+                document.getElementById('profile-display-name').innerText = newName;
+                document.getElementById('edit-display-name').value = '';
+                alert('Профиль обновлён!');
+            } catch (e) {
+                console.error('Failed to save profile:', e);
+            }
+        }
+
+        // ==================== ACHIEVEMENTS ====================
+        let achievementStatus = [];
+        let achievementSummary = { unlocked: 0, total: 0, ratio: 0 };
+
+        async function loadAchievements() {
+            try {
+                if (!authToken) return;
+
+                const res = await fetch(`${API_URL}/api/achievements/status`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                achievementStatus = data.achievements || [];
+                achievementSummary = data.summary || achievementSummary;
+                renderAchievementsGrid();
+                renderAchievementsGallery();
+            } catch (e) {
+                console.error('Failed to load achievements:', e);
+            }
+        }
+
+        function renderAchievementsGrid() {
+            const grid = document.getElementById('achievements-grid');
+            const countEl = document.getElementById('achievements-count');
+            if (!grid) return;
+
+            countEl.textContent = `${achievementSummary.unlocked || 0}/${achievementSummary.total || 0}`;
+
+            grid.innerHTML = (achievementStatus || []).map(ach => {
+                const isUnlocked = Boolean(ach.unlocked);
+                const date = ach.unlocked_at ? new Date(ach.unlocked_at).toLocaleDateString('ru-RU') : '';
+                return `
+                    <div class="ach-badge ${isUnlocked ? 'unlocked' : 'locked'} ${ach.rarity}">
+                        ${ach.icon}
+                        <div class="ach-tooltip">
+                            <div style="font-weight:600; margin-bottom:4px;">${ach.name_ru || ach.name}</div>
+                            <div style="font-size:11px; color:var(--text-secondary);">${ach.description || ''}</div>
+                            <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;">${ach.progress_label_ru || ''}</div>
+                            ${isUnlocked ? `<div style="font-size:11px; color:var(--success); margin-top:4px;">Получено: ${date}</div>` : ``}
+                            ${ach.xp_bonus > 0 ? `<div style="font-size:11px; color:var(--success); margin-top:4px;">+${ach.xp_bonus} XP</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderAchievementsGallery() {
+            const container = document.getElementById('achievements-gallery');
+            if (!container) return;
+
+            if (!achievementStatus || achievementStatus.length === 0) {
+                container.innerHTML = '<div style="color:var(--text-secondary); font-size:13px; text-align:center;">Нет данных</div>';
+                return;
+            }
+
+            container.innerHTML = achievementStatus.map(a => {
+                const percent = Math.round((a.progress_ratio || 0) * 100);
+                const date = a.unlocked_at ? new Date(a.unlocked_at).toLocaleString('ru-RU') : null;
+                const unlockedText = a.unlocked ? (date ? `Получено: ${date}` : 'Получено') : (a.progress_label_ru || '');
+
+                return `
+                    <article class="achievement-card ${a.unlocked ? 'unlocked' : 'locked'}" role="listitem">
+                        <div class="achievement-icon" aria-hidden="true">${a.icon}</div>
+                        <div class="achievement-body">
+                            <div class="achievement-title">${a.name_ru || a.name}</div>
+                            <div class="achievement-desc">${a.description || ''}</div>
+                            <div class="achievement-meta">
+                                <span>${unlockedText}</span>
+                                ${a.xp_bonus > 0 ? `<span class="achievement-bonus">+${a.xp_bonus} XP</span>` : `<span></span>`}
+                            </div>
+                            <div class="achievement-progress" role="progressbar" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100">
+                                <div style="width:${percent}%"></div>
+                            </div>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        function openAchievementsModal() {
+            document.getElementById('achievements-modal').classList.add('active');
+            if (!achievementStatus || achievementStatus.length === 0) loadAchievements();
+        }
+
+        function closeAchievementsModal() {
+            document.getElementById('achievements-modal').classList.remove('active');
+        }
+
+        function showAchievementNotification(achievement) {
+            const notif = document.getElementById('ach-notification');
+            const nameEl = document.getElementById('ach-notif-name');
+            const bonusEl = document.getElementById('ach-notif-bonus');
+            const iconEl = notif.querySelector('.ach-icon');
+
+            // Set content
+            nameEl.textContent = achievement.name_ru || achievement.name;
+            iconEl.textContent = achievement.icon;
+            bonusEl.textContent = achievement.xp_bonus > 0 ? `+${achievement.xp_bonus} XP` : '';
+            bonusEl.style.display = achievement.xp_bonus > 0 ? 'block' : 'none';
+
+            // Set rarity class
+            notif.className = `achievement-notification ${achievement.rarity}`;
+
+            // Show animation
+            setTimeout(() => notif.classList.add('show'), 50);
+
+            // Hide after delay
+            setTimeout(() => {
+                notif.classList.remove('show');
+            }, 4000);
+        }
+
+        function showAchievementsQueue(achievements) {
+            if (!achievements || achievements.length === 0) return;
+
+            let delay = 0;
+            achievements.forEach(ach => {
+                setTimeout(() => showAchievementNotification(ach), delay);
+                delay += 4500; // Stagger notifications
+            });
+
+            setTimeout(() => loadAchievements(), delay + 250);
+        }
+
+        // ==================== MY REWARDS & SUBMISSIONS ====================
+        async function loadMyRewards() {
+            const list = document.getElementById('my-rewards-list');
+            try {
+                const res = await fetch(`${API_URL}/api/user/rewards`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+
+                if (!data.rewards || data.rewards.length === 0) {
+                    list.innerHTML = '<div style="color:var(--text-secondary); font-size:13px; text-align:center;">Пока нет наград</div>';
+                    return;
+                }
+
+                list.innerHTML = data.rewards.map(r => `
+                    <div style="display:flex; gap:10px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.03);">
+                        <span style="font-size:20px;">${r.icon}</span>
+                        <div style="flex:1;">
+                            <div style="font-weight:600; font-size:14px; color:var(--text-bright);">${r.title}</div>
+                            <div style="font-size:12px; color:var(--text-secondary);">${r.comment || ''}</div>
+                            <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${new Date(r.awarded_at).toLocaleDateString()}</div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load rewards:', e);
+                list.innerHTML = '<div style="color:var(--danger); font-size:13px; text-align:center;">Ошибка загрузки</div>';
+            }
+        }
+
+        async function loadMySubmissions() {
+            const list = document.getElementById('my-submissions-list');
+            try {
+                const res = await fetch(`${API_URL}/api/user/submissions`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+
+                if (!data.submissions || data.submissions.length === 0) {
+                    list.innerHTML = '<div style="color:var(--text-secondary); font-size:13px; text-align:center;">Нет отправленных работ</div>';
+                    return;
+                }
+
+                const statusColors = {
+                    pending: '#fbbf24',
+                    approved: '#4ade80',
+                    rejected: '#f87171'
+                };
+
+                const statusLabels = {
+                    pending: '⏳ На проверке',
+                    approved: '✅ Одобрено',
+                    rejected: '❌ Отклонено'
+                };
+
+                list.innerHTML = data.submissions.map(s => `
+                    <div style="padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.03);">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-weight:600; font-size:14px; color:var(--text-bright);">${s.task_title || s.task_id}</span>
+                            <span style="font-size:12px; color:${statusColors[s.status] || '#888'};">${statusLabels[s.status] || s.status}</span>
+                        </div>
+                        ${s.score !== null ? `<div style="font-size:12px; color:var(--text-secondary);">Оценка: ${s.score}/10 — XP: ${Math.round((s.max_xp || 0) * s.score / 10)}</div>` : ''}
+                        ${s.feedback ? `<div style="font-size:12px; color:var(--accent-soft); margin-top:4px;">💬 ${s.feedback}</div>` : ''}
+                        <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;">${new Date(s.submitted_at).toLocaleDateString()}</div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load submissions:', e);
+                list.innerHTML = '<div style="color:var(--danger); font-size:13px; text-align:center;">Ошибка загрузки</div>';
+            }
+        }
+
+        // ==================== CHAT SYSTEM ====================
+        let chatMessages = [];
+        let chatRefreshInterval = null;
+
+        async function loadChatMessages() {
+            try {
+                const res = await fetch(`${API_URL}/api/chat`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                chatMessages = data.messages || [];
+                renderChatMessages();
+            } catch (e) {
+                console.error('Failed to load chat:', e);
+            }
+        }
+
+        function renderChatMessages() {
+            const container = document.getElementById('chat-messages');
+            if (!container) return;
+
+            if (chatMessages.length === 0) {
+                container.innerHTML = '<div style="color:var(--text-secondary); font-size:13px; text-align:center;">Пока нет сообщений</div>';
+                return;
+            }
+
+            container.innerHTML = chatMessages.map(msg => {
+                const isAdmin = msg.sender.role === 'admin';
+                const isMe = msg.sender.id === currentUser?.id;
+                const time = new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+                return `
+                    <div style="margin-bottom:10px; ${isMe ? 'text-align:right;' : ''}">
+                        <div style="display:inline-block; max-width:85%; text-align:left; 
+                                    background:${isAdmin ? 'rgba(139,92,246,0.2)' : isMe ? 'rgba(79,172,254,0.2)' : 'rgba(255,255,255,0.05)'}; 
+                                    border-radius:12px; padding:8px 12px; border:1px solid ${isAdmin ? 'rgba(139,92,246,0.3)' : 'transparent'};">
+                            <div style="font-size:11px; color:${isAdmin ? 'var(--accent-soft)' : 'var(--text-secondary)'}; margin-bottom:4px;">
+                                ${isAdmin ? '👑 ' : ''}${msg.sender.display_name} 
+                                <span style="opacity:0.6;">${time}</span>
+                            </div>
+                            <div style="font-size:13px; color:var(--text-bright); word-break:break-word;">${escapeHtml(msg.message)}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Auto-scroll to bottom
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // ==================== CHAT HELPERS ====================
+        function autoResizeTextarea(el) {
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 150) + 'px';
+        }
+
+        function resetTextarea(el) {
+            el.value = '';
+            el.style.height = '';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            try {
+                const res = await fetch(`${API_URL}/api/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message })
+                });
+
+                if (res.ok) {
+                    resetTextarea(input);
+                    await loadChatMessages();
+                } else {
+                    const err = await res.json();
+                    alert(err.detail || 'Ошибка отправки');
+                }
+            } catch (e) {
+                console.error('Failed to send message:', e);
+            }
+        }
+
+        function startChatRefresh() {
+            if (chatRefreshInterval) clearInterval(chatRefreshInterval);
+            chatRefreshInterval = setInterval(loadChatMessages, 30000); // Optimized: 30s refresh
+        }
+
+        // ==================== CHAT PANEL  ====================
+        let chatPanelRefreshInterval = null;
+
+        async function loadChatForPanel() {
+            try {
+                const res = await fetch(`${API_URL}/api/chat`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                const messages = data.messages || [];
+
+                // Update online count (simulated for now, or real if API supports it)
+                // For now just show "Online"
+
+                renderChatPanelMsg(messages);
+            } catch (e) {
+                console.error('Failed to load chat panel:', e);
+            }
+        }
+
+        function renderChatPanelMsg(messages) {
+            const container = document.getElementById('chat-list');
+            if (!container) return;
+
+            if (messages.length === 0) {
+                container.innerHTML = '<div style="color:var(--text-secondary); font-size:13px; text-align:center; margin-top:20px;">Пока нет сообщений</div>';
+                return;
+            }
+
+            // Check if scrolled to bottom
+            const isScrolledToBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 50;
+
+            container.innerHTML = messages.map(msg => {
+                const isAdmin = msg.sender.role === 'admin';
+                const isMe = msg.sender.id === currentUser?.id;
+                const time = new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+                // Avatar rendering
+                const avatarData = msg.sender.avatar_data;
+                const avatarHtml = avatarData && avatarData.startsWith('data:image')
+                    ? `<img src="${avatarData}" style="width:24px;height:24px;border-radius:50%;object-fit:cover;">`
+                    : `<span style="font-size:16px;">${avatarData || '🧙'}</span>`;
+
+                return `
+                    <div style="align-self:${isMe ? 'flex-end' : 'flex-start'}; max-width:85%; display:flex; gap:8px; ${isMe ? 'flex-direction:row-reverse;' : ''}">
+                        <div style="width:28px;height:28px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);border-radius:50%;cursor:pointer;" 
+                             onclick="openPublicProfile(${msg.sender.id})" title="Посмотреть профиль">
+                            ${avatarHtml}
+                        </div>
+                        <div style="background:${isAdmin ? 'rgba(139,92,246,0.2)' : isMe ? 'rgba(79,172,254,0.2)' : 'rgba(255,255,255,0.05)'}; 
+                                    border-radius:12px; padding:8px 12px; border:1px solid ${isAdmin ? 'rgba(139,92,246,0.3)' : 'transparent'};
+                                    ${isMe ? 'border-bottom-right-radius:2px;' : 'border-bottom-left-radius:2px;'}">
+                            <div style="font-size:11px; color:${isAdmin ? 'var(--accent-soft)' : 'var(--text-secondary)'}; margin-bottom:4px; display:flex; justify-content:space-between; gap:10px;">
+                                <span style="cursor:pointer;" onclick="openPublicProfile(${msg.sender.id})">${isAdmin ? '👑 ' : ''}${msg.sender.display_name}</span>
+                                <span style="opacity:0.6;">${time}</span>
+                            </div>
+                            <div style="font-size:13px; color:var(--text-bright); word-break:break-word; line-height:1.4;">${escapeHtml(msg.message)}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Scroll to bottom if was at bottom or first load
+            if (isScrolledToBottom || !container.dataset.loaded) {
+                container.scrollTop = container.scrollHeight;
+                container.dataset.loaded = "true";
+            }
+        }
+
+        async function sendChatFromPanel() {
+            const input = document.getElementById('chat-panel-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            try {
+                const res = await fetch(`${API_URL}/api/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message })
+                });
+
+                if (res.ok) {
+                    resetTextarea(input);
+                    await loadChatForPanel();
+                } else {
+                    const err = await res.json();
+                    alert(err.detail || 'Ошибка отправки');
+                }
+            } catch (e) {
+                console.error('Failed to send message:', e);
+                alert('Ошибка отправки: ' + e.message);
+            }
+        }
+
+        function startChatPanelRefresh() {
+            if (chatPanelRefreshInterval) clearInterval(chatPanelRefreshInterval);
+            chatPanelRefreshInterval = setInterval(loadChatForPanel, 15000); // Optimized: 15s refresh
+        }
+
+        // ==================== CAMPAIGN MAP ====================
+        let campaignData = null;
+
+        async function showCampaignMap() {
+            // Update tab states
+            document.querySelectorAll('.tab-btn').forEach(t => {
+                t.classList.remove('active');
+                t.setAttribute('aria-selected', 'false');
+            });
+            document.getElementById('campaign-tab').classList.add('active');
+            document.getElementById('campaign-tab').setAttribute('aria-selected', 'true');
+
+            // Toggle panels
+            document.getElementById('quest-grid').style.display = 'none';
+            document.getElementById('campaign-panel').classList.add('active');
+
+            await loadCampaignProgress();
+        }
+
+        function hideCampaignMap() {
+            const panel = document.getElementById('campaign-panel');
+            const grid = document.getElementById('quest-grid');
+            if (panel) panel.classList.remove('active');
+            if (grid) grid.style.display = 'grid';
+        }
+
+        async function loadCampaignProgress() {
+            try {
+                const res = await fetch(`${API_URL}/api/campaign/progress`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                campaignData = await res.json();
+                renderCampaignActs(campaignData);
+            } catch (e) {
+                console.error('Failed to load campaign:', e);
+            }
+        }
+
+        function renderCampaignActs(data) {
+            const container = document.getElementById('campaign-acts');
+            const progressFill = document.getElementById('campaign-progress-fill');
+
+            const pct = Math.round(data.overall_progress * 100);
+            progressFill.style.width = `${pct}%`;
+            progressFill.textContent = `${pct}%`;
+
+            const actNames = ['', 'Пробуждение (D)', 'Рост (C)', 'Испытания (B)', 'Мастерство (A)', 'Легенда (S)'];
+
+            container.innerHTML = data.acts.map(act => `
+                <div class="act-card">
+                    <div class="act-header" onclick="toggleActChapters(${act.act})">
+                        <div class="act-title">Акт ${act.act}: ${actNames[act.act] || ''}</div>
+                        <div class="act-progress">${act.completed}/${act.total} (${Math.round(act.progress * 100)}%)</div>
+                    </div>
+                    <div class="act-chapters" id="act-chapters-${act.act}">
+                        ${act.chapters.map(ch => `
+                            <div class="chapter-item">
+                                <div class="chapter-header">
+                                    <span class="chapter-title">Глава ${ch.chapter}</span>
+                                    <span style="color:var(--text-secondary);font-size:12px;">${ch.completed}/${ch.total}</span>
+                                </div>
+                                <div class="chapter-tasks">
+                                    ${ch.quests.map(q => `
+                                        <div class="task-dot quest ${q.completed ? 'completed' : ''}" 
+                                             title="${q.title}" onclick="openQuestById('${q.id}')">
+                                            ${q.completed ? '✓' : q.order}
+                                        </div>
+                                    `).join('')}
+                                    ${ch.bosses.map(b => `
+                                        <div class="task-dot boss ${b.completed ? 'completed' : ''}" 
+                                             title="👑 ${b.title}" onclick="openQuestById('${b.id}')">
+                                            ${b.completed ? '✓' : '👑'}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function toggleActChapters(actNum) {
+            const el = document.getElementById(`act-chapters-${actNum}`);
+            el.classList.toggle('expanded');
+        }
+
+        function openQuestById(taskId) {
+            hideCampaignMap();
+            openQuest(taskId);  // Pass taskId directly, not task object
+        }
+
+        // Wrap filterCategory to also hide campaign panel
+        (function () {
+            const orig = window.filterCategory || function (category, btn) {
+                currentFilter = category;
+                document.querySelectorAll('.tab-btn').forEach(t => {
+                    t.classList.remove('active');
+                    t.setAttribute('aria-selected', 'false');
+                });
+                btn.classList.add('active');
+                btn.setAttribute('aria-selected', 'true');
+                renderQuests();
+            };
+            window.filterCategory = function (category, btn) {
+                hideCampaignMap();
+                orig(category, btn);
+            };
+        })();
+
+        // ==================== PUBLIC PROFILE ====================
+        async function openPublicProfile(userId) {
+            if (!userId) return;
+
+            document.getElementById('public-profile-modal').classList.add('active');
+            document.getElementById('public-profile-name').textContent = 'Загрузка...';
+            document.getElementById('public-profile-achievements-list').innerHTML = 'Загрузка...';
+
+            try {
+                const res = await fetch(`${API_URL}/api/user/${userId}/public`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (!res.ok) throw new Error('Failed to load profile');
+
+                const profile = await res.json();
+
+                // Avatar
+                const avatarEl = document.getElementById('public-profile-avatar');
+                if (profile.avatar_data && profile.avatar_data.startsWith('data:image')) {
+                    avatarEl.innerHTML = `<img src="${profile.avatar_data}">`;
+                } else {
+                    avatarEl.innerHTML = profile.avatar_data || '🧙';
+                }
+
+                // Basic info
+                document.getElementById('public-profile-name').textContent = profile.display_name;
+                document.getElementById('public-profile-rank').innerHTML =
+                    `${profile.rank?.badge || '🌱'} ${profile.rank?.name || 'Новичок'}`;
+
+                // Stats
+                document.getElementById('public-profile-xp').textContent = profile.xp.toLocaleString();
+                document.getElementById('public-profile-quests').textContent = profile.stats?.completed_tasks || 0;
+                document.getElementById('public-profile-position').textContent = '#' + profile.leaderboard_position;
+
+                // Achievements
+                const achievementsEl = document.getElementById('public-profile-achievements-list');
+                if (profile.achievements && profile.achievements.length > 0) {
+                    achievementsEl.innerHTML = profile.achievements.map(a => `
+                        <div class="profile-achievement-item">
+                            <div class="profile-achievement-icon">${a.icon || '🏆'}</div>
+                            <div class="profile-achievement-info">
+                                <div class="profile-achievement-name">${a.name_ru}</div>
+                                <div class="profile-achievement-desc">${a.description || ''}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    achievementsEl.innerHTML = '<div style="color:var(--text-secondary);font-size:12px;">Пока нет достижений</div>';
+                }
+
+            } catch (e) {
+                console.error('Failed to load public profile:', e);
+                document.getElementById('public-profile-name').textContent = 'Ошибка загрузки';
+            }
+        }
+
+        function closePublicProfile(event) {
+            if (event && event.target !== event.currentTarget) return;
+            document.getElementById('public-profile-modal').classList.remove('active');
+        }
+
+        // ==================== DAILY MISSIONS ====================
+        let dailyMissions = [];
+
+        async function loadDailyMissions() {
+            try {
+                const res = await fetch(`${API_URL}/api/missions/daily`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                dailyMissions = data.missions || [];
+                renderDailyMissions();
+            } catch (e) {
+                console.error('Failed to load missions:', e);
+            }
+        }
+
+        function renderDailyMissions() {
+            const container = document.getElementById('daily-missions-list');
+            if (!container) return;
+
+            container.innerHTML = dailyMissions.map(m => `
+                <div class="mission-item">
+                    <div class="mission-info">
+                        <div class="mission-name">${m.name}</div>
+                        <div class="mission-progress">${m.progress}/${m.target} • +${m.xp_reward} XP</div>
+                    </div>
+                    <button class="mission-claim-btn ${m.completed && !m.claimed ? 'ready' : ''} ${m.claimed ? 'claimed' : ''}"
+                            onclick="claimMission('${m.type}')" ${m.claimed || !m.completed ? 'disabled' : ''}>
+                        ${m.claimed ? '✓' : 'Забрать'}
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        async function claimMission(missionType) {
+            try {
+                const res = await fetch(`${API_URL}/api/missions/claim/${missionType}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    showNotification(`+${data.xp_awarded} XP за миссию!`, 'success');
+                    loadDailyMissions();
+                    loadProfile();
+                }
+            } catch (e) {
+                console.error('Failed to claim mission:', e);
+            }
+        }
+
+        // ==================== BONUS QUESTS ====================
+        let activeBonusQuest = null;
+
+        async function checkBonusQuest() {
+            try {
+                const res = await fetch(`${API_URL}/api/bonus-quest`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                if (data.active && data.bonus) {
+                    activeBonusQuest = data.bonus;
+                    showBonusPopup(data.bonus);
+                }
+            } catch (e) {
+                console.error('Failed to check bonus quest:', e);
+            }
+        }
+
+        function showBonusPopup(bonus) {
+            document.getElementById('bonus-task-title').textContent = bonus.task_title;
+            document.getElementById('bonus-popup').classList.add('active');
+            updateBonusTimer(bonus.expires_at);
+        }
+
+        function closeBonusPopup() {
+            document.getElementById('bonus-popup').classList.remove('active');
+        }
+
+        function acceptBonusQuest() {
+            closeBonusPopup();
+            if (activeBonusQuest) {
+                openQuestById(activeBonusQuest.task_id);
+            }
+        }
+
+        function updateBonusTimer(expiresAt) {
+            const timerEl = document.getElementById('bonus-timer');
+            const update = () => {
+                const now = new Date();
+                const expires = new Date(expiresAt);
+                const diff = expires - now;
+                if (diff <= 0) {
+                    timerEl.textContent = 'Истёк!';
+                    closeBonusPopup();
+                    return;
+                }
+                const h = Math.floor(diff / 3600000);
+                const m = Math.floor((diff % 3600000) / 60000);
+                const s = Math.floor((diff % 60000) / 1000);
+                timerEl.textContent = `Истекает через: ${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            };
+            update();
+            setInterval(update, 1000);
+        }
+
+        // Add missions widget to profile panel on load
+        function injectMissionsWidget() {
+            const achievementsSection = document.querySelector('#profile-panel .achievements-grid')?.parentElement;
+            if (achievementsSection && !document.getElementById('daily-missions-widget')) {
+                const widget = document.createElement('div');
+                widget.id = 'daily-missions-widget';
+                widget.className = 'missions-widget';
+                widget.innerHTML = `
+                    <h4 style="margin-bottom:12px; color:var(--text-bright);">📋 Ежедневные миссии</h4>
+                    <div id="daily-missions-list">Загрузка...</div>
+                `;
+                achievementsSection.parentNode.insertBefore(widget, achievementsSection);
+            }
+        }
+
+
+        // ==================== XP PROGRESS CHART ====================
+        async function loadXPChart() {
+            try {
+                const res = await fetch(`${API_URL}/api/user/xp-history`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+
+                if (data.history && data.history.length > 0) {
+                    document.getElementById('xp-chart-empty').style.display = 'none';
+                    renderXPChart(data.history);
+                }
+            } catch (e) {
+                console.error('Failed to load XP history:', e);
+            }
+        }
+
+        function renderXPChart(history) {
+            const canvas = document.getElementById('xp-canvas');
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * 2; // Retina
+            canvas.height = rect.height * 2;
+            ctx.scale(2, 2);
+
+            const w = rect.width;
+            const h = rect.height;
+            const padding = 20;
+
+            // Get min/max values
+            const xpValues = history.map(h => h.total);
+            const maxXP = Math.max(...xpValues, 100);
+
+            // Draw gradient fill
+            const gradient = ctx.createLinearGradient(0, 0, 0, h);
+            gradient.addColorStop(0, 'rgba(79, 172, 254, 0.4)');
+            gradient.addColorStop(1, 'rgba(79, 172, 254, 0)');
+
+            ctx.beginPath();
+            ctx.moveTo(padding, h - padding);
+
+            history.forEach((point, i) => {
+                const x = padding + (i / (history.length - 1 || 1)) * (w - padding * 2);
+                const y = h - padding - (point.total / maxXP) * (h - padding * 2);
+                ctx.lineTo(x, y);
+            });
+
+            ctx.lineTo(w - padding, h - padding);
+            ctx.closePath();
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            // Draw line
+            ctx.beginPath();
+            history.forEach((point, i) => {
+                const x = padding + (i / (history.length - 1 || 1)) * (w - padding * 2);
+                const y = h - padding - (point.total / maxXP) * (h - padding * 2);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.strokeStyle = '#4facfe';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw points
+            history.forEach((point, i) => {
+                const x = padding + (i / (history.length - 1 || 1)) * (w - padding * 2);
+                const y = h - padding - (point.total / maxXP) * (h - padding * 2);
+                ctx.beginPath();
+                ctx.arc(x, y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#4facfe';
+                ctx.fill();
+                ctx.strokeStyle = '#0a0f1e';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+        }
+
+        // ==================== START ====================
+        window.addEventListener('load', init);
+    </script>
+</body>
+
+</html>

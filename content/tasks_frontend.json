@@ -1,0 +1,984 @@
+[
+    {
+        "id": "fe_01_hero_card",
+        "category": "frontend",
+        "tier": "D",
+        "xp": 50,
+        "title": "Карточка Героя",
+        "story": "Создай простую карточку с именем героя.",
+        "description": "Добавь `div` с классом `card` и текстом `Hero`.",
+        "initial_code": "<style>\n  .card {\n    /* code here */\n  }\n</style>\n<div>TODO: Hero card</div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "<div class=\"card\">"
+                },
+                {
+                    "type": "content_contain",
+                    "expected": "Hero"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_02_red_cloak",
+        "category": "frontend",
+        "tier": "D",
+        "xp": 50,
+        "title": "Красный Плащ",
+        "story": "Покрась плащ в красный цвет.",
+        "description": "Задай классу `.cloak` цвет фона `red`.",
+        "initial_code": "<style>\n  .cloak {\n    width: 100px; height: 100px;\n  }\n</style>\n<div class=\"cloak\"></div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "background-color: red"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_03_gold_text",
+        "category": "frontend",
+        "tier": "D",
+        "xp": 55,
+        "title": "Золотые Буквы",
+        "story": "Сделай надпись 'Gold' золотым цветом.",
+        "description": "Добавь стиль `color: gold` для `.text`.",
+        "initial_code": "<style>\n  .text {\n  }\n</style>\n<p class=\"text\">Gold</p>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "color: gold"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_04_round_shield",
+        "category": "frontend",
+        "tier": "D",
+        "xp": 60,
+        "title": "Круглый Щит",
+        "story": "Щит должен быть круглым.",
+        "description": "Добавь `border-radius: 50%` классу `.shield`.",
+        "initial_code": "<style>\n  .shield { width: 50px; height: 50px; background: grey; }\n</style>\n<div class=\"shield\"></div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "border-radius: 50%"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_05_center_gem",
+        "category": "frontend",
+        "tier": "C",
+        "xp": 80,
+        "title": "Камень в Центре",
+        "story": "Выровняй текст по центру.",
+        "description": "Добавь `text-align: center` для `.gem`.",
+        "initial_code": "<style>\n  .gem { width: 100px; border: 1px solid black; }\n</style>\n<div class=\"gem\">Ruby</div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "text-align: center"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_06_bold_title",
+        "category": "frontend",
+        "tier": "D",
+        "xp": 50,
+        "title": "Громкий Титул",
+        "story": "Сделай заголовок жирным.",
+        "description": "Добавь `font-weight: bold` к `.title`.",
+        "initial_code": "<style>\n  .title { }\n</style>\n<div class=\"title\">King</div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "font-weight: bold"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_07_italic_spell",
+        "category": "frontend",
+        "tier": "D",
+        "xp": 50,
+        "title": "Текст Заклинания",
+        "story": "Заклинания пишут курсивом.",
+        "description": "Добавь `font-style: italic` к `.spell`.",
+        "initial_code": "<style>\n  .spell { }\n</style>\n<div class=\"spell\">Fireball</div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "font-style: italic"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_08_magic_border",
+        "category": "frontend",
+        "tier": "C",
+        "xp": 85,
+        "title": "Магическая Рамка",
+        "story": "Вокруг свитка должна быть пунктирная рамка.",
+        "description": "Добавь `border: 2px dashed blue` к `.scroll`.",
+        "initial_code": "<style>\n  .scroll { padding: 10px; }\n</style>\n<div class=\"scroll\">Text</div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "border: 2px dashed blue"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_09_hidden_trap",
+        "category": "frontend",
+        "tier": "C",
+        "xp": 90,
+        "title": "Скрытая Ловушка",
+        "story": "Ловушка не должна быть видна.",
+        "description": "Добавь `display: none` к `.trap`.",
+        "initial_code": "<style>\n  .trap { color: red; }\n</style>\n<div class=\"trap\">Boom!</div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "display: none"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_10_flex_row",
+        "category": "frontend",
+        "tier": "B",
+        "xp": 150,
+        "title": "Строй Бойцов",
+        "story": "Выстрой элементы в ряд.",
+        "description": "Используй `display: flex` для контейнера `.army`.",
+        "initial_code": "<style>\n  .army { }\n  .soldier { width: 20px; height: 20px; background: blue; margin: 2px; }\n</style>\n<div class=\"army\">\n  <div class=\"soldier\"></div>\n  <div class=\"soldier\"></div>\n</div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "display: flex"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_11_flex_space",
+        "category": "frontend",
+        "tier": "B",
+        "xp": 160,
+        "title": "Дистанция",
+        "story": "Раскидай врагов по углам.",
+        "description": "Добавь `justify-content: space-between` в flex-контейнер.",
+        "initial_code": "<style>\n  .arena { display: flex; width: 200px; background: #eee; }\n</style>\n<div class=\"arena\"><div>A</div><div>B</div></div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "justify-content: space-between"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_12_grid_inventory",
+        "category": "frontend",
+        "tier": "B",
+        "xp": 170,
+        "title": "Сетка Инвентаря",
+        "story": "Сделай сетку 2 на 2 для предметов.",
+        "description": "Используй `display: grid` и `grid-template-columns: 1fr 1fr`.",
+        "initial_code": "<style>\n  .inv { gap: 5px; }\n</style>\n<div class=\"inv\"><div>1</div><div>2</div><div>3</div><div>4</div></div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "display: grid"
+                },
+                {
+                    "type": "content_contain",
+                    "expected": "grid-template-columns: 1fr 1fr"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_13_hover_button",
+        "category": "frontend",
+        "tier": "B",
+        "xp": 140,
+        "title": "Кнопка Атаки",
+        "story": "Кнопка должна менять цвет при наведении.",
+        "description": "Добавь псевдо-класс `.btn:hover` с цветом `background: red`.",
+        "initial_code": "<style>\n  .btn { background: grey; }\n</style>\n<button class=\"btn\">Attack</button>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": ".btn:hover"
+                },
+                {
+                    "type": "content_contain",
+                    "expected": "background: red"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_14_z_index_layer",
+        "category": "frontend",
+        "tier": "B",
+        "xp": 155,
+        "title": "Слой Облаков",
+        "story": "Облака должны быть поверх гор.",
+        "description": "Задай `.cloud` `z-index: 10`, а `.mountain` `z-index: 1`.",
+        "initial_code": "<style>\n  .mountain { position: absolute; }\n  .cloud { position: absolute; }\n</style>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "z-index: 10"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_15_shadow_realm",
+        "category": "frontend",
+        "tier": "C",
+        "xp": 95,
+        "title": "Тень Призрака",
+        "story": "Добавь тень элементу.",
+        "description": "Используй `box-shadow: 5px 5px 5px black`.",
+        "initial_code": "<style>\n  .ghost { width: 50px; height: 50px; background: white; }\n</style>\n<div class=\"ghost\"></div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "box-shadow: 5px 5px 5px black"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_16_gradient_sky",
+        "category": "frontend",
+        "tier": "B",
+        "xp": 165,
+        "title": "Градиент Неба",
+        "story": "Сделай закат от оранжевого к фиолетовому.",
+        "description": "Используй `background: linear-gradient(orange, purple)`.",
+        "initial_code": "<style>\n  .sky { height: 100px; }\n</style>\n<div class=\"sky\"></div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "linear-gradient(orange, purple)"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_17_sticky_header",
+        "category": "frontend",
+        "tier": "B",
+        "xp": 150,
+        "title": "Липкая Шапка",
+        "story": "Заголовок свитка должен быть всегда виден.",
+        "description": "Используй `position: sticky; top: 0` для `.header`.",
+        "initial_code": "<style>\n  .header { background: #fff; }\n  .content { height: 200px; overflow: auto; }\n</style>\n<div class=\"content\"><div class=\"header\">Top</div>...</div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "position: sticky"
+                },
+                {
+                    "type": "content_contain",
+                    "expected": "top: 0"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_18_opacity_ghost",
+        "category": "frontend",
+        "tier": "C",
+        "xp": 90,
+        "title": "Полупрозрачность",
+        "story": "Призрак должен быть полупрозрачным.",
+        "description": "Установи `opacity: 0.5` для `.ghost`.",
+        "initial_code": "<style>\n  .ghost { background: white; }\n</style>\n<div class=\"ghost\">Boo</div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "opacity: 0.5"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_19_overflow_scroll",
+        "category": "frontend",
+        "tier": "B",
+        "xp": 140,
+        "title": "Длинный Свиток",
+        "story": "Текст не влезает. Добавь прокрутку.",
+        "description": "Используй `overflow: auto` (или scroll) для `.scroll`.",
+        "initial_code": "<style>\n  .scroll { height: 50px; border: 1px solid black; }\n</style>\n<div class=\"scroll\">Very long text...</div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "overflow: auto"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_20_media_mobile",
+        "category": "frontend",
+        "tier": "A",
+        "xp": 250,
+        "title": "Адаптивный Щит",
+        "story": "На маленьких экранах щит должен быть меньше.",
+        "description": "Добавь `@media (max-width: 600px)` где `.shield` имеет `width: 50px`.",
+        "initial_code": "<style>\n  .shield { width: 100px; }\n  /* media query */\n</style>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "@media (max-width: 600px)"
+                },
+                {
+                    "type": "content_contain",
+                    "expected": "width: 50px"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_21_transform_rotate",
+        "category": "frontend",
+        "tier": "A",
+        "xp": 260,
+        "title": "Вращение Руны",
+        "story": "Поверни руну на 45 градусов.",
+        "description": "Используй `transform: rotate(45deg)`.",
+        "initial_code": "<style>\n  .rune { display: inline-block; }\n</style>\n<div class=\"rune\">R</div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "transform: rotate(45deg)"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_22_transition_anim",
+        "category": "frontend",
+        "tier": "A",
+        "xp": 270,
+        "title": "Плавное Превращение",
+        "story": "Кнопка должна плавно менять цвет за 0.5с.",
+        "description": "Добавь `transition: background 0.5s`.",
+        "initial_code": "<style>\n  .btn { background: blue; }\n  .btn:hover { background: red; }\n</style>\n<button class=\"btn\">X</button>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "transition: background 0.5s"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_23_keyframe_spin",
+        "category": "frontend",
+        "tier": "S",
+        "xp": 500,
+        "title": "Вечный Двигатель",
+        "story": "Создай анимацию бесконечного вращения.",
+        "description": "Используй `@keyframes spin` и `animation: spin 2s infinite linear`.",
+        "initial_code": "<style>\n  .wheel { }\n</style>\n<div class=\"wheel\">O</div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "@keyframes spin"
+                },
+                {
+                    "type": "content_contain",
+                    "expected": "animation: spin 2s infinite linear"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_24_pseudo_before",
+        "category": "frontend",
+        "tier": "A",
+        "xp": 280,
+        "title": "Маркер Списка",
+        "story": "Добавь меч перед каждым пунктом списка через CSS.",
+        "description": "Используй `.item::before { content: '⚔️'; }`.",
+        "initial_code": "<style>\n  .item { }\n</style>\n<div class=\"item\">Quest 1</div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "::before"
+                },
+                {
+                    "type": "content_contain",
+                    "expected": "content: '⚔️'"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_25_calc_width",
+        "category": "frontend",
+        "tier": "B",
+        "xp": 175,
+        "title": "Точный Расчет",
+        "story": "Ширина должна быть 100% минус 20 пикселей.",
+        "description": "Используй `width: calc(100% - 20px)`.",
+        "initial_code": "<style>\n  .bar { background: green; }\n</style>\n<div class=\"bar\"></div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "width: calc(100% - 20px)"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_26_cursor_pointer",
+        "category": "frontend",
+        "tier": "C",
+        "xp": 80,
+        "title": "Указатель Мага",
+        "story": "Курсор должен меняться на руку при наведении.",
+        "description": "Добавь `cursor: pointer`.",
+        "initial_code": "<style>\n  .btn { }\n</style>\n<div class=\"btn\">Click</div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "cursor: pointer"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_27_user_select",
+        "category": "frontend",
+        "tier": "B",
+        "xp": 130,
+        "title": "Запретный Текст",
+        "story": "Текст древнего проклятия нельзя выделить мышкой.",
+        "description": "Используй `user-select: none`.",
+        "initial_code": "<style>\n  .curse { }\n</style>\n<div class=\"curse\">Do not copy</div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "user-select: none"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_28_filter_blur",
+        "category": "frontend",
+        "tier": "A",
+        "xp": 240,
+        "title": "Туман Войны",
+        "story": "Карта скрыта туманом (размытие).",
+        "description": "Используй `filter: blur(5px)`.",
+        "initial_code": "<style>\n  .map { }\n</style>\n<div class=\"map\">Secret</div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "filter: blur(5px)"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_29_variable_css",
+        "category": "frontend",
+        "tier": "A",
+        "xp": 250,
+        "title": "Переменная Цвета",
+        "story": "Определи главный цвет магии в переменной.",
+        "description": "Объяви `--main-color: blue` и используй `var(--main-color)`.",
+        "initial_code": "<style>\n  :root {\n    /* define var */\n  }\n  .magic { color: var(--main-color); }\n</style>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "--main-color:"
+                },
+                {
+                    "type": "content_contain",
+                    "expected": "var(--main-color)"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_30_important_rule",
+        "category": "frontend",
+        "tier": "C",
+        "xp": 100,
+        "title": "Приказ Короля",
+        "story": "Этот стиль должен перекрыть все остальные.",
+        "description": "Добавь `!important` к цвету текста.",
+        "initial_code": "<style>\n  .king { color: red; }\n</style>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "!important"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_31_nth_child",
+        "category": "frontend",
+        "tier": "B",
+        "xp": 160,
+        "title": "Зебра",
+        "story": "Покрась каждую вторую строку в серый.",
+        "description": "Используй `tr:nth-child(even)`.",
+        "initial_code": "<style>\n  /* selector */ { background: grey; }\n</style>\n<table><tr><td>1</td></tr><tr><td>2</td></tr></table>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": ":nth-child(even)"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_32_letter_spacing",
+        "category": "frontend",
+        "tier": "D",
+        "xp": 60,
+        "title": "Широкий Шаг",
+        "story": "Сделай буквы разреженными для эпичности.",
+        "description": "Добавь `letter-spacing: 5px`.",
+        "initial_code": "<style>\n  h1 { }\n</style>\n<h1>EPIC</h1>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "letter-spacing: 5px"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_33_text_transform",
+        "category": "frontend",
+        "tier": "D",
+        "xp": 65,
+        "title": "Крик Дракона",
+        "story": "Все буквы должны быть заглавными.",
+        "description": "Используй `text-transform: uppercase`.",
+        "initial_code": "<style>\n  .shout { }\n</style>\n<div class=\"shout\">Fus Ro Dah</div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "text-transform: uppercase"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_34_list_style",
+        "category": "frontend",
+        "tier": "C",
+        "xp": 80,
+        "title": "Без Маркеров",
+        "story": "Убери точки у списка задач.",
+        "description": "Используй `list-style: none`.",
+        "initial_code": "<style>\n  ul { }\n</style>\n<ul><li>Task</li></ul>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "list-style: none"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_35_background_image",
+        "category": "frontend",
+        "tier": "C",
+        "xp": 90,
+        "title": "Гобелен",
+        "story": "Поставь картинку на фон.",
+        "description": "Используй `background-image: url('bg.jpg')`.",
+        "initial_code": "<style>\n  .wall { }\n</style>\n<div class=\"wall\"></div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "background-image: url("
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_36_float_left",
+        "category": "frontend",
+        "tier": "C",
+        "xp": 100,
+        "title": "Обтекание Текста",
+        "story": "Картинка должна быть слева от текста.",
+        "description": "Добавь `float: left` для `img`.",
+        "initial_code": "<style>\n  img { }\n</style>\n<img src=\"x\"> Text...",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "float: left"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_37_max_width",
+        "category": "frontend",
+        "tier": "C",
+        "xp": 90,
+        "title": "Ограничитель",
+        "story": "Карта не должна быть шире 500px.",
+        "description": "Используй `max-width: 500px`.",
+        "initial_code": "<style>\n  .map { width: 100%; }\n</style>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "max-width: 500px"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_38_visibility_hidden",
+        "category": "frontend",
+        "tier": "B",
+        "xp": 140,
+        "title": "Невидимость",
+        "story": "Объект невидим, но занимает место.",
+        "description": "Используй `visibility: hidden` (не `display: none`).",
+        "initial_code": "<style>\n  .ninja { }\n</style>\n<div class=\"ninja\">Hi</div>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "visibility: hidden"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_39_outline_offset",
+        "category": "frontend",
+        "tier": "B",
+        "xp": 150,
+        "title": "Двойная Рамка",
+        "story": "Сделай отступ между рамкой и элементом.",
+        "description": "Используй `outline` и `outline-offset: 5px`.",
+        "initial_code": "<style>\n  .box { border: 1px solid black; }\n</style>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "outline-offset: 5px"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_40_text_shadow",
+        "category": "frontend",
+        "tier": "B",
+        "xp": 130,
+        "title": "Светящиеся Руны",
+        "story": "Добавь сияние тексту.",
+        "description": "Используй `text-shadow: 0 0 5px blue`.",
+        "initial_code": "<style>\n  .rune { color: white; }\n</style>\n<h1 class=\"rune\">Rune</h1>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "text-shadow:"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_41_column_count",
+        "category": "frontend",
+        "tier": "A",
+        "xp": 200,
+        "title": "Газетная Верстка",
+        "story": "Разбей текст на 3 колонки.",
+        "description": "Используй `column-count: 3`.",
+        "initial_code": "<style>\n  .article { }\n</style>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "column-count: 3"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_42_vh_unit",
+        "category": "frontend",
+        "tier": "B",
+        "xp": 160,
+        "title": "На Весь Экран",
+        "story": "Высота секции должна быть 100% от высоты экрана.",
+        "description": "Используй `height: 100vh`.",
+        "initial_code": "<style>\n  .hero-section { }\n</style>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "height: 100vh"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_43_flex_wrap",
+        "category": "frontend",
+        "tier": "B",
+        "xp": 150,
+        "title": "Перенос Строк",
+        "story": "Если предметы не влезают, переноси их на новую строку.",
+        "description": "Добавь `flex-wrap: wrap` в flex-контейнер.",
+        "initial_code": "<style>\n  .container { display: flex; }\n</style>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "flex-wrap: wrap"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_44_align_items",
+        "category": "frontend",
+        "tier": "B",
+        "xp": 155,
+        "title": "Центровка по Вертикали",
+        "story": "Выровняй элементы по центру поперечной оси.",
+        "description": "Используй `align-items: center`.",
+        "initial_code": "<style>\n  .flex { display: flex; height: 100px; }\n</style>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "align-items: center"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_45_grid_gap",
+        "category": "frontend",
+        "tier": "B",
+        "xp": 160,
+        "title": "Зазоры в Сетке",
+        "story": "Добавь расстояние между ячейками инвентаря.",
+        "description": "Используй `gap: 10px`.",
+        "initial_code": "<style>\n  .grid { display: grid; }\n</style>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "gap: 10px"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_46_clip_path",
+        "category": "frontend",
+        "tier": "A",
+        "xp": 280,
+        "title": "Форма Шестиугольника",
+        "story": "Обрежь элемент в форме полигона.",
+        "description": "Используй `clip-path: polygon(...)`.",
+        "initial_code": "<style>\n  .hex { background: gold; width: 100px; height: 100px; }\n</style>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "clip-path: polygon"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_47_font_family",
+        "category": "frontend",
+        "tier": "D",
+        "xp": 50,
+        "title": "Смена Шрифта",
+        "story": "Используй шрифт без засечек.",
+        "description": "Установи `font-family: sans-serif`.",
+        "initial_code": "<style>\n  body { }\n</style>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "font-family: sans-serif"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_48_table_border",
+        "category": "frontend",
+        "tier": "C",
+        "xp": 90,
+        "title": "Границы Таблицы",
+        "story": "Схлопни двойные рамки таблицы.",
+        "description": "Используй `border-collapse: collapse`.",
+        "initial_code": "<style>\n  table { }\n</style>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "border-collapse: collapse"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_49_overflow_hidden",
+        "category": "frontend",
+        "tier": "B",
+        "xp": 140,
+        "title": "Обрезанный Край",
+        "story": "Все, что выходит за рамки сундука, должно быть скрыто.",
+        "description": "Используй `overflow: hidden`.",
+        "initial_code": "<style>\n  .chest { width: 50px; height: 50px; }\n</style>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "overflow: hidden"
+                }
+            ]
+        }
+    },
+    {
+        "id": "fe_50_flex_direction",
+        "category": "frontend",
+        "tier": "B",
+        "xp": 150,
+        "title": "Вертикальный Строй",
+        "story": "Поставь элементы друг под другом в flex-контейнере.",
+        "description": "Используй `flex-direction: column`.",
+        "initial_code": "<style>\n  .col { display: flex; }\n</style>",
+        "check_logic": {
+            "engine": "iframe",
+            "cases": [
+                {
+                    "type": "content_contain",
+                    "expected": "flex-direction: column"
+                }
+            ]
+        }
+    }
+]

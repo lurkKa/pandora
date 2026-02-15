@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: pandora-academy
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /ping
+    envVars:
+      - key: PANDORA_JWT_SECRET
+        generateValue: true
+      - key: PANDORA_REVIEW_ONLY_MODE
+        value: "1"
+      - key: PANDORA_STRICT_DOCKER_RUNNERS
+        value: "1"
+      - key: PANDORA_LOW_RESOURCE_MODE
+        value: "1"
+      - key: PANDORA_BOOTSTRAP_ADMIN_USER
+        value: "admin"
+      - key: PANDORA_BOOTSTRAP_ADMIN_DISPLAY
+        value: "Sensei"
+      - key: PANDORA_AUTH_TRACE
+        value: "0"

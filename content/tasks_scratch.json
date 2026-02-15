@@ -1,0 +1,804 @@
+[
+    {
+        "id": "scr_01_move_cat",
+        "category": "scratch",
+        "tier": "D",
+        "xp": 50,
+        "title": "Первые Шаги",
+        "story": "Твой фамильяр (кот) хочет исследовать мир. Научи его ходить.",
+        "description": "Сделай так, чтобы кот прошел 10 шагов при нажатии на флажок.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "event_whenflagclicked",
+                "motion_movesteps"
+            ]
+        }
+    },
+    {
+        "id": "scr_02_say_hello",
+        "category": "scratch",
+        "tier": "D",
+        "xp": 50,
+        "title": "Голос!",
+        "story": "Научи кота приветствовать прохожих.",
+        "description": "Кот должен сказать 'Привет!' в течение 2 секунд.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "looks_sayforsecs"
+            ]
+        }
+    },
+    {
+        "id": "scr_03_turn_around",
+        "category": "scratch",
+        "tier": "D",
+        "xp": 55,
+        "title": "Кругом Марш",
+        "story": "Кот уперся в стену. Ему нужно развернуться.",
+        "description": "Поверни кота на 180 градусов (направо или налево).",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "motion_turnright"
+            ]
+        }
+    },
+    {
+        "id": "scr_04_glide_magic",
+        "category": "scratch",
+        "tier": "D",
+        "xp": 60,
+        "title": "Левитация",
+        "story": "Заставь кота плавно перелететь в другую точку.",
+        "description": "Используй блок 'Плыть 1 сек в случайное положение'.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "motion_glideto"
+            ]
+        }
+    },
+    {
+        "id": "scr_05_change_costume",
+        "category": "scratch",
+        "tier": "D",
+        "xp": 50,
+        "title": "Маскировка",
+        "story": "Кот пытается спрятаться, меняя внешность.",
+        "description": "Смени костюм кота на следующий.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "looks_nextcostume"
+            ]
+        }
+    },
+    {
+        "id": "scr_06_meow_sound",
+        "category": "scratch",
+        "tier": "D",
+        "xp": 50,
+        "title": "Песнь Кота",
+        "story": "Коту скучно. Пусть он мяукнет.",
+        "description": "Воспроизведи звук 'Meow' до конца.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "sound_playuntildone"
+            ]
+        }
+    },
+    {
+        "id": "scr_07_grow_giant",
+        "category": "scratch",
+        "tier": "D",
+        "xp": 65,
+        "title": "Зелье Роста",
+        "story": "Кот выпил странное зелье и начал расти.",
+        "description": "Увеличь размер кота на 10 при нажатии пробела.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "event_whenkeypressed",
+                "looks_changesizeby"
+            ]
+        }
+    },
+    {
+        "id": "scr_08_go_to_center",
+        "category": "scratch",
+        "tier": "D",
+        "xp": 55,
+        "title": "Возвращение Домой",
+        "story": "Верни кота в центр мира (0, 0).",
+        "description": "Перейди в x: 0, y: 0.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "motion_gotoxy"
+            ]
+        }
+    },
+    {
+        "id": "scr_09_forever_dance",
+        "category": "scratch",
+        "tier": "C",
+        "xp": 80,
+        "title": "Бесконечный Танец",
+        "story": "Кот попал под заклятие вечного танца.",
+        "description": "Используй цикл 'Всегда', чтобы постоянно менять костюм.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "control_forever",
+                "looks_nextcostume"
+            ]
+        }
+    },
+    {
+        "id": "scr_10_bounce_wall",
+        "category": "scratch",
+        "tier": "C",
+        "xp": 85,
+        "title": "Пинг-Понг",
+        "story": "Кот бегает туда-сюда, отталкиваясь от стен.",
+        "description": "Используй 'Если касается края, оттолкнуться' внутри цикла.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "motion_ifonedgebounce"
+            ]
+        }
+    },
+    {
+        "id": "scr_11_ask_name",
+        "category": "scratch",
+        "tier": "C",
+        "xp": 90,
+        "title": "Интервьюер",
+        "story": "Кот учится брать интервью у героев.",
+        "description": "Спроси 'Как тебя зовут?' и жди ответа.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "sensing_askandwait"
+            ]
+        }
+    },
+    {
+        "id": "scr_12_say_answer",
+        "category": "scratch",
+        "tier": "C",
+        "xp": 95,
+        "title": "Эхо Ответа",
+        "story": "Кот должен повторить то, что ему сказали.",
+        "description": "Скажи блок 'ответ' (из сенсоров).",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "looks_say",
+                "sensing_answer"
+            ]
+        }
+    },
+    {
+        "id": "scr_13_wait_sec",
+        "category": "scratch",
+        "tier": "C",
+        "xp": 80,
+        "title": "Терпение",
+        "story": "Кот должен подождать перед прыжком.",
+        "description": "Жди 1 секунду между действиями.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "control_wait"
+            ]
+        }
+    },
+    {
+        "id": "scr_14_repeat_10",
+        "category": "scratch",
+        "tier": "C",
+        "xp": 85,
+        "title": "Десять Прыжков",
+        "story": "Сделай зарядку: ровно 10 прыжков.",
+        "description": "Используй цикл 'Повторить 10 раз' для изменения Y.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "control_repeat",
+                "motion_changeyby"
+            ]
+        }
+    },
+    {
+        "id": "scr_15_color_effect",
+        "category": "scratch",
+        "tier": "C",
+        "xp": 90,
+        "title": "Диско-Кот",
+        "story": "Кот переливается всеми цветами радуги.",
+        "description": "Изменяй эффект 'цвет' на 25 бесконечно.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "looks_changeeffectby"
+            ]
+        }
+    },
+    {
+        "id": "scr_16_click_interaction",
+        "category": "scratch",
+        "tier": "B",
+        "xp": 140,
+        "title": "Ловля Кота",
+        "story": "Кот убегает, если на него нажать.",
+        "description": "Когда спрайт нажат, перейди в случайное положение.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "event_whenthisspriteclicked",
+                "motion_gotorandom"
+            ]
+        }
+    },
+    {
+        "id": "scr_17_touching_mouse",
+        "category": "scratch",
+        "tier": "B",
+        "xp": 150,
+        "title": "Боязнь Мыши",
+        "story": "Если курсор рядом, кот должен прятаться.",
+        "description": "Если касается указателя мыши -> спрятаться, иначе -> показаться.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "sensing_touchingobject",
+                "control_if_else",
+                "looks_hide"
+            ]
+        }
+    },
+    {
+        "id": "scr_18_variable_score",
+        "category": "scratch",
+        "tier": "B",
+        "xp": 160,
+        "title": "Счетчик Очков",
+        "story": "Создай переменную 'Score' и увеличивай ее при клике.",
+        "description": "При нажатии на спрайт измени переменную на 1.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "data_changevariableby"
+            ]
+        }
+    },
+    {
+        "id": "scr_19_reset_score",
+        "category": "scratch",
+        "tier": "B",
+        "xp": 155,
+        "title": "Новая Игра",
+        "story": "При запуске флага счет должен быть 0.",
+        "description": "Задай переменной значение 0 при старте.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "data_setvariableto"
+            ]
+        }
+    },
+    {
+        "id": "scr_20_broadcast_msg",
+        "category": "scratch",
+        "tier": "B",
+        "xp": 170,
+        "title": "Сигнал Атаки",
+        "story": "Командир дает сигнал 'Атака!'. Солдаты должны реагировать.",
+        "description": "Передай сообщение 'Attack'. Другой скрипт должен его принять.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "event_broadcast",
+                "event_whenbroadcastreceived"
+            ]
+        }
+    },
+    {
+        "id": "scr_21_switch_backdrop",
+        "category": "scratch",
+        "tier": "B",
+        "xp": 165,
+        "title": "Смена Локации",
+        "story": "Когда герой доходит до края (x > 200), смени фон на 'Forest'.",
+        "description": "Если x > 200 -> сменить фон.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "looks_switchbackdropto",
+                "operator_gt",
+                "motion_xposition"
+            ]
+        }
+    },
+    {
+        "id": "scr_22_glid_to_mouse",
+        "category": "scratch",
+        "tier": "C",
+        "xp": 100,
+        "title": "Слежка",
+        "story": "Кот должен плавно следовать за мышкой.",
+        "description": "Плыть 0.5 сек к указателю мыши (в цикле).",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "motion_glideto"
+            ]
+        }
+    },
+    {
+        "id": "scr_23_play_note",
+        "category": "scratch",
+        "tier": "C",
+        "xp": 110,
+        "title": "Музыкант",
+        "story": "Сыграй ноту 60 (До) в течение 0.5 тактов.",
+        "description": "Используй расширение 'Музыка' (если доступно) или просто звук.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual"
+        }
+    },
+    {
+        "id": "scr_24_rotation_style",
+        "category": "scratch",
+        "tier": "C",
+        "xp": 95,
+        "title": "Не Вверх Ногами",
+        "story": "Кот ходит по потолку, но не падает на голову. Установи стиль вращения.",
+        "description": "Установи стиль вращения 'влево-вправо'.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "motion_setrotationstyle"
+            ]
+        }
+    },
+    {
+        "id": "scr_25_touching_color",
+        "category": "scratch",
+        "tier": "B",
+        "xp": 175,
+        "title": "Лава!",
+        "story": "Не наступай на красное! Если коснулся цвета, вернись на старт.",
+        "description": "Если касается цвета (красный) -> перейти в (0, 0).",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "sensing_touchingcolor"
+            ]
+        }
+    },
+    {
+        "id": "scr_26_pen_draw",
+        "category": "scratch",
+        "tier": "B",
+        "xp": 180,
+        "title": "След Героя",
+        "story": "Оставляй след за собой.",
+        "description": "Используй 'Опустить перо' и двигайся. (Требует расширение Перо).",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual"
+        }
+    },
+    {
+        "id": "scr_27_clone_war",
+        "category": "scratch",
+        "tier": "A",
+        "xp": 250,
+        "title": "Армия Клонов",
+        "story": "Создай копию себя, которая бежит вперед.",
+        "description": "Создать клон себя. Когда я начинаю как клон -> идти 10 шагов.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "control_create_clone_of",
+                "control_start_as_clone"
+            ]
+        }
+    },
+    {
+        "id": "scr_28_delete_clone",
+        "category": "scratch",
+        "tier": "A",
+        "xp": 260,
+        "title": "Исчезновение",
+        "story": "Клоны не должны жить вечно. Удали клон, когда он коснется края.",
+        "description": "Если касается края -> удалить клон.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "control_delete_this_clone"
+            ]
+        }
+    },
+    {
+        "id": "scr_29_custom_block",
+        "category": "scratch",
+        "tier": "A",
+        "xp": 280,
+        "title": "Свое Заклинание",
+        "story": "Создай собственный блок 'Jump', чтобы прыгать.",
+        "description": "Определи блок Jump: Y+10, ждать, Y-10.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "procedures_definition"
+            ]
+        }
+    },
+    {
+        "id": "scr_30_list_add",
+        "category": "scratch",
+        "tier": "B",
+        "xp": 185,
+        "title": "Инвентарь",
+        "story": "Создай список 'Items' и добавь туда 'Sword'.",
+        "description": "Добавить 'Sword' к Items.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "data_addtolist"
+            ]
+        }
+    },
+    {
+        "id": "scr_31_timer_game",
+        "category": "scratch",
+        "tier": "B",
+        "xp": 170,
+        "title": "Таймер",
+        "story": "Игра закончится через 10 секунд.",
+        "description": "Жди, пока таймер > 10, затем стоп все.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "sensing_timer",
+                "operator_gt"
+            ]
+        }
+    },
+    {
+        "id": "scr_32_logic_and",
+        "category": "scratch",
+        "tier": "B",
+        "xp": 160,
+        "title": "Двойное Условие",
+        "story": "Дверь откроется, если есть Ключ И ты стоишь рядом.",
+        "description": "Если (Touch Actor1) И (Key = 1) -> ...",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "operator_and"
+            ]
+        }
+    },
+    {
+        "id": "scr_33_random_pos",
+        "category": "scratch",
+        "tier": "C",
+        "xp": 100,
+        "title": "Телепортация",
+        "story": "Телепортируйся в случайную точку X: -200 до 200.",
+        "description": "Перейти в x: (случайное от -200 до 200).",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "operator_random"
+            ]
+        }
+    },
+    {
+        "id": "scr_34_ghost_effect",
+        "category": "scratch",
+        "tier": "C",
+        "xp": 90,
+        "title": "Призрак",
+        "story": "Сделай спрайт полупрозрачным (эффект призрака 50).",
+        "description": "Установить эффект 'призрак' в 50.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "looks_seteffectto"
+            ]
+        }
+    },
+    {
+        "id": "scr_35_stop_all",
+        "category": "scratch",
+        "tier": "B",
+        "xp": 150,
+        "title": "Конец Игры",
+        "story": "Если жизни < 1, останови игру.",
+        "description": "Если Lives < 1 -> Стоп все.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "control_stop"
+            ]
+        }
+    },
+    {
+        "id": "scr_36_x_position",
+        "category": "scratch",
+        "tier": "C",
+        "xp": 100,
+        "title": "Координатор",
+        "story": "Скажи свои координаты X и Y.",
+        "description": "Сказать по очереди положение X и Y.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "motion_xposition",
+                "motion_yposition"
+            ]
+        }
+    },
+    {
+        "id": "scr_37_join_string",
+        "category": "scratch",
+        "tier": "C",
+        "xp": 105,
+        "title": "Объединитель",
+        "story": "Скажи 'Привет ' + Имя.",
+        "description": "Используй блок 'Объединить' (Join).",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "operator_join"
+            ]
+        }
+    },
+    {
+        "id": "scr_38_mod_operator",
+        "category": "scratch",
+        "tier": "B",
+        "xp": 140,
+        "title": "Чет-Нечет",
+        "story": "Проверь, делится ли число на 2 (остаток деления).",
+        "description": "Используй блок 'остаток от деления' (mod).",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "operator_mod"
+            ]
+        }
+    },
+    {
+        "id": "scr_39_mouse_down",
+        "category": "scratch",
+        "tier": "C",
+        "xp": 95,
+        "title": "Клик Мыши",
+        "story": "Стреляй, если нажата кнопка мыши.",
+        "description": "Если мышь нажата -> ...",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "sensing_mousedown"
+            ]
+        }
+    },
+    {
+        "id": "scr_40_distance_to",
+        "category": "scratch",
+        "tier": "B",
+        "xp": 160,
+        "title": "Радар",
+        "story": "Если расстояние до врага < 50, беги!",
+        "description": "Если 'расстояние до...' < 50...",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "sensing_distanceto"
+            ]
+        }
+    },
+    {
+        "id": "scr_41_show_hide_list",
+        "category": "scratch",
+        "tier": "B",
+        "xp": 130,
+        "title": "Секретный Список",
+        "story": "Скрой список инвентаря во время заставки.",
+        "description": "Используй 'Скрыть список'.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "data_hidelist"
+            ]
+        }
+    },
+    {
+        "id": "scr_42_length_of",
+        "category": "scratch",
+        "tier": "C",
+        "xp": 100,
+        "title": "Длина Имени",
+        "story": "Скажи, сколько букв в твоем имени.",
+        "description": "Сказать 'длина строки...'.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "operator_length"
+            ]
+        }
+    },
+    {
+        "id": "scr_43_contains",
+        "category": "scratch",
+        "tier": "C",
+        "xp": 110,
+        "title": "Поиск Буквы",
+        "story": "Есть ли в твоем имени буква 'А'?",
+        "description": "Если (имя содержит 'а') -> ...",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "operator_contains"
+            ]
+        }
+    },
+    {
+        "id": "scr_44_round_num",
+        "category": "scratch",
+        "tier": "C",
+        "xp": 90,
+        "title": "Округление",
+        "story": "Торговец не принимает мелочь. Округли цену.",
+        "description": "Сказать 'округлить(3.5)'.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "operator_round"
+            ]
+        }
+    },
+    {
+        "id": "scr_45_next_backdrop",
+        "category": "scratch",
+        "tier": "D",
+        "xp": 60,
+        "title": "Слайдшоу",
+        "story": "Покажи следующий фон.",
+        "description": "Следующий фон.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "looks_nextbackdrop"
+            ]
+        }
+    },
+    {
+        "id": "scr_46_change_vol",
+        "category": "scratch",
+        "tier": "D",
+        "xp": 65,
+        "title": "Громкость",
+        "story": "Убавь громкость, здесь нужно быть тихим.",
+        "description": "Установить громкость 50%.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "sound_setvolumeto"
+            ]
+        }
+    },
+    {
+        "id": "scr_47_draggable",
+        "category": "scratch",
+        "tier": "C",
+        "xp": 80,
+        "title": "Перетаскивание",
+        "story": "Сделай так, чтобы предмет можно было таскать мышкой в плеере.",
+        "description": "Установить режим перетаскивания 'можно'.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "sensing_setdragmode"
+            ]
+        }
+    },
+    {
+        "id": "scr_48_layer_front",
+        "category": "scratch",
+        "tier": "C",
+        "xp": 85,
+        "title": "На Передний План",
+        "story": "Герой должен быть поверх деревьев.",
+        "description": "Перейти на передний слой.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual",
+            "required_blocks": [
+                "looks_gotofrontback"
+            ]
+        }
+    },
+    {
+        "id": "scr_49_control_spawn",
+        "category": "scratch",
+        "tier": "S",
+        "xp": 500,
+        "title": "Генератор Волн",
+        "story": "Создавай врагов каждые 3 секунды, но не больше 10.",
+        "description": "Сложный скрипт с переменными, клонами и таймером.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual"
+        }
+    },
+    {
+        "id": "scr_50_boss_fight",
+        "category": "scratch",
+        "tier": "S",
+        "xp": 800,
+        "title": "Финальная Битва",
+        "story": "Создай игру, где нужно уворачиваться от снарядов Босса 30 секунд.",
+        "description": "Создай полноценную мини-игру.",
+        "initial_code": "https://scratch.mit.edu/projects/editor/",
+        "check_logic": {
+            "engine": "manual"
+        }
+    }
+]

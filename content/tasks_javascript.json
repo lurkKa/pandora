@@ -1,0 +1,1070 @@
+[
+    {
+        "id": "js_01_hero_name",
+        "category": "javascript",
+        "tier": "D",
+        "xp": 50,
+        "title": "Имя Героя",
+        "story": "Регистратор в гильдии просит записать твое имя в журнал.",
+        "description": "Создай переменную `heroName` и присвой ей строку своего имени (например, `\"Alex\"`).",
+        "initial_code": "// Твое имя\nlet heroName = \"\";",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "type": "variable_value",
+                    "name": "heroName",
+                    "expected": "string"
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_02_potion_price",
+        "category": "javascript",
+        "tier": "D",
+        "xp": 50,
+        "title": "Цена Зелья",
+        "story": "Торговец продает зелья по 10 монет. Сколько стоит 5 штук?",
+        "description": "Напиши функцию `calcPrice(amount)`, возвращающую стоимость (`amount * 10`).",
+        "initial_code": "function calcPrice(amount) {\n    return 0;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "calcPrice(5)",
+                    "expected": 50
+                },
+                {
+                    "code": "calcPrice(0)",
+                    "expected": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_03_guild_welcome",
+        "category": "javascript",
+        "tier": "D",
+        "xp": 55,
+        "title": "Приветствие Гильдии",
+        "story": "Мастер гильдии приветствует новичка.",
+        "description": "Напиши функцию `greet(name)`, возвращающую `\"Welcome, \" + name + \"!\"`.",
+        "initial_code": "function greet(name) {\n    return \"\";\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "greet('Hero')",
+                    "expected": "Welcome, Hero!"
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_04_damage_calc",
+        "category": "javascript",
+        "tier": "D",
+        "xp": 60,
+        "title": "Расчет Урона",
+        "story": "Твой меч наносит базовый урон, усиленный силой героя.",
+        "description": "Функция `damage(base, str)` должна возвращать сумму `base + str`.",
+        "initial_code": "function damage(base, str) {\n    return 0;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "damage(10, 5)",
+                    "expected": 15
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_05_check_gold",
+        "category": "javascript",
+        "tier": "C",
+        "xp": 80,
+        "title": "Проверка Золота",
+        "story": "Хватит ли тебе денег на меч стоимостью 100 монет?",
+        "description": "Функция `canBuy(gold)` возвращает `true`, если `gold >= 100`, иначе `false`.",
+        "initial_code": "function canBuy(gold) {\n    return false;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "canBuy(100)",
+                    "expected": true
+                },
+                {
+                    "code": "canBuy(50)",
+                    "expected": false
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_06_quest_status",
+        "category": "javascript",
+        "tier": "C",
+        "xp": 85,
+        "title": "Статус Квеста",
+        "story": "Квест завершен, если убито 10 монстров И найден артефакт.",
+        "description": "Функция `isComplete(kills, foundArtifact)` возвращает `true` только если оба условия выполняются (`kills >= 10`).",
+        "initial_code": "function isComplete(kills, foundArtifact) {\n    return false;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "isComplete(10, true)",
+                    "expected": true
+                },
+                {
+                    "code": "isComplete(9, true)",
+                    "expected": false
+                },
+                {
+                    "code": "isComplete(15, false)",
+                    "expected": false
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_07_loot_first",
+        "category": "javascript",
+        "tier": "C",
+        "xp": 90,
+        "title": "Первая Находка",
+        "story": "Из сундука первым достают то, что сверху.",
+        "description": "Функция `firstItem(loot)` возвращает первый элемент массива (индекс 0).",
+        "initial_code": "function firstItem(loot) {\n    return null;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "firstItem(['gold', 'wood'])",
+                    "expected": "gold"
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_08_last_survivor",
+        "category": "javascript",
+        "tier": "C",
+        "xp": 95,
+        "title": "Последний Выживший",
+        "story": "В списке отряда нужно найти того, кто замыкает строй.",
+        "description": "Функция `lastHero(heroes)` возвращает последний элемент массива.",
+        "initial_code": "function lastHero(heroes) {\n    // heroes[heroes.length - 1]\n    return null;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "lastHero(['A', 'B', 'C'])",
+                    "expected": "C"
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_09_add_potion",
+        "category": "javascript",
+        "tier": "C",
+        "xp": 100,
+        "title": "Покупка Зелья",
+        "story": "Ты купил еще одно зелье. Добавь его в инвентарь.",
+        "description": "Функция `addPotion(inventory)` принимает массив и добавляет в конец строку `'Potion'`. Верни измененный массив.",
+        "initial_code": "function addPotion(inventory) {\n    // push\n    return inventory;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "addPotion(['sword'])",
+                    "expected": [
+                        "sword",
+                        "Potion"
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_10_count_arrows",
+        "category": "javascript",
+        "tier": "C",
+        "xp": 110,
+        "title": "Подсчет Стрел",
+        "story": "Лучник пересчитывает стрелы в колчане.",
+        "description": "Функция `countArrows(quiver)` возвращает длину массива.",
+        "initial_code": "function countArrows(quiver) {\n    return 0;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "countArrows([1, 1, 1])",
+                    "expected": 3
+                },
+                {
+                    "code": "countArrows([])",
+                    "expected": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_11_find_boss",
+        "category": "javascript",
+        "tier": "B",
+        "xp": 150,
+        "title": "Охота на Босса",
+        "story": "Найди монстра с флагом `isBoss: true`.",
+        "description": "Функция `findBoss(monsters)` принимает массив объектов. Найди первого босса и верни его объект. Если нет, верни `null`.",
+        "initial_code": "function findBoss(monsters) {\n    return null;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "findBoss([{name:'A'}, {name:'B', isBoss:true}])",
+                    "expected": {
+                        "name": "B",
+                        "isBoss": true
+                    }
+                },
+                {
+                    "code": "findBoss([{name:'A'}])",
+                    "expected": null
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_12_filter_ruins",
+        "category": "javascript",
+        "tier": "B",
+        "xp": 160,
+        "title": "Опасные Руины",
+        "story": "На карте отмечены уровни опасности. Оставь только безопасные зоны (< 5).",
+        "description": "Функция `safeZones(levels)` фильтрует массив чисел, оставляя те, что меньше 5.",
+        "initial_code": "function safeZones(levels) {\n    // filter\n    return [];\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "safeZones([1, 10, 3, 8])",
+                    "expected": [
+                        1,
+                        3
+                    ]
+                },
+                {
+                    "code": "safeZones([10])",
+                    "expected": []
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_13_map_coordinates",
+        "category": "javascript",
+        "tier": "B",
+        "xp": 155,
+        "title": "Сдвиг Координат",
+        "story": "Землетрясение сдвинуло все ориентиры на 10 метров на восток.",
+        "description": "Функция `shiftCoords(coords)` принимает массив чисел и прибавляет ко всем 10. Верни новый массив.",
+        "initial_code": "function shiftCoords(coords) {\n    // map\n    return [];\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "shiftCoords([0, 5])",
+                    "expected": [
+                        10,
+                        15
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_14_total_loot_value",
+        "category": "javascript",
+        "tier": "B",
+        "xp": 170,
+        "title": "Стоимость Добычи",
+        "story": "Оцени общую стоимость всех предметов в телеге.",
+        "description": "Функция `totalValue(items)` принимает массив объектов `[{price: 10}, {price: 20}]`. Верни сумму всех `price`.",
+        "initial_code": "function totalValue(items) {\n    // reduce\n    return 0;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "totalValue([{price:10}, {price:20}])",
+                    "expected": 30
+                },
+                {
+                    "code": "totalValue([])",
+                    "expected": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_15_spells_list",
+        "category": "javascript",
+        "tier": "B",
+        "xp": 180,
+        "title": "Список Заклинаний",
+        "story": "Маг хочет список названий заклинаний из своей книги.",
+        "description": "Функция `getSpellNames(spells)` принимает массив объектов `[{name: 'Fire'}, {name: 'Ice'}]` и возвращает массив имен `['Fire', 'Ice']`.",
+        "initial_code": "function getSpellNames(spells) {\n    // map\n    return [];\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "getSpellNames([{name:'A'}, {name:'B'}])",
+                    "expected": [
+                        "A",
+                        "B"
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_16_unique_runes",
+        "category": "javascript",
+        "tier": "A",
+        "xp": 250,
+        "title": "Уникальные Руны",
+        "story": "Убери дубликаты из мешка с рунами.",
+        "description": "Функция `uniqueRunes(runes)` возвращает массив уникальных строк. Используй `Set`.",
+        "initial_code": "function uniqueRunes(runes) {\n    return [];\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "Array.from(new Set(uniqueRunes(['A', 'A', 'B']))).sort()",
+                    "expected": [
+                        "A",
+                        "B"
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_17_function_factory",
+        "category": "javascript",
+        "tier": "A",
+        "xp": 300,
+        "title": "Фабрика Големов",
+        "story": "Создай заклинание, которое создает големов разной силы.",
+        "description": "Напиши функцию `createGolemFactory(power)`, которая возвращает новую функцию. Эта новая функция при вызове должна возвращать объект `{type: 'Golem', power: power}`.",
+        "initial_code": "function createGolemFactory(power) {\n    return function() {\n        // ...\n    };\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "createGolemFactory(10)()",
+                    "expected": {
+                        "type": "Golem",
+                        "power": 10
+                    }
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_18_sort_heroes",
+        "category": "javascript",
+        "tier": "A",
+        "xp": 280,
+        "title": "Рейтинг Героев",
+        "story": "Отсортируй героев по уровню (от высокого к низкому).",
+        "description": "Функция `sortHeroes(heroes)` принимает массив `{name, level}`. Верни отсортированный массив.",
+        "initial_code": "function sortHeroes(heroes) {\n    // sort\n    return heroes;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "sortHeroes([{level: 1}, {level: 10}])",
+                    "expected": [
+                        {
+                            "level": 10
+                        },
+                        {
+                            "level": 1
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_19_magic_closure",
+        "category": "javascript",
+        "tier": "S",
+        "xp": 500,
+        "title": "Магический Накопитель",
+        "story": "Артефакт накапливает ману при каждом касании.",
+        "description": "Функция `createManaStorage()` должна возвращать функцию. Каждый вызов этой функции увеличивает внутренний счетчик на 10 и возвращает его.",
+        "initial_code": "function createManaStorage() {\n    let mana = 0;\n    return function() {\n        // mana += 10\n    };\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "(() => { const s = createManaStorage(); s(); return s(); })()",
+                    "expected": 20
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_20_async_quest",
+        "category": "javascript",
+        "tier": "S",
+        "xp": 600,
+        "title": "Долгое Путешествие",
+        "story": "Герой отправился в поход. Дождись его возвращения.",
+        "description": "Функция `awaitHero(promise)` должна использовать `await` и вернуть результат промиса + ' returned'.",
+        "initial_code": "async function awaitHero(promise) {\n    // result = await ...\n    return \"\";\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "await awaitHero(Promise.resolve('Hero'))",
+                    "expected": "Hero returned"
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_21_object_keys",
+        "category": "javascript",
+        "tier": "B",
+        "xp": 140,
+        "title": "Ключи Сундука",
+        "story": "В сундуке лежат предметы. Какие именно?",
+        "description": "Функция `chestContents(chest)` возвращает массив ключей объекта `chest`.",
+        "initial_code": "function chestContents(chest) {\n    // Object.keys\n    return [];\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "chestContents({gold: 10, map: 1}).sort()",
+                    "expected": [
+                        "gold",
+                        "map"
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_22_reverse_path",
+        "category": "javascript",
+        "tier": "C",
+        "xp": 90,
+        "title": "Путь Назад",
+        "story": "Чтобы выбраться, нужно пройти путь в обратном порядке.",
+        "description": "Функция `reversePath(path)` принимает массив и возвращает его реверс.",
+        "initial_code": "function reversePath(path) {\n    // reverse\n    return [];\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "reversePath([1, 2, 3])",
+                    "expected": [
+                        3,
+                        2,
+                        1
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_23_hero_class",
+        "category": "javascript",
+        "tier": "A",
+        "xp": 280,
+        "title": "Класс Героя ES6",
+        "story": "Создай шаблон для новых рекрутов с помощью магии Классов.",
+        "description": "Создай класс `Hero` с конструктором (name) и методом `getName()`, возвращающим имя.",
+        "initial_code": "class Hero {\n    constructor(name) {\n        this.name = name;\n    }\n    getName() {\n        return \"\";\n    }\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "new Hero('Al').getName()",
+                    "expected": "Al"
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_24_parse_map",
+        "category": "javascript",
+        "tier": "B",
+        "xp": 160,
+        "title": "Чтение Карты",
+        "story": "Карта зашифрована в JSON строке. Раскодируй её.",
+        "description": "Функция `parseMap(jsonStr)` должна возвращать объект из JSON строки.",
+        "initial_code": "function parseMap(jsonStr) {\n    // JSON.parse\n    return {};\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "parseMap('{\"x\":10}')",
+                    "expected": {
+                        "x": 10
+                    }
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_25_stringify_loot",
+        "category": "javascript",
+        "tier": "B",
+        "xp": 160,
+        "title": "Запись в Летопись",
+        "story": "Сохрани список добычи в строку для архива.",
+        "description": "Функция `saveLoot(loot)` должна возвращать JSON строку из объекта.",
+        "initial_code": "function saveLoot(loot) {\n    // JSON.stringify\n    return \"\";\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "saveLoot({gold: 10})",
+                    "expected": "{\"gold\":10}"
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_26_potion_mix",
+        "category": "javascript",
+        "tier": "A",
+        "xp": 270,
+        "title": "Смешивание Зелий",
+        "story": "Слей два эффекта в один объект. Свойства второго приоритетнее.",
+        "description": "Функция `mix(p1, p2)` объединяет свойства объектов p1 и p2 (p2 перезаписывает p1).",
+        "initial_code": "function mix(p1, p2) {\n    // Object.assign или spread\n    return {};\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "mix({a:1}, {b:2})",
+                    "expected": {
+                        "a": 1,
+                        "b": 2
+                    }
+                },
+                {
+                    "code": "mix({a:1}, {a:2})",
+                    "expected": {
+                        "a": 2
+                    }
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_27_array_includes",
+        "category": "javascript",
+        "tier": "C",
+        "xp": 85,
+        "title": "Есть ли Ключ?",
+        "story": "Проверь, лежит ли в сумке ключ.",
+        "description": "Функция `hasKey(bag)` возвращает `true`, если в массиве есть `'key'`.",
+        "initial_code": "function hasKey(bag) {\n    // includes\n    return false;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "hasKey(['stone', 'key'])",
+                    "expected": true
+                },
+                {
+                    "code": "hasKey(['stone'])",
+                    "expected": false
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_28_string_split",
+        "category": "javascript",
+        "tier": "C",
+        "xp": 95,
+        "title": "Разделение Отряда",
+        "story": "Список имен записан через запятую. Раздели его на массив.",
+        "description": "Функция `splitNames(str)` принимает строку `'A,B,C'` и возвращает `['A','B','C']`.",
+        "initial_code": "function splitNames(str) {\n    // split\n    return [];\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "splitNames('A,B')",
+                    "expected": [
+                        "A",
+                        "B"
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_29_array_join",
+        "category": "javascript",
+        "tier": "C",
+        "xp": 95,
+        "title": "Сбор Отряда",
+        "story": "Собери имена из массива в одну строку через пробел.",
+        "description": "Функция `joinHeroes(arr)` возвращает строку.",
+        "initial_code": "function joinHeroes(arr) {\n    // join\n    return \"\";\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "joinHeroes(['A', 'B'])",
+                    "expected": "A B"
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_30_math_max",
+        "category": "javascript",
+        "tier": "C",
+        "xp": 80,
+        "title": "Сильнейший Удар",
+        "story": "Какой из двух ударов нанес больше урона?",
+        "description": "Функция `maxHit(a, b)` возвращает большее число.",
+        "initial_code": "function maxHit(a, b) {\n    // Math.max\n    return 0;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "maxHit(10, 5)",
+                    "expected": 10
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_31_template_str",
+        "category": "javascript",
+        "tier": "C",
+        "xp": 100,
+        "title": "Магический Свиток",
+        "story": "Впиши имя и уровень в бланк заклинания.",
+        "description": "Функция `info(name, lvl)` должна вернуть строку `Name: X, Lvl: Y` используя шаблонные строки.",
+        "initial_code": "function info(name, lvl) {\n    return ``;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "info('A', 1)",
+                    "expected": "Name: A, Lvl: 1"
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_32_ternary_potion",
+        "category": "javascript",
+        "tier": "D",
+        "xp": 70,
+        "title": "Выбор Зелья",
+        "story": "Если ты ранен (hp < 100), пей красное зелье, иначе синее.",
+        "description": "Функция `drink(hp)` возвращает `'Red'` если `hp < 100`, иначе `'Blue'`.",
+        "initial_code": "function drink(hp) {\n    return hp < 100 ? '' : '';\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "drink(90)",
+                    "expected": "Red"
+                },
+                {
+                    "code": "drink(100)",
+                    "expected": "Blue"
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_33_type_check",
+        "category": "javascript",
+        "tier": "C",
+        "xp": 85,
+        "title": "Оценка Предмета",
+        "story": "Что это - меч (строка) или золото (число)?",
+        "description": "Функция `getType(item)` возвращает тип переменной (`typeof`).",
+        "initial_code": "function getType(item) {\n    // Используй typeof\n    return '';\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "getType(10)",
+                    "expected": "number"
+                },
+                {
+                    "code": "getType('s')",
+                    "expected": "string"
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_34_slice_map",
+        "category": "javascript",
+        "tier": "C",
+        "xp": 90,
+        "title": "Фрагмент Карты",
+        "story": "Тебе нужна только часть карты от индекса 1 до 3.",
+        "description": "Функция `getPart(arr)` возвращает `arr.slice(1, 3)`.",
+        "initial_code": "function getPart(arr) {\n    return [];\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "getPart([0, 1, 2, 3, 4])",
+                    "expected": [
+                        1,
+                        2
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_35_replace_name",
+        "category": "javascript",
+        "tier": "B",
+        "xp": 140,
+        "title": "Смена Имени",
+        "story": "В документе нужно заменить 'Goblin' на 'Orc'.",
+        "description": "Функция `fixDoc(text)` заменяет первое вхождение 'Goblin' на 'Orc'.",
+        "initial_code": "function fixDoc(text) {\n    // replace\n    return \"\";\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "fixDoc('Goblin Chief')",
+                    "expected": "Orc Chief"
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_36_while_loop",
+        "category": "javascript",
+        "tier": "C",
+        "xp": 110,
+        "title": "Бесконечая Лестница",
+        "story": "Спускайся, пока hp > 0. (Симуляция цикла).",
+        "description": "Функция `descend(hp)` должна возвращать количество шагов, пока `hp` уменьшается на 10 до 0.",
+        "initial_code": "function descend(hp) {\n    let steps = 0;\n    // Используй while (hp > 0) { hp -= 10; steps++; }\n    return steps;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "descend(30)",
+                    "expected": 3
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_37_for_loop",
+        "category": "javascript",
+        "tier": "C",
+        "xp": 105,
+        "title": "Сбор Трав",
+        "story": "Пройди по полю 5 раз и собери 5 трав.",
+        "description": "Функция `gather()` должна вернуть число 5, используя цикл `for`.",
+        "initial_code": "function gather() {\n    let count = 0;\n    // for loop\n    return count;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "gather()",
+                    "expected": 5
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_38_arrow_func",
+        "category": "javascript",
+        "tier": "B",
+        "xp": 130,
+        "title": "Быстрая Стрела",
+        "story": "Используй современную магию стрелочных функций.",
+        "description": "Присвой переменной `add` стрелочную функцию, которая складывает два числа.",
+        "initial_code": "const add = (a, b) => 0; // Fix this",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "add(1, 2)",
+                    "expected": 3
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_39_callback_spell",
+        "category": "javascript",
+        "tier": "A",
+        "xp": 260,
+        "title": "Ритуал Призыва",
+        "story": "Ритуал требует выполнить действие после подготовки.",
+        "description": "Функция `ritual(callback)` должна вызвать переданную функцию `callback` и вернуть её результат.",
+        "initial_code": "function ritual(cb) {\n    // Вызови callback функцию и верни результат\n    return null;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "ritual(() => 5)",
+                    "expected": 5
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_40_try_catch",
+        "category": "javascript",
+        "tier": "A",
+        "xp": 290,
+        "title": "Опасный Эксперимент",
+        "story": "Если заклинание взорвется (ошибка), поймай её и верни 'Boom'.",
+        "description": "Функция `safeCast(fn)` должна вызывать `fn`. Если ошибка, вернуть `'Boom'`, иначе результат.",
+        "initial_code": "function safeCast(fn) {\n    // try { ... } catch (e) { return 'Boom'; }\n    return fn();\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "safeCast(() => { throw new Error() })",
+                    "expected": "Boom"
+                },
+                {
+                    "code": "safeCast(() => 1)",
+                    "expected": 1
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_41_destructuring",
+        "category": "javascript",
+        "tier": "B",
+        "xp": 180,
+        "title": "Разбор Добычи",
+        "story": "Извлеки золото и серебро из сундука одной командой.",
+        "description": "Функция `unpack(chest)` принимает `{gold: 10, silver: 5}`. Используй деструктуризацию, чтобы вернуть сумму.",
+        "initial_code": "function unpack(chest) {\n    // const {gold, silver} = chest;\n    return 0;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "unpack({gold: 10, silver: 5})",
+                    "expected": 15
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_42_spread_array",
+        "category": "javascript",
+        "tier": "B",
+        "xp": 175,
+        "title": "Расширение Армии",
+        "story": "Добавь новобранцев в текущий строй.",
+        "description": "Функция `addRecruits(army, recruits)` должна вернуть новый массив `[...army, ...recruits]`.",
+        "initial_code": "function addRecruits(a, r) {\n    // Используй spread: [...a, ...r]\n    return [];\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "addRecruits([1], [2])",
+                    "expected": [
+                        1,
+                        2
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_43_default_params",
+        "category": "javascript",
+        "tier": "C",
+        "xp": 100,
+        "title": "Зелье по Умолчанию",
+        "story": "Если тип зелья не указан, давай 'Healing'.",
+        "description": "Функция `getPotion(type)` должна иметь значение по умолчанию для `type = 'Healing'`.",
+        "initial_code": "function getPotion(type) {\n    // Добавь значение по умолчанию: type = 'Healing'\n    return type;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "getPotion()",
+                    "expected": "Healing"
+                },
+                {
+                    "code": "getPotion('Mana')",
+                    "expected": "Mana"
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_44_map_objects",
+        "category": "javascript",
+        "tier": "B",
+        "xp": 165,
+        "title": "Переоценка Ценностей",
+        "story": "Инфляция! Увеличь цену всех товаров на 10%.",
+        "description": "Функция `inflate(items)` принимает `[{price: 10}]` и возвращает новый массив с ценами * 1.1.",
+        "initial_code": "function inflate(items) {\n    // Используй map: items.map(i => ({price: ...}))\n    return [];\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "inflate([{price: 10}])[0].price",
+                    "expected": 11
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_45_filter_null",
+        "category": "javascript",
+        "tier": "B",
+        "xp": 155,
+        "title": "Очистка Списка",
+        "story": "В списке героев есть пустые записи. Удали их.",
+        "description": "Функция `clean(list)` убирает `null` и `undefined`.",
+        "initial_code": "function clean(list) {\n    // Фильтруй null/undefined: list.filter(item => ...)\n    return list;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "clean([1, null, 2])",
+                    "expected": [
+                        1,
+                        2
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_46_regex_find",
+        "category": "javascript",
+        "tier": "A",
+        "xp": 280,
+        "title": "Поиск по Рунам",
+        "story": "Найди все слова, начинающиеся на 'M' (магия).",
+        "description": "Функция `findMagic(text)` возвращает массив слов на 'M'. Используй регулярное выражение.",
+        "initial_code": "function findMagic(text) {\n    // Используй text.match(/M\\\\w+/g) для поиска слов на M\n    return [];\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "findMagic('Magic Map')",
+                    "expected": [
+                        "Magic",
+                        "Map"
+                    ]
+                },
+                {
+                    "code": "findMagic('Hello')",
+                    "expected": []
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_47_date_now",
+        "category": "javascript",
+        "tier": "C",
+        "xp": 90,
+        "title": "Время Приключений",
+        "story": "Запиши текущее время в журнал.",
+        "description": "Функция `getTime()` возвращает `Date.now()`.",
+        "initial_code": "function getTime() {\n    // Верни Date.now()\n    return 0;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "typeof getTime()",
+                    "expected": "number"
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_48_math_random",
+        "category": "javascript",
+        "tier": "C",
+        "xp": 80,
+        "title": "Бросок Кубиков",
+        "story": "Случайное число от 0 до 1.",
+        "description": "Функция `roll()` возвращает `Math.random()`.",
+        "initial_code": "function roll() {\n    // Верни Math.random()\n    return 0;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "roll() < 2",
+                    "expected": true
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_49_parse_int",
+        "category": "javascript",
+        "tier": "D",
+        "xp": 60,
+        "title": "Чтение Свитка",
+        "story": "На свитке число написано текстом. Преврати в цифры.",
+        "description": "Функция `toInt(str)` превращает `'10'` в `10`.",
+        "initial_code": "function toInt(str) {\n    // Используй parseInt()\n    return 0;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "toInt('42')",
+                    "expected": 42
+                }
+            ]
+        }
+    },
+    {
+        "id": "js_50_final_boss",
+        "category": "javascript",
+        "tier": "S",
+        "xp": 800,
+        "title": "Код Вселенной",
+        "story": "Финальный босс меняет реальность. Напиши функцию, которая клонирует объект глубоким копированием.",
+        "description": "Функция `deepClone(obj)` должна вернуть полную копию объекта (включая вложенные).",
+        "initial_code": "function deepClone(obj) {\n    // Подсказка: JSON.parse + JSON.stringify\n    return obj;\n}",
+        "check_logic": {
+            "engine": "javascript",
+            "cases": [
+                {
+                    "code": "let a = {x:{y:1}}; let b = deepClone(a); b.x.y=2; a.x.y",
+                    "expected": 1
+                }
+            ]
+        }
+    }
+]

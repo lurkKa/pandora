@@ -1,0 +1,1253 @@
+[
+    {
+        "id": "py_01_heal_potion",
+        "category": "python",
+        "tier": "D",
+        "xp": 50,
+        "title": "Зелье Исцеления",
+        "story": "Ты ранен в битве с гоблинами. Алхимик протягивает тебе флакон с красной жидкостью.",
+        "description": "Создай переменную `hp` со значением `50` и прибавь к ней `30`. Результат сохрани в переменную `new_hp`.",
+        "initial_code": "# Твое здоровье\nhp = 50\n# Выпей зелье (+30)\n",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "type": "variable_value",
+                    "name": "new_hp",
+                    "expected": 80
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_02_mana_crystal",
+        "category": "python",
+        "tier": "D",
+        "xp": 50,
+        "title": "Кристалл Маны",
+        "story": "Для заклинания огненного шара нужно рассчитать запас маны. Каждый кристалл дает 10 маны.",
+        "description": "Напиши функцию `calc_mana(crystals)`, которая возвращает количество маны (количество кристаллов умножить на 10).",
+        "initial_code": "def calc_mana(crystals):\n    # Верни ману\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "calc_mana(5)",
+                    "expected": 50
+                },
+                {
+                    "code": "calc_mana(0)",
+                    "expected": 0
+                },
+                {
+                    "code": "calc_mana(12)",
+                    "expected": 120
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_03_guild_pass",
+        "category": "python",
+        "tier": "D",
+        "xp": 60,
+        "title": "Пропуск в Гильдию",
+        "story": "Страж у ворот требует назвать пароль. Пароль — это название гильдии задом наперед.",
+        "description": "Напиши функцию `secret_pass(name)`, которая возвращает строку `name` в обратном порядке.",
+        "initial_code": "def secret_pass(name):\n    # Разверни строку\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "secret_pass('Hunter')",
+                    "expected": "retnuH"
+                },
+                {
+                    "code": "secret_pass('Mage')",
+                    "expected": "egaM"
+                },
+                {
+                    "code": "secret_pass('')",
+                    "expected": ""
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_04_gold_count",
+        "category": "python",
+        "tier": "D",
+        "xp": 55,
+        "title": "Подсчет Золота",
+        "story": "Ты нашел мешочек с монетами. Нужно пересчитать добычу.",
+        "description": "Имеется переменная `coins = [10, 5, 2, 1]`. Найди сумму всех монет и сохрани в переменную `total`.",
+        "initial_code": "coins = [10, 5, 2, 1]\n# Посчитай сумму\n",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "type": "variable_value",
+                    "name": "total",
+                    "expected": 18
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_05_welcome_hero",
+        "category": "python",
+        "tier": "D",
+        "xp": 50,
+        "title": "Приветствие Героя",
+        "story": "Король приветствует тебя на пиру. Но он забыл твое имя!",
+        "description": "Напиши функцию `welcome(name)`, которая возвращает строку вида `\"Приветствую, {name}!\"`.",
+        "initial_code": "def welcome(name):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "welcome('Артур')",
+                    "expected": "Приветствую, Артур!"
+                },
+                {
+                    "code": "welcome('Мерлин')",
+                    "expected": "Приветствую, Мерлин!"
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_06_level_check",
+        "category": "python",
+        "tier": "C",
+        "xp": 80,
+        "title": "Проверка Уровня",
+        "story": "Вход в проклятые земли только для опытных героев.",
+        "description": "Напиши функцию `check_level(lvl)`, которая возвращает `True`, если уровень 10 или выше, и `False` иначе.",
+        "initial_code": "def check_level(lvl):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "check_level(10)",
+                    "expected": true
+                },
+                {
+                    "code": "check_level(9)",
+                    "expected": false
+                },
+                {
+                    "code": "check_level(99)",
+                    "expected": true
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_07_inventory_slot",
+        "category": "python",
+        "tier": "C",
+        "xp": 90,
+        "title": "Слот Инвентаря",
+        "story": "В рюкзаке всего 5 слотов. Проверь, поместится ли новый предмет.",
+        "description": "Напиши функцию `can_pickup(items)`, которая принимает список предметов. Если их меньше 5, верни `True`, иначе `False`.",
+        "initial_code": "def can_pickup(items):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "can_pickup(['sword', 'shield'])",
+                    "expected": true
+                },
+                {
+                    "code": "can_pickup(['a','b','c','d','e'])",
+                    "expected": false
+                },
+                {
+                    "code": "can_pickup([])",
+                    "expected": true
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_08_magic_damage",
+        "category": "python",
+        "tier": "C",
+        "xp": 85,
+        "title": "Магический Урон",
+        "story": "Огненный шар наносит двойной урон ледяным монстрам.",
+        "description": "Напиши функцию `dmg(base, is_ice)`, которая возвращает `base * 2` если `is_ice` равно `True`, иначе просто `base`.",
+        "initial_code": "def dmg(base, is_ice):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "dmg(10, True)",
+                    "expected": 20
+                },
+                {
+                    "code": "dmg(10, False)",
+                    "expected": 10
+                },
+                {
+                    "code": "dmg(0, True)",
+                    "expected": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_09_find_key",
+        "category": "python",
+        "tier": "C",
+        "xp": 95,
+        "title": "Поиск Ключа",
+        "story": "Где-то в куче мусора спрятан золотой ключ.",
+        "description": "Напиши функцию `has_key(items)`, которая проверяет, есть ли строка `'key'` в списке `items`. Верни `True` или `False`.",
+        "initial_code": "def has_key(items):\n    # Используй оператор in\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "has_key(['stone', 'key', 'bone'])",
+                    "expected": true
+                },
+                {
+                    "code": "has_key(['stone', 'bone'])",
+                    "expected": false
+                },
+                {
+                    "code": "has_key([])",
+                    "expected": false
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_10_party_leader",
+        "category": "python",
+        "tier": "C",
+        "xp": 100,
+        "title": "Лидер Группы",
+        "story": "Группе нужен лидер. Обычно это самый первый записавшийся герой.",
+        "description": "Напиши функцию `get_leader(party)`, которая возвращает первое имя из списка. Если список пуст, верни `None`.",
+        "initial_code": "def get_leader(party):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "get_leader(['Aragorn', 'Gimli'])",
+                    "expected": "Aragorn"
+                },
+                {
+                    "code": "get_leader([])",
+                    "expected": null
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_11_filter_loot",
+        "category": "python",
+        "tier": "B",
+        "xp": 150,
+        "title": "Фильтр Добычи",
+        "story": "Ты хочешь оставить только ценные камни, выбросив обычные булыжники.",
+        "description": "Напиши функцию `filter_gems(items)`, которая принимает список строк и возвращает новый список, содержащий только те строки, что заканчиваются на `'gem'`.",
+        "initial_code": "def filter_gems(items):\n    # filtered = []\n    # for item in items: ...\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "filter_gems(['ruby_gem', 'stone', 'diamond_gem'])",
+                    "expected": [
+                        "ruby_gem",
+                        "diamond_gem"
+                    ]
+                },
+                {
+                    "code": "filter_gems(['stone', 'rock'])",
+                    "expected": []
+                },
+                {
+                    "code": "filter_gems([])",
+                    "expected": []
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_12_spell_book",
+        "category": "python",
+        "tier": "B",
+        "xp": 160,
+        "title": "Книга Заклинаний",
+        "story": "В твоей книге заклинания записаны с их уровнем силы. Найди самое мощное.",
+        "description": "Напиши функцию `max_power(spells)`, которая принимает словарь `{'fireball': 10, 'ice': 5}` и возвращает имя самого сильного заклинания (строку).",
+        "initial_code": "def max_power(spells):\n    # Верни ключ с макс значением\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "max_power({'fire': 10, 'ice': 20})",
+                    "expected": "ice"
+                },
+                {
+                    "code": "max_power({'zap': 5})",
+                    "expected": "zap"
+                },
+                {
+                    "code": "max_power({'a': 1, 'b': 100, 'c': 50})",
+                    "expected": "b"
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_13_count_monsters",
+        "category": "python",
+        "tier": "B",
+        "xp": 155,
+        "title": "Перепись Монстров",
+        "story": "Разведчик доложил о врагах. Посчитай, сколько монстров каждого типа угрожает замку.",
+        "description": "Напиши функцию `count_types(monsters)`, которая принимает список строк и возвращает словарь, где ключ — имя монстра, а значение — количество.",
+        "initial_code": "def count_types(monsters):\n    counts = {}\n    return counts",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "count_types(['orc', 'goblin', 'orc'])",
+                    "expected": {
+                        "orc": 2,
+                        "goblin": 1
+                    }
+                },
+                {
+                    "code": "count_types([])",
+                    "expected": {}
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_14_unique_artifacts",
+        "category": "python",
+        "tier": "B",
+        "xp": 170,
+        "title": "Уникальные Артефакты",
+        "story": "В сокровищнице много дубликатов. Оставь только уникальные предметы.",
+        "description": "Напиши функцию `unique_items(loot)`, которая принимает список и возвращает список уникальных элементов (порядок не важен, но для теста лучше сортировать).",
+        "initial_code": "def unique_items(loot):\n    # set() может помочь\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "sorted(unique_items(['sword', 'shield', 'sword']))",
+                    "expected": [
+                        "shield",
+                        "sword"
+                    ]
+                },
+                {
+                    "code": "unique_items([])",
+                    "expected": []
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_15_level_up",
+        "category": "python",
+        "tier": "B",
+        "xp": 180,
+        "title": "Повышение Уровня",
+        "story": "Герои получили опыт. Обнови их уровни в базе гильдии.",
+        "description": "Напиши функцию `level_up(heroes)`, которая принимает список словарей `[{'name': 'A', 'lvl': 1}]` и увеличивает `lvl` каждого на 1. Верни обновленный список.",
+        "initial_code": "def level_up(heroes):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "level_up([{'n': 'A', 'lvl': 1}, {'n': 'B', 'lvl': 5}])",
+                    "expected": [
+                        {
+                            "n": "A",
+                            "lvl": 2
+                        },
+                        {
+                            "n": "B",
+                            "lvl": 6
+                        }
+                    ]
+                },
+                {
+                    "code": "level_up([])",
+                    "expected": []
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_16_factorial_spell",
+        "category": "python",
+        "tier": "A",
+        "xp": 250,
+        "title": "Факториал Силы",
+        "story": "Древнее заклинание требует произнести число, равное факториалу текущей маны.",
+        "description": "Напиши рекурсивную функцию `fact(n)`, вычисляющую факториал числа `n`.",
+        "initial_code": "def fact(n):\\n    # Рекурсия: fact(n) = n * fact(n-1)\\n    # Базовый случай: fact(0) = 1, fact(1) = 1\\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "fact(5)",
+                    "expected": 120
+                },
+                {
+                    "code": "fact(0)",
+                    "expected": 1
+                },
+                {
+                    "code": "fact(1)",
+                    "expected": 1
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_17_fibonacci_steps",
+        "category": "python",
+        "tier": "A",
+        "xp": 260,
+        "title": "Ступени Фибоначчи",
+        "story": "Лестница в башню мага исчезает, если наступить не на то число.",
+        "description": "Напиши функцию `fib(n)`, возвращающую n-е число Фибоначчи (0, 1, 1, 2, 3, 5...). `fib(0)=0`, `fib(1)=1`.",
+        "initial_code": "def fib(n):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "fib(0)",
+                    "expected": 0
+                },
+                {
+                    "code": "fib(6)",
+                    "expected": 8
+                },
+                {
+                    "code": "fib(7)",
+                    "expected": 13
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_18_sort_potions",
+        "category": "python",
+        "tier": "A",
+        "xp": 280,
+        "title": "Сортировка Зелий",
+        "story": "Алхимик в ярости! Кто-то перемешал зелья. Расставь их по цене от дешевых к дорогим.",
+        "description": "Напиши функцию `sort_by_price(potions)`, принимающую список словарей `{'name': 'X', 'price': 100}` и возвращающую отсортированный по цене список.",
+        "initial_code": "def sort_by_price(potions):\n    # Используй key=lambda ...\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "sort_by_price([{'p': 10}, {'p': 5}, {'p': 20}])",
+                    "expected": [
+                        {
+                            "p": 5
+                        },
+                        {
+                            "p": 10
+                        },
+                        {
+                            "p": 20
+                        }
+                    ]
+                },
+                {
+                    "code": "sort_by_price([])",
+                    "expected": []
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_19_anagram_rune",
+        "category": "python",
+        "tier": "A",
+        "xp": 300,
+        "title": "Руническая Анаграмма",
+        "story": "Дверь откроется, только если второе слово составлено из тех же рун, что и первое.",
+        "description": "Напиши функцию `is_anagram(s1, s2)`, проверяющую, являются ли строки анаграммами.",
+        "initial_code": "def is_anagram(s1, s2):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "is_anagram('listen', 'silent')",
+                    "expected": true
+                },
+                {
+                    "code": "is_anagram('hello', 'world')",
+                    "expected": false
+                },
+                {
+                    "code": "is_anagram('aa', 'a')",
+                    "expected": false
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_20_binary_search",
+        "category": "python",
+        "tier": "S",
+        "xp": 500,
+        "title": "Поиск в Гримуаре",
+        "story": "В бесконечном гримуаре страницы отсортированы. Найди нужное заклинание максимально быстро.",
+        "description": "Реализуй функцию бинарного поиска `binary_search(arr, target)`. Верни индекс элемента или `-1`.",
+        "initial_code": "def binary_search(arr, target):\n    left, right = 0, len(arr) - 1\n    # while left <= right:\n    return -1",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "binary_search([1, 3, 5, 7, 9], 3)",
+                    "expected": 1
+                },
+                {
+                    "code": "binary_search([1, 3, 5, 7, 9], 4)",
+                    "expected": -1
+                },
+                {
+                    "code": "binary_search([], 1)",
+                    "expected": -1
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_21_prime_shield",
+        "category": "python",
+        "tier": "A",
+        "xp": 270,
+        "title": "Щит Простых Чисел",
+        "story": "Демон уязвим только в дни, являющиеся простыми числами.",
+        "description": "Напиши функцию `is_prime(n)`, возвращающую `True`, если число простое (делится только на 1 и на себя).",
+        "initial_code": "def is_prime(n):\n    if n < 2: return False\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "is_prime(7)",
+                    "expected": true
+                },
+                {
+                    "code": "is_prime(10)",
+                    "expected": false
+                },
+                {
+                    "code": "is_prime(1)",
+                    "expected": false
+                },
+                {
+                    "code": "is_prime(2)",
+                    "expected": true
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_22_flatten_map",
+        "category": "python",
+        "tier": "A",
+        "xp": 290,
+        "title": "Развертывание Карты",
+        "story": "Карта сложена во много раз. Разверни вложенные списки в один путь.",
+        "description": "Напиши функцию `flatten(lst)`, которая принимает список списков `[[1,2], [3]]` и возвращает плоский список `[1,2,3]`.",
+        "initial_code": "def flatten(lst):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "flatten([[1,2], [3], []])",
+                    "expected": [
+                        1,
+                        2,
+                        3
+                    ]
+                },
+                {
+                    "code": "flatten([])",
+                    "expected": []
+                },
+                {
+                    "code": "flatten([[1]])",
+                    "expected": [
+                        1
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_23_boss_dps",
+        "category": "python",
+        "tier": "S",
+        "xp": 550,
+        "title": "Расчет DPS",
+        "story": "Рейд-лидер требует отчет. Рассчитай средний урон в секунду, отбросив промахи (0 урона).",
+        "description": "Напиши функцию `calc_dps(hits, duration)`, где `hits` - список урона. Игнорируй нули. Если время 0, верни 0.",
+        "initial_code": "def calc_dps(hits, duration):\n    if duration == 0: return 0\n    valid_hits = [h for h in hits if h > 0]\n    # sum / duration\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "calc_dps([100, 0, 100, 50], 10)",
+                    "expected": 25.0
+                },
+                {
+                    "code": "calc_dps([0, 0], 5)",
+                    "expected": 0.0
+                },
+                {
+                    "code": "calc_dps([10], 0)",
+                    "expected": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_24_rle_compress",
+        "category": "python",
+        "tier": "S",
+        "xp": 600,
+        "title": "Сжатие Свитков",
+        "story": "Библиотека переполнена. Архивариус просит сжать записи заклинаний (RLE).",
+        "description": "Реализуй RLE-сжатие: `compress('AAAABBBCCDAA')` -> `'4A3B2C1D2A'`.",
+        "initial_code": "def compress(s):\n    if not s: return \"\"\n    res = []\n    # count streaks\n    return \"\".join(res)",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "compress('AAA')",
+                    "expected": "3A"
+                },
+                {
+                    "code": "compress('AB')",
+                    "expected": "1A1B"
+                },
+                {
+                    "code": "compress('')",
+                    "expected": ""
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_25_path_exists",
+        "category": "python",
+        "tier": "S",
+        "xp": 700,
+        "title": "Путь через Лабиринт",
+        "story": "Дан граф подземелья (словарь смежности). Проверь, можно ли добраться от старта до финиша.",
+        "description": "Напиши функцию `has_path(graph, start, end)`, используя BFS или DFS.",
+        "initial_code": "def has_path(graph, start, end):\n    # graph = {'A': ['B'], 'B': ['C']}\n    queue = [start]\n    visited = set()\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "has_path({'A':['B'], 'B':['C'], 'C':[]}, 'A', 'C')",
+                    "expected": true
+                },
+                {
+                    "code": "has_path({'A':['B'], 'B':[], 'C':[]}, 'A', 'C')",
+                    "expected": false
+                },
+                {
+                    "code": "has_path({'A':[]}, 'A', 'A')",
+                    "expected": true
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_26_armor_repair",
+        "category": "python",
+        "tier": "D",
+        "xp": 55,
+        "title": "Починка Брони",
+        "story": "Кузнец берет 5 монет за починку одной вмятины.",
+        "description": "Создай функцию `repair_cost(dents)`, которая возвращает стоимость (`dents * 5`).",
+        "initial_code": "def repair_cost(dents):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "repair_cost(3)",
+                    "expected": 15
+                },
+                {
+                    "code": "repair_cost(0)",
+                    "expected": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_27_night_watch",
+        "category": "python",
+        "tier": "C",
+        "xp": 85,
+        "title": "Ночной Дозор",
+        "story": "Если сейчас ночь (True) и враг рядом (True), труби в рог!",
+        "description": "Функция `alarm(is_night, enemy_near)` должна вернуть `True` только если оба аргумента `True`.",
+        "initial_code": "def alarm(n, e):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "alarm(True, True)",
+                    "expected": true
+                },
+                {
+                    "code": "alarm(True, False)",
+                    "expected": false
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_28_select_target",
+        "category": "python",
+        "tier": "C",
+        "xp": 90,
+        "title": "Выбор Цели",
+        "story": "Лучник стреляет в самого дальнего врага.",
+        "description": "Функция `farthest(distances)` принимает список расстояний. Верни максимальное число.",
+        "initial_code": "def farthest(dists):\n    # max()?\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "farthest([10, 5, 20])",
+                    "expected": 20
+                },
+                {
+                    "code": "farthest([-1, 0])",
+                    "expected": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_29_reverse_scroll",
+        "category": "python",
+        "tier": "C",
+        "xp": 95,
+        "title": "Обратный Свиток",
+        "story": "Чтобы снять проклятие, нужно прочитать список слов с конца.",
+        "description": "Функция `reverse_list(lst)` должна вернуть список в обратном порядке.",
+        "initial_code": "def reverse_list(lst):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "reverse_list([1, 2, 3])",
+                    "expected": [
+                        3,
+                        2,
+                        1
+                    ]
+                },
+                {
+                    "code": "reverse_list([])",
+                    "expected": []
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_30_count_vowels",
+        "category": "python",
+        "tier": "B",
+        "xp": 140,
+        "title": "Язык Древних",
+        "story": "Магия скрыта в гласных буквах (a, e, i, o, u). Посчитай их силу.",
+        "description": "Функция `count_power(text)` возвращает количество гласных в строке.",
+        "initial_code": "def count_power(text):\n    vowels = 'aeiou'\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "count_power('hello')",
+                    "expected": 2
+                },
+                {
+                    "code": "count_power('sky')",
+                    "expected": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_31_paladin_aura",
+        "category": "python",
+        "tier": "B",
+        "xp": 160,
+        "title": "Аура Паладина",
+        "story": "Паладин усиливает всех союзников в радиусе 10 метров.",
+        "description": "Функция `buff_allies(distances)` принимает список расстояний. Верни список тех, кто <= 10.",
+        "initial_code": "def buff_allies(dists):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "buff_allies([5, 12, 9, 20])",
+                    "expected": [
+                        5,
+                        9
+                    ]
+                },
+                {
+                    "code": "buff_allies([15])",
+                    "expected": []
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_32_merge_clans",
+        "category": "python",
+        "tier": "B",
+        "xp": 175,
+        "title": "Слияние Кланов",
+        "story": "Два клана объединяются. Сделай общий список бойцов без дубликатов.",
+        "description": "Функция `merge(l1, l2)` объединяет списки и убирает повторы. Верни отсортированный список.",
+        "initial_code": "def merge(l1, l2):\n    # set()...\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "merge([1, 2], [2, 3])",
+                    "expected": [
+                        1,
+                        2,
+                        3
+                    ]
+                },
+                {
+                    "code": "merge([], [1])",
+                    "expected": [
+                        1
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_33_dragon_scales",
+        "category": "python",
+        "tier": "B",
+        "xp": 180,
+        "title": "Чешуя Дракона",
+        "story": "Собери словарь, где ключ — цвет чешуи, а значение — прочность.",
+        "description": "Функция `to_dict(keys, values)` делает словарь из двух списков.",
+        "initial_code": "def to_dict(keys, values):\n    # zip()?\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "to_dict(['red', 'blue'], [10, 20])",
+                    "expected": {
+                        "red": 10,
+                        "blue": 20
+                    }
+                },
+                {
+                    "code": "to_dict([], [])",
+                    "expected": {}
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_34_poison_tick",
+        "category": "python",
+        "tier": "C",
+        "xp": 100,
+        "title": "Ядовитый Укус",
+        "story": "Яд наносит урон 5 раз. Выведи урон для каждого тика.",
+        "description": "Функция `poison_ticks(dmg)` возвращает список `[dmg, dmg, dmg, dmg, dmg]`.",
+        "initial_code": "def poison_ticks(dmg):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "poison_ticks(10)",
+                    "expected": [
+                        10,
+                        10,
+                        10,
+                        10,
+                        10
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_35_lucky_hit",
+        "category": "python",
+        "tier": "C",
+        "xp": 110,
+        "title": "Удачный Удар",
+        "story": "Крит проходит, если число удара делится на 7.",
+        "description": "Функция `is_crit(n)` возвращает `True`, если `n % 7 == 0`.",
+        "initial_code": "def is_crit(n):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "is_crit(14)",
+                    "expected": true
+                },
+                {
+                    "code": "is_crit(15)",
+                    "expected": false
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_36_party_xp",
+        "category": "python",
+        "tier": "B",
+        "xp": 145,
+        "title": "Опыт Группы",
+        "story": "Босс повержен! Раздели опыт поровну.",
+        "description": "Функция `split_xp(total, members)` возвращает `total // members`.",
+        "initial_code": "def split_xp(total, members):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "split_xp(100, 2)",
+                    "expected": 50
+                },
+                {
+                    "code": "split_xp(10, 3)",
+                    "expected": 3
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_37_find_traitor",
+        "category": "python",
+        "tier": "A",
+        "xp": 300,
+        "title": "Поиск Предателя",
+        "story": "Кто-то в лагере не тот, за кого себя выдает (элемент встречается 1 раз, остальные по 2).",
+        "description": "Найди элемент, который встречается 1 раз в списке, где все остальные по 2 раза. Функция `find_single(nums)`.",
+        "initial_code": "def find_single(nums):\n    # XOR?\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "find_single([2, 2, 1])",
+                    "expected": 1
+                },
+                {
+                    "code": "find_single([4, 1, 2, 1, 2])",
+                    "expected": 4
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_38_bracket_balance",
+        "category": "python",
+        "tier": "A",
+        "xp": 320,
+        "title": "Баланс Заклинания",
+        "story": "Формула стабильна, только если скобки `()` расставлены верно.",
+        "description": "Функция `is_valid(s)` проверяет правильность скобочной последовательности.",
+        "initial_code": "def is_valid(s):\n    stack = []\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "is_valid('(())')",
+                    "expected": true
+                },
+                {
+                    "code": "is_valid('(()')",
+                    "expected": false
+                },
+                {
+                    "code": "is_valid(')(')",
+                    "expected": false
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_39_hero_class",
+        "category": "python",
+        "tier": "A",
+        "xp": 280,
+        "title": "Класс Героя",
+        "story": "Создай чертеж героя в коде.",
+        "description": "Создай класс `Hero` с методом `attack()`, возвращающим 10.",
+        "initial_code": "class Hero:\n    def attack(self):\n        return 0",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "Hero().attack()",
+                    "expected": 10
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_40_shop_total",
+        "category": "python",
+        "tier": "B",
+        "xp": 165,
+        "title": "Счет в Лавке",
+        "story": "Ты набрал товаров. Какова общая сумма?",
+        "description": "Функция `cart_total(cart)` принимает список цен. Верни сумму.",
+        "initial_code": "def cart_total(cart):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "cart_total([10, 20])",
+                    "expected": 30
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_41_odd_runes",
+        "category": "python",
+        "tier": "C",
+        "xp": 90,
+        "title": "Нечетные Руны",
+        "story": "Магический барьер пропускает только нечетные числа.",
+        "description": "Функция `only_odds(nums)` возвращает список только с нечетными числами.",
+        "initial_code": "def only_odds(nums):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "only_odds([1, 2, 3])",
+                    "expected": [
+                        1,
+                        3
+                    ]
+                },
+                {
+                    "code": "only_odds([2, 4])",
+                    "expected": []
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_42_string_rep",
+        "category": "python",
+        "tier": "D",
+        "xp": 50,
+        "title": "Эхо в Пещере",
+        "story": "Крикни в пещеру, и эхо повторит слова 3 раза.",
+        "description": "Напиши функцию `echo(word)`, возвращающую слово, повторенное 3 раза (слитно).",
+        "initial_code": "def echo(word):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "echo('A')",
+                    "expected": "AAA"
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_43_max_hp",
+        "category": "python",
+        "tier": "C",
+        "xp": 80,
+        "title": "Максимальное Здоровье",
+        "story": "Сравни здоровье двух бойцов.",
+        "description": "Функция `max_hp(hp1, hp2)` возвращает большее из двух чисел.",
+        "initial_code": "def max_hp(a, b):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "max_hp(10, 20)",
+                    "expected": 20
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_44_inventory_str",
+        "category": "python",
+        "tier": "C",
+        "xp": 85,
+        "title": "Опись Имущества",
+        "story": "Казначей просит список вещей через запятую.",
+        "description": "Функция `join_items(items)` объединяет список строк через запятую с пробелом.",
+        "initial_code": "def join_items(items):\n    # ', '.join()?\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "join_items(['sword', 'shield'])",
+                    "expected": "sword, shield"
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_45_dict_keys",
+        "category": "python",
+        "tier": "B",
+        "xp": 150,
+        "title": "Ключи от Всех Дверей",
+        "story": "Тебе нужен список всех залов в замке (ключи словаря).",
+        "description": "Функция `get_rooms(castle)` возвращает список ключей словаря (отсортированный).",
+        "initial_code": "def get_rooms(c):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "sorted(get_rooms({'Hall': 1, 'Tower': 2}))",
+                    "expected": [
+                        "Hall",
+                        "Tower"
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_46_set_diff",
+        "category": "python",
+        "tier": "B",
+        "xp": 170,
+        "title": "Недостающие Ингредиенты",
+        "story": "У тебя есть одни травы, а по рецепту нужны другие. Чего не хватает?",
+        "description": "Функция `missing(recipe, have)` возвращает элементы из `recipe`, которых нет в `have`. (разность множеств).",
+        "initial_code": "def missing(r, h):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "sorted(list(missing({1, 2}, {1})))",
+                    "expected": [
+                        2
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_47_count_digits",
+        "category": "python",
+        "tier": "C",
+        "xp": 100,
+        "title": "Цифры Кода",
+        "story": "Замок открывается количеством цифр в числе.",
+        "description": "Функция `digits(n)` возвращает количество цифр в числе `n`.",
+        "initial_code": "def digits(n):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "digits(100)",
+                    "expected": 3
+                },
+                {
+                    "code": "digits(5)",
+                    "expected": 1
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_48_list_slice",
+        "category": "python",
+        "tier": "C",
+        "xp": 95,
+        "title": "Отсечение Хвоста",
+        "story": "Ящерица отбросила хвост. Верни список без последнего элемента.",
+        "description": "Функция `cut_tail(lst)` возвращает список без последнего элемента.",
+        "initial_code": "def cut_tail(lst):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "cut_tail([1, 2, 3])",
+                    "expected": [
+                        1,
+                        2
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_49_sum_range",
+        "category": "python",
+        "tier": "C",
+        "xp": 105,
+        "title": "Сумма Пути",
+        "story": "Сложи все числа от 1 до N.",
+        "description": "Функция `sum_n(n)` считает сумму чисел от 1 до n включительно.",
+        "initial_code": "def sum_n(n):\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "sum_n(3)",
+                    "expected": 6
+                },
+                {
+                    "code": "sum_n(1)",
+                    "expected": 1
+                }
+            ]
+        }
+    },
+    {
+        "id": "py_50_final_exam",
+        "category": "python",
+        "tier": "S",
+        "xp": 800,
+        "title": "Финальный Экзамен",
+        "story": "Архимаг задает последний вопрос. Верни самое частое слово в тексте.",
+        "description": "Функция `most_common(text)` возвращает слово, которое встречается чаще всего.",
+        "initial_code": "def most_common(text):\n    words = text.split()\n    pass",
+        "check_logic": {
+            "engine": "pyodide",
+            "cases": [
+                {
+                    "code": "most_common('a b a c a')",
+                    "expected": "a"
+                },
+                {
+                    "code": "most_common('test')",
+                    "expected": "test"
+                }
+            ]
+        }
+    }
+]
