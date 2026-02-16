@@ -3301,7 +3301,11 @@
                     }
                 }
             } else {
-                out += verification.passed ? '✅ Проверка пройдена.\n' : '❌ Проверка не пройдена.\n';
+                if (verification.manual_review_required || verification.note) {
+                    out += '⏳ Автопроверка не выполнялась. Нужна ручная проверка.\n';
+                } else {
+                    out += verification.passed ? '✅ Проверка пройдена.\n' : '❌ Проверка не пройдена.\n';
+                }
             }
 
             if (verification.stdout) {
@@ -3534,10 +3538,10 @@
 
                 if (data.status === 'pending_review') {
                     const v = data.verification || {};
-                    const verificationHeadline = v.passed
-                        ? '✅ Тесты пройдены.\n'
-                        : v.manual_review_required
-                            ? '⏳ Автопроверка пропущена политикой сервера.\n'
+                    const verificationHeadline = (v.manual_review_required || v.note)
+                        ? '⏳ Автопроверка пропущена политикой сервера.\n'
+                        : v.passed
+                            ? '✅ Тесты пройдены.\n'
                             : '📝 Отправлено на ручную проверку.\n';
                     output.innerText =
                         verificationHeadline +

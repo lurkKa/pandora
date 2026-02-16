@@ -10,7 +10,7 @@ services:
       - key: PANDORA_JWT_SECRET
         generateValue: true
       - key: PANDORA_REVIEW_ONLY_MODE
-        value: "1"
+        value: "0"
       - key: PANDORA_STRICT_DOCKER_RUNNERS
         value: "1"
       - key: PANDORA_LOW_RESOURCE_MODE
