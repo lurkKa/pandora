@@ -2981,7 +2981,7 @@ def _smart_select_homework_tasks(
         if not tid or tid in completed_ids:
             continue
         cat = t.get("category")
-        if cat not in ("python", "javascript", "frontend"):
+        if cat not in ("python", "javascript", "frontend", "scratch"):
             continue
         unlocked, _ = _unlock_state(t, completed_ids, counts)
         if unlocked:
@@ -3066,6 +3066,42 @@ def _auto_generate_homework_for_user(
     Creates a set with 3-4 smart-selected tasks, 2-day deadline.
     Returns True if homework was created.
     """
+    # Expire old auto-generated homework that contains locked tasks
+    # so the new algorithm kicks in
+    cursor.execute(
+        """
+        SELECT hs.id FROM homework_targets ht
+        JOIN homework_sets hs ON hs.id = ht.homework_set_id
+        WHERE ht.user_id = ? AND hs.status = 'active'
+        AND hs.title = 'Автоматическое ДЗ'
+        """,
+        (user_id,),
+    )
+    auto_hw_ids = [row["id"] for row in cursor.fetchall()]
+
+    completed_ids = _completed_task_ids(cursor, user_id)
+    counts = _counts_by_category_and_tier(tasks_by_id, completed_ids)
+
+    for hw_id in auto_hw_ids:
+        cursor.execute(
+            "SELECT task_id FROM homework_set_tasks WHERE homework_set_id = ?",
+            (hw_id,),
+        )
+        hw_task_ids = [r["task_id"] for r in cursor.fetchall()]
+        # Check if any task in this homework set is locked for this student
+        has_locked = False
+        for tid in hw_task_ids:
+            task = tasks_by_id.get(tid)
+            if task:
+                unlocked, _ = _unlock_state(task, completed_ids, counts)
+                if not unlocked:
+                    has_locked = True
+                    break
+        if has_locked:
+            cursor.execute(
+                "UPDATE homework_sets SET status = 'expired' WHERE id = ?", (hw_id,)
+            )
+
     # Check if user already has active homework
     cursor.execute(
         """
@@ -3079,9 +3115,6 @@ def _auto_generate_homework_for_user(
     active_count = int(cursor.fetchone()["cnt"])
     if active_count > 0:
         return False  # Already has active homework
-
-    # Get completed tasks
-    completed_ids = _completed_task_ids(cursor, user_id)
 
     # Get user level
     cursor.execute("SELECT level FROM users WHERE id = ?", (user_id,))
