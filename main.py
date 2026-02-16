@@ -3007,10 +3007,40 @@ def _smart_select_homework_tasks(
     best_cat = max(by_cat, key=lambda c: len(by_cat[c]))
     pool = by_cat[best_cat]
 
-    # Sort by tier (easier first), then by xp
+    # Sort by tier then xp
     pool.sort(key=lambda t: (tier_order.get((t.get("tier") or "D").upper(), 0), int(t.get("xp") or 0)))
 
-    return [t["id"] for t in pool[:count]]
+    # Split into easy / medium / hard relative to student tier
+    easy = [t for t in pool if tier_order.get((t.get("tier") or "D").upper(), 0) <= student_tier_val]
+    medium = [t for t in pool if tier_order.get((t.get("tier") or "D").upper(), 0) == student_tier_val + 1]
+    hard = [t for t in pool if tier_order.get((t.get("tier") or "D").upper(), 0) >= student_tier_val + 2]
+
+    # If buckets are sparse, redistribute
+    if not easy:
+        easy = pool[:len(pool)//2]
+        medium = pool[len(pool)//2:]
+    if not medium and hard:
+        medium = hard[:1]
+        hard = hard[1:]
+
+    # Pick: 2 easy, 1 medium, 1 hard
+    selected: list[str] = []
+    for t in easy[:2]:
+        selected.append(t["id"])
+    for t in medium[:1]:
+        selected.append(t["id"])
+    for t in hard[:1]:
+        selected.append(t["id"])
+
+    # If we still have fewer than count, pad from pool
+    if len(selected) < count:
+        for t in pool:
+            if t["id"] not in selected:
+                selected.append(t["id"])
+            if len(selected) >= count:
+                break
+
+    return selected[:count]
 
 
 def _auto_generate_homework_for_user(
