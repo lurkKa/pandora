@@ -1373,6 +1373,13 @@ class HomeworkAssignRequest(BaseModel):
     task_ids: Optional[List[str]] = None
     user_ids: Optional[List[int]] = None
 
+class AlexTypeCompleteRequest(BaseModel):
+    level: str  # D, C, B, A, S
+    chars_typed: int
+    accuracy: float  # 0.0 - 1.0
+    text_length: int
+    cpm: int = 0  # chars per minute
+
 # ==================== AUTH ROUTES ====================
 
 app = FastAPI(
@@ -1457,6 +1464,57 @@ def serve_index():
 def serve_alextype():
     """Serve Alextype JS trainer UI."""
     return FileResponse("alextype.html")
+
+# AlexType last-reward timestamps per user (in-memory cooldown)
+_alextype_last_reward: dict[int, float] = {}
+_ALEXTYPE_COOLDOWN_S = 30
+_ALEXTYPE_DIFFICULTY_MULT = {"D": 0.5, "C": 0.7, "B": 1.0, "A": 1.3, "S": 1.6}
+_ALEXTYPE_MAX_XP = 200  # Cap per session
+
+@app.post("/api/alextype/complete")
+def alextype_complete(data: AlexTypeCompleteRequest, user: dict = Depends(require_auth)):
+    """Award XP for completing an AlexType typing session."""
+    uid = int(user["id"])
+    now = time.monotonic()
+
+    # Cooldown check
+    last = _alextype_last_reward.get(uid, 0)
+    if now - last < _ALEXTYPE_COOLDOWN_S:
+        wait = max(1, int(_ALEXTYPE_COOLDOWN_S - (now - last)))
+        raise HTTPException(status_code=429, detail=f"Подожди {wait} сек. перед следующей наградой")
+
+    # Validate
+    level = (data.level or "D").upper()
+    if level not in _ALEXTYPE_DIFFICULTY_MULT:
+        raise HTTPException(status_code=400, detail="Invalid level")
+    if data.accuracy < 0.8:
+        return {"xp_awarded": 0, "message": "Точность ниже 80%, XP не начислен. Попробуй точнее!"}
+    if data.chars_typed < 10:
+        return {"xp_awarded": 0, "message": "Слишком мало символов"}
+    if data.chars_typed > data.text_length * 1.5:
+        return {"xp_awarded": 0, "message": "Невалидные данные"}
+
+    # XP formula: chars × accuracy × difficulty_multiplier / divisor
+    mult = _ALEXTYPE_DIFFICULTY_MULT[level]
+    raw_xp = (data.chars_typed * data.accuracy * mult) / 2.0
+    xp = min(int(raw_xp), _ALEXTYPE_MAX_XP)
+    xp = max(1, xp)
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        new_xp, new_level = apply_xp_change(
+            cursor, uid, xp, f"AlexType {level} ({data.chars_typed} символов, {int(data.accuracy*100)}%)"
+        )
+        conn.commit()
+
+    _alextype_last_reward[uid] = now
+
+    return {
+        "xp_awarded": xp,
+        "new_total_xp": new_xp,
+        "new_level": new_level,
+        "message": f"+{xp} XP за набор текста!",
+    }
 
 @app.get("/admin", include_in_schema=False)
 def serve_admin():
@@ -2893,6 +2951,133 @@ def _default_homework_task_ids(tasks_raw: list[dict], min_count: int = 3) -> lis
     return [t["id"] for t in candidates[: max(min_count, 3)]]
 
 
+def _smart_select_homework_tasks(
+    tasks_raw: list[dict],
+    completed_ids: set[str],
+    user_level: int,
+    count: int = 4,
+) -> list[str]:
+    """
+    Smart homework task selection for a student.
+
+    Algorithm:
+    - Only pick tasks the student has NOT completed
+    - Determine student's approximate tier from level (D→S)
+    - Pick tasks at current tier + one tier above
+    - Focus on ONE category (the one with most uncompleted tasks)
+    - Return 3-4 task IDs sorted by difficulty (easier first)
+    """
+    tier_order = {"D": 0, "C": 1, "B": 2, "A": 3, "S": 4}
+    tier_from_level = {1: "D", 2: "D", 3: "C", 4: "C", 5: "B", 6: "B", 7: "A", 8: "A"}
+    student_tier = tier_from_level.get(min(user_level, 8), "A")
+    student_tier_val = tier_order[student_tier]
+    next_tier_val = min(student_tier_val + 1, 4)
+
+    categories = ["python", "javascript", "frontend"]
+    candidates = [
+        t for t in tasks_raw
+        if t.get("id")
+        and t["id"] not in completed_ids
+        and t.get("category") in categories
+        and tier_order.get((t.get("tier") or "D").upper(), 0) in (student_tier_val, next_tier_val)
+    ]
+
+    if len(candidates) < count:
+        candidates = [
+            t for t in tasks_raw
+            if t.get("id")
+            and t["id"] not in completed_ids
+            and t.get("category") in categories
+            and tier_order.get((t.get("tier") or "D").upper(), 0) <= next_tier_val + 1
+        ]
+
+    if not candidates:
+        candidates = [t for t in tasks_raw if t.get("id") and t["id"] not in completed_ids]
+
+    if not candidates:
+        return []
+
+    # Group by category, pick the one with the MOST uncompleted tasks
+    by_cat: dict[str, list[dict]] = {}
+    for t in candidates:
+        cat = t.get("category", "other")
+        by_cat.setdefault(cat, []).append(t)
+
+    # Pick the category with the most tasks → focused homework
+    best_cat = max(by_cat, key=lambda c: len(by_cat[c]))
+    pool = by_cat[best_cat]
+
+    # Sort by tier (easier first), then by xp
+    pool.sort(key=lambda t: (tier_order.get((t.get("tier") or "D").upper(), 0), int(t.get("xp") or 0)))
+
+    return [t["id"] for t in pool[:count]]
+
+
+def _auto_generate_homework_for_user(
+    cursor, user_id: int, tasks_raw: list[dict], tasks_by_id: dict
+) -> bool:
+    """
+    Auto-generate homework if user has no active homework set.
+    Creates a set with 3-4 smart-selected tasks, 2-day deadline.
+    Returns True if homework was created.
+    """
+    # Check if user already has active homework
+    cursor.execute(
+        """
+        SELECT COUNT(*) as cnt FROM homework_targets ht
+        JOIN homework_sets hs ON hs.id = ht.homework_set_id
+        WHERE ht.user_id = ? AND hs.status = 'active'
+        AND hs.deadline_at > datetime('now')
+        """,
+        (user_id,),
+    )
+    active_count = int(cursor.fetchone()["cnt"])
+    if active_count > 0:
+        return False  # Already has active homework
+
+    # Get completed tasks
+    completed_ids = _completed_task_ids(cursor, user_id)
+
+    # Get user level
+    cursor.execute("SELECT level FROM users WHERE id = ?", (user_id,))
+    row = cursor.fetchone()
+    user_level = int(row["level"]) if row else 1
+
+    # Smart select tasks
+    task_ids = _smart_select_homework_tasks(tasks_raw, completed_ids, user_level, count=4)
+    if len(task_ids) < 3:
+        return False  # Not enough uncompleted tasks
+
+    # Create homework set
+    title = "Автоматическое ДЗ"
+    deadline_at = (datetime.now(timezone.utc) + timedelta(days=2)).strftime("%Y-%m-%d %H:%M:%S")
+
+    # Use user_id 0 as system auto-created
+    cursor.execute(
+        """
+        INSERT INTO homework_sets (title, created_by, deadline_at, status)
+        VALUES (?, ?, ?, 'active')
+        """,
+        (title, user_id, deadline_at),  # created_by = user themselves (auto)
+    )
+    set_id = int(cursor.lastrowid)
+
+    for tid in task_ids:
+        task_xp = int((tasks_by_id.get(tid) or {}).get("xp") or 0)
+        cursor.execute(
+            "INSERT INTO homework_set_tasks (homework_set_id, task_id, task_xp) VALUES (?, ?, ?)",
+            (set_id, tid, task_xp),
+        )
+
+    cursor.execute(
+        "INSERT OR IGNORE INTO homework_targets (homework_set_id, user_id) VALUES (?, ?)",
+        (set_id, user_id),
+    )
+
+    logger.info("Auto-generated homework set #%d for user %d with %d tasks", set_id, user_id, len(task_ids))
+    return True
+
+
 def _apply_homework_penalties_for_user(cursor, user_id: int, tasks_by_id: dict) -> list[dict]:
     cursor.execute(
         """
@@ -3082,13 +3267,16 @@ def get_roadmap(user: dict = Depends(require_auth)):
 
 @app.get("/api/user/homework")
 def get_my_homework(user: dict = Depends(require_auth)):
-    """Return active homework sets for current user + apply overdue penalties once."""
+    """Return active homework sets for current user + apply overdue penalties once.
+    Auto-generates homework if user has no active sets."""
     data = load_tasks()
     tasks_raw = data.get("tasks", [])
     tasks_by_id = {t.get("id"): t for t in tasks_raw if t.get("id")}
 
     with get_db() as conn:
         cursor = conn.cursor()
+        # Auto-generate homework if none exists
+        _auto_generate_homework_for_user(cursor, int(user["id"]), tasks_raw, tasks_by_id)
         penalties = _apply_homework_penalties_for_user(cursor, int(user["id"]), tasks_by_id)
         items = _homework_items_for_user(cursor, int(user["id"]), tasks_by_id)
         conn.commit()
