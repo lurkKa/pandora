@@ -3215,7 +3215,7 @@ def _apply_homework_penalties_for_user(cursor, user_id: int, tasks_by_id: dict) 
             missed_xp += max(0, xp_val)
             missed_tasks.append(task_id)
 
-        penalty = max(0, missed_xp // 2)
+        penalty = max(0, missed_xp // 4)  # 25% of missed XP
         if penalty > 0:
             new_xp, new_level = apply_xp_change(
                 cursor,
