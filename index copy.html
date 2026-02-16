@@ -3155,13 +3155,50 @@
             return Boolean(currentTask && currentTask.category === 'frontend');
         }
 
+        function escapeHtmlPreview(text) {
+            return String(text || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function detectFrontendSourceType(code) {
+            const src = String(code || '');
+            const hasHtml = /<\s*[a-z!/][^>]*>/i.test(src);
+            const hasCss = !hasHtml && /[{][^{}]*:[^{}]*[}]/.test(src);
+            const hasJs = !hasHtml && !hasCss && /\b(function|const|let|var|document\.|window\.|=>)\b/.test(src);
+            if (!src.trim()) return 'empty';
+            if (hasHtml) return 'html';
+            if (hasCss) return 'css';
+            if (hasJs) return 'js';
+            return 'text';
+        }
+
         function normalizeFrontendMarkup(src) {
             const code = (src || '').trim();
-            if (!code) {
-                return `<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;padding:20px}</style></head><body><h2>Пустой рендер</h2><p>Добавьте HTML/CSS в редактор.</p></body></html>`;
+            const type = detectFrontendSourceType(code);
+            const baseHead = '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
+
+            if (type === 'empty') {
+                return `<!doctype html><html><head>${baseHead}<style>body{font-family:Arial,sans-serif;padding:20px;line-height:1.5} .hint{padding:12px;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc}</style></head><body><div class="hint"><h3>Пустой рендер</h3><p>Добавьте HTML/CSS/JS в редактор, затем нажмите «Рендер».</p></div></body></html>`;
             }
-            if (/<(?:html|body|head)[\s>]/i.test(code)) return code;
-            return `<!doctype html><html><head><meta charset="utf-8"></head><body>${code}</body></html>`;
+
+            if (type === 'html') {
+                if (/<(?:html|body|head)[\s>]/i.test(code)) return code;
+                return `<!doctype html><html><head>${baseHead}</head><body>${code}</body></html>`;
+            }
+
+            if (type === 'css') {
+                return `<!doctype html><html><head>${baseHead}<style>body{font-family:Arial,sans-serif;margin:0;padding:20px;background:#fff;color:#111} .preview-note{margin-bottom:12px;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;font-size:13px} .preview-stage{padding:16px;border:1px dashed #cbd5e1;border-radius:10px} ${code}</style></head><body><div class="preview-note">Обнаружен CSS-код. Ниже показан демо-блок для наглядного просмотра стилей.</div><div class="preview-stage"><h1 class="title">Preview Title</h1><p class="text">Preview text paragraph</p><button class="btn">Preview Button</button><div id="app">#app container</div></div></body></html>`;
+            }
+
+            if (type === 'js') {
+                return `<!doctype html><html><head>${baseHead}<style>body{font-family:Arial,sans-serif;padding:16px}</style></head><body><div id="app">JS preview area (#app)</div><script>${code}<\/script></body></html>`;
+            }
+
+            return `<!doctype html><html><head>${baseHead}<style>body{font-family:Arial,sans-serif;margin:0;padding:16px;line-height:1.45} pre{white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px}</style></head><body><p>Код распознан как текст. Проверьте формат HTML/CSS/JS.</p><pre>${escapeHtmlPreview(code)}</pre></body></html>`;
         }
 
         function renderFrontendPreview(showHint = false) {

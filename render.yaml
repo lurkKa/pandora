@@ -11,6 +11,8 @@ services:
         generateValue: true
       - key: PANDORA_REVIEW_ONLY_MODE
         value: "0"
+      - key: PANDORA_FORCE_AUTOCHECK
+        value: "1"
       - key: PANDORA_RUNNER_MODE
         value: "local"
       - key: PANDORA_STRICT_DOCKER_RUNNERS
@@ -19,6 +21,10 @@ services:
         value: "1"
       - key: PANDORA_LOW_RESOURCE_MODE
         value: "1"
+      - key: PANDORA_SKIP_AUTOCHECK_REVIEWABLE_ON_LOW_RESOURCE
+        value: "0"
+      - key: PANDORA_MANUAL_REVIEW_FOR_REVIEWABLE_TIERS
+        value: "0"
       - key: PANDORA_BOOTSTRAP_ADMIN_USER
         value: "admin"
       - key: PANDORA_BOOTSTRAP_ADMIN_DISPLAY

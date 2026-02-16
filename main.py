@@ -3017,6 +3017,7 @@ PY_RUNNER_IMAGE = os.getenv("PANDORA_PY_RUNNER_IMAGE", "python:3.11-slim")
 JS_RUNNER_IMAGE = os.getenv("PANDORA_JS_RUNNER_IMAGE", "node:24-slim")
 STRICT_DOCKER_RUNNERS = (os.getenv("PANDORA_STRICT_DOCKER_RUNNERS") or "0") == "1"
 LOW_RESOURCE_MODE = (os.getenv("PANDORA_LOW_RESOURCE_MODE") or "0") == "1"
+SKIP_AUTOCHECK_REVIEWABLE_ON_LOW_RESOURCE = (os.getenv("PANDORA_SKIP_AUTOCHECK_REVIEWABLE_ON_LOW_RESOURCE") or "0") == "1"
 
 _default_runner_timeout = "4.5" if LOW_RESOURCE_MODE else "12.0"
 _default_docker_timeout = "1.5" if LOW_RESOURCE_MODE else "3.0"
@@ -3435,6 +3436,8 @@ MAX_CODE_CHARS = int(os.getenv("PANDORA_MAX_CODE_CHARS", "60000"))
 ATTEMPT_COOLDOWN_S = float(os.getenv("PANDORA_ATTEMPT_COOLDOWN_S", "2.0"))
 REVIEWABLE_TIERS = {"B", "A", "S"}
 REVIEW_ONLY_MODE = (os.getenv("PANDORA_REVIEW_ONLY_MODE") or "0") == "1"
+FORCE_AUTOCHECK = (os.getenv("PANDORA_FORCE_AUTOCHECK") or "1") == "1"
+MANUAL_REVIEW_FOR_REVIEWABLE_TIERS = (os.getenv("PANDORA_MANUAL_REVIEW_FOR_REVIEWABLE_TIERS") or "0") == "1"
 
 
 def _manual_verification_placeholder(reason: str) -> dict:
@@ -3547,15 +3550,15 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
         runtime_ms = 0
     else:
         # Safe mode for public deployments: never execute untrusted user code on server.
-        if REVIEW_ONLY_MODE:
+        if REVIEW_ONLY_MODE and not FORCE_AUTOCHECK:
             verification = _manual_verification_placeholder(
                 "Auto-verification disabled by server policy; queued for manual review"
             )
             runtime_ms = 0
             force_pending_review = True
-        # On low-resource hosts (e.g. single-worker deployments), skip expensive
-        # auto-check for reviewable tiers and queue them directly for manual review.
-        elif LOW_RESOURCE_MODE and tier in REVIEWABLE_TIERS:
+        # Optional legacy behavior: skip auto-check for reviewable tiers on low-resource hosts.
+        # Disabled by default to keep deterministic auto-verification.
+        elif LOW_RESOURCE_MODE and SKIP_AUTOCHECK_REVIEWABLE_ON_LOW_RESOURCE and tier in REVIEWABLE_TIERS:
             verification = _manual_verification_placeholder(
                 "Auto-verification skipped in low-resource mode; queued for review"
             )
@@ -3615,7 +3618,7 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
         )
         attempt_id = cursor.lastrowid
 
-        if not passed and not manual_review_required:
+        if not passed:
             conn.commit()
             return {"status": "failed", "attempt_id": attempt_id, "verification": verification}
 
@@ -3626,7 +3629,12 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
             flags.append(f"plagiarism_match:{matched_user_id}")
 
         # Manual review tiers OR integrity flags => create submission, do not award XP yet.
-        if force_pending_review or manual_review_required or tier in REVIEWABLE_TIERS or flags:
+        if passed and (
+            force_pending_review
+            or manual_review_required
+            or (MANUAL_REVIEW_FOR_REVIEWABLE_TIERS and tier in REVIEWABLE_TIERS)
+            or flags
+        ):
             existing_pending = _pending_submission_for_task(cursor, user["id"], data.task_id)
             if existing_pending:
                 conn.commit()
