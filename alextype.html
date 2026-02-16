@@ -1,153 +1,471 @@
 <!doctype html>
 <html lang="ru">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Alextype Trainer</title>
+  <title>AlexType — Тренажёр печати</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0a0a0a;
-      --card-bg: #141414;
-      --surface: #1a1a1a;
-      --text: #c8c8c8;
-      --subtext: #3d3d3d;
-      --gold: #c9a84c;
-      --danger: #cf3636;
-      --ok: #4fa89a;
-      --border: rgba(255, 255, 255, 0.08);
+      --bg-void: #08080c;
+      --bg-deep: #0e0e14;
+      --bg-surface: #14141c;
+      --bg-elevated: #1a1a24;
+      --bg-hover: #222230;
+
+      --text-bright: #f5f5f7;
+      --text-primary: #e0e0e5;
+      --text-secondary: #9898a8;
+      --text-muted: #6a6a78;
+
+      --accent: #8b5cf6;
+      --accent-soft: #a78bfa;
+      --accent-glow: rgba(139, 92, 246, 0.3);
+
+      --success: #34d399;
+      --success-soft: rgba(52, 211, 153, 0.15);
+      --warning: #fbbf24;
+      --danger: #f87171;
+
+      --border: rgba(139, 92, 246, 0.12);
+      --border-subtle: rgba(255, 255, 255, 0.06);
+
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
     }
-    * { box-sizing: border-box; }
-    body {
+
+    * {
+      box-sizing: border-box;
       margin: 0;
-      font-family: "Segoe UI", Tahoma, sans-serif;
-      background: radial-gradient(circle at top, #171717 0%, var(--bg) 55%);
-      color: var(--text);
-      min-height: 100vh;
-      padding: 20px;
+      padding: 0;
     }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-void);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 24px 16px;
+      background-image:
+        radial-gradient(ellipse at 20% 0%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 100%, rgba(52, 211, 153, 0.05) 0%, transparent 50%);
+    }
+
     .wrap {
-      max-width: 980px;
+      max-width: 860px;
       margin: 0 auto;
       display: grid;
-      gap: 14px;
+      gap: 16px;
     }
-    .card {
-      background: var(--card-bg);
+
+    /* ===== HEADER ===== */
+    .header-card {
+      background: linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-elevated) 100%);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 14px;
+      border-radius: var(--radius-lg);
+      padding: 24px 28px;
+      position: relative;
+      overflow: hidden;
     }
-    h1 {
-      margin: 0;
-      font-size: 28px;
-      letter-spacing: 0.6px;
-      background: linear-gradient(90deg, #f5d77d 0%, #ffe9b3 35%, #8be8ff 70%, #9dffb1 100%);
+
+    .header-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--success), var(--warning));
+      opacity: 0.7;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, var(--accent), #6d28d9);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .logo h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, var(--accent-soft) 0%, var(--text-bright) 50%, var(--success) 100%);
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
-      text-transform: uppercase;
     }
-    .sub { color: #9a9a9a; font-size: 13px; margin-top: 6px; }
-    .row {
+
+    .logo-sub {
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-top: 6px;
+      margin-left: 54px;
+    }
+
+    /* ===== BACK LINK ===== */
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 4px;
+      transition: color 0.2s;
+    }
+
+    .back-link:hover {
+      color: var(--accent-soft);
+    }
+
+    /* ===== CARDS ===== */
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      transition: border-color 0.3s;
+    }
+
+    .card:hover {
+      border-color: var(--border);
+    }
+
+    /* ===== CONTROLS ===== */
+    .controls {
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
       align-items: center;
     }
-    select, button {
-      background: var(--surface);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 8px 10px;
+
+    select {
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
       font-size: 14px;
-    }
-    button {
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
       cursor: pointer;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    select:focus {
+      border-color: var(--accent);
+    }
+
+    button {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px 18px;
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
       font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
     }
+
+    button:hover {
+      background: var(--bg-hover);
+      border-color: var(--border);
+      transform: translateY(-1px);
+    }
+
     button.primary {
-      border-color: rgba(201, 168, 76, 0.55);
-      color: #f2d988;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(139, 92, 246, 0.1));
+      border-color: rgba(139, 92, 246, 0.4);
+      color: var(--accent-soft);
     }
+
+    button.primary:hover {
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(139, 92, 246, 0.15));
+      border-color: var(--accent);
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+
+    .status {
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 500;
+      margin-left: auto;
+    }
+
+    /* ===== TYPING AREA ===== */
     .sample {
-      line-height: 1.6;
-      font-size: 18px;
-      background: #0f0f0f;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px;
-      min-height: 110px;
+      line-height: 1.75;
+      font-size: 17px;
+      background: var(--bg-deep);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      min-height: 100px;
       white-space: pre-wrap;
+      font-family: 'Inter', monospace;
+      margin-bottom: 12px;
+      letter-spacing: 0.2px;
     }
-    .sample .ok { color: var(--gold); }
-    .sample .bad { color: var(--danger); text-decoration: underline; }
-    .sample .rest { color: #7a7a7a; }
+
+    .sample .ok {
+      color: var(--success);
+      text-shadow: 0 0 8px rgba(52, 211, 153, 0.3);
+    }
+
+    .sample .bad {
+      color: var(--danger);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      text-shadow: 0 0 8px rgba(248, 113, 113, 0.3);
+    }
+
+    .sample .rest {
+      color: var(--text-muted);
+    }
+
+    .sample .cursor-char {
+      color: var(--text-bright);
+      background: rgba(139, 92, 246, 0.25);
+      border-radius: 2px;
+      padding: 0 1px;
+    }
+
     textarea {
       width: 100%;
-      min-height: 110px;
-      background: #0f0f0f;
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px;
+      min-height: 100px;
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
       font-size: 16px;
-      line-height: 1.5;
+      font-family: 'Inter', monospace;
+      line-height: 1.65;
       resize: vertical;
       outline: none;
+      transition: border-color 0.3s, box-shadow 0.3s;
+      letter-spacing: 0.2px;
     }
+
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    /* ===== STATS ===== */
     .stats {
       display: grid;
-      grid-template-columns: repeat(4, minmax(120px, 1fr));
-      gap: 8px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
     }
+
     .stat {
-      background: #101010;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px;
+      background: var(--bg-deep);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      text-align: center;
+      transition: border-color 0.3s, transform 0.2s;
     }
-    .stat b { display: block; color: #e7e7e7; font-size: 18px; margin-top: 4px; }
-    .hint { color: #b8b8b8; font-size: 13px; }
-    .status-ok { color: var(--ok); }
-    .status-bad { color: var(--danger); }
-    @media (max-width: 760px) {
-      .stats { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
-      .sample { font-size: 16px; }
+
+    .stat:hover {
+      border-color: var(--border);
+      transform: translateY(-2px);
+    }
+
+    .stat-label {
+      display: block;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      display: block;
+      color: var(--text-bright);
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .stat:nth-child(1) .stat-value {
+      color: var(--accent-soft);
+    }
+
+    .stat:nth-child(2) .stat-value {
+      color: var(--success);
+    }
+
+    .stat:nth-child(3) .stat-value {
+      color: var(--warning);
+    }
+
+    .stat:nth-child(4) .stat-value {
+      color: var(--text-bright);
+    }
+
+    .status-ok {
+      color: var(--success) !important;
+      font-weight: 600;
+    }
+
+    .status-bad {
+      color: var(--danger) !important;
+      font-weight: 600;
+    }
+
+    /* ===== LEVEL BADGE ===== */
+    .level-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .level-badge.D {
+      background: rgba(34, 197, 94, 0.15);
+      color: #22c55e;
+    }
+
+    .level-badge.C {
+      background: rgba(59, 130, 246, 0.15);
+      color: #3b82f6;
+    }
+
+    .level-badge.B {
+      background: rgba(168, 85, 247, 0.15);
+      color: #a855f7;
+    }
+
+    .level-badge.A {
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+    }
+
+    .level-badge.S {
+      background: linear-gradient(135deg, rgba(244, 63, 94, 0.15), rgba(245, 158, 11, 0.15));
+      color: #f43f5e;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 640px) {
+      body {
+        padding: 12px 8px;
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .sample {
+        font-size: 15px;
+        min-height: 80px;
+      }
+
+      textarea {
+        font-size: 15px;
+      }
+
+      .logo h1 {
+        font-size: 20px;
+      }
+
+      .controls {
+        gap: 8px;
+      }
+
+      .status {
+        margin-left: 0;
+        width: 100%;
+        margin-top: 4px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
     }
   </style>
 </head>
+
 <body>
   <div class="wrap">
-    <div class="card">
-      <h1>LexType JS Trainer</h1>
-      <div class="sub">Тот же функционал в вебе: уровни, автозапуск и удвоенный объём текста на JS.</div>
+    <a href="/" class="back-link">← Вернуться в Академию</a>
+
+    <div class="header-card">
+      <div class="logo">
+        <div class="logo-icon">⌨️</div>
+        <h1>AlexType</h1>
+      </div>
+      <div class="logo-sub">Тренажёр печати Академии Pandora — уровни сложности, точность и скорость</div>
     </div>
 
-    <div class="card row">
-      <label for="level">Уровень:</label>
+    <div class="card controls">
+      <label for="level" style="font-weight:600;font-size:14px;">Уровень:</label>
       <select id="level">
-        <option value="D">D</option>
-        <option value="C">C</option>
-        <option value="B">B</option>
-        <option value="A">A</option>
-        <option value="S">S</option>
+        <option value="D">D — Новичок</option>
+        <option value="C">C — Ученик</option>
+        <option value="B">B — Воин</option>
+        <option value="A">A — Мастер</option>
+        <option value="S">S — Легенда</option>
       </select>
-      <button id="newText" class="primary">Новый текст</button>
-      <button id="reset">Сброс</button>
-      <span id="status" class="hint">Готово к старту</span>
+      <span id="levelBadge" class="level-badge D">D</span>
+      <button id="newText" class="primary">✨ Новый текст</button>
+      <button id="reset">🔄 Сброс</button>
+      <span id="status" class="status">Готово к старту</span>
     </div>
 
     <div class="card">
       <div id="sample" class="sample"></div>
-      <textarea id="input" placeholder="Начни печатать здесь..."></textarea>
+      <textarea id="input" placeholder="Начни печатать здесь..." autocomplete="off" spellcheck="false"></textarea>
     </div>
 
-    <div class="card stats">
-      <div class="stat">Символы<b id="chars">0</b></div>
-      <div class="stat">Точность<b id="accuracy">100%</b></div>
-      <div class="stat">CPM<b id="cpm">0</b></div>
-      <div class="stat">Время<b id="time">0s</b></div>
+    <div class="stats">
+      <div class="stat">
+        <span class="stat-label">Символы</span>
+        <span class="stat-value" id="chars">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Точность</span>
+        <span class="stat-value" id="accuracy">100%</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">CPM</span>
+        <span class="stat-value" id="cpm">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Время</span>
+        <span class="stat-value" id="time">0s</span>
+      </div>
     </div>
   </div>
 
@@ -193,13 +511,13 @@
 
     const TEXTS = bucketByLevel();
 
-    // Удвоение текста на JS: базовая фраза дублируется.
     function doubledByLevel(level) {
       const base = TEXTS[level] || TEXTS.D;
       return base.map(t => `${t} ${t}`);
     }
 
     const levelEl = document.getElementById("level");
+    const badgeEl = document.getElementById("levelBadge");
     const sampleEl = document.getElementById("sample");
     const inputEl = document.getElementById("input");
     const statusEl = document.getElementById("status");
@@ -222,12 +540,19 @@
       renderSample();
       setStats();
       setStatus("Готово к старту", "");
+      updateBadge();
       inputEl.focus();
+    }
+
+    function updateBadge() {
+      const lv = levelEl.value;
+      badgeEl.textContent = lv;
+      badgeEl.className = `level-badge ${lv}`;
     }
 
     function setStatus(text, cls) {
       statusEl.textContent = text;
-      statusEl.className = `hint ${cls || ""}`.trim();
+      statusEl.className = `status ${cls || ""}`.trim();
     }
 
     function renderSample() {
@@ -240,15 +565,19 @@
         i++;
       }
       if (i < typed.length && i < targetText.length) bad = targetText[i];
-      const rest = targetText.slice(i + (bad ? 1 : 0));
-      sampleEl.innerHTML = `<span class="ok">${escapeHtml(ok)}</span><span class="bad">${escapeHtml(bad)}</span><span class="rest">${escapeHtml(rest)}</span>`;
+      const cursorIdx = i + (bad ? 1 : 0);
+      const cursorChar = cursorIdx < targetText.length ? targetText[cursorIdx] : '';
+      const rest = targetText.slice(cursorIdx + (cursorChar ? 1 : 0));
+
+      sampleEl.innerHTML =
+        `<span class="ok">${esc(ok)}</span>` +
+        `<span class="bad">${esc(bad)}</span>` +
+        (cursorChar ? `<span class="cursor-char">${esc(cursorChar)}</span>` : '') +
+        `<span class="rest">${esc(rest)}</span>`;
     }
 
-    function escapeHtml(s) {
-      return String(s)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
+    function esc(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
     function setStats() {
@@ -258,7 +587,6 @@
       for (let i = 0; i < total; i++) {
         if (typed[i] === targetText[i]) correct++;
       }
-
       const elapsedMs = startedAt ? Date.now() - startedAt : 0;
       const elapsedMin = elapsedMs > 0 ? (elapsedMs / 60000) : 0;
       const cpm = elapsedMin > 0 ? Math.round(correct / elapsedMin) : 0;
@@ -281,11 +609,11 @@
       if (inputEl.value === targetText) {
         clearInterval(timer);
         timer = null;
-        setStatus("PASSED", "status-ok");
+        setStatus("✅ PASSED", "status-ok");
       } else if (inputEl.value.length >= targetText.length) {
-        setStatus("FAILED", "status-bad");
+        setStatus("❌ FAILED", "status-bad");
       } else {
-        setStatus("В процессе", "");
+        setStatus("⏳ В процессе...", "");
       }
     });
 
@@ -296,4 +624,5 @@
     pickText();
   </script>
 </body>
+
 </html>

@@ -1942,11 +1942,12 @@
                 <button class="tab-btn" role="tab" aria-selected="false" onclick="filterCategory('scratch', this)">
                     <span class="tab-icon">🐱</span> Scratch
                 </button>
-                <button class="tab-btn homework-tab" role="tab" aria-selected="false" onclick="filterCategory('homework', this)">
+                <button class="tab-btn homework-tab" role="tab" aria-selected="false"
+                    onclick="filterCategory('homework', this)">
                     <span class="tab-icon">📌</span> ДЗ
                 </button>
                 <button class="tab-btn lextype-tab" role="tab" aria-selected="false" onclick="openAlextype()">
-                    <span class="tab-icon">⌨️</span> LexType
+                    <span class="tab-icon">⌨️</span> AlexType
                 </button>
             </div>
         </nav>
@@ -2174,9 +2175,12 @@
                         <div class="preview-toolbar">
                             <span>🌐 Мини-браузер для рендера задачи</span>
                             <div class="preview-actions">
-                                <button class="preview-btn" type="button" onclick="renderFrontendPreview(true)">Рендер</button>
-                                <button class="preview-btn" type="button" onclick="openPreviewInNewTab()">Новая вкладка</button>
-                                <button class="preview-btn" type="button" onclick="downloadPreviewShot()">Скрин PNG</button>
+                                <button class="preview-btn" type="button"
+                                    onclick="renderFrontendPreview(true)">Рендер</button>
+                                <button class="preview-btn" type="button" onclick="openPreviewInNewTab()">Новая
+                                    вкладка</button>
+                                <button class="preview-btn" type="button" onclick="downloadPreviewShot()">Скрин
+                                    PNG</button>
                             </div>
                         </div>
                         <div class="mini-browser">
@@ -2184,7 +2188,8 @@
                                 <span class="mini-browser-dot red"></span>
                                 <span class="mini-browser-dot yellow"></span>
                                 <span class="mini-browser-dot green"></span>
-                                <span id="frontend-preview-address" class="mini-browser-address">quest://frontend-preview</span>
+                                <span id="frontend-preview-address"
+                                    class="mini-browser-address">quest://frontend-preview</span>
                             </div>
                             <iframe id="frontend-preview-frame" class="mini-browser-frame"
                                 sandbox="allow-scripts allow-same-origin"></iframe>

@@ -523,6 +523,9 @@
                 <li class="nav-item" onclick="showSection('events')" tabindex="0" role="button">
                     <span class="icon">🎉</span> Events
                 </li>
+                <li class="nav-item" onclick="showSection('homework')" tabindex="0" role="button">
+                    <span class="icon">📌</span> ДЗ
+                </li>
                 <li class="nav-item" onclick="showSection('settings')" tabindex="0" role="button">
                     <span class="icon">⚙️</span> Settings
                 </li>
@@ -713,8 +716,10 @@
                         <h3>📋 Admin Credentials</h3>
                     </div>
                     <div style="padding: 24px; color: var(--text-secondary);">
-                        <p><strong>Login:</strong> use your current admin username/password from database or env vars.</p>
-                        <p style="margin-top: 8px; font-size: 13px;">Если при старте создан bootstrap-админ, пароль берите из server logs (строка `Bootstrap admin created`).</p>
+                        <p><strong>Login:</strong> use your current admin username/password from database or env vars.
+                        </p>
+                        <p style="margin-top: 8px; font-size: 13px;">Если при старте создан bootstrap-админ, пароль
+                            берите из server logs (строка `Bootstrap admin created`).</p>
                     </div>
                 </div>
             </section>
@@ -959,6 +964,79 @@
                             </tr>
                         </thead>
                         <tbody id="events-table">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Homework Section -->
+            <section id="section-homework" class="section">
+                <div class="page-header">
+                    <h2>📌 Домашние задания</h2>
+                    <p>Создавайте и управляйте ДЗ для учеников</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>➕ Назначить ДЗ</h3>
+                    </div>
+                    <div style="padding: 24px;">
+                        <div class="form-group">
+                            <label for="hw-title">Название (необязательно)</label>
+                            <input type="text" id="hw-title" placeholder="ДЗ на 17.02 — циклы и функции">
+                        </div>
+                        <div class="form-group">
+                            <label>Задачи <span style="color:var(--text-secondary);font-size:12px;">(минимум 3, если
+                                    пусто — выберутся автоматически)</span></label>
+                            <div style="margin-bottom:8px;display:flex;gap:8px;flex-wrap:wrap;">
+                                <button class="btn btn-small" onclick="hwFilterTasks('all')"
+                                    style="font-size:12px;">Все</button>
+                                <button class="btn btn-small" onclick="hwFilterTasks('python')"
+                                    style="font-size:12px;">🐍 Python</button>
+                                <button class="btn btn-small" onclick="hwFilterTasks('javascript')"
+                                    style="font-size:12px;">⚡ JS</button>
+                                <button class="btn btn-small" onclick="hwFilterTasks('frontend')"
+                                    style="font-size:12px;">🎨 Frontend</button>
+                                <button class="btn btn-small" onclick="hwFilterTasks('scratch')"
+                                    style="font-size:12px;">🐱 Scratch</button>
+                            </div>
+                            <div id="hw-tasks-list"
+                                style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;background:var(--bg-deep);padding:8px;">
+                                <p style="color:var(--text-secondary);text-align:center;padding:16px;">Загрузка задач...
+                                </p>
+                            </div>
+                            <p style="font-size:12px;color:var(--text-secondary);margin-top:4px;">Выбрано: <span
+                                    id="hw-selected-count">0</span> задач</p>
+                        </div>
+                        <div class="form-group">
+                            <label>Для кого</label>
+                            <select id="hw-target"
+                                style="width:100%;padding:12px 16px;background:var(--bg-deep);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:15px;">
+                                <option value="all">Все ученики</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="assignHomework()">📌 Назначить ДЗ</button>
+                        <span id="hw-assign-status" style="margin-left:12px;color:var(--success);display:none;"></span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Активные ДЗ</h3>
+                        <button class="btn btn-small" onclick="loadHomeworkSets()">🔄 Обновить</button>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Название</th>
+                                <th>Задач</th>
+                                <th>Учеников</th>
+                                <th>Дедлайн</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody id="homework-table">
                             <!-- Populated by JS -->
                         </tbody>
                     </table>
@@ -1586,6 +1664,7 @@
             if (name === 'priorities') populateUserDropdowns();
             if (name === 'rewards') populateUserDropdowns();
             if (name === 'paste-requests') loadPasteRequests();
+            if (name === 'homework') { loadHomeworkTasks(); loadHomeworkSets(); loadHomeworkStudents(); }
         }
 
         // ==================== PASTE REQUESTS ====================
@@ -2062,6 +2141,118 @@
                 alert(status === 'approved' ? 'Работа одобрена!' : 'Работа отклонена');
             } catch (e) {
                 alert('Ошибка при ревью');
+            }
+        }
+
+        // ==================== HOMEWORK ====================
+        let hwAllTasks = [];
+        let hwCurrentFilter = 'all';
+
+        async function loadHomeworkTasks() {
+            try {
+                const data = await api('/api/roadmap');
+                hwAllTasks = (data.tasks || []).map(t => ({
+                    id: t.id, title: t.title || t.id,
+                    category: t.category || '?', tier: t.tier || '?'
+                }));
+                renderHwTasks();
+            } catch (e) { console.warn('Failed to load tasks for HW:', e); }
+        }
+
+        function hwFilterTasks(cat) {
+            hwCurrentFilter = cat;
+            renderHwTasks();
+        }
+
+        function renderHwTasks() {
+            const list = document.getElementById('hw-tasks-list');
+            const filtered = hwCurrentFilter === 'all'
+                ? hwAllTasks
+                : hwAllTasks.filter(t => t.category === hwCurrentFilter);
+            if (filtered.length === 0) {
+                list.innerHTML = '<p style="color:var(--text-secondary);text-align:center;padding:16px;">Нет задач</p>';
+                return;
+            }
+            list.innerHTML = filtered.map(t => `
+                <label style="display:flex;align-items:center;gap:8px;padding:4px 8px;cursor:pointer;border-radius:6px;font-size:13px;"
+                       onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
+                    <input type="checkbox" class="hw-task-cb" value="${t.id}" onchange="updateHwCount()">
+                    <span style="color:var(--text-secondary);min-width:24px;">${t.tier}</span>
+                    <span>${t.title}</span>
+                    <span style="color:var(--text-secondary);margin-left:auto;font-size:11px;">${t.category}</span>
+                </label>
+            `).join('');
+        }
+
+        function updateHwCount() {
+            const count = document.querySelectorAll('.hw-task-cb:checked').length;
+            document.getElementById('hw-selected-count').textContent = count;
+        }
+
+        async function loadHomeworkStudents() {
+            try {
+                const data = await api('/api/admin/students');
+                const sel = document.getElementById('hw-target');
+                sel.innerHTML = '<option value="all">Все ученики</option>';
+                for (const s of (data.students || [])) {
+                    sel.innerHTML += `<option value="${s.id}">${s.display_name}</option>`;
+                }
+            } catch (e) { }
+        }
+
+        async function assignHomework() {
+            const title = document.getElementById('hw-title').value.trim();
+            const checked = [...document.querySelectorAll('.hw-task-cb:checked')].map(cb => cb.value);
+            const targetVal = document.getElementById('hw-target').value;
+            const statusEl = document.getElementById('hw-assign-status');
+
+            const body = { title: title || null, task_ids: checked.length ? checked : null };
+            if (targetVal !== 'all') body.user_ids = [parseInt(targetVal)];
+
+            try {
+                const result = await api('/api/admin/homework', 'POST', body);
+                statusEl.style.display = 'inline';
+                statusEl.textContent = `✅ ДЗ назначено! ${result.task_count} задач → ${result.target_count} учеников. Дедлайн: ${result.deadline_at}`;
+                statusEl.style.color = 'var(--success)';
+                document.querySelectorAll('.hw-task-cb:checked').forEach(cb => cb.checked = false);
+                updateHwCount();
+                document.getElementById('hw-title').value = '';
+                loadHomeworkSets();
+                setTimeout(() => { statusEl.style.display = 'none'; }, 8000);
+            } catch (e) {
+                statusEl.style.display = 'inline';
+                statusEl.textContent = `❌ Ошибка: ${e.message}`;
+                statusEl.style.color = 'var(--danger)';
+                setTimeout(() => { statusEl.style.display = 'none'; }, 6000);
+            }
+        }
+
+        async function loadHomeworkSets() {
+            try {
+                const data = await api('/api/admin/homework');
+                const sets = data.items || data.sets || [];
+                const table = document.getElementById('homework-table');
+                if (sets.length === 0) {
+                    table.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);">Нет домашних заданий</td></tr>';
+                    return;
+                }
+                table.innerHTML = sets.map(s => {
+                    const deadline = s.deadline_at ? new Date(s.deadline_at + 'Z').toLocaleString('ru-RU') : '—';
+                    const isOverdue = s.deadline_at && new Date(s.deadline_at + 'Z') < new Date();
+                    const statusBadge = isOverdue
+                        ? '<span class="badge badge-rejected">Просрочено</span>'
+                        : '<span class="badge badge-approved">Активно</span>';
+                    return `<tr>
+                        <td>${s.title || '—'}</td>
+                        <td>${s.task_count || '?'}</td>
+                        <td>${s.target_count || '?'}</td>
+                        <td>${deadline}</td>
+                        <td>${statusBadge}</td>
+                    </tr>`;
+                }).join('');
+            } catch (e) {
+                document.getElementById('homework-table').innerHTML =
+                    '<tr><td colspan="5" style="color:var(--danger);">Ошибка загрузки</td></tr>';
             }
         }
 
