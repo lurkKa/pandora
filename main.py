@@ -2956,72 +2956,87 @@ def _smart_select_homework_tasks(
     completed_ids: set[str],
     user_level: int,
     count: int = 4,
+    tasks_by_id: dict | None = None,
 ) -> list[str]:
     """
-    Smart homework task selection for a student.
+    Personalized homework per student.
 
     Algorithm:
+    - Only pick tasks that are UNLOCKED for this student (via _unlock_state)
     - Only pick tasks the student has NOT completed
-    - Determine student's approximate tier from level (D→S)
-    - Pick tasks at current tier + one tier above
-    - Focus on ONE category (the one with most uncompleted tasks)
-    - Return 3-4 task IDs sorted by difficulty (easier first)
+    - Pick category where the student has the MOST completed tasks (their focus area)
+    - Mix: 2 easy + 1 medium + 1 hard (relative to student's actual position)
+    - Fallback: any unlocked uncompleted task
     """
+    if tasks_by_id is None:
+        tasks_by_id = {t.get("id"): t for t in tasks_raw if t.get("id")}
+
+    counts = _counts_by_category_and_tier(tasks_by_id, completed_ids)
     tier_order = {"D": 0, "C": 1, "B": 2, "A": 3, "S": 4}
-    tier_from_level = {1: "D", 2: "D", 3: "C", 4: "C", 5: "B", 6: "B", 7: "A", 8: "A"}
-    student_tier = tier_from_level.get(min(user_level, 8), "A")
-    student_tier_val = tier_order[student_tier]
-    next_tier_val = min(student_tier_val + 1, 4)
 
-    categories = ["python", "javascript", "frontend"]
-    candidates = [
-        t for t in tasks_raw
-        if t.get("id")
-        and t["id"] not in completed_ids
-        and t.get("category") in categories
-        and tier_order.get((t.get("tier") or "D").upper(), 0) in (student_tier_val, next_tier_val)
-    ]
-
-    if len(candidates) < count:
-        candidates = [
-            t for t in tasks_raw
-            if t.get("id")
-            and t["id"] not in completed_ids
-            and t.get("category") in categories
-            and tier_order.get((t.get("tier") or "D").upper(), 0) <= next_tier_val + 1
-        ]
-
-    if not candidates:
-        candidates = [t for t in tasks_raw if t.get("id") and t["id"] not in completed_ids]
+    # Filter: uncompleted + unlocked for this student
+    candidates = []
+    for t in tasks_raw:
+        tid = t.get("id")
+        if not tid or tid in completed_ids:
+            continue
+        cat = t.get("category")
+        if cat not in ("python", "javascript", "frontend"):
+            continue
+        unlocked, _ = _unlock_state(t, completed_ids, counts)
+        if unlocked:
+            candidates.append(t)
 
     if not candidates:
         return []
 
-    # Group by category, pick the one with the MOST uncompleted tasks
+    # Pick category where student has MOST completed tasks (their focus)
+    completed_per_cat: dict[str, int] = {}
+    for tid in completed_ids:
+        ct = tasks_by_id.get(tid)
+        if ct:
+            c = ct.get("category", "other")
+            completed_per_cat[c] = completed_per_cat.get(c, 0) + 1
+
+    # Among candidates, group by category
     by_cat: dict[str, list[dict]] = {}
     for t in candidates:
         cat = t.get("category", "other")
         by_cat.setdefault(cat, []).append(t)
 
-    # Pick the category with the most tasks → focused homework
-    best_cat = max(by_cat, key=lambda c: len(by_cat[c]))
+    # Prefer the category the student has progressed most in
+    # If student has no completions yet, pick category with most easy tasks
+    if completed_per_cat:
+        best_cat = max(
+            by_cat.keys(),
+            key=lambda c: completed_per_cat.get(c, 0)
+        )
+    else:
+        best_cat = max(by_cat, key=lambda c: len(by_cat[c]))
+
     pool = by_cat[best_cat]
 
-    # Sort by tier then xp
+    # Sort by tier (easier first), then by xp
     pool.sort(key=lambda t: (tier_order.get((t.get("tier") or "D").upper(), 0), int(t.get("xp") or 0)))
 
-    # Split into easy / medium / hard relative to student tier
-    easy = [t for t in pool if tier_order.get((t.get("tier") or "D").upper(), 0) <= student_tier_val]
-    medium = [t for t in pool if tier_order.get((t.get("tier") or "D").upper(), 0) == student_tier_val + 1]
-    hard = [t for t in pool if tier_order.get((t.get("tier") or "D").upper(), 0) >= student_tier_val + 2]
+    # Split into easy / medium / hard by position in the pool
+    n = len(pool)
+    if n <= count:
+        return [t["id"] for t in pool]
 
-    # If buckets are sparse, redistribute
-    if not easy:
-        easy = pool[:len(pool)//2]
-        medium = pool[len(pool)//2:]
-    if not medium and hard:
-        medium = hard[:1]
-        hard = hard[1:]
+    # Split thirds: easy = first 50%, medium = next 30%, hard = last 20%
+    cut1 = max(1, n * 50 // 100)
+    cut2 = max(cut1 + 1, n * 80 // 100)
+    easy = pool[:cut1]
+    medium = pool[cut1:cut2]
+    hard = pool[cut2:]
+
+    if not medium:
+        medium = easy[-1:]
+        easy = easy[:-1]
+    if not hard and len(medium) > 1:
+        hard = medium[-1:]
+        medium = medium[:-1]
 
     # Pick: 2 easy, 1 medium, 1 hard
     selected: list[str] = []
@@ -3032,7 +3047,7 @@ def _smart_select_homework_tasks(
     for t in hard[:1]:
         selected.append(t["id"])
 
-    # If we still have fewer than count, pad from pool
+    # Pad if needed
     if len(selected) < count:
         for t in pool:
             if t["id"] not in selected:
@@ -3074,7 +3089,7 @@ def _auto_generate_homework_for_user(
     user_level = int(row["level"]) if row else 1
 
     # Smart select tasks
-    task_ids = _smart_select_homework_tasks(tasks_raw, completed_ids, user_level, count=4)
+    task_ids = _smart_select_homework_tasks(tasks_raw, completed_ids, user_level, count=4, tasks_by_id=tasks_by_id)
     if len(task_ids) < 3:
         return False  # Not enough uncompleted tasks
 
