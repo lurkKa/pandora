@@ -19,6 +19,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate required secrets
+        env:
+          PANDORA_BASE_URL: ${{ secrets.PANDORA_BASE_URL }}
+          PANDORA_BACKUP_USER: ${{ secrets.PANDORA_BACKUP_USER }}
+          PANDORA_BACKUP_PASS: ${{ secrets.PANDORA_BACKUP_PASS }}
+        run: |
+          set -euo pipefail
+          missing=0
+          [ -n "${PANDORA_BASE_URL:-}" ] || { echo "::error::Missing secret PANDORA_BASE_URL"; missing=1; }
+          [ -n "${PANDORA_BACKUP_USER:-}" ] || { echo "::error::Missing secret PANDORA_BACKUP_USER"; missing=1; }
+          [ -n "${PANDORA_BACKUP_PASS:-}" ] || { echo "::error::Missing secret PANDORA_BACKUP_PASS"; missing=1; }
+          [ "$missing" -eq 0 ] || exit 1
+
+      - name: Preflight ping
+        env:
+          PANDORA_BASE_URL: ${{ secrets.PANDORA_BASE_URL }}
+        run: |
+          set -euo pipefail
+          BASE="${PANDORA_BASE_URL%/}"
+          echo "Checking ${BASE}/ping"
+          curl -fsS --max-time 30 --retry 2 --retry-delay 5 "${BASE}/ping" > /dev/null
+
       - name: Prepare backup path
         run: |
           mkdir -p backups

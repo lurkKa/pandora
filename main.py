@@ -3440,11 +3440,12 @@ REVIEW_ONLY_MODE = (os.getenv("PANDORA_REVIEW_ONLY_MODE") or "0") == "1"
 def _manual_verification_placeholder(reason: str) -> dict:
     """Build a synthetic verification payload when auto-check is intentionally skipped."""
     return {
-        "passed": True,
+        "passed": False,
         "exec_error": None,
         "stdout": "",
         "cases": [],
         "note": reason,
+        "manual_review_required": True,
     }
 
 
@@ -3562,6 +3563,7 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
         else:
             verification, runtime_ms = verify_task(task, code)
     passed = bool(verification.get("passed"))
+    manual_review_required = bool(verification.get("manual_review_required"))
 
     code_language = "python" if category == "python" else "javascript" if category == "javascript" else "frontend"
     code_hash = code_sha256(code)
@@ -3592,7 +3594,7 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
         )
         attempt_id = cursor.lastrowid
 
-        if not passed:
+        if not passed and not manual_review_required:
             conn.commit()
             return {"status": "failed", "attempt_id": attempt_id, "verification": verification}
 
@@ -3603,7 +3605,7 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
             flags.append(f"plagiarism_match:{matched_user_id}")
 
         # Manual review tiers OR integrity flags => create submission, do not award XP yet.
-        if force_pending_review or tier in REVIEWABLE_TIERS or flags:
+        if force_pending_review or manual_review_required or tier in REVIEWABLE_TIERS or flags:
             existing_pending = _pending_submission_for_task(cursor, user["id"], data.task_id)
             if existing_pending:
                 conn.commit()
@@ -3636,6 +3638,8 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
                     (
                         "Auto-verification disabled by policy; waiting for Sensei review"
                         if force_pending_review
+                        else "Auto-check skipped by server policy; waiting for Sensei review"
+                        if manual_review_required
                         else "Auto-verified; waiting for Sensei review"
                         if tier in REVIEWABLE_TIERS
                         else "Flagged for integrity review"

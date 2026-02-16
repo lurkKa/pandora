@@ -44,7 +44,12 @@ def main() -> int:
     parser.add_argument("--output", required=True, help="Output .db.gz path")
     args = parser.parse_args()
 
-    base_url = args.base_url.rstrip("/")
+    base_url = (args.base_url or "").strip()
+    if not base_url:
+        raise SystemExit("Missing --base-url (or empty PANDORA_BASE_URL secret)")
+    if "://" not in base_url:
+        base_url = f"https://{base_url}"
+    base_url = base_url.rstrip("/")
     output_path = pathlib.Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 

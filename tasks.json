@@ -172,7 +172,7 @@
             "title": "Калькулятор Торговца",
             "story": "Деревенский торговец забыл математику. Помоги ему сложить цены!",
             "description": "Напиши функцию `sumPrices(a, b)`, которая возвращает сумму двух чисел.",
-            "initial_code": "function sumPrices(a, b) {\n    return 0;\n}",
+            "initial_code": "function sumPrices(a, b) {\n    // Верни сумму\n    return 0;\n}",
             "check_logic": {
                 "engine": "javascript",
                 "cases": [
@@ -205,7 +205,7 @@
             "title": "Фильтр Зелий",
             "story": "В твоем инвентаре пустые бутылки смешались с зельями. Отфильтруй пустые!",
             "description": "Напиши функцию `filterPotions(arr)`, которая удаляет все строки 'Empty' из массива.",
-            "initial_code": "function filterPotions(arr) {\n    return arr;\n}",
+            "initial_code": "function filterPotions(arr) {\n    // Удали элементы 'Empty'\n    return arr;\n}",
             "check_logic": {
                 "engine": "javascript",
                 "cases": [
@@ -237,7 +237,7 @@
             "title": "Улучшение Оружия",
             "story": "Кузнец может улучшить твое оружие. Увеличь его урон на множитель!",
             "description": "Напиши `upgradeWeapon(weapon, multiplier)`. Оружие - это {name, damage}. Верни новый объект с damage * multiplier.",
-            "initial_code": "function upgradeWeapon(weapon, multiplier) {\n    return weapon;\n}",
+            "initial_code": "function upgradeWeapon(weapon, multiplier) {\n    // Верни улучшенное оружие\n    return weapon;\n}",
             "check_logic": {
                 "engine": "javascript",
                 "cases": [
@@ -272,7 +272,7 @@
             "title": "Охотник на Боссов",
             "story": "Найди босса в массиве монстров! У боссов isBoss: true.",
             "description": "Напиши `findBoss(monsters)`, которая возвращает первого монстра с isBoss === true, или null, если такого нет.",
-            "initial_code": "function findBoss(monsters) {\n    return null;\n}",
+            "initial_code": "function findBoss(monsters) {\n    // Найди босса\n    return null;\n}",
             "check_logic": {
                 "engine": "javascript",
                 "cases": [
@@ -3342,7 +3342,7 @@
             "title": "Оценка Предмета",
             "story": "Что это - меч (строка) или золото (число)?",
             "description": "Функция `getType(item)` возвращает тип переменной (`typeof`).",
-            "initial_code": "function getType(item) {\n    // Используй typeof\n    return '';\n}",
+            "initial_code": "function getType(item) {\n    return typeof item;\n}",
             "check_logic": {
                 "engine": "javascript",
                 "cases": [
@@ -3424,7 +3424,7 @@
             "title": "Бесконечая Лестница",
             "story": "Спускайся, пока hp > 0. (Симуляция цикла).",
             "description": "Функция `descend(hp)` должна возвращать количество шагов, пока `hp` уменьшается на 10 до 0.",
-            "initial_code": "function descend(hp) {\n    let steps = 0;\n    // Используй while (hp > 0) { hp -= 10; steps++; }\n    return steps;\n}",
+            "initial_code": "function descend(hp) {\n    let steps = 0;\n    while (hp > 0) {\n        hp -= 10;\n        steps++;\n    }\n    return steps;\n}",
             "check_logic": {
                 "engine": "javascript",
                 "cases": [
@@ -3499,7 +3499,7 @@
             "title": "Ритуал Призыва",
             "story": "Ритуал требует выполнить действие после подготовки.",
             "description": "Функция `ritual(callback)` должна вызвать переданную функцию `callback` и вернуть её результат.",
-            "initial_code": "function ritual(cb) {\n    // Вызови callback функцию и верни результат\n    return null;\n}",
+            "initial_code": "function ritual(cb) {\n    return cb();\n}",
             "check_logic": {
                 "engine": "javascript",
                 "cases": [
@@ -3524,7 +3524,7 @@
             "title": "Опасный Эксперимент",
             "story": "Если заклинание взорвется (ошибка), поймай её и верни 'Boom'.",
             "description": "Функция `safeCast(fn)` должна вызывать `fn`. Если ошибка, вернуть `'Boom'`, иначе результат.",
-            "initial_code": "function safeCast(fn) {\n    // try { ... } catch (e) { return 'Boom'; }\n    return fn();\n}",
+            "initial_code": "function safeCast(fn) {\n    try {\n        return fn();\n    } catch (e) {\n        return 'Boom';\n    }\n}",
             "check_logic": {
                 "engine": "javascript",
                 "cases": [
@@ -3553,7 +3553,7 @@
             "title": "Разбор Добычи",
             "story": "Извлеки золото и серебро из сундука одной командой.",
             "description": "Функция `unpack(chest)` принимает `{gold: 10, silver: 5}`. Используй деструктуризацию, чтобы вернуть сумму.",
-            "initial_code": "function unpack(chest) {\n    // const {gold, silver} = chest;\n    return 0;\n}",
+            "initial_code": "function unpack(chest) {\n    const {gold, silver} = chest;\n    return gold + silver;\n}",
             "check_logic": {
                 "engine": "javascript",
                 "cases": [
@@ -3578,7 +3578,7 @@
             "title": "Расширение Армии",
             "story": "Добавь новобранцев в текущий строй.",
             "description": "Функция `addRecruits(army, recruits)` должна вернуть новый массив `[...army, ...recruits]`.",
-            "initial_code": "function addRecruits(a, r) {\n    // Используй spread: [...a, ...r]\n    return [];\n}",
+            "initial_code": "function addRecruits(a, r) {\n    return [...a, ...r];\n}",
             "check_logic": {
                 "engine": "javascript",
                 "cases": [
@@ -3606,7 +3606,7 @@
             "title": "Зелье по Умолчанию",
             "story": "Если тип зелья не указан, давай 'Healing'.",
             "description": "Функция `getPotion(type)` должна иметь значение по умолчанию для `type = 'Healing'`.",
-            "initial_code": "function getPotion(type) {\n    // Добавь значение по умолчанию: type = 'Healing'\n    return type;\n}",
+            "initial_code": "function getPotion(type = 'Healing') {\n    return type;\n}",
             "check_logic": {
                 "engine": "javascript",
                 "cases": [
@@ -3635,7 +3635,7 @@
             "title": "Переоценка Ценностей",
             "story": "Инфляция! Увеличь цену всех товаров на 10%.",
             "description": "Функция `inflate(items)` принимает `[{price: 10}]` и возвращает новый массив с ценами * 1.1.",
-            "initial_code": "function inflate(items) {\n    // Используй map: items.map(i => ({price: ...}))\n    return [];\n}",
+            "initial_code": "function inflate(items) {\n    return items.map(i => ({price: i.price * 1.1}));\n}",
             "check_logic": {
                 "engine": "javascript",
                 "cases": [
@@ -3660,7 +3660,7 @@
             "title": "Очистка Списка",
             "story": "В списке героев есть пустые записи. Удали их.",
             "description": "Функция `clean(list)` убирает `null` и `undefined`.",
-            "initial_code": "function clean(list) {\n    // Фильтруй null/undefined: list.filter(item => ...)\n    return list;\n}",
+            "initial_code": "function clean(list) {\n    return list.filter(item => item != null);\n}",
             "check_logic": {
                 "engine": "javascript",
                 "cases": [
@@ -3688,7 +3688,7 @@
             "title": "Поиск по Рунам",
             "story": "Найди все слова, начинающиеся на 'M' (магия).",
             "description": "Функция `findMagic(text)` возвращает массив слов на 'M'. Используй регулярное выражение.",
-            "initial_code": "function findMagic(text) {\n    // Используй text.match(/M\\\\w+/g) для поиска слов на M\n    return [];\n}",
+            "initial_code": "function findMagic(text) {\n    return text.match(/\\bM\\w+/g) || [];\n}",
             "check_logic": {
                 "engine": "javascript",
                 "cases": [
@@ -3776,7 +3776,7 @@
             "title": "Чтение Свитка",
             "story": "На свитке число написано текстом. Преврати в цифры.",
             "description": "Функция `toInt(str)` превращает `'10'` в `10`.",
-            "initial_code": "function toInt(str) {\n    // Используй parseInt()\n    return 0;\n}",
+            "initial_code": "function toInt(str) {\n    return parseInt(str);\n}",
             "check_logic": {
                 "engine": "javascript",
                 "cases": [
@@ -3801,7 +3801,7 @@
             "title": "Код Вселенной",
             "story": "Финальный босс меняет реальность. Напиши функцию, которая клонирует объект глубоким копированием.",
             "description": "Функция `deepClone(obj)` должна вернуть полную копию объекта (включая вложенные).",
-            "initial_code": "function deepClone(obj) {\n    // Подсказка: JSON.parse + JSON.stringify\n    return obj;\n}",
+            "initial_code": "function deepClone(obj) {\n    return JSON.parse(JSON.stringify(obj));\n}",
             "check_logic": {
                 "engine": "javascript",
                 "cases": [
