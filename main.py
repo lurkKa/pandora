@@ -3565,6 +3565,27 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
     passed = bool(verification.get("passed"))
     manual_review_required = bool(verification.get("manual_review_required"))
 
+    # Safety gate: code tasks can be completed only when runner returned real cases
+    # and every case passed. Prevents false-positive passes from malformed payloads.
+    logic = task.get("check_logic") or {}
+    engine = (logic.get("engine") or "").lower()
+    verification_cases = verification.get("cases") if isinstance(verification, dict) else []
+    expected_cases = logic.get("cases") if isinstance(logic.get("cases"), list) else []
+    expected_case_count = len(expected_cases)
+    has_cases = isinstance(verification_cases, list) and len(verification_cases) > 0
+    valid_case_payload = has_cases and all(isinstance(c, dict) for c in verification_cases)
+    case_count_matches = valid_case_payload and len(verification_cases) == expected_case_count
+    all_cases_passed = valid_case_payload and all(bool(c.get("passed")) for c in verification_cases)
+    if engine in ("python", "pyodide", "javascript", "js") and not manual_review_required:
+        passed = bool(passed and all_cases_passed and case_count_matches)
+        if (not has_cases or not valid_case_payload or not case_count_matches) and not verification.get("exec_error"):
+            verification["passed"] = False
+            verification["exec_error"] = {
+                "type": "InvalidVerification",
+                "message": "Invalid or incomplete test cases payload",
+                "trace": "",
+            }
+
     code_language = "python" if category == "python" else "javascript" if category == "javascript" else "frontend"
     code_hash = code_sha256(code)
     simhash_hex = code_simhash_hex(code, code_language)
