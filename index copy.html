@@ -441,6 +441,32 @@
             color: white;
         }
 
+        .tab-btn.lextype-tab {
+            border-color: rgba(255, 210, 120, 0.38);
+            color: #ffe8af;
+            background: linear-gradient(135deg, rgba(255, 200, 90, 0.12) 0%, rgba(107, 218, 255, 0.12) 100%);
+            font-weight: 700;
+        }
+
+        .tab-btn.lextype-tab:hover {
+            border-color: rgba(255, 227, 158, 0.75);
+            color: #fff4cf;
+            background: linear-gradient(135deg, rgba(255, 208, 110, 0.2) 0%, rgba(125, 228, 255, 0.2) 100%);
+        }
+
+        .tab-btn.homework-tab {
+            border-color: rgba(239, 68, 68, 0.6);
+            color: #ffd2d2;
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.18) 0%, rgba(127, 29, 29, 0.18) 100%);
+            font-weight: 700;
+        }
+
+        .tab-btn.homework-tab:hover {
+            border-color: rgba(248, 113, 113, 0.9);
+            color: #ffe5e5;
+            background: linear-gradient(135deg, rgba(248, 113, 113, 0.26) 0%, rgba(127, 29, 29, 0.26) 100%);
+        }
+
         .tab-icon {
             font-size: 16px;
         }
@@ -517,6 +543,11 @@
             right: 16px;
             font-size: 24px;
             z-index: 2;
+        }
+
+        .quest-card.homework {
+            border: 2px solid #ef4444;
+            box-shadow: 0 0 18px rgba(239, 68, 68, 0.22);
         }
 
         .quest-lock {
@@ -1909,6 +1940,12 @@
                 <button class="tab-btn" role="tab" aria-selected="false" onclick="filterCategory('scratch', this)">
                     <span class="tab-icon">🐱</span> Scratch
                 </button>
+                <button class="tab-btn homework-tab" role="tab" aria-selected="false" onclick="filterCategory('homework', this)">
+                    <span class="tab-icon">📌</span> ДЗ
+                </button>
+                <button class="tab-btn lextype-tab" role="tab" aria-selected="false" onclick="openAlextype()">
+                    <span class="tab-icon">⌨️</span> LexType
+                </button>
             </div>
         </nav>
 
@@ -2145,7 +2182,7 @@
                                 <span class="mini-browser-dot red"></span>
                                 <span class="mini-browser-dot yellow"></span>
                                 <span class="mini-browser-dot green"></span>
-                                <span class="mini-browser-address">quest://frontend-preview</span>
+                                <span id="frontend-preview-address" class="mini-browser-address">quest://frontend-preview</span>
                             </div>
                             <iframe id="frontend-preview-frame" class="mini-browser-frame"
                                 sandbox="allow-scripts allow-same-origin"></iframe>
@@ -2422,6 +2459,9 @@
         let currentUser = null;
         let pyodide = null;
         let tasks = [];
+        let homeworkItems = [];
+        let homeworkByTask = {};
+        let homeworkPenaltyShown = new Set();
         let currentTask = null;
         let currentFilter = 'all';
         let previewRenderTimer = null;
@@ -2580,6 +2620,7 @@
             updateXPDisplay();
             loadProfile(); // also updates avatar + rank
             loadRoadmap();
+            loadHomework(true);
             loadLeaderboard(); // Load world leaderboard
 
             // Initialize new features
@@ -2592,6 +2633,47 @@
 
         // ==================== TASKS ====================
         let userPriorities = { python: 25, javascript: 25, frontend: 25, scratch: 25 };
+
+        async function loadHomework(showPenaltyToast = false) {
+            try {
+                const res = await fetch(`${API_URL}/api/user/homework`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                homeworkItems = Array.isArray(data.items) ? data.items : [];
+                homeworkByTask = {};
+                for (const hw of homeworkItems) {
+                    for (const t of (hw.tasks || [])) {
+                        if (!t?.task_id) continue;
+                        const prev = homeworkByTask[t.task_id];
+                        if (!prev || String(hw.deadline_at || '') < String(prev.deadline_at || '')) {
+                            homeworkByTask[t.task_id] = {
+                                homework_id: hw.id,
+                                title: hw.title,
+                                deadline_at: hw.deadline_at,
+                                overdue: Boolean(hw.overdue),
+                                completed: Boolean(t.completed),
+                                penalty_applied: Boolean(hw.penalty_applied),
+                                penalty_amount: Number(hw.penalty_amount || 0),
+                            };
+                        }
+                    }
+                }
+
+                const penalties = Array.isArray(data.penalties_applied) ? data.penalties_applied : [];
+                if (showPenaltyToast && penalties.length > 0) {
+                    for (const p of penalties) {
+                        const key = `${p.homework_set_id}:${p.penalty}`;
+                        if (homeworkPenaltyShown.has(key)) continue;
+                        homeworkPenaltyShown.add(key);
+                        alert(`ДЗ просрочено: "${p.title}". Штраф -${p.penalty} XP (формула: ${p.missed_xp_sum}/2).`);
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to load homework:', e);
+            }
+        }
 
         async function loadRoadmap() {
             try {
@@ -2623,6 +2705,7 @@
                     }
                 }
 
+                await loadHomework(false);
                 renderQuests();
             } catch (e) {
                 console.error('Failed to load tasks:', e);
@@ -2643,6 +2726,10 @@
             btn.classList.add('active');
             btn.setAttribute('aria-selected', 'true');
             renderQuests();
+        }
+
+        function openAlextype() {
+            window.open('/alextype', '_blank', 'noopener,noreferrer');
         }
 
         function renderQuests() {
@@ -2679,7 +2766,9 @@
             }
 
             // Apply current filter (All, Python, etc.)
-            if (currentFilter !== 'all') {
+            if (currentFilter === 'homework') {
+                limitedTasks = tasks.filter(t => Boolean(homeworkByTask[t.id]));
+            } else if (currentFilter !== 'all') {
                 limitedTasks = limitedTasks.filter(t => t.category === currentFilter);
             }
 
@@ -2709,8 +2798,11 @@
                 const isCompleted = task.completed || completedIds.has(task.id);
                 const isLocked = Boolean(task.locked) && !isCompleted;
                 const isPending = Boolean(task.pending_review) && !isCompleted;
+                const hw = homeworkByTask[task.id];
+                const isHomework = Boolean(hw);
+                const hwDeadline = hw ? `Дедлайн: ${new Date(hw.deadline_at).toLocaleString()}` : '';
                 return `
-                    <article class="quest-card ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${isPending ? 'pending' : ''}" 
+                    <article class="quest-card ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${isPending ? 'pending' : ''} ${isHomework ? 'homework' : ''}" 
                              role="listitem" 
                              tabindex="0"
                              onclick="openQuest('${task.id}')"
@@ -2720,6 +2812,7 @@
                         <div class="quest-icon">${icons[task.category] || '📜'}</div>
                         <h3 class="quest-title">${task.title}</h3>
                         <p class="quest-story">${task.story}</p>
+                        ${isHomework ? `<div style="font-size:12px;color:#fca5a5;font-weight:700;">📌 ДЗ • ${hwDeadline}</div>` : ``}
                         <div class="quest-reward">⭐ ${task.xp} XP${isPending ? ' (на проверке)' : ''}</div>
                     </article>
                 `;
@@ -3231,6 +3324,29 @@
             win.document.close();
         }
 
+        function setFrontendPreviewStatus(status) {
+            const el = document.getElementById('frontend-preview-address');
+            if (!el) return;
+            const s = String(status || '').toUpperCase();
+            if (s === 'PASSED') {
+                el.textContent = 'quest://frontend-preview [PASSED]';
+                el.style.color = '#4ade80';
+                return;
+            }
+            if (s === 'FAILED') {
+                el.textContent = 'quest://frontend-preview [FAILED]';
+                el.style.color = '#f87171';
+                return;
+            }
+            if (s === 'PENDING') {
+                el.textContent = 'quest://frontend-preview [PENDING]';
+                el.style.color = '#fbbf24';
+                return;
+            }
+            el.textContent = 'quest://frontend-preview';
+            el.style.color = '#9fb0d8';
+        }
+
         function _downloadBlob(blob, filename) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -3545,6 +3661,7 @@
             const code = document.getElementById('code-editor').value || '';
             if (currentTask.category === 'frontend') {
                 renderFrontendPreview(true);
+                setFrontendPreviewStatus('PENDING');
             }
             output.innerText = '⏳ Проверка на сервере...';
 
@@ -3570,6 +3687,7 @@
 
                 if (data.status === 'failed') {
                     output.innerText = renderVerificationText(data.verification);
+                    if (currentTask.category === 'frontend') setFrontendPreviewStatus('FAILED');
                     return;
                 }
 
@@ -3586,11 +3704,16 @@
                             ? '📝 У вас уже есть отправка этого квеста на проверке.\n\n'
                             : '📝 Квест отправлен на проверку мастеру.\n\n') +
                         renderVerificationText(data.verification);
+                    if (currentTask.category === 'frontend') {
+                        const v = data.verification || {};
+                        setFrontendPreviewStatus(v.passed ? 'PASSED' : 'FAILED');
+                    }
                     return;
                 }
 
                 if (data.status === 'already_completed') {
                     output.innerText = '✅ Этот квест уже выполнен ранее.';
+                    if (currentTask.category === 'frontend') setFrontendPreviewStatus('PASSED');
                     return;
                 }
 
@@ -3623,6 +3746,7 @@
                     // Refresh lists
                     setTimeout(() => loadRoadmap(), 600);
                     setTimeout(() => loadAchievements(), 900);
+                    if (currentTask.category === 'frontend') setFrontendPreviewStatus('PASSED');
                     return;
                 }
 

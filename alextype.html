@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alextype Trainer</title>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --card-bg: #141414;
+      --surface: #1a1a1a;
+      --text: #c8c8c8;
+      --subtext: #3d3d3d;
+      --gold: #c9a84c;
+      --danger: #cf3636;
+      --ok: #4fa89a;
+      --border: rgba(255, 255, 255, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: radial-gradient(circle at top, #171717 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+      display: grid;
+      gap: 14px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      letter-spacing: 0.6px;
+      background: linear-gradient(90deg, #f5d77d 0%, #ffe9b3 35%, #8be8ff 70%, #9dffb1 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-transform: uppercase;
+    }
+    .sub { color: #9a9a9a; font-size: 13px; margin-top: 6px; }
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    select, button {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 14px;
+    }
+    button {
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button.primary {
+      border-color: rgba(201, 168, 76, 0.55);
+      color: #f2d988;
+    }
+    .sample {
+      line-height: 1.6;
+      font-size: 18px;
+      background: #0f0f0f;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      min-height: 110px;
+      white-space: pre-wrap;
+    }
+    .sample .ok { color: var(--gold); }
+    .sample .bad { color: var(--danger); text-decoration: underline; }
+    .sample .rest { color: #7a7a7a; }
+    textarea {
+      width: 100%;
+      min-height: 110px;
+      background: #0f0f0f;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 16px;
+      line-height: 1.5;
+      resize: vertical;
+      outline: none;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 8px;
+    }
+    .stat {
+      background: #101010;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .stat b { display: block; color: #e7e7e7; font-size: 18px; margin-top: 4px; }
+    .hint { color: #b8b8b8; font-size: 13px; }
+    .status-ok { color: var(--ok); }
+    .status-bad { color: var(--danger); }
+    @media (max-width: 760px) {
+      .stats { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+      .sample { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>LexType JS Trainer</h1>
+      <div class="sub">Тот же функционал в вебе: уровни, автозапуск и удвоенный объём текста на JS.</div>
+    </div>
+
+    <div class="card row">
+      <label for="level">Уровень:</label>
+      <select id="level">
+        <option value="D">D</option>
+        <option value="C">C</option>
+        <option value="B">B</option>
+        <option value="A">A</option>
+        <option value="S">S</option>
+      </select>
+      <button id="newText" class="primary">Новый текст</button>
+      <button id="reset">Сброс</button>
+      <span id="status" class="hint">Готово к старту</span>
+    </div>
+
+    <div class="card">
+      <div id="sample" class="sample"></div>
+      <textarea id="input" placeholder="Начни печатать здесь..."></textarea>
+    </div>
+
+    <div class="card stats">
+      <div class="stat">Символы<b id="chars">0</b></div>
+      <div class="stat">Точность<b id="accuracy">100%</b></div>
+      <div class="stat">CPM<b id="cpm">0</b></div>
+      <div class="stat">Время<b id="time">0s</b></div>
+    </div>
+  </div>
+
+  <script>
+    const BASE_TEXTS = [
+      "Привет мир.",
+      "Добрый день.",
+      "Скоро лето.",
+      "Чистый код.",
+      "Из сундука первым достают то, что сверху.",
+      "Тайга стояла тихая и величественная.",
+      "Роса блестела на траве как алмазы.",
+      "Смелость города берет.",
+      "Дружба помогает преодолеть любые трудности.",
+      "Честное слово - это не пустой звук.",
+      "Капитан смотрел в подзорную трубу, а на горизонте показалась земля.",
+      "Человеческий гений способен покорить стихии, если не теряет дисциплину.",
+      "Север не прощает ошибок, он жесток и справедлив.",
+      "Побеждает тот, кто не сдается до последнего вздоха и сохраняет ясность мысли.",
+      "Бэк жил в большом доме с широкой верандой, увитой розами, и был королем поместья.",
+      "Наутилус плыл под водой с невероятной скоростью, рассекая глубины.",
+      "Путешествие к центру Земли началось с кратера потухшего вулкана.",
+      "Филеас Фогг был спокоен и невозмутим в любой ситуации, даже когда время шло против него.",
+      "Нет ничего ни хорошего, ни плохого; размышление делает все таковым, и именно в этом сила человеческого выбора.",
+      "Быть или не быть, вот в чем вопрос: достойно ли смиряться под ударами судьбы или сопротивляться морю бедствий."
+    ];
+
+    function bucketByLevel() {
+      const byLen = [...BASE_TEXTS].sort((a, b) => a.length - b.length);
+      const n = byLen.length;
+      const q1 = Math.max(1, Math.floor(n * 0.2));
+      const q2 = Math.max(q1 + 1, Math.floor(n * 0.45));
+      const q3 = Math.max(q2 + 1, Math.floor(n * 0.7));
+      const q4 = Math.max(q3 + 1, Math.floor(n * 0.88));
+      return {
+        D: byLen.slice(0, q1),
+        C: byLen.slice(q1, q2),
+        B: byLen.slice(q2, q3),
+        A: byLen.slice(q3, q4),
+        S: byLen.slice(q4)
+      };
+    }
+
+    const TEXTS = bucketByLevel();
+
+    // Удвоение текста на JS: базовая фраза дублируется.
+    function doubledByLevel(level) {
+      const base = TEXTS[level] || TEXTS.D;
+      return base.map(t => `${t} ${t}`);
+    }
+
+    const levelEl = document.getElementById("level");
+    const sampleEl = document.getElementById("sample");
+    const inputEl = document.getElementById("input");
+    const statusEl = document.getElementById("status");
+    const charsEl = document.getElementById("chars");
+    const accuracyEl = document.getElementById("accuracy");
+    const cpmEl = document.getElementById("cpm");
+    const timeEl = document.getElementById("time");
+
+    let targetText = "";
+    let startedAt = 0;
+    let timer = null;
+
+    function pickText() {
+      const arr = doubledByLevel(levelEl.value);
+      targetText = arr[Math.floor(Math.random() * arr.length)];
+      inputEl.value = "";
+      startedAt = 0;
+      clearInterval(timer);
+      timer = null;
+      renderSample();
+      setStats();
+      setStatus("Готово к старту", "");
+      inputEl.focus();
+    }
+
+    function setStatus(text, cls) {
+      statusEl.textContent = text;
+      statusEl.className = `hint ${cls || ""}`.trim();
+    }
+
+    function renderSample() {
+      const typed = inputEl.value;
+      let ok = "";
+      let bad = "";
+      let i = 0;
+      while (i < typed.length && i < targetText.length && typed[i] === targetText[i]) {
+        ok += targetText[i];
+        i++;
+      }
+      if (i < typed.length && i < targetText.length) bad = targetText[i];
+      const rest = targetText.slice(i + (bad ? 1 : 0));
+      sampleEl.innerHTML = `<span class="ok">${escapeHtml(ok)}</span><span class="bad">${escapeHtml(bad)}</span><span class="rest">${escapeHtml(rest)}</span>`;
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function setStats() {
+      const typed = inputEl.value;
+      const total = typed.length;
+      let correct = 0;
+      for (let i = 0; i < total; i++) {
+        if (typed[i] === targetText[i]) correct++;
+      }
+
+      const elapsedMs = startedAt ? Date.now() - startedAt : 0;
+      const elapsedMin = elapsedMs > 0 ? (elapsedMs / 60000) : 0;
+      const cpm = elapsedMin > 0 ? Math.round(correct / elapsedMin) : 0;
+      const acc = total > 0 ? Math.round((correct / total) * 100) : 100;
+
+      charsEl.textContent = String(total);
+      accuracyEl.textContent = `${acc}%`;
+      cpmEl.textContent = String(cpm);
+      timeEl.textContent = `${Math.floor(elapsedMs / 1000)}s`;
+    }
+
+    inputEl.addEventListener("input", () => {
+      if (!startedAt && inputEl.value.length > 0) {
+        startedAt = Date.now();
+        timer = setInterval(setStats, 200);
+      }
+      renderSample();
+      setStats();
+
+      if (inputEl.value === targetText) {
+        clearInterval(timer);
+        timer = null;
+        setStatus("PASSED", "status-ok");
+      } else if (inputEl.value.length >= targetText.length) {
+        setStatus("FAILED", "status-bad");
+      } else {
+        setStatus("В процессе", "");
+      }
+    });
+
+    document.getElementById("newText").addEventListener("click", pickText);
+    document.getElementById("reset").addEventListener("click", pickText);
+    levelEl.addEventListener("change", pickText);
+
+    pickText();
+  </script>
+</body>
+</html>

@@ -558,6 +558,46 @@ def init_db():
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )
         """)
+
+        # Homework sets assigned by admin to students.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS homework_sets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                created_by INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                deadline_at TIMESTAMP NOT NULL,
+                status TEXT DEFAULT 'active',
+                FOREIGN KEY (created_by) REFERENCES users(id)
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS homework_set_tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                homework_set_id INTEGER NOT NULL,
+                task_id TEXT NOT NULL,
+                task_xp INTEGER NOT NULL,
+                FOREIGN KEY (homework_set_id) REFERENCES homework_sets(id) ON DELETE CASCADE,
+                UNIQUE(homework_set_id, task_id)
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS homework_targets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                homework_set_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                penalty_applied INTEGER DEFAULT 0,
+                penalty_amount INTEGER DEFAULT 0,
+                penalty_applied_at TIMESTAMP,
+                notified INTEGER DEFAULT 0,
+                notified_at TIMESTAMP,
+                FOREIGN KEY (homework_set_id) REFERENCES homework_sets(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                UNIQUE(homework_set_id, user_id)
+            )
+        """)
         
         # Performance indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_xp ON users(xp DESC)")
@@ -570,6 +610,8 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_chat_messages_time ON chat_messages(created_at DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_paste_requests_status ON paste_requests(status, user_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_achievements_user ON user_achievements(user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_homework_sets_deadline ON homework_sets(deadline_at, status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_homework_targets_user ON homework_targets(user_id, homework_set_id)")
         
         conn.commit()
         
@@ -1326,6 +1368,11 @@ class CommentBonusDecision(BaseModel):
     awarded: Optional[int] = None
     feedback: Optional[str] = None
 
+class HomeworkAssignRequest(BaseModel):
+    title: Optional[str] = None
+    task_ids: Optional[List[str]] = None
+    user_ids: Optional[List[int]] = None
+
 # ==================== AUTH ROUTES ====================
 
 app = FastAPI(
@@ -1405,6 +1452,11 @@ async def _startup() -> None:
 def serve_index():
     """Serve the student UI (same-origin hosting is optional; file:// works too)."""
     return FileResponse("index.html")
+
+@app.get("/alextype", include_in_schema=False)
+def serve_alextype():
+    """Serve Alextype JS trainer UI."""
+    return FileResponse("alextype.html")
 
 @app.get("/admin", include_in_schema=False)
 def serve_admin():
@@ -2810,6 +2862,191 @@ def _unlock_state(task: dict, completed_ids: set, counts: dict) -> tuple[bool, d
         "progress": {"count": have},
     }
 
+
+def _is_top7_task_by_tier(tasks_by_id: dict, task_id: str) -> bool:
+    """Old-review algorithm: top 7 tasks per tier (by XP desc) go to admin review."""
+    task = tasks_by_id.get(task_id) or {}
+    tier = (task.get("tier") or "").upper()
+    if tier not in {"D", "C", "B", "A", "S"}:
+        return False
+    same_tier = [t for t in tasks_by_id.values() if (t.get("tier") or "").upper() == tier]
+    same_tier.sort(key=lambda t: (-int(t.get("xp") or 0), str(t.get("id") or "")))
+    top_ids = {str(t.get("id")) for t in same_tier[:7]}
+    return str(task_id) in top_ids
+
+
+def _utc_now_sql() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _default_homework_task_ids(tasks_raw: list[dict], min_count: int = 3) -> list[str]:
+    cat_weight = {"python": 0, "javascript": 1, "frontend": 2, "scratch": 3}
+    tier_weight = {"D": 0, "C": 1, "B": 2, "A": 3, "S": 4}
+    candidates = [t for t in tasks_raw if t.get("id") and t.get("category") in cat_weight]
+    candidates.sort(
+        key=lambda t: (
+            cat_weight.get(t.get("category"), 9),
+            tier_weight.get((t.get("tier") or "D").upper(), 9),
+            int(t.get("xp") or 0),
+        )
+    )
+    return [t["id"] for t in candidates[: max(min_count, 3)]]
+
+
+def _apply_homework_penalties_for_user(cursor, user_id: int, tasks_by_id: dict) -> list[dict]:
+    cursor.execute(
+        """
+        SELECT ht.id as target_id, hs.id as set_id, hs.title, hs.deadline_at
+        FROM homework_targets ht
+        JOIN homework_sets hs ON hs.id = ht.homework_set_id
+        WHERE ht.user_id = ?
+          AND ht.penalty_applied = 0
+          AND hs.status = 'active'
+          AND hs.deadline_at <= datetime('now')
+        ORDER BY hs.deadline_at ASC
+        """,
+        (user_id,),
+    )
+    rows = cursor.fetchall()
+    if not rows:
+        return []
+
+    penalties = []
+    for row in rows:
+        set_id = int(row["set_id"])
+        deadline_at = str(row["deadline_at"] or "")
+        cursor.execute(
+            "SELECT task_id, task_xp FROM homework_set_tasks WHERE homework_set_id = ?",
+            (set_id,),
+        )
+        set_tasks = [dict(r) for r in cursor.fetchall()]
+        if not set_tasks:
+            cursor.execute(
+                "UPDATE homework_targets SET penalty_applied = 1, penalty_amount = 0, penalty_applied_at = ?, notified = 0 WHERE id = ?",
+                (_utc_now_sql(), int(row["target_id"])),
+            )
+            continue
+
+        task_ids = [str(t["task_id"]) for t in set_tasks]
+        placeholders = ",".join(["?"] * len(task_ids))
+        cursor.execute(
+            f"""
+            SELECT task_id
+            FROM completed_tasks
+            WHERE user_id = ?
+              AND is_valid != 0
+              AND completed_at <= ?
+              AND task_id IN ({placeholders})
+            """,
+            [user_id, deadline_at, *task_ids],
+        )
+        done_by_deadline = {str(r["task_id"]) for r in cursor.fetchall()}
+
+        missed_xp = 0
+        missed_tasks = []
+        for t in set_tasks:
+            task_id = str(t["task_id"])
+            if task_id in done_by_deadline:
+                continue
+            xp_val = int(t.get("task_xp") or int((tasks_by_id.get(task_id) or {}).get("xp") or 0))
+            missed_xp += max(0, xp_val)
+            missed_tasks.append(task_id)
+
+        penalty = max(0, missed_xp // 2)
+        if penalty > 0:
+            new_xp, new_level = apply_xp_change(
+                cursor,
+                user_id,
+                -penalty,
+                "homework_penalty",
+                None,
+            )
+        else:
+            cursor.execute("SELECT xp, level FROM users WHERE id = ?", (user_id,))
+            u = cursor.fetchone()
+            new_xp = int(u["xp"]) if u else 0
+            new_level = int(u["level"]) if u else 1
+
+        cursor.execute(
+            """
+            UPDATE homework_targets
+            SET penalty_applied = 1,
+                penalty_amount = ?,
+                penalty_applied_at = ?,
+                notified = ?,
+                notified_at = ?
+            WHERE id = ?
+            """,
+            (penalty, _utc_now_sql(), 1 if penalty > 0 else 0, _utc_now_sql() if penalty > 0 else None, int(row["target_id"])),
+        )
+        if penalty > 0:
+            penalties.append(
+                {
+                    "homework_set_id": set_id,
+                    "title": row["title"],
+                    "missed_tasks": missed_tasks,
+                    "missed_xp_sum": missed_xp,
+                    "penalty": penalty,
+                    "new_xp": new_xp,
+                    "new_level": new_level,
+                }
+            )
+
+    return penalties
+
+
+def _homework_items_for_user(cursor, user_id: int, tasks_by_id: dict) -> list[dict]:
+    cursor.execute(
+        """
+        SELECT hs.id, hs.title, hs.created_at, hs.deadline_at, hs.status,
+               ht.penalty_applied, ht.penalty_amount
+        FROM homework_targets ht
+        JOIN homework_sets hs ON hs.id = ht.homework_set_id
+        WHERE ht.user_id = ? AND hs.status = 'active'
+        ORDER BY hs.deadline_at ASC, hs.id DESC
+        """,
+        (user_id,),
+    )
+    sets = [dict(r) for r in cursor.fetchall()]
+    if not sets:
+        return []
+
+    completed_ids = _completed_task_ids(cursor, user_id)
+    items = []
+    for hs in sets:
+        hs_id = int(hs["id"])
+        cursor.execute(
+            "SELECT task_id, task_xp FROM homework_set_tasks WHERE homework_set_id = ? ORDER BY id ASC",
+            (hs_id,),
+        )
+        tasks_rows = [dict(r) for r in cursor.fetchall()]
+        task_entries = []
+        for tr in tasks_rows:
+            task = tasks_by_id.get(tr["task_id"]) or {}
+            task_entries.append(
+                {
+                    "task_id": tr["task_id"],
+                    "title": task.get("title", tr["task_id"]),
+                    "category": task.get("category"),
+                    "tier": task.get("tier"),
+                    "xp": int(tr.get("task_xp") or task.get("xp") or 0),
+                    "completed": tr["task_id"] in completed_ids,
+                }
+            )
+        items.append(
+            {
+                "id": hs_id,
+                "title": hs["title"],
+                "created_at": hs["created_at"],
+                "deadline_at": hs["deadline_at"],
+                "overdue": str(hs["deadline_at"] or "") <= _utc_now_sql(),
+                "penalty_applied": bool(hs.get("penalty_applied")),
+                "penalty_amount": int(hs.get("penalty_amount") or 0),
+                "tasks": task_entries,
+            }
+        )
+    return items
+
 @app.get("/api/roadmap")
 def get_roadmap(user: dict = Depends(require_auth)):
     """Return tasks annotated with completion + unlock state for the current user."""
@@ -2841,6 +3078,129 @@ def get_roadmap(user: dict = Depends(require_auth)):
         tasks.append(pt)
 
     return {"meta": data.get("meta", {}), "categories": data.get("categories", []), "tasks": tasks, "counts": counts}
+
+
+@app.get("/api/user/homework")
+def get_my_homework(user: dict = Depends(require_auth)):
+    """Return active homework sets for current user + apply overdue penalties once."""
+    data = load_tasks()
+    tasks_raw = data.get("tasks", [])
+    tasks_by_id = {t.get("id"): t for t in tasks_raw if t.get("id")}
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        penalties = _apply_homework_penalties_for_user(cursor, int(user["id"]), tasks_by_id)
+        items = _homework_items_for_user(cursor, int(user["id"]), tasks_by_id)
+        conn.commit()
+
+    return {"items": items, "penalties_applied": penalties}
+
+
+@app.get("/api/admin/homework")
+def list_homework_sets(admin: dict = Depends(require_admin)):
+    """Admin list for created homework sets."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT hs.id, hs.title, hs.created_at, hs.deadline_at, hs.status,
+                   u.display_name as created_by_name
+            FROM homework_sets hs
+            LEFT JOIN users u ON u.id = hs.created_by
+            ORDER BY hs.id DESC
+            """
+        )
+        sets = [dict(r) for r in cursor.fetchall()]
+        for hs in sets:
+            cursor.execute("SELECT COUNT(*) as cnt FROM homework_set_tasks WHERE homework_set_id = ?", (int(hs["id"]),))
+            hs["task_count"] = int(cursor.fetchone()["cnt"])
+            cursor.execute("SELECT COUNT(*) as cnt FROM homework_targets WHERE homework_set_id = ?", (int(hs["id"]),))
+            hs["target_count"] = int(cursor.fetchone()["cnt"])
+    return {"items": sets}
+
+
+@app.post("/api/admin/homework")
+def create_homework_set(data: HomeworkAssignRequest, admin: dict = Depends(require_admin)):
+    """
+    Create homework set:
+    - at least 3 tasks
+    - deadline = 2 days
+    - default targets = all students
+    """
+    tasks_data = load_tasks()
+    tasks_raw = tasks_data.get("tasks", [])
+    tasks_by_id = {t.get("id"): t for t in tasks_raw if t.get("id")}
+
+    chosen_ids = [str(tid) for tid in (data.task_ids or []) if str(tid).strip()]
+    if not chosen_ids:
+        chosen_ids = _default_homework_task_ids(tasks_raw, min_count=3)
+    # de-dup while preserving order
+    uniq = []
+    seen = set()
+    for tid in chosen_ids:
+        if tid in seen:
+            continue
+        seen.add(tid)
+        uniq.append(tid)
+    chosen_ids = uniq
+
+    if len(chosen_ids) < 3:
+        raise HTTPException(status_code=400, detail="Homework must include at least 3 tasks")
+    missing = [tid for tid in chosen_ids if tid not in tasks_by_id]
+    if missing:
+        raise HTTPException(status_code=400, detail={"missing_task_ids": missing})
+
+    title = (data.title or "").strip() or f"ДЗ #{_utc_now_sql()} (2 дня)"
+    deadline_at = (datetime.now(timezone.utc) + timedelta(days=2)).strftime("%Y-%m-%d %H:%M:%S")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        if data.user_ids:
+            target_ids = [int(x) for x in data.user_ids]
+        else:
+            cursor.execute("SELECT id FROM users WHERE role = 'student'")
+            target_ids = [int(r["id"]) for r in cursor.fetchall()]
+
+        if not target_ids:
+            raise HTTPException(status_code=400, detail="No target students found")
+
+        cursor.execute(
+            "INSERT INTO homework_sets (title, created_by, deadline_at, status) VALUES (?, ?, ?, 'active')",
+            (title, int(admin["id"]), deadline_at),
+        )
+        set_id = int(cursor.lastrowid)
+
+        for tid in chosen_ids:
+            task_xp = int((tasks_by_id.get(tid) or {}).get("xp") or 0)
+            cursor.execute(
+                "INSERT INTO homework_set_tasks (homework_set_id, task_id, task_xp) VALUES (?, ?, ?)",
+                (set_id, tid, task_xp),
+            )
+
+        for uid in target_ids:
+            cursor.execute(
+                "INSERT OR IGNORE INTO homework_targets (homework_set_id, user_id) VALUES (?, ?)",
+                (set_id, uid),
+            )
+
+        cursor.execute(
+            """
+            INSERT INTO audit_log (actor_user_id, actor_username, action, target_user_id, target_task_id, delta_xp, meta_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                int(admin["id"]),
+                admin.get("username"),
+                "HOMEWORK_CREATED",
+                None,
+                None,
+                0,
+                json.dumps({"homework_set_id": set_id, "task_ids": chosen_ids, "targets": len(target_ids)}, ensure_ascii=False),
+            ),
+        )
+        conn.commit()
+
+    return {"message": "Homework assigned", "homework_set_id": set_id, "deadline_at": deadline_at, "task_count": len(chosen_ids), "target_count": len(target_ids)}
 
 # ==================== INTEGRITY SIGNALS (PLAGIARISM + COMMENT BONUS) ====================
 
@@ -3370,13 +3730,16 @@ def verify_task(task: dict, code: str) -> tuple[dict, int]:
     """Synchronous wrapper with concurrency limit for heavy runners."""
     logic = task.get("check_logic") or {}
     engine = (logic.get("engine") or "").lower()
+    visible_cases = logic.get("cases") or []
+    hidden_cases = logic.get("hidden_cases") or []
+    all_cases = (visible_cases if isinstance(visible_cases, list) else []) + (hidden_cases if isinstance(hidden_cases, list) else [])
 
     if engine in ("pyodide", "python"):
         with RUNNER_SEMAPHORE:
-            return verify_python_sync(code, logic.get("cases") or [])
+            return verify_python_sync(code, all_cases)
     if engine in ("javascript", "js"):
         with RUNNER_SEMAPHORE:
-            return verify_javascript_sync(code, logic.get("cases") or [])
+            return verify_javascript_sync(code, all_cases)
     if engine in ("iframe", "frontend"):
         return verify_frontend_sync(code, logic)
 
@@ -3493,8 +3856,8 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
     Verify a code task and (if eligible) award XP.
 
     Policy:
-    - Tier D/C: auto-verified if tests pass and integrity checks are clean
-    - Tier B/A/S: always queued for manual review (teacher/admin)
+    - Auto-verify code tasks when tests pass and integrity checks are clean.
+    - Queue pending review for policy/manual-skip cases, top-7 tasks per rank, or integrity flags.
     """
     task = get_task(data.task_id)
     if not task:
@@ -3573,7 +3936,9 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
     logic = task.get("check_logic") or {}
     engine = (logic.get("engine") or "").lower()
     verification_cases = verification.get("cases") if isinstance(verification, dict) else []
-    expected_cases = logic.get("cases") if isinstance(logic.get("cases"), list) else []
+    visible_cases = logic.get("cases") if isinstance(logic.get("cases"), list) else []
+    hidden_cases = logic.get("hidden_cases") if isinstance(logic.get("hidden_cases"), list) else []
+    expected_cases = visible_cases + hidden_cases
     expected_case_count = len(expected_cases)
     has_cases = isinstance(verification_cases, list) and len(verification_cases) > 0
     valid_case_payload = has_cases and all(isinstance(c, dict) for c in verification_cases)
@@ -3623,18 +3988,31 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
             return {"status": "failed", "attempt_id": attempt_id, "verification": verification}
 
         task_xp = int(task.get("xp") or 0)
+        top7_review_required = _is_top7_task_by_tier(tasks_by_id, data.task_id)
         plagiarism_score, matched_user_id = plagiarism_score_for_task(cursor, data.task_id, simhash_hex, user["id"])
         flags = []
         if matched_user_id is not None and plagiarism_score >= PLAGIARISM_THRESHOLD:
             flags.append(f"plagiarism_match:{matched_user_id}")
 
-        # Manual review tiers OR integrity flags => create submission, do not award XP yet.
+        # Pending review only for explicit policy/manual-skip, top-7 tier tasks, or integrity flags.
         if passed and (
             force_pending_review
             or manual_review_required
+            or top7_review_required
             or (MANUAL_REVIEW_FOR_REVIEWABLE_TIERS and tier in REVIEWABLE_TIERS)
             or flags
         ):
+            pending_feedback = (
+                "Auto-verification disabled by policy; waiting for Sensei review"
+                if force_pending_review
+                else "Auto-check skipped by server policy; waiting for Sensei review"
+                if manual_review_required
+                else "Top-7 rank task: waiting for Sensei review"
+                if top7_review_required
+                else "Tier policy review required"
+                if (MANUAL_REVIEW_FOR_REVIEWABLE_TIERS and tier in REVIEWABLE_TIERS)
+                else "Flagged for integrity review"
+            )
             existing_pending = _pending_submission_for_task(cursor, user["id"], data.task_id)
             if existing_pending:
                 conn.commit()
@@ -3664,15 +4042,7 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
                     code_hash,
                     simhash_hex,
                     "pending",
-                    (
-                        "Auto-verification disabled by policy; waiting for Sensei review"
-                        if force_pending_review
-                        else "Auto-check skipped by server policy; waiting for Sensei review"
-                        if manual_review_required
-                        else "Auto-verified; waiting for Sensei review"
-                        if tier in REVIEWABLE_TIERS
-                        else "Flagged for integrity review"
-                    ),
+                    pending_feedback,
                     json.dumps(verification, ensure_ascii=False),
                     plagiarism_score,
                     json.dumps(flags, ensure_ascii=False),
