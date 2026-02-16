@@ -2073,6 +2073,21 @@
             </div>
         </div>
 
+        <!-- Mini Leaderboard in Profile -->
+        <div style="padding:16px; border-bottom:1px solid rgba(255,255,255,0.05);">
+            <h4
+                style="margin-bottom:12px; color:var(--text-bright); display:flex; align-items:center; justify-content:space-between;">
+                🏆 Рейтинг
+                <button class="btn btn-small" onclick="toggleLeaderboard(); closePanels();"
+                    style="padding:6px 10px; font-size:11px;">
+                    Полный список
+                </button>
+            </h4>
+            <div id="profile-leaderboard" style="max-height:280px; overflow-y:auto;">
+                <div style="color:var(--text-secondary); font-size:13px; text-align:center;">Загрузка...</div>
+            </div>
+        </div>
+
         <!-- My Rewards Section -->
         <div style="padding:16px; border-bottom:1px solid rgba(255,255,255,0.05);">
             <h4 style="margin-bottom:12px; color:var(--text-bright);">🏅 Мои награды</h4>
@@ -2758,6 +2773,9 @@
                         alert(`ДЗ просрочено: "${p.title}". Штраф -${p.penalty} XP (формула: ${p.missed_xp_sum}/2).`);
                     }
                 }
+
+                // Re-render quests if homework tab is active so tasks show up
+                if (currentFilter === 'homework') renderQuests();
             } catch (e) {
                 console.warn('Failed to load homework:', e);
             }
@@ -4169,6 +4187,7 @@
                 loadMySubmissions();
                 loadProfileWithAvatar();
                 loadAchievements();
+                loadProfileLeaderboard();
                 loadXPChart();
                 loadChatMessages();
                 startChatRefresh();
@@ -5109,67 +5128,146 @@
             }
         }
 
-        function renderXPChart(history) {
+        /* Aggregate history entries by day for a cleaner chart */
+        function aggregateByDay(history) {
+            const map = new Map();
+            for (const h of history) {
+                const day = (h.date || '').slice(0, 10);
+                if (!day) continue;
+                map.set(day, { date: day, total: h.total, xp: (map.get(day)?.xp || 0) + (h.xp || 0) });
+            }
+            return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
+        }
+
+        function renderXPChart(rawHistory) {
             const canvas = document.getElementById('xp-canvas');
             if (!canvas) return;
 
+            const history = aggregateByDay(rawHistory);
+            if (history.length === 0) return;
+
             const ctx = canvas.getContext('2d');
             const rect = canvas.getBoundingClientRect();
-            canvas.width = rect.width * 2; // Retina
+            canvas.width = rect.width * 2;
             canvas.height = rect.height * 2;
             ctx.scale(2, 2);
 
             const w = rect.width;
             const h = rect.height;
-            const padding = 20;
+            const padL = 40, padR = 12, padT = 12, padB = 28;
 
-            // Get min/max values
-            const xpValues = history.map(h => h.total);
+            const xpValues = history.map(p => p.total);
             const maxXP = Math.max(...xpValues, 100);
 
-            // Draw gradient fill
-            const gradient = ctx.createLinearGradient(0, 0, 0, h);
-            gradient.addColorStop(0, 'rgba(79, 172, 254, 0.4)');
-            gradient.addColorStop(1, 'rgba(79, 172, 254, 0)');
+            const xOf = i => padL + (i / (history.length - 1 || 1)) * (w - padL - padR);
+            const yOf = v => padT + (1 - v / maxXP) * (h - padT - padB);
+
+            // Gradient fill
+            const gradient = ctx.createLinearGradient(0, padT, 0, h - padB);
+            gradient.addColorStop(0, 'rgba(139, 92, 246, 0.35)');
+            gradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
 
             ctx.beginPath();
-            ctx.moveTo(padding, h - padding);
-
-            history.forEach((point, i) => {
-                const x = padding + (i / (history.length - 1 || 1)) * (w - padding * 2);
-                const y = h - padding - (point.total / maxXP) * (h - padding * 2);
-                ctx.lineTo(x, y);
-            });
-
-            ctx.lineTo(w - padding, h - padding);
+            ctx.moveTo(xOf(0), h - padB);
+            history.forEach((p, i) => ctx.lineTo(xOf(i), yOf(p.total)));
+            ctx.lineTo(xOf(history.length - 1), h - padB);
             ctx.closePath();
             ctx.fillStyle = gradient;
             ctx.fill();
 
-            // Draw line
+            // Line
             ctx.beginPath();
-            history.forEach((point, i) => {
-                const x = padding + (i / (history.length - 1 || 1)) * (w - padding * 2);
-                const y = h - padding - (point.total / maxXP) * (h - padding * 2);
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
+            history.forEach((p, i) => {
+                const x = xOf(i), y = yOf(p.total);
+                i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
             });
-            ctx.strokeStyle = '#4facfe';
+            ctx.strokeStyle = '#8b5cf6';
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // Draw points
-            history.forEach((point, i) => {
-                const x = padding + (i / (history.length - 1 || 1)) * (w - padding * 2);
-                const y = h - padding - (point.total / maxXP) * (h - padding * 2);
-                ctx.beginPath();
-                ctx.arc(x, y, 4, 0, Math.PI * 2);
-                ctx.fillStyle = '#4facfe';
-                ctx.fill();
-                ctx.strokeStyle = '#0a0f1e';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            });
+            // Points (only if <= 20 points)
+            if (history.length <= 20) {
+                history.forEach((p, i) => {
+                    ctx.beginPath();
+                    ctx.arc(xOf(i), yOf(p.total), 3.5, 0, Math.PI * 2);
+                    ctx.fillStyle = '#a78bfa';
+                    ctx.fill();
+                    ctx.strokeStyle = '#14141c';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                });
+            }
+
+            // Y-axis labels
+            ctx.fillStyle = '#6a6a78';
+            ctx.font = '10px Inter, sans-serif';
+            ctx.textAlign = 'right';
+            const ySteps = 4;
+            for (let i = 0; i <= ySteps; i++) {
+                const v = Math.round(maxXP * i / ySteps);
+                const y = yOf(v);
+                ctx.fillText(v.toLocaleString(), padL - 6, y + 3);
+                // grid line
+                ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+                ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
+            }
+
+            // X-axis date labels
+            ctx.fillStyle = '#6a6a78';
+            ctx.font = '9px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            const maxLabels = Math.min(history.length, 7);
+            const step = Math.max(1, Math.floor(history.length / maxLabels));
+            for (let i = 0; i < history.length; i += step) {
+                const d = history[i].date;
+                const label = d.slice(8, 10) + '.' + d.slice(5, 7);
+                ctx.fillText(label, xOf(i), h - padB + 14);
+            }
+            // Always show last date
+            if (history.length > 1) {
+                const last = history[history.length - 1].date;
+                ctx.fillText(last.slice(8, 10) + '.' + last.slice(5, 7), xOf(history.length - 1), h - padB + 14);
+            }
+        }
+
+        /* Mini-leaderboard inside profile panel */
+        async function loadProfileLeaderboard() {
+            try {
+                const res = await fetch(`${API_URL}/api/leaderboard?limit=10`);
+                const data = await res.json();
+                const container = document.getElementById('profile-leaderboard');
+                if (!container) return;
+                const me = currentUser ? currentUser.id : null;
+                const items = data.leaderboard || [];
+                let html = '';
+                for (const u of items) {
+                    const isMe = u.id === me;
+                    const posEmoji = u.position === 1 ? '\ud83e\udd47' : u.position === 2 ? '\ud83e\udd48' : u.position === 3 ? '\ud83e\udd49' : '#' + u.position;
+                    const bg = isMe ? 'rgba(139,92,246,0.12)' : 'rgba(255,255,255,0.02)';
+                    const border = isMe ? 'rgba(139,92,246,0.3)' : 'transparent';
+                    const posColor = u.position <= 3 ? 'var(--warning)' : 'var(--text-muted)';
+                    const nameColor = isMe ? 'var(--accent-soft)' : 'var(--text-primary)';
+                    const nameWeight = isMe ? 700 : 500;
+                    const suffix = isMe ? ' (\u0432\u044b)' : '';
+                    html += '<div onclick="openPublicProfile(' + u.id + ')" style="'
+                        + 'display:flex;align-items:center;gap:10px;padding:8px 10px;'
+                        + 'border-radius:8px;cursor:pointer;margin-bottom:4px;'
+                        + 'background:' + bg + ';border:1px solid ' + border + ';transition:background 0.2s;">'
+                        + '<span style="font-size:14px;min-width:28px;text-align:center;font-weight:700;color:' + posColor + '">' + posEmoji + '</span>'
+                        + '<span style="font-size:16px;">' + (u.rank_badge || '\ud83c\udf31') + '</span>'
+                        + '<div style="flex:1;min-width:0;">'
+                        + '<div style="font-size:13px;font-weight:' + nameWeight + ';color:' + nameColor + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+                        + u.display_name + suffix + '</div>'
+                        + '<div style="font-size:11px;color:var(--text-muted);">' + (u.rank_name || '') + '</div>'
+                        + '</div>'
+                        + '<span style="font-size:12px;font-weight:600;color:var(--text-secondary);white-space:nowrap;">' + u.xp.toLocaleString() + ' XP</span>'
+                        + '</div>';
+                }
+                container.innerHTML = html;
+            } catch (e) {
+                console.error('Failed to load profile leaderboard:', e);
+            }
         }
 
         // ==================== START ====================

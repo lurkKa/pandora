@@ -1164,8 +1164,10 @@
         </div>
     </div>
 
-    <!-- Chart.js CDN -->
+    <!-- Chart.js CDN + date adapter -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 
     <script>
         // ==================== STATE ====================
@@ -1908,27 +1910,54 @@
                 else url += `user_id=${userId}`;
 
                 const data = await api(url);
-                renderProgressChart(data.users);
+                renderProgressChart(data.users || []);
             } catch (e) {
                 console.error('Failed to load progress:', e);
             }
         }
 
+        /* Fill date gaps so chart shows continuous lines, not just sparse dots */
+        function fillDateGaps(timeline) {
+            if (!timeline || timeline.length < 2) return timeline || [];
+            const filled = [];
+            const sorted = [...timeline].sort((a, b) => a.date.localeCompare(b.date));
+            let cur = new Date(sorted[0].date);
+            const end = new Date(sorted[sorted.length - 1].date);
+            let idx = 0;
+            let lastXP = 0;
+
+            while (cur <= end) {
+                const dateStr = cur.toISOString().slice(0, 10);
+                if (idx < sorted.length && sorted[idx].date === dateStr) {
+                    lastXP = sorted[idx].xp;
+                    idx++;
+                }
+                filled.push({ x: dateStr, y: lastXP });
+                cur.setDate(cur.getDate() + 1);
+            }
+            return filled;
+        }
+
         function renderProgressChart(users) {
             const ctx = document.getElementById('progress-chart').getContext('2d');
-
             if (progressChart) progressChart.destroy();
 
-            const colors = ['#7c5cbf', '#4ade80', '#fbbf24', '#f87171', '#60a5fa', '#f472b6', '#a78bfa', '#38bdf8'];
+            const colors = ['#8b5cf6', '#4ade80', '#fbbf24', '#f87171', '#60a5fa', '#f472b6', '#a78bfa', '#38bdf8'];
 
-            const datasets = users.map((user, i) => ({
-                label: user.display_name,
-                data: user.timeline.map(t => ({ x: t.date, y: t.xp })),
-                borderColor: colors[i % colors.length],
-                backgroundColor: colors[i % colors.length] + '33',
-                fill: false,
-                tension: 0.3
-            }));
+            const datasets = users.map((user, i) => {
+                const filled = fillDateGaps(user.timeline);
+                return {
+                    label: user.display_name,
+                    data: filled,
+                    borderColor: colors[i % colors.length],
+                    backgroundColor: colors[i % colors.length] + '22',
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: filled.length > 30 ? 0 : 3,
+                    pointHoverRadius: 5,
+                    borderWidth: 2.5
+                };
+            });
 
             progressChart = new Chart(ctx, {
                 type: 'line',
@@ -1936,23 +1965,33 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
                     scales: {
                         x: {
-                            type: 'category',
-                            title: { display: true, text: 'Дата', color: '#a0a0b0' },
-                            ticks: { color: '#a0a0b0' },
+                            type: 'time',
+                            time: { unit: 'day', tooltipFormat: 'dd MMM yyyy', displayFormats: { day: 'dd.MM' } },
+                            title: { display: true, text: 'Дата', color: '#a0a0b0', font: { size: 13 } },
+                            ticks: { color: '#a0a0b0', maxTicksLimit: 15 },
                             grid: { color: '#2a2a3a' }
                         },
                         y: {
-                            title: { display: true, text: 'XP', color: '#a0a0b0' },
+                            title: { display: true, text: 'Кумулятивный XP', color: '#a0a0b0', font: { size: 13 } },
                             ticks: { color: '#a0a0b0' },
                             grid: { color: '#2a2a3a' },
                             beginAtZero: true
                         }
                     },
                     plugins: {
-                        legend: {
-                            labels: { color: '#f0f0f5' }
+                        legend: { labels: { color: '#f0f0f5', usePointStyle: true, padding: 16 } },
+                        tooltip: {
+                            backgroundColor: '#1a1a24',
+                            borderColor: '#8b5cf6',
+                            borderWidth: 1,
+                            titleColor: '#f0f0f5',
+                            bodyColor: '#e0e0e5',
+                            callbacks: {
+                                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString()} XP`
+                            }
                         }
                     }
                 }

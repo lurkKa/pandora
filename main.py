@@ -3726,27 +3726,259 @@ def verify_frontend_sync(code: str, logic: dict) -> tuple[dict, int]:
     runtime_ms = int((time.monotonic() - started) * 1000)
     return {"passed": bool(passed), "exec_error": None, "stdout": "", "cases": results}, runtime_ms
 
+# ==================== ANTI-CHEAT: HARDCODE DETECTION ====================
+
+import re as _re_anticheat
+
+def _detect_hardcoded_solution(code: str, language: str) -> list[str]:
+    """
+    Static analysis: detect if code contains hardcoded return values
+    without actually using function parameters.
+    Returns list of integrity flags (empty = clean).
+    """
+    flags = []
+    code_stripped = code.strip()
+
+    if language in ("python",):
+        # Find all function defs and check if params are used in body
+        func_pattern = _re_anticheat.compile(
+            r'def\s+(\w+)\s*\(([^)]*)\)\s*:', _re_anticheat.MULTILINE
+        )
+        for m in func_pattern.finditer(code_stripped):
+            fname = m.group(1)
+            params_str = m.group(2).strip()
+            if not params_str or params_str == "self":
+                continue
+            # Extract param names
+            params = [p.strip().split("=")[0].strip().split(":")[0].strip()
+                      for p in params_str.split(",") if p.strip() and p.strip() != "self"]
+            params = [p for p in params if p and p != "*" and not p.startswith("*")]
+            if not params:
+                continue
+            # Get function body (everything after the def until next def or end)
+            body_start = m.end()
+            next_def = _re_anticheat.search(r'\ndef\s+\w+\s*\(', code_stripped[body_start:])
+            body = code_stripped[body_start:body_start + next_def.start()] if next_def else code_stripped[body_start:]
+            # Remove comments and strings for analysis
+            body_clean = _re_anticheat.sub(r'#[^\n]*', '', body)
+            body_clean = _re_anticheat.sub(r'"""[\s\S]*?"""', '', body_clean)
+            body_clean = _re_anticheat.sub(r"'''[\s\S]*?'''", '', body_clean)
+            # Check if ANY parameter is referenced in the body
+            params_used = any(
+                _re_anticheat.search(r'\b' + _re_anticheat.escape(p) + r'\b', body_clean)
+                for p in params
+            )
+            if not params_used:
+                flags.append(f"params_unused:{fname}")
+            # Check for pure hardcoded return (only returns a literal)
+            returns = _re_anticheat.findall(r'return\s+(.+)', body_clean)
+            if returns:
+                for ret_val in returns:
+                    ret_val = ret_val.strip().rstrip(";")
+                    # Check if return value is just a string/number literal
+                    if (_re_anticheat.match(r'^["\'].*["\']$', ret_val) or
+                        _re_anticheat.match(r'^-?\d+\.?\d*$', ret_val) or
+                        ret_val in ('True', 'False', 'None', '[]', '{}', '()')):
+                        if not params_used:
+                            flags.append(f"hardcoded_return:{fname}")
+
+    elif language in ("javascript",):
+        # Find function declarations and arrow functions
+        func_patterns = [
+            _re_anticheat.compile(r'function\s+(\w+)\s*\(([^)]*)\)\s*\{', _re_anticheat.MULTILINE),
+            _re_anticheat.compile(r'(?:const|let|var)\s+(\w+)\s*=\s*(?:function)?\s*\(([^)]*)\)\s*(?:=>)?\s*\{', _re_anticheat.MULTILINE),
+        ]
+        for pattern in func_patterns:
+            for m in pattern.finditer(code_stripped):
+                fname = m.group(1)
+                params_str = m.group(2).strip()
+                if not params_str:
+                    continue
+                params = [p.strip().split("=")[0].strip() for p in params_str.split(",") if p.strip()]
+                params = [p for p in params if p and not p.startswith("...")]
+                if not params:
+                    continue
+                # Get function body
+                body_start = m.end()
+                brace_count = 1
+                i = body_start
+                while i < len(code_stripped) and brace_count > 0:
+                    if code_stripped[i] == '{':
+                        brace_count += 1
+                    elif code_stripped[i] == '}':
+                        brace_count -= 1
+                    i += 1
+                body = code_stripped[body_start:i-1] if i <= len(code_stripped) else code_stripped[body_start:]
+                body_clean = _re_anticheat.sub(r'//[^\n]*', '', body)
+                body_clean = _re_anticheat.sub(r'/\*[\s\S]*?\*/', '', body_clean)
+                params_used = any(
+                    _re_anticheat.search(r'\b' + _re_anticheat.escape(p) + r'\b', body_clean)
+                    for p in params
+                )
+                if not params_used:
+                    flags.append(f"params_unused:{fname}")
+                returns = _re_anticheat.findall(r'return\s+(.+?)(?:;|\s*$|\s*})', body_clean)
+                if returns:
+                    for ret_val in returns:
+                        ret_val = ret_val.strip().rstrip(";")
+                        if (_re_anticheat.match(r'^["\'].*["\']$', ret_val) or
+                            _re_anticheat.match(r'^`[^$]*`$', ret_val) or
+                            _re_anticheat.match(r'^-?\d+\.?\d*$', ret_val) or
+                            ret_val in ('true', 'false', 'null', 'undefined', '[]', '{}')):
+                            if not params_used:
+                                flags.append(f"hardcoded_return:{fname}")
+
+    return list(set(flags))
+
+
+def _generate_fuzz_cases(cases: list[dict], language: str) -> list[dict]:
+    """
+    Generate randomized fuzz test cases by mutating existing case inputs.
+    These cases use different arguments to verify that code actually processes them,
+    not just returns hardcoded values.
+    """
+    import random as _fuzz_random
+    _fuzz_random.seed()  # True randomness for fuzz
+
+    fuzz_cases = []
+    for case in cases:
+        if case.get("type") == "variable_value":
+            continue  # Can't fuzz variable checks
+        expr = case.get("code", "")
+        if not expr:
+            continue
+
+        # Extract function call pattern: funcName(args)
+        call_match = _re_anticheat.match(r'^(\w+)\s*\((.+)\)$', expr.strip())
+        if not call_match:
+            # Try IIFE or chained calls - skip fuzzing for complex expressions
+            continue
+
+        func_name = call_match.group(1)
+        args_str = call_match.group(2).strip()
+
+        # Generate fuzzed calls based on argument patterns
+        fuzz_calls = []
+        fuzz_expected = []
+
+        # Simple numeric arguments: replace with random numbers
+        if _re_anticheat.match(r'^-?\d+(?:\s*,\s*-?\d+)*$', args_str):
+            nums = [int(x.strip()) for x in args_str.split(",")]
+            for _ in range(2):
+                new_nums = [_fuzz_random.randint(-99, 99) for _ in nums]
+                fuzz_calls.append(f"{func_name}({', '.join(str(n) for n in new_nums)})")
+        # String arguments
+        elif _re_anticheat.match(r"""^['"][^'"]*['"]$""", args_str):
+            rand_strs = [''.join(_fuzz_random.choices('abcdefghij', k=_fuzz_random.randint(2, 6))) for _ in range(2)]
+            for s in rand_strs:
+                fuzz_calls.append(f"{func_name}('{s}')")
+        # Array arguments: [1,2,3]
+        elif args_str.startswith('['):
+            for _ in range(2):
+                new_arr = [_fuzz_random.randint(0, 50) for _ in range(_fuzz_random.randint(2, 5))]
+                fuzz_calls.append(f"{func_name}([{', '.join(str(n) for n in new_arr)}])")
+        # Object arguments: {key: val}
+        elif args_str.startswith('{'):
+            keys = ['alpha', 'beta', 'gamma', 'delta', 'omega']
+            for _ in range(2):
+                k = _fuzz_random.choice(keys)
+                v = _fuzz_random.randint(1, 100)
+                fuzz_calls.append(f"{func_name}({{{k}: {v}}})")
+
+        # We don't know expected values for fuzz cases, so we run them in a special mode:
+        # The harness will run the fuzz call and verify it doesn't crash + doesn't match
+        # the original hardcoded output (if it always returns the same thing regardless of input).
+        for fc in fuzz_calls:
+            fuzz_cases.append({
+                "code": fc,
+                "_fuzz": True,  # Marker for anti-cheat fuzz case
+                "_original_expected": case.get("expected"),  # What the hardcoder would return
+            })
+
+    return fuzz_cases
+
+
 def verify_task(task: dict, code: str) -> tuple[dict, int]:
-    """Synchronous wrapper with concurrency limit for heavy runners."""
+    """Synchronous wrapper with concurrency limit for heavy runners + anti-cheat."""
     logic = task.get("check_logic") or {}
     engine = (logic.get("engine") or "").lower()
     visible_cases = logic.get("cases") or []
     hidden_cases = logic.get("hidden_cases") or []
     all_cases = (visible_cases if isinstance(visible_cases, list) else []) + (hidden_cases if isinstance(hidden_cases, list) else [])
 
+    # --- ANTI-CHEAT: static analysis ---
+    code_lang = "python" if engine in ("pyodide", "python") else "javascript" if engine in ("javascript", "js") else ""
+    integrity_flags = _detect_hardcoded_solution(code, code_lang) if code_lang else []
+
+    # --- Standard verification ---
+    result = None
+    runtime_ms = 0
+
     if engine in ("pyodide", "python"):
         with RUNNER_SEMAPHORE:
-            return verify_python_sync(code, all_cases)
-    if engine in ("javascript", "js"):
+            result, runtime_ms = verify_python_sync(code, all_cases)
+    elif engine in ("javascript", "js"):
         with RUNNER_SEMAPHORE:
-            return verify_javascript_sync(code, all_cases)
-    if engine in ("iframe", "frontend"):
+            result, runtime_ms = verify_javascript_sync(code, all_cases)
+    elif engine in ("iframe", "frontend"):
         return verify_frontend_sync(code, logic)
+    else:
+        return (
+            {"passed": False, "exec_error": {"type": "Manual", "message": "This task requires manual review", "trace": ""}, "stdout": "", "cases": []},
+            0,
+        )
 
-    return (
-        {"passed": False, "exec_error": {"type": "Manual", "message": "This task requires manual review", "trace": ""}, "stdout": "", "cases": []},
-        0,
-    )
+    # --- ANTI-CHEAT: fuzz test injection ---
+    # Only run fuzz tests if main tests passed and static analysis found suspicious patterns
+    if result and result.get("passed") and integrity_flags and engine in ("pyodide", "python", "javascript", "js"):
+        fuzz_cases = _generate_fuzz_cases(visible_cases, code_lang)
+        if fuzz_cases:
+            # Run fuzz cases: each fuzz case should NOT return the same value as the original
+            # We need to eval them and check if output varies with input
+            fuzz_test_cases = []
+            for fc in fuzz_cases:
+                # Create test case that simply calls the function; we expect it NOT to throw
+                fuzz_test_cases.append({
+                    "code": fc["code"],
+                    "expected": fc.get("_original_expected"),
+                    "_anticheat_fuzz": True,
+                })
+
+            fuzz_result = None
+            if engine in ("pyodide", "python"):
+                with RUNNER_SEMAPHORE:
+                    fuzz_result, _ = verify_python_sync(code, fuzz_test_cases)
+            elif engine in ("javascript", "js"):
+                with RUNNER_SEMAPHORE:
+                    fuzz_result, _ = verify_javascript_sync(code, fuzz_test_cases)
+
+            if fuzz_result:
+                fuzz_case_results = fuzz_result.get("cases", [])
+                # Check: if ALL fuzz cases pass (return same value as original expected),
+                # the code is hardcoded - it returns the same thing regardless of input
+                all_fuzz_same = all(c.get("passed") for c in fuzz_case_results) if fuzz_case_results else False
+                if all_fuzz_same and len(fuzz_case_results) >= 2:
+                    integrity_flags.append("fuzz_all_same_output")
+
+    # Attach integrity flags to result
+    if integrity_flags:
+        result["integrity_flags"] = integrity_flags
+        # If hardcoding detected: don't auto-pass, require manual review
+        if any("hardcoded_return" in f or "fuzz_all_same_output" in f for f in integrity_flags):
+            result["passed"] = False
+            result["manual_review_required"] = True
+            result["exec_error"] = {
+                "type": "IntegrityCheck",
+                "message": "Код выглядит захардкоженным. Решение должно обрабатывать входные данные, а не возвращать фиксированный ответ. Попробуй использовать аргументы функции.",
+                "trace": "",
+            }
+            logger.warning(
+                "Anti-cheat: hardcoded solution detected for task %s, flags: %s",
+                task.get("id", "?"), integrity_flags,
+            )
+
+    return result, runtime_ms
+
 
 @app.get("/api/tasks")
 def get_tasks(
