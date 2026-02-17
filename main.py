@@ -963,21 +963,33 @@ def process_task_completion(
     base_xp: int,
     solution: str = None,
     code_simhash: str = None,
+    is_retry: bool = False,
 ) -> dict:
     """
     Centralized logic to award XP, update level, handling streaks and events.
+    On retry: if new XP > previous XP, awards delta only.
     Returns dict with update details.
     """
-    # 1. Mark as completed
+    # 1. Mark as completed (or handle retry)
+    retry_delta = 0
     try:
         cursor.execute(
             "INSERT INTO completed_tasks (user_id, task_id, solution, xp_earned, code_simhash) VALUES (?, ?, ?, ?, ?)",
             (user_id, task_id, solution, base_xp, code_simhash)
         )
     except sqlite3.IntegrityError:
-        # Already completed? If so, we might want to skip XP or not.
-        # Usually we shouldn't award XP twice.
-        return {"status": "already_completed", "xp_earned": 0}
+        if not is_retry:
+            return {"status": "already_completed", "xp_earned": 0}
+        # Retry: check if improvement
+        cursor.execute(
+            "SELECT xp_earned FROM completed_tasks WHERE user_id = ? AND task_id = ? AND is_valid != 0",
+            (user_id, task_id),
+        )
+        prev_row = cursor.fetchone()
+        prev_xp = int(prev_row["xp_earned"] or 0) if prev_row else 0
+        # base_xp here is pre-bonus; we'll calculate final_xp below and compare there
+        # For now, store it for comparison after bonus calculation
+        retry_delta = -1  # sentinel: will be recalculated after bonuses
 
     # 3. Calculate Bonuses
     bonus_multiplier = 1.0
@@ -1009,15 +1021,46 @@ def process_task_completion(
     
     final_xp = int(base_xp * bonus_multiplier * (1.0 - attempt_penalty))
     final_xp = max(1, final_xp)  # Minimum 1 XP
+
+    # Handle retry: only award delta if improved
+    if retry_delta == -1:
+        # Recalculate with actual prev_xp
+        cursor.execute(
+            "SELECT xp_earned FROM completed_tasks WHERE user_id = ? AND task_id = ? AND is_valid != 0",
+            (user_id, task_id),
+        )
+        prev_row = cursor.fetchone()
+        prev_xp = int(prev_row["xp_earned"] or 0) if prev_row else 0
+        if final_xp <= prev_xp:
+            # No improvement — return without XP change
+            return {
+                "status": "retry_no_improvement",
+                "xp_earned": 0,
+                "prev_xp_earned": prev_xp,
+                "new_xp_earned": final_xp,
+                "bonus_applied": bonus_multiplier > 1.0,
+                "new_xp": int(cursor.execute("SELECT xp FROM users WHERE id = ?", (user_id,)).fetchone()["xp"]),
+                "new_level": int(cursor.execute("SELECT level FROM users WHERE id = ?", (user_id,)).fetchone()["level"]),
+            }
+        # Improved! Award only the delta
+        retry_delta = final_xp - prev_xp
+        final_xp = retry_delta  # award only the delta
+        # Update the stored xp_earned to the new higher value
+        cursor.execute(
+            "UPDATE completed_tasks SET xp_earned = ?, solution = ?, code_simhash = ?, completed_at = CURRENT_TIMESTAMP WHERE user_id = ? AND task_id = ?",
+            (prev_xp + retry_delta, solution, code_simhash, user_id, task_id),
+        )
     
     # 4. Apply XP (keeps level consistent) + audit log
-    new_xp, new_level = apply_xp_change(cursor, user_id, final_xp, "task_completed", task_id)
+    reason = "task_retry_improvement" if retry_delta > 0 else "task_completed"
+    new_xp, new_level = apply_xp_change(cursor, user_id, final_xp, reason, task_id)
     
-    # Update xp_earned in completed_tasks with final (bonus-adjusted) value
-    cursor.execute(
-        "UPDATE completed_tasks SET xp_earned = ? WHERE user_id = ? AND task_id = ?",
-        (final_xp, user_id, task_id)
-    )
+    # Update xp_earned in completed_tasks with final (bonus-adjusted) value (first completion only)
+    if retry_delta == 0:
+        cursor.execute(
+            "UPDATE completed_tasks SET xp_earned = ? WHERE user_id = ? AND task_id = ?",
+            (final_xp, user_id, task_id)
+        )
     
     # 5. Update Streak & Stats
     today = datetime.now().date().isoformat()
@@ -1473,7 +1516,7 @@ def serve_alextype():
 # AlexType last-reward timestamps per user (in-memory cooldown)
 _alextype_last_reward: dict[int, float] = {}
 _ALEXTYPE_COOLDOWN_S = 30
-_ALEXTYPE_DIFFICULTY_MULT = {"D": 0.5, "C": 0.7, "B": 1.0, "A": 1.3, "S": 1.6}
+_ALEXTYPE_DIFFICULTY_MULT = {"D": 0.6, "C": 0.84, "B": 1.2, "A": 1.56, "S": 1.92}
 _ALEXTYPE_MAX_XP = 200  # Cap per session
 
 @app.post("/api/alextype/complete")
@@ -4424,8 +4467,7 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
                 status_code=429,
                 detail=f"Слишком частые попытки. Подождите {wait_for:.1f} c.",
             )
-        if data.task_id in completed_ids:
-            return {"status": "already_completed"}
+        is_retry = data.task_id in completed_ids
         if not unlocked:
             raise HTTPException(status_code=403, detail={"status": "locked", "unlock": unlock_info})
 
@@ -4593,10 +4635,18 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
             }
 
         # Tier D/C auto-award
-        result = process_task_completion(cursor, user["id"], data.task_id, task_xp, code, simhash_hex)
+        result = process_task_completion(cursor, user["id"], data.task_id, task_xp, code, simhash_hex, is_retry=is_retry)
         if result["status"] == "already_completed":
             conn.commit()
             return {"status": "already_completed"}
+        if result["status"] == "retry_no_improvement":
+            conn.commit()
+            return {
+                "status": "retry_no_improvement",
+                "verification": verification,
+                "prev_xp": result.get("prev_xp_earned", 0),
+                "message": f"Задача решена, но XP не улучшился (текущий: {result.get('prev_xp_earned', 0)})",
+            }
 
         proposed_bonus = propose_comment_bonus(task_xp, code, code_language)
         if proposed_bonus > 0:
@@ -4637,6 +4687,7 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
             "bonus_applied": result["bonus_applied"],
             "comment_bonus_proposed": proposed_bonus,
             "new_achievements": result.get("new_achievements") or [],
+            "is_retry": is_retry,
         }
 
 @app.post("/api/tasks/attempt-scratch")
@@ -4672,8 +4723,7 @@ def attempt_scratch_task(
                 "submission_id": existing_pending["id"],
                 "message": "Submission already pending review",
             }
-        if task_id in completed_ids:
-            return {"status": "already_completed"}
+        is_retry_scratch = task_id in completed_ids
         if not unlocked:
             raise HTTPException(status_code=403, detail={"status": "locked", "unlock": unlock_info})
 
