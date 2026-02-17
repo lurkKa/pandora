@@ -848,9 +848,7 @@
 
     // ===== ANTI-CHEAT: Maximum protection (RU-compatible) =====
     let _keystrokeCount = 0;       // Integrity counter: real keydown events
-    let _lastKeydownTime = 0;      // Timestamp of last real keydown
     let _prevLen = 0;              // Track textarea length to detect char bursts
-    const _KEYDOWN_WINDOW_MS = 300; // Max ms between keydown and insertText (generous for RU layout)
 
     // Kill browser Speech Recognition API to prevent voice-to-text
     try {
@@ -859,33 +857,17 @@
       if (window.speechSynthesis) window.speechSynthesis.cancel();
     } catch (e) { }
 
-    // beforeinput: block programmatic/voice inserts
+    // beforeinput: block paste/drop inserts (voice caught by server-side keystroke check)
     inputEl.addEventListener("beforeinput", (e) => {
-      // Allow deletions and undo/redo always
-      const deleteOps = ["deleteContentBackward", "deleteContentForward",
-        "deleteWordBackward", "deleteWordForward",
-        "deleteSoftLineBackward", "deleteSoftLineForward",
-        "historyUndo", "historyRedo"];
-      if (deleteOps.includes(e.inputType)) return;
-
-      // Allow composition events (needed for some IME/RU keyboards)
-      if (e.inputType && e.inputType.startsWith("insertComposition")) return;
-
-      // insertText: allow only if a real keydown happened recently
-      if (e.inputType === "insertText") {
-        const timeSinceKey = Date.now() - _lastKeydownTime;
-        if (_lastKeydownTime === 0 || timeSinceKey > _KEYDOWN_WINDOW_MS) {
-          // No recent keydown = voice input or programmatic
-          e.preventDefault();
-          setStatus("⛔ Только клавиатура! Голосовой ввод запрещён.", "status-bad");
-          return;
-        }
-        return; // OK — recent keydown exists
+      // Block only explicit cheat inputTypes
+      const blocked = ["insertFromPaste", "insertFromDrop", "insertFromYank",
+        "insertReplacementText", "insertLink"];
+      if (blocked.includes(e.inputType)) {
+        e.preventDefault();
+        setStatus("⛔ Вставка запрещена — печатай сам!", "status-bad");
+        return;
       }
-
-      // Block everything else (insertFromPaste, insertFromDrop, insertFromYank, etc.)
-      e.preventDefault();
-      setStatus("⛔ Вставка запрещена — печатай сам!", "status-bad");
+      // Allow everything else: insertText, deleteContent*, composition, undo/redo
     });
 
     inputEl.addEventListener("keydown", (e) => {
@@ -898,7 +880,6 @@
         return;
       }
       _keystrokeCount++;
-      _lastKeydownTime = Date.now();
     });
 
     inputEl.addEventListener("paste", (e) => {
