@@ -1380,6 +1380,11 @@ class AlexTypeCompleteRequest(BaseModel):
     text_length: int
     cpm: int = 0  # chars per minute
 
+class AdminXPAdjustRequest(BaseModel):
+    user_id: int
+    delta_xp: int  # positive to add, negative to remove
+    reason: str = "Ручная корректировка Sensei"
+
 # ==================== AUTH ROUTES ====================
 
 app = FastAPI(
@@ -1741,6 +1746,36 @@ def reset_user_password(data: ResetPasswordRequest, admin: dict = Depends(requir
     
     log_security("PASSWORD_RESET", user=admin["username"], details=f"Reset user_id={data.user_id}")
     return {"message": "Password reset successfully"}
+
+@app.post("/api/admin/adjust-xp")
+def admin_adjust_xp(data: AdminXPAdjustRequest, admin: dict = Depends(require_admin)):
+    """Manually add or remove XP from any student (Admin only)."""
+    if data.delta_xp == 0:
+        raise HTTPException(status_code=400, detail="delta_xp must be non-zero")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        # Verify target user exists
+        cursor.execute("SELECT id, display_name, xp FROM users WHERE id = ?", (data.user_id,))
+        target = cursor.fetchone()
+        if not target:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        reason = f"Sensei ({admin['display_name']}): {data.reason}"
+        new_xp, new_level = apply_xp_change(cursor, data.user_id, data.delta_xp, reason)
+        conn.commit()
+
+    action = "added" if data.delta_xp > 0 else "removed"
+    log_security(
+        "XP_ADJUST", user=admin["username"],
+        details=f"{action} {abs(data.delta_xp)} XP for user_id={data.user_id} reason={data.reason}"
+    )
+    return {
+        "message": f"XP {action}: {abs(data.delta_xp)}",
+        "new_xp": new_xp,
+        "new_level": new_level,
+        "user_display_name": target['display_name'],
+    }
 
 # ==================== GAMIFICATION ROUTES ====================
 

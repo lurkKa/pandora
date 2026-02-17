@@ -844,6 +844,39 @@
       }
     }
 
+    // ===== ANTI-CHEAT: Block paste, copy, cut =====
+    inputEl.addEventListener("paste", (e) => {
+      e.preventDefault();
+      setStatus("⛔ Вставка запрещена — печатай сам!", "status-bad");
+    });
+
+    inputEl.addEventListener("copy", (e) => {
+      e.preventDefault();
+    });
+
+    inputEl.addEventListener("cut", (e) => {
+      e.preventDefault();
+    });
+
+    inputEl.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+    });
+
+    inputEl.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && ["v", "c", "x", "a"].includes(e.key.toLowerCase())) {
+        e.preventDefault();
+        if (e.key.toLowerCase() === "v") {
+          setStatus("⛔ Вставка запрещена — печатай сам!", "status-bad");
+        }
+      }
+    });
+
+    // ===== Also block drag-and-drop text into textarea =====
+    inputEl.addEventListener("drop", (e) => {
+      e.preventDefault();
+      setStatus("⛔ Перетаскивание запрещено!", "status-bad");
+    });
+
     inputEl.addEventListener("input", () => {
       if (!startedAt && inputEl.value.length > 0) {
         startedAt = Date.now();
