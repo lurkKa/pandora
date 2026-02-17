@@ -846,31 +846,103 @@
       }
     }
 
-    // ===== ANTI-CHEAT: Maximum protection (RU-compatible) =====
-    let _keystrokeCount = 0;       // Integrity counter: real keydown events
+    // ===== ANTI-CHEAT v2: Triple-layer voice-input & paste protection =====
+    //
+    // Layer 1: Per-character keydown↔input correlation
+    //   Each keydown increments _pendingKeydowns. Each accepted insertText decrements it.
+    //   If insertText arrives with _pendingKeydowns <= 0 → block.
+    //   This catches voice apps that fire ONE synthetic keydown for MANY characters.
+    //
+    // Layer 2: Burst detection
+    //   Voice input arrives in bursts (5-30 chars in <100ms). Humans can't type >15 chars/sec.
+    //   Track recent insert timestamps; if >5 chars arrive within 300ms → block.
+    //
+    // Layer 3: Multi-character insertText blocking
+    //   Real keyboard always sends insertText with data.length === 1.
+    //   Voice/autocomplete sends data.length > 1 → block (except during IME composition).
+    //
+    let _keystrokeCount = 0;            // Real keydown events (sent to server)
+    let _pendingKeydowns = 0;           // Unmatched keydown events (Layer 1)
+    let _inComposition = false;         // True during IME composition
+    let _voiceBlockCount = 0;           // How many voice inserts were blocked
+    const _recentInsertTimes = [];      // Timestamps of recent insertText events (Layer 2)
+    const _BURST_WINDOW_MS = 300;       // Burst detection window
+    const _BURST_MAX_CHARS = 5;         // Max chars allowed in burst window
 
-    // Kill browser Speech Recognition API to prevent voice-to-text
+    // Kill browser Speech Recognition API
     try {
       window.SpeechRecognition = undefined;
       window.webkitSpeechRecognition = undefined;
+      Object.defineProperty(window, 'SpeechRecognition', { value: undefined, writable: false, configurable: false });
+      Object.defineProperty(window, 'webkitSpeechRecognition', { value: undefined, writable: false, configurable: false });
       if (window.speechSynthesis) window.speechSynthesis.cancel();
     } catch (e) { }
 
-    // beforeinput: block paste/drop inserts (voice caught by server-side keystroke check)
+    // IME composition tracking (for Russian input on some mobile keyboards)
+    inputEl.addEventListener("compositionstart", () => { _inComposition = true; });
+    inputEl.addEventListener("compositionend", () => {
+      _inComposition = false;
+      // compositionend fires after the final insertText — grant one pending keydown
+      _pendingKeydowns = Math.max(_pendingKeydowns, 1);
+    });
+
+    // ===== CORE: beforeinput — block ALL non-keyboard inserts =====
     inputEl.addEventListener("beforeinput", (e) => {
-      // Block only explicit cheat inputTypes
-      const blocked = ["insertFromPaste", "insertFromDrop", "insertFromYank",
-        "insertReplacementText", "insertLink"];
-      if (blocked.includes(e.inputType)) {
+      // Always block: paste, drop, yank, replacement, link, autocomplete
+      const alwaysBlocked = [
+        "insertFromPaste", "insertFromDrop", "insertFromYank",
+        "insertReplacementText", "insertLink",
+        "insertFromPasteAsQuotation",
+      ];
+      if (alwaysBlocked.includes(e.inputType)) {
         e.preventDefault();
         setStatus("⛔ Вставка запрещена — печатай сам!", "status-bad");
         return;
       }
-      // Allow everything else: insertText, deleteContent*, composition, undo/redo
+
+      // For insertText: apply all three layers
+      if (e.inputType === "insertText" && !_inComposition) {
+        const now = Date.now();
+
+        // Layer 3: Multi-character insertText = voice/autocomplete
+        if (e.data && e.data.length > 1) {
+          e.preventDefault();
+          _voiceBlockCount++;
+          setStatus("⛔ Голосовой ввод запрещён — печатай сам!", "status-bad");
+          return;
+        }
+
+        // Layer 1: No pending keydown = no physical key press
+        if (_pendingKeydowns <= 0) {
+          e.preventDefault();
+          _voiceBlockCount++;
+          setStatus("⛔ Голосовой ввод запрещён — печатай сам!", "status-bad");
+          return;
+        }
+
+        // Layer 2: Burst detection — too many chars too fast
+        // Clean old entries outside the window
+        while (_recentInsertTimes.length > 0 && now - _recentInsertTimes[0] > _BURST_WINDOW_MS) {
+          _recentInsertTimes.shift();
+        }
+        if (_recentInsertTimes.length >= _BURST_MAX_CHARS) {
+          e.preventDefault();
+          _voiceBlockCount++;
+          _pendingKeydowns = 0; // Reset — clearly synthetic keydowns
+          setStatus("⛔ Голосовой ввод запрещён — печатай сам!", "status-bad");
+          return;
+        }
+
+        // All checks passed — accept this character
+        _pendingKeydowns--;
+        _recentInsertTimes.push(now);
+      }
+
+      // Allow: insertCompositionText, deleteContent*, historyUndo/Redo
     });
 
     inputEl.addEventListener("keydown", (e) => {
-      // Block Ctrl+V/C/X/A
+      // Block clipboard shortcuts
       if ((e.ctrlKey || e.metaKey) && ["v", "c", "x", "a"].includes(e.key.toLowerCase())) {
         e.preventDefault();
         if (e.key.toLowerCase() === "v") {
@@ -878,7 +950,18 @@
         }
         return;
       }
+      // Don't count modifier-only keys or non-character keys
+      if (["Shift", "Control", "Alt", "Meta", "CapsLock", "Tab", "Escape",
+        "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
+        "Home", "End", "PageUp", "PageDown",
+        "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12"
+      ].includes(e.key)) {
+        return;
+      }
       _keystrokeCount++;
+      _pendingKeydowns++;
+      // Cap pending to prevent accumulation from held keys (key repeat)
+      if (_pendingKeydowns > 3) _pendingKeydowns = 3;
     });
 
     inputEl.addEventListener("paste", (e) => {

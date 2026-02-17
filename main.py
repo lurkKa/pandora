@@ -1563,7 +1563,7 @@ def alextype_complete(data: AlexTypeCompleteRequest, user: dict = Depends(requir
 
     # Keystroke sanity: keystrokes must be ≥ 70% of chars_typed
     # Voice input = 0 keystrokes; paste bypass = very few keystrokes
-    if data.keystrokes > 0 and data.keystrokes < data.chars_typed * 0.7:
+    if data.chars_typed > 5 and data.keystrokes < data.chars_typed * 0.7:
         return {"xp_awarded": 0, "message": "⚠️ Невалидные данные набора"}
 
     # XP formula: chars × accuracy × difficulty_multiplier / divisor
