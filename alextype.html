@@ -1226,8 +1226,8 @@
     //   This catches voice apps that fire ONE synthetic keydown for MANY characters.
     //
     // Layer 2: Burst detection
-    //   Voice input arrives in bursts (5-30 chars in <100ms). Humans can't type >15 chars/sec.
-    //   Track recent insert timestamps; if >5 chars arrive within 300ms → block.
+    //   Voice input arrives in bursts (20-50+ chars in <100ms). Humans peak ~20 chars/sec.
+    //   Track recent insert timestamps; if >12 chars arrive within 200ms → block.
     //
     // Layer 3: Multi-character insertText blocking
     //   Real keyboard always sends insertText with data.length === 1.
@@ -1236,10 +1236,12 @@
     let _keystrokeCount = 0;            // Real keydown events (sent to server)
     let _pendingKeydowns = 0;           // Unmatched keydown events (Layer 1)
     let _inComposition = false;         // True during IME composition
+    let _compositionGrace = 0;          // Timestamp: grace period after compositionend
     let _voiceBlockCount = 0;           // How many voice inserts were blocked
     const _recentInsertTimes = [];      // Timestamps of recent insertText events (Layer 2)
-    const _BURST_WINDOW_MS = 300;       // Burst detection window
-    const _BURST_MAX_CHARS = 5;         // Max chars allowed in burst window
+    const _BURST_WINDOW_MS = 200;       // Burst detection window
+    const _BURST_MAX_CHARS = 12;        // Max chars allowed in burst window
+    const _COMP_GRACE_MS = 120;         // Grace period after compositionend for Firefox/Linux
 
     // Kill browser Speech Recognition API
     try {
@@ -1250,11 +1252,13 @@
       if (window.speechSynthesis) window.speechSynthesis.cancel();
     } catch (e) { }
 
-    // IME composition tracking (for Russian input on some mobile keyboards)
+    // IME composition tracking (for Russian input on Linux IBus/Fcitx and mobile keyboards)
     inputEl.addEventListener("compositionstart", () => { _inComposition = true; });
     inputEl.addEventListener("compositionend", () => {
       _inComposition = false;
-      // compositionend fires after the final insertText — grant one pending keydown
+      // In Firefox/Linux, compositionend fires BEFORE the final insertText.
+      // Set a grace period so the commit-insertText is not falsely blocked.
+      _compositionGrace = Date.now();
       _pendingKeydowns = Math.max(_pendingKeydowns, 1);
     });
 
@@ -1273,7 +1277,9 @@
       }
 
       // For insertText: apply all three layers
-      if (e.inputType === "insertText" && !_inComposition) {
+      // Skip checks during active composition or within grace period after compositionend
+      const isCompGrace = _compositionGrace && (Date.now() - _compositionGrace < _COMP_GRACE_MS);
+      if (e.inputType === "insertText" && !_inComposition && !isCompGrace) {
         const now = Date.now();
 
         // Layer 3: Multi-character insertText = voice/autocomplete
@@ -1308,6 +1314,10 @@
         // All checks passed — accept this character
         _pendingKeydowns--;
         _recentInsertTimes.push(now);
+      } else if (e.inputType === "insertText" && isCompGrace) {
+        // After composition grace: still count the keydown correlation
+        if (_pendingKeydowns > 0) _pendingKeydowns--;
+        _compositionGrace = 0; // One-shot grace
       }
 
       // Allow: insertCompositionText, deleteContent*, historyUndo/Redo
@@ -1333,7 +1343,7 @@
       _keystrokeCount++;
       _pendingKeydowns++;
       // Cap pending to prevent accumulation from held keys (key repeat)
-      if (_pendingKeydowns > 3) _pendingKeydowns = 3;
+      if (_pendingKeydowns > 6) _pendingKeydowns = 6;
     });
 
     inputEl.addEventListener("paste", (e) => {
