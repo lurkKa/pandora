@@ -846,10 +846,11 @@
       }
     }
 
-    // ===== ANTI-CHEAT: Maximum protection =====
-    let _keystrokeCount = 0;    // Integrity counter: real keydown events
-    let _pendingKeydown = false; // True only after a real keydown, consumed by beforeinput
-    let _prevLen = 0;            // Track textarea length to detect char bursts
+    // ===== ANTI-CHEAT: Maximum protection (RU-compatible) =====
+    let _keystrokeCount = 0;       // Integrity counter: real keydown events
+    let _lastKeydownTime = 0;      // Timestamp of last real keydown
+    let _prevLen = 0;              // Track textarea length to detect char bursts
+    const _KEYDOWN_WINDOW_MS = 300; // Max ms between keydown and insertText (generous for RU layout)
 
     // Kill browser Speech Recognition API to prevent voice-to-text
     try {
@@ -858,7 +859,7 @@
       if (window.speechSynthesis) window.speechSynthesis.cancel();
     } catch (e) { }
 
-    // beforeinput: deepest level block — catches programmatic/voice inserts
+    // beforeinput: block programmatic/voice inserts
     inputEl.addEventListener("beforeinput", (e) => {
       // Allow deletions and undo/redo always
       const deleteOps = ["deleteContentBackward", "deleteContentForward",
@@ -867,19 +868,22 @@
         "historyUndo", "historyRedo"];
       if (deleteOps.includes(e.inputType)) return;
 
-      // insertText: only allow if a real keydown preceded it
+      // Allow composition events (needed for some IME/RU keyboards)
+      if (e.inputType && e.inputType.startsWith("insertComposition")) return;
+
+      // insertText: allow only if a real keydown happened recently
       if (e.inputType === "insertText") {
-        if (!_pendingKeydown) {
-          // No keydown before this insert = voice input or programmatic
+        const timeSinceKey = Date.now() - _lastKeydownTime;
+        if (_lastKeydownTime === 0 || timeSinceKey > _KEYDOWN_WINDOW_MS) {
+          // No recent keydown = voice input or programmatic
           e.preventDefault();
           setStatus("⛔ Только клавиатура! Голосовой ввод запрещён.", "status-bad");
           return;
         }
-        _pendingKeydown = false; // consume the flag
-        return;
+        return; // OK — recent keydown exists
       }
 
-      // Block everything else (insertFromPaste, insertFromDrop, etc.)
+      // Block everything else (insertFromPaste, insertFromDrop, insertFromYank, etc.)
       e.preventDefault();
       setStatus("⛔ Вставка запрещена — печатай сам!", "status-bad");
     });
@@ -893,11 +897,8 @@
         }
         return;
       }
-      // Only printable keys and special keys set the flag
       _keystrokeCount++;
-      _pendingKeydown = true;
-      // Auto-reset flag after 50ms (if no beforeinput fires, it was a non-text key)
-      setTimeout(() => { _pendingKeydown = false; }, 50);
+      _lastKeydownTime = Date.now();
     });
 
     inputEl.addEventListener("paste", (e) => {
@@ -919,7 +920,7 @@
     inputEl.addEventListener("input", () => {
       const newLen = inputEl.value.length;
       const delta = newLen - _prevLen;
-      if (delta > 3 && _prevLen > 0) {
+      if (delta > 5 && _prevLen > 0) {
         // More than 3 chars appeared at once = not keyboard typing
         // Revert the burst
         inputEl.value = inputEl.value.substring(0, _prevLen);
