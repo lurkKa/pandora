@@ -425,41 +425,413 @@
       color: #f43f5e;
     }
 
-    /* ===== RESPONSIVE ===== */
-    @media (max-width: 640px) {
+    /* ===== RESPONSIVE — Ideal adaptation for any device ===== */
+
+    /* Tablet landscape & small desktop */
+    @media (max-width: 960px) {
+      .wrap {
+        max-width: 720px;
+      }
+    }
+
+    /* Tablet portrait */
+    @media (max-width: 768px) {
       body {
-        padding: 12px 8px;
+        padding: 16px 12px;
       }
 
-      .stats {
-        grid-template-columns: repeat(2, 1fr);
+      .wrap {
+        gap: 12px;
       }
 
-      .sample {
-        font-size: 15px;
-        min-height: 80px;
-      }
-
-      textarea {
-        font-size: 15px;
+      .header-card {
+        padding: 18px 20px;
       }
 
       .logo h1 {
-        font-size: 20px;
+        font-size: 22px;
+      }
+
+      .logo-sub {
+        font-size: 12px;
+        margin-left: 54px;
       }
 
       .controls {
         gap: 8px;
       }
 
+      select,
+      button {
+        padding: 10px 14px;
+        font-size: 13px;
+      }
+
+      .sample {
+        font-size: 16px;
+        padding: 14px;
+        min-height: 90px;
+      }
+
+      textarea {
+        font-size: 15px;
+        padding: 14px;
+        min-height: 90px;
+      }
+
+      .stat-value {
+        font-size: 20px;
+      }
+    }
+
+    /* Large phones */
+    @media (max-width: 640px) {
+      body {
+        padding: 12px 8px;
+        /* Safe area for notched phones */
+        padding-left: max(8px, env(safe-area-inset-left));
+        padding-right: max(8px, env(safe-area-inset-right));
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
+      }
+
+      .wrap {
+        gap: 10px;
+      }
+
+      .header-card {
+        padding: 14px 16px;
+        border-radius: var(--radius-md);
+      }
+
+      .logo-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 18px;
+        border-radius: var(--radius-sm);
+      }
+
+      .logo h1 {
+        font-size: 20px;
+      }
+
+      .logo-sub {
+        margin-left: 48px;
+        font-size: 11px;
+        line-height: 1.4;
+      }
+
+      .card {
+        padding: 14px;
+        border-radius: var(--radius-md);
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .controls select,
+      .controls button {
+        width: 100%;
+        min-height: 44px;
+        /* Touch-friendly minimum */
+        font-size: 14px;
+        justify-content: center;
+        text-align: center;
+      }
+
+      .controls button.primary {
+        grid-column: 1 / -1;
+        /* Full width */
+      }
+
+      .level-badge {
+        justify-self: start;
+      }
+
       .status {
+        grid-column: 1 / -1;
         margin-left: 0;
         width: 100%;
-        margin-top: 4px;
+        text-align: center;
+        padding: 6px 0;
       }
 
       .xp-preview {
         display: none;
+      }
+
+      .sample {
+        font-size: 15px;
+        padding: 12px;
+        min-height: 80px;
+        line-height: 1.7;
+        border-radius: var(--radius-sm);
+      }
+
+      textarea {
+        font-size: 16px;
+        /* Prevent iOS zoom on focus */
+        padding: 12px;
+        min-height: 80px;
+        border-radius: var(--radius-sm);
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+      }
+
+      .stat {
+        padding: 12px;
+        border-radius: var(--radius-sm);
+      }
+
+      .stat-value {
+        font-size: 20px;
+      }
+
+      .stat-label {
+        font-size: 10px;
+        letter-spacing: 0.6px;
+      }
+
+      /* XP toast: full width on mobile */
+      .xp-toast {
+        left: 12px;
+        right: 12px;
+        top: 12px;
+        text-align: center;
+        border-radius: var(--radius-sm);
+        padding: 12px 16px;
+        font-size: 16px;
+      }
+
+      .back-link {
+        font-size: 12px;
+        margin-bottom: 2px;
+      }
+    }
+
+    /* Small phones (iPhone SE, Galaxy S series) */
+    @media (max-width: 480px) {
+      body {
+        padding: 8px 6px;
+        padding-left: max(6px, env(safe-area-inset-left));
+        padding-right: max(6px, env(safe-area-inset-right));
+      }
+
+      .header-card {
+        padding: 12px 14px;
+      }
+
+      .logo-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 16px;
+      }
+
+      .logo h1 {
+        font-size: 18px;
+      }
+
+      .logo-sub {
+        margin-left: 44px;
+        font-size: 10px;
+      }
+
+      .card {
+        padding: 10px;
+      }
+
+      .controls {
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+
+      .controls select,
+      .controls button {
+        padding: 8px 10px;
+        font-size: 13px;
+      }
+
+      .sample {
+        font-size: 14px;
+        padding: 10px;
+        min-height: 70px;
+        line-height: 1.65;
+      }
+
+      textarea {
+        font-size: 16px;
+        /* Keep 16px to prevent iOS zoom */
+        padding: 10px;
+        min-height: 70px;
+      }
+
+      .stats {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+      }
+
+      .stat {
+        padding: 8px 4px;
+      }
+
+      .stat-value {
+        font-size: 16px;
+      }
+
+      .stat-label {
+        font-size: 9px;
+        letter-spacing: 0.4px;
+        margin-bottom: 4px;
+      }
+    }
+
+    /* Very small phones (320-360px) */
+    @media (max-width: 360px) {
+      .logo h1 {
+        font-size: 16px;
+      }
+
+      .logo-sub {
+        display: none;
+      }
+
+      .controls {
+        grid-template-columns: 1fr;
+      }
+
+      .sample {
+        font-size: 13px;
+        padding: 8px;
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .stat-value {
+        font-size: 18px;
+      }
+    }
+
+    /* Landscape phones — maximize typing area */
+    @media (max-height: 500px) and (orientation: landscape) {
+      body {
+        padding: 8px 16px;
+      }
+
+      .wrap {
+        gap: 8px;
+      }
+
+      .header-card {
+        padding: 8px 16px;
+      }
+
+      .header-card::before {
+        height: 1px;
+      }
+
+      .logo-icon {
+        width: 28px;
+        height: 28px;
+        font-size: 14px;
+      }
+
+      .logo h1 {
+        font-size: 18px;
+      }
+
+      .logo-sub {
+        display: none;
+      }
+
+      .card {
+        padding: 10px;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .controls select,
+      .controls button {
+        padding: 6px 12px;
+        min-height: 36px;
+        font-size: 12px;
+      }
+
+      .sample {
+        font-size: 14px;
+        min-height: 50px;
+        padding: 8px 12px;
+      }
+
+      textarea {
+        min-height: 50px;
+        padding: 8px 12px;
+        font-size: 14px;
+      }
+
+      .stats {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+      }
+
+      .stat {
+        padding: 6px 8px;
+      }
+
+      .stat-value {
+        font-size: 16px;
+      }
+
+      .stat-label {
+        font-size: 9px;
+        margin-bottom: 2px;
+      }
+
+      .back-link {
+        display: none;
+      }
+    }
+
+    /* Large desktop / ultra-wide */
+    @media (min-width: 1200px) {
+      .wrap {
+        max-width: 900px;
+      }
+
+      .sample {
+        font-size: 18px;
+        padding: 20px;
+      }
+
+      textarea {
+        font-size: 17px;
+        padding: 20px;
+      }
+    }
+
+    /* Hover-capable devices only — remove hover effects on touch */
+    @media (hover: none) {
+      .stat:hover {
+        transform: none;
+        border-color: var(--border-subtle);
+      }
+
+      button:hover {
+        transform: none;
+      }
+
+      .card:hover {
+        border-color: var(--border-subtle);
       }
     }
 
