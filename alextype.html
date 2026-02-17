@@ -1218,30 +1218,31 @@
       }
     }
 
-    // ===== ANTI-CHEAT v2: Triple-layer voice-input & paste protection =====
+    // ===== ANTI-CHEAT v3: Robust voice-input & paste protection =====
     //
-    // Layer 1: Per-character keydown↔input correlation
-    //   Each keydown increments _pendingKeydowns. Each accepted insertText decrements it.
-    //   If insertText arrives with _pendingKeydowns <= 0 → block.
-    //   This catches voice apps that fire ONE synthetic keydown for MANY characters.
+    // Layer 1: Time-based keydown↔input correlation
+    //   Records timestamp of each keydown. insertText is allowed only if a keydown
+    //   occurred within the last 300ms. This is robust to any input method (IBus,
+    //   Fcitx, XKB, XIM) because it doesn't require 1:1 keydown↔insertText matching.
+    //   Voice input without real keydowns is caught; voice with synthetic keydowns
+    //   is caught by Layer 2 (burst).
     //
     // Layer 2: Burst detection
-    //   Voice input arrives in bursts (20-50+ chars in <100ms). Humans peak ~20 chars/sec.
-    //   Track recent insert timestamps; if >12 chars arrive within 200ms → block.
+    //   Voice input arrives in bursts (20-50+ chars in <100ms). Humans peak ~15 chars/sec.
+    //   Track recent insert timestamps; if >15 chars arrive within 250ms → block.
     //
     // Layer 3: Multi-character insertText blocking
     //   Real keyboard always sends insertText with data.length === 1.
     //   Voice/autocomplete sends data.length > 1 → block (except during IME composition).
     //
     let _keystrokeCount = 0;            // Real keydown events (sent to server)
-    let _pendingKeydowns = 0;           // Unmatched keydown events (Layer 1)
+    let _lastKeydownTime = 0;           // Timestamp of last keydown (Layer 1)
     let _inComposition = false;         // True during IME composition
-    let _compositionGrace = 0;          // Timestamp: grace period after compositionend
     let _voiceBlockCount = 0;           // How many voice inserts were blocked
     const _recentInsertTimes = [];      // Timestamps of recent insertText events (Layer 2)
-    const _BURST_WINDOW_MS = 200;       // Burst detection window
-    const _BURST_MAX_CHARS = 12;        // Max chars allowed in burst window
-    const _COMP_GRACE_MS = 120;         // Grace period after compositionend for Firefox/Linux
+    const _KEYDOWN_WINDOW_MS = 300;     // Max time between keydown and insertText
+    const _BURST_WINDOW_MS = 250;       // Burst detection window
+    const _BURST_MAX_CHARS = 15;        // Max chars allowed in burst window
 
     // Kill browser Speech Recognition API
     try {
@@ -1252,14 +1253,13 @@
       if (window.speechSynthesis) window.speechSynthesis.cancel();
     } catch (e) { }
 
-    // IME composition tracking (for Russian input on Linux IBus/Fcitx and mobile keyboards)
+    // IME composition tracking — composition input is always trusted (real keyboard)
     inputEl.addEventListener("compositionstart", () => { _inComposition = true; });
     inputEl.addEventListener("compositionend", () => {
-      _inComposition = false;
-      // In Firefox/Linux, compositionend fires BEFORE the final insertText.
-      // Set a grace period so the commit-insertText is not falsely blocked.
-      _compositionGrace = Date.now();
-      _pendingKeydowns = Math.max(_pendingKeydowns, 1);
+      // Delay clearing _inComposition to handle all browser orderings:
+      // Chrome: insertText fires BEFORE compositionend → _inComposition is true → passes
+      // Firefox: insertText fires AFTER compositionend → needs this delay
+      setTimeout(() => { _inComposition = false; }, 150);
     });
 
     // ===== CORE: beforeinput — block ALL non-keyboard inserts =====
@@ -1276,10 +1276,11 @@
         return;
       }
 
+      // Skip ALL checks during active composition (IME input is trusted)
+      if (_inComposition) return;
+
       // For insertText: apply all three layers
-      // Skip checks during active composition or within grace period after compositionend
-      const isCompGrace = _compositionGrace && (Date.now() - _compositionGrace < _COMP_GRACE_MS);
-      if (e.inputType === "insertText" && !_inComposition && !isCompGrace) {
+      if (e.inputType === "insertText") {
         const now = Date.now();
 
         // Layer 3: Multi-character insertText = voice/autocomplete
@@ -1290,8 +1291,8 @@
           return;
         }
 
-        // Layer 1: No pending keydown = no physical key press
-        if (_pendingKeydowns <= 0) {
+        // Layer 1: No recent keydown = no physical key press
+        if (now - _lastKeydownTime > _KEYDOWN_WINDOW_MS) {
           e.preventDefault();
           _voiceBlockCount++;
           setStatus("⛔ Голосовой ввод запрещён — печатай сам!", "status-bad");
@@ -1299,25 +1300,18 @@
         }
 
         // Layer 2: Burst detection — too many chars too fast
-        // Clean old entries outside the window
         while (_recentInsertTimes.length > 0 && now - _recentInsertTimes[0] > _BURST_WINDOW_MS) {
           _recentInsertTimes.shift();
         }
         if (_recentInsertTimes.length >= _BURST_MAX_CHARS) {
           e.preventDefault();
           _voiceBlockCount++;
-          _pendingKeydowns = 0; // Reset — clearly synthetic keydowns
           setStatus("⛔ Голосовой ввод запрещён — печатай сам!", "status-bad");
           return;
         }
 
         // All checks passed — accept this character
-        _pendingKeydowns--;
         _recentInsertTimes.push(now);
-      } else if (e.inputType === "insertText" && isCompGrace) {
-        // After composition grace: still count the keydown correlation
-        if (_pendingKeydowns > 0) _pendingKeydowns--;
-        _compositionGrace = 0; // One-shot grace
       }
 
       // Allow: insertCompositionText, deleteContent*, historyUndo/Redo
@@ -1341,9 +1335,7 @@
         return;
       }
       _keystrokeCount++;
-      _pendingKeydowns++;
-      // Cap pending to prevent accumulation from held keys (key repeat)
-      if (_pendingKeydowns > 6) _pendingKeydowns = 6;
+      _lastKeydownTime = Date.now();
     });
 
     inputEl.addEventListener("paste", (e) => {
