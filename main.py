@@ -1422,6 +1422,8 @@ class AlexTypeCompleteRequest(BaseModel):
     accuracy: float  # 0.0 - 1.0
     text_length: int
     cpm: int = 0  # chars per minute
+    elapsed_ms: int = 0  # milliseconds from first keystroke to completion
+    keystrokes: int = 0  # total keydown events counted client-side
 
 class AdminXPAdjustRequest(BaseModel):
     user_id: int
@@ -1541,6 +1543,28 @@ def alextype_complete(data: AlexTypeCompleteRequest, user: dict = Depends(requir
         return {"xp_awarded": 0, "message": "Слишком мало символов"}
     if data.chars_typed > data.text_length * 1.5:
         return {"xp_awarded": 0, "message": "Невалидные данные"}
+
+    # ===== SERVER-SIDE ANTI-CHEAT: Typing speed validation =====
+    _MAX_HUMAN_CPM = 800  # World record ~750 CPM; above this = cheat
+    _MIN_ELAPSED_MS = 3000  # At least 3 seconds of typing required
+
+    if data.elapsed_ms > 0:
+        elapsed_min = data.elapsed_ms / 60000.0
+        if elapsed_min > 0:
+            server_cpm = data.chars_typed / elapsed_min
+            if server_cpm > _MAX_HUMAN_CPM:
+                return {"xp_awarded": 0, "message": "⚠️ Слишком быстро. Печатай сам!"}
+        if data.elapsed_ms < _MIN_ELAPSED_MS:
+            return {"xp_awarded": 0, "message": "⚠️ Слишком быстро. Печатай сам!"}
+    else:
+        # No elapsed_ms provided — legacy client or cheat; reject if chars > 20
+        if data.chars_typed > 20:
+            return {"xp_awarded": 0, "message": "Обнови страницу AlexType"}
+
+    # Keystroke sanity: keystrokes must be ≥ 70% of chars_typed
+    # Voice input = 0 keystrokes; paste bypass = very few keystrokes
+    if data.keystrokes > 0 and data.keystrokes < data.chars_typed * 0.7:
+        return {"xp_awarded": 0, "message": "⚠️ Невалидные данные набора"}
 
     # XP formula: chars × accuracy × difficulty_multiplier / divisor
     mult = _ALEXTYPE_DIFFICULTY_MULT[level]

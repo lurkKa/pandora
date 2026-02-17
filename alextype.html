@@ -829,6 +829,8 @@
             accuracy: accuracy,
             text_length: targetText.length,
             cpm: cpmVal,
+            elapsed_ms: elapsedMs,
+            keystrokes: _keystrokeCount,
           }),
         });
         const data = await resp.json();
@@ -844,40 +846,92 @@
       }
     }
 
-    // ===== ANTI-CHEAT: Block paste, copy, cut =====
-    inputEl.addEventListener("paste", (e) => {
+    // ===== ANTI-CHEAT: Maximum protection =====
+    let _keystrokeCount = 0;    // Integrity counter: real keydown events
+    let _pendingKeydown = false; // True only after a real keydown, consumed by beforeinput
+    let _prevLen = 0;            // Track textarea length to detect char bursts
+
+    // Kill browser Speech Recognition API to prevent voice-to-text
+    try {
+      window.SpeechRecognition = undefined;
+      window.webkitSpeechRecognition = undefined;
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+    } catch (e) { }
+
+    // beforeinput: deepest level block — catches programmatic/voice inserts
+    inputEl.addEventListener("beforeinput", (e) => {
+      // Allow deletions and undo/redo always
+      const deleteOps = ["deleteContentBackward", "deleteContentForward",
+        "deleteWordBackward", "deleteWordForward",
+        "deleteSoftLineBackward", "deleteSoftLineForward",
+        "historyUndo", "historyRedo"];
+      if (deleteOps.includes(e.inputType)) return;
+
+      // insertText: only allow if a real keydown preceded it
+      if (e.inputType === "insertText") {
+        if (!_pendingKeydown) {
+          // No keydown before this insert = voice input or programmatic
+          e.preventDefault();
+          setStatus("⛔ Только клавиатура! Голосовой ввод запрещён.", "status-bad");
+          return;
+        }
+        _pendingKeydown = false; // consume the flag
+        return;
+      }
+
+      // Block everything else (insertFromPaste, insertFromDrop, etc.)
       e.preventDefault();
       setStatus("⛔ Вставка запрещена — печатай сам!", "status-bad");
     });
 
-    inputEl.addEventListener("copy", (e) => {
-      e.preventDefault();
-    });
-
-    inputEl.addEventListener("cut", (e) => {
-      e.preventDefault();
-    });
-
-    inputEl.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-    });
-
     inputEl.addEventListener("keydown", (e) => {
+      // Block Ctrl+V/C/X/A
       if ((e.ctrlKey || e.metaKey) && ["v", "c", "x", "a"].includes(e.key.toLowerCase())) {
         e.preventDefault();
         if (e.key.toLowerCase() === "v") {
           setStatus("⛔ Вставка запрещена — печатай сам!", "status-bad");
         }
+        return;
       }
+      // Only printable keys and special keys set the flag
+      _keystrokeCount++;
+      _pendingKeydown = true;
+      // Auto-reset flag after 50ms (if no beforeinput fires, it was a non-text key)
+      setTimeout(() => { _pendingKeydown = false; }, 50);
     });
 
-    // ===== Also block drag-and-drop text into textarea =====
+    inputEl.addEventListener("paste", (e) => {
+      e.preventDefault();
+      setStatus("⛔ Вставка запрещена — печатай сам!", "status-bad");
+    });
+
+    inputEl.addEventListener("copy", (e) => { e.preventDefault(); });
+    inputEl.addEventListener("cut", (e) => { e.preventDefault(); });
+    inputEl.addEventListener("contextmenu", (e) => { e.preventDefault(); });
+
+    // Block drag-and-drop text into textarea
     inputEl.addEventListener("drop", (e) => {
       e.preventDefault();
       setStatus("⛔ Перетаскивание запрещено!", "status-bad");
     });
 
+    // Detect char bursts (voice recognition inserts multiple chars at once)
     inputEl.addEventListener("input", () => {
+      const newLen = inputEl.value.length;
+      const delta = newLen - _prevLen;
+      if (delta > 3 && _prevLen > 0) {
+        // More than 3 chars appeared at once = not keyboard typing
+        // Revert the burst
+        inputEl.value = inputEl.value.substring(0, _prevLen);
+        setStatus("⛔ Обнаружен нечестный ввод! Печатай по одной букве.", "status-bad");
+        _prevLen = inputEl.value.length;
+        renderSample();
+        setStats();
+        return;
+      }
+      _prevLen = newLen;
+
+      // Original input handler logic
       if (!startedAt && inputEl.value.length > 0) {
         startedAt = Date.now();
         timer = setInterval(setStats, 200);
