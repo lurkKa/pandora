@@ -848,7 +848,6 @@
 
     // ===== ANTI-CHEAT: Maximum protection (RU-compatible) =====
     let _keystrokeCount = 0;       // Integrity counter: real keydown events
-    let _prevLen = 0;              // Track textarea length to detect char bursts
 
     // Kill browser Speech Recognition API to prevent voice-to-text
     try {
@@ -897,23 +896,8 @@
       setStatus("⛔ Перетаскивание запрещено!", "status-bad");
     });
 
-    // Detect char bursts (voice recognition inserts multiple chars at once)
     inputEl.addEventListener("input", () => {
-      const newLen = inputEl.value.length;
-      const delta = newLen - _prevLen;
-      if (delta > 5 && _prevLen > 0) {
-        // More than 3 chars appeared at once = not keyboard typing
-        // Revert the burst
-        inputEl.value = inputEl.value.substring(0, _prevLen);
-        setStatus("⛔ Обнаружен нечестный ввод! Печатай по одной букве.", "status-bad");
-        _prevLen = inputEl.value.length;
-        renderSample();
-        setStats();
-        return;
-      }
-      _prevLen = newLen;
-
-      // Original input handler logic
+      // Standard input handler
       if (!startedAt && inputEl.value.length > 0) {
         startedAt = Date.now();
         timer = setInterval(setStats, 200);
