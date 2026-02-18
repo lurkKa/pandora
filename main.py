@@ -1505,7 +1505,7 @@ async def _startup() -> None:
     init_db()
     logger.info("SERVER STARTUP | PANDORA Sensei Node v3.0")
 
-@app.get("/", include_in_schema=False)
+@app.api_route("/", methods=["GET", "HEAD", "OPTIONS"], include_in_schema=False)
 def serve_index():
     """Serve the student UI (same-origin hosting is optional; file:// works too)."""
     return FileResponse("index.html")
@@ -1608,9 +1608,10 @@ def status():
     """Machine-readable status endpoint."""
     return {"name": "Академия Pandora", "version": "3.0.0", "status": "online"}
 
-@app.get("/ping")
+@app.api_route("/ping", methods=["GET", "HEAD", "OPTIONS"])
+@app.api_route("/health", methods=["GET", "HEAD", "OPTIONS"], include_in_schema=False)
 def ping():
-    """Auto-discovery endpoint."""
+    """Auto-discovery/health endpoint."""
     return JSONResponse(
         content={"status": "online", "server": "PANDORA", "version": "3.0.0"},
         headers={"X-Server-Type": "SenseiNode"}
