@@ -1518,8 +1518,8 @@ def serve_alextype():
 # AlexType last-reward timestamps per user (in-memory cooldown)
 _alextype_last_reward: dict[int, float] = {}
 _ALEXTYPE_COOLDOWN_S = 30
-_ALEXTYPE_DIFFICULTY_MULT = {"D": 0.6, "C": 0.84, "B": 1.2, "A": 1.56, "S": 1.92}
-_ALEXTYPE_MAX_XP = 200  # Cap per session
+_ALEXTYPE_DIFFICULTY_MULT = {"D": 0.78, "C": 1.09, "B": 1.56, "A": 2.03, "S": 2.50}
+_ALEXTYPE_MAX_XP = 260  # Cap per session (+30%)
 
 @app.post("/api/alextype/complete")
 def alextype_complete(data: AlexTypeCompleteRequest, user: dict = Depends(require_auth)):
