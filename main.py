@@ -258,6 +258,58 @@ def get_db():
     finally:
         conn.close()
 
+def _sync_ranks(cursor):
+    """Replace ranks table with full professional progression (30 tiers, up to level 1000).
+
+    XP thresholds use progressive formula: total_xp(L) = 25 * L * (L - 1).
+    """
+    ranks_data = [
+        # (name,              name_ru,                  min_xp,    emoji,  color)
+        # --- Tier 0-1: Начало пути (Levels 1-5) ---
+        ("Novice",            "Новичок",                0,         "🌱",   "#4ade80"),   # Level 1
+        ("Apprentice",        "Ученик",                 50,        "📖",   "#86efac"),   # Level 2
+        # --- Tier 2: Первые шаги (Levels 5-10) ---
+        ("Student",           "Студент",                500,       "📚",   "#60a5fa"),   # Level 5
+        ("Coder",             "Кодер",                  2250,      "💻",   "#93c5fd"),   # Level 10
+        # --- Tier 3: Становление (Levels 15-25) ---
+        ("Developer",         "Разработчик",            5250,      "⌨️",   "#a78bfa"),   # Level 15
+        ("Programmer",        "Программист",            9500,      "🖥️",   "#c4b5fd"),   # Level 20
+        ("Engineer",          "Инженер",                15000,     "⚙️",   "#818cf8"),   # Level 25
+        # --- Tier 4: Профессионал (Levels 30-50) ---
+        ("Specialist",        "Специалист",             21750,     "🔧",   "#f472b6"),   # Level 30
+        ("Craftsman",         "Мастеровой",             38000,     "🛠️",   "#fb7185"),   # Level 40
+        ("Expert",            "Эксперт",                61250,     "🎯",   "#fbbf24"),   # Level 50
+        # --- Tier 5: Элита (Levels 60-100) ---
+        ("Veteran",           "Ветеран",                88500,     "⚔️",   "#fcd34d"),   # Level 60
+        ("Master",            "Мастер",                 119750,    "🗡️",   "#f97316"),   # Level 70
+        ("Sage",              "Мудрец",                 160000,    "📜",   "#fb923c"),   # Level 80
+        ("Mentor",            "Наставник",              200250,    "🏅",   "#ea580c"),   # Level 90
+        ("Grandmaster",       "Грандмастер",            247500,    "🏆",   "#ef4444"),   # Level 100
+        # --- Tier 6: Легенда (Levels 120-200) ---
+        ("Architect",         "Архитектор",             357000,    "🏛️",   "#dc2626"),   # Level 120
+        ("Virtuoso",          "Виртуоз",                497500,    "🎭",   "#e11d48"),   # Level 142
+        ("Legend",             "Легенда",               995000,    "👑",   "#be123c"),   # Level 200
+        # --- Tier 7: Мифический (Levels 250-400) ---
+        ("Mythic Coder",      "Мифический Кодер",       1556250,   "🐉",   "#9333ea"),   # Level 250
+        ("Overlord",          "Повелитель",             2495000,   "⚡",   "#7c3aed"),   # Level 317
+        ("Titan",             "Титан",                  3990000,   "🔱",   "#6d28d9"),   # Level 400
+        # --- Tier 8: Бессмертный (Levels 500-700) ---
+        ("Demigod",           "Полубог",                6237500,   "✨",   "#c026d3"),   # Level 500
+        ("Immortal",          "Бессмертный",            8722500,   "💫",   "#a21caf"),   # Level 591
+        ("Transcendent",      "Трансцендент",           12247500,  "🌌",   "#86198f"),   # Level 700
+        # --- Tier 9: Абсолют (Levels 800-1000) ---
+        ("Ascendant",         "Вознесённый",            15980000,  "🌠",   "#b91c1c"),   # Level 800
+        ("Code God",          "Бог Кода",               20247500,  "💎",   "#991b1b"),   # Level 900
+        ("World Architect",   "Архитектор Миров",       24975000,  "🌟",   "#fef08a"),   # Level 1000
+    ]
+
+    cursor.execute("DELETE FROM ranks")
+    cursor.executemany(
+        "INSERT INTO ranks (name, name_ru, min_xp, badge_emoji, color) VALUES (?, ?, ?, ?, ?)",
+        ranks_data,
+    )
+
+
 def init_db():
     """Initialize database tables."""
     with get_db() as conn:
@@ -648,6 +700,27 @@ def init_db():
             )
         """)
 
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS guild_invitations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                guild_id INTEGER NOT NULL,
+                from_user_id INTEGER NOT NULL,
+                to_user_id INTEGER NOT NULL,
+                status TEXT DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                resolved_at TIMESTAMP,
+                FOREIGN KEY (guild_id) REFERENCES guilds(id),
+                FOREIGN KEY (from_user_id) REFERENCES users(id),
+                FOREIGN KEY (to_user_id) REFERENCES users(id)
+            )
+        """)
+
+        # Migration: add avatar_url to guilds
+        try:
+            cursor.execute("ALTER TABLE guilds ADD COLUMN avatar_url TEXT DEFAULT NULL")
+        except Exception:
+            pass  # column already exists
+
         # Performance indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_xp ON users(xp DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)")
@@ -665,6 +738,8 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_members_guild ON guild_members(guild_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_members_user ON guild_members(user_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_titles_to ON guild_titles(to_guild_id, expires_at)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_invitations_to ON guild_invitations(to_user_id, status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_invitations_guild ON guild_invitations(guild_id, status)")
         
         conn.commit()
         
@@ -790,24 +865,18 @@ def init_db():
         
         conn.commit()
         
-        # Populate default ranks if empty
-        cursor.execute("SELECT COUNT(*) FROM ranks")
-        if cursor.fetchone()[0] == 0:
-            ranks_data = [
-                ("Novice", "Новичок", 0, "🌱", "#4ade80"),
-                ("Apprentice", "Ученик", 100, "📚", "#60a5fa"),
-                ("Wanderer", "Странник", 300, "🗡️", "#a78bfa"),
-                ("Master", "Мастер", 600, "⚔️", "#f472b6"),
-                ("Expert", "Эксперт", 1000, "🛡️", "#fbbf24"),
-                ("Legend", "Легенда", 2000, "👑", "#f97316"),
-                ("Grandmaster", "Грандмастер", 5000, "🏆", "#ef4444"),
-            ]
-            cursor.executemany(
-                "INSERT INTO ranks (name, name_ru, min_xp, badge_emoji, color) VALUES (?, ?, ?, ?, ?)",
-                ranks_data
-            )
-            conn.commit()
-            print("✓ Ranks initialized")
+        # Populate / sync ranks (always update to latest progression)
+        _sync_ranks(cursor)
+        conn.commit()
+
+        # Migration: recalculate all user levels with progressive formula
+        import math as _math
+        cursor.execute("SELECT id, xp FROM users")
+        for u in cursor.fetchall():
+            new_lvl = compute_level(u["xp"])
+            cursor.execute("UPDATE users SET level = ? WHERE id = ? AND level != ?", (new_lvl, u["id"], new_lvl))
+        conn.commit()
+        print("✓ Ranks synced")
         
         # Create bootstrap admin if none exists (first run).
         # Prefer setting PANDORA_BOOTSTRAP_ADMIN_PASSWORD in production.
@@ -864,9 +933,31 @@ def verify_password(password: str, hashed: str) -> bool:
         return ok
 
 def compute_level(total_xp: int) -> int:
-    """Compute level from total XP (100 XP per level, starting at level 1)."""
+    """Compute level from total XP using progressive curve.
+
+    Each level L requires 50*L XP to advance to level L+1.
+    Total XP needed for level L:  25 * L * (L - 1)
+    Inverse:  L = floor((1 + sqrt(1 + 4*xp/25)) / 2)
+
+    Examples:
+        Level  1 =       0 XP
+        Level  2 =      50 XP
+        Level  5 =     500 XP
+        Level 10 =   2,250 XP
+        Level 20 =   9,500 XP
+        Level 50 =  61,250 XP
+        Level100 = 247,500 XP
+        Level200 = 995,000 XP
+    """
+    import math
     safe_xp = max(0, int(total_xp or 0))
-    return (safe_xp // 100) + 1
+    if safe_xp == 0:
+        return 1
+    level = int((1 + math.sqrt(1 + 4 * safe_xp / 25)) / 2)
+    # Clamp: verify we haven't overshot due to floating point
+    while 25 * level * (level - 1) > safe_xp:
+        level -= 1
+    return max(1, level)
 
 def apply_xp_change(cursor, user_id: int, delta_xp: int, reason: str, task_id: str = None) -> tuple[int, int]:
     """
@@ -2131,10 +2222,14 @@ def get_leaderboard(limit: int = Query(20, le=100)):
             SELECT u.id, u.display_name, u.xp, u.level,
                    r.name_ru as rank_name, r.badge_emoji as rank_badge, r.color as rank_color,
                    COALESCE(u.avatar_key, '') as avatar_key,
-                   CASE WHEN s.avatar_data IS NOT NULL AND s.avatar_data != '' THEN 1 ELSE 0 END as has_avatar
+                   CASE WHEN s.avatar_data IS NOT NULL AND s.avatar_data != '' THEN 1 ELSE 0 END as has_avatar,
+                   gm.guild_id as guild_id,
+                   g.name as guild_name
             FROM users u
             LEFT JOIN ranks r ON u.xp >= r.min_xp
             LEFT JOIN user_stats s ON u.id = s.user_id
+            LEFT JOIN guild_members gm ON gm.user_id = u.id
+            LEFT JOIN guilds g ON g.id = gm.guild_id AND g.disbanded_at IS NULL
             WHERE u.role = 'student'
             AND r.min_xp = (SELECT MAX(min_xp) FROM ranks WHERE min_xp <= u.xp)
             ORDER BY u.xp DESC
@@ -2152,7 +2247,9 @@ def get_leaderboard(limit: int = Query(20, le=100)):
                 "rank_badge": row["rank_badge"],
                 "rank_color": row["rank_color"],
                 "avatar_key": row["avatar_key"] or None,
-                "has_avatar": bool(row["has_avatar"])
+                "has_avatar": bool(row["has_avatar"]),
+                "guild_id": row["guild_id"],
+                "guild_name": row["guild_name"],
             })
     return {"leaderboard": leaders}
 
@@ -5952,6 +6049,15 @@ def get_guild(guild_id: int, user: dict = Depends(require_auth)):
         """, (guild_id,))
         guild["members"] = [dict(m) for m in cursor.fetchall()]
 
+        # Active titles on this guild
+        cursor.execute("""
+            SELECT gt.*, fg.name as from_guild_name
+            FROM guild_titles gt
+            JOIN guilds fg ON fg.id = gt.from_guild_id
+            WHERE gt.to_guild_id = ? AND gt.expires_at > CURRENT_TIMESTAMP
+        """, (guild_id,))
+        guild["active_titles"] = [dict(t) for t in cursor.fetchall()]
+
     return {"guild": guild}
 
 
@@ -6200,6 +6306,193 @@ def admin_guild_rankings(admin: dict = Depends(require_admin)):
         for i, g in enumerate(guilds):
             g["rank"] = i + 1
     return {"rankings": guilds}
+
+
+# ==================== GUILD: AVATAR UPLOAD ====================
+
+@app.post("/api/guilds/{guild_id}/avatar")
+async def upload_guild_avatar(guild_id: int, file: UploadFile = File(...), user: dict = Depends(require_auth)):
+    """Upload guild avatar image. President only. Max 2MB."""
+    uid = user["id"]
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT role FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, uid),
+        )
+        row = cursor.fetchone()
+        if not row or row["role"] != "president":
+            raise HTTPException(403, "Только президент может загружать фото гильдии")
+
+        # Validate file
+        if not file.content_type or not file.content_type.startswith("image/"):
+            raise HTTPException(400, "Файл должен быть изображением")
+
+        contents = await file.read()
+        if len(contents) > 2 * 1024 * 1024:
+            raise HTTPException(400, "Максимальный размер 2 МБ")
+
+        ext = file.filename.rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else "png"
+        if ext not in ("png", "jpg", "jpeg", "webp", "gif"):
+            ext = "png"
+
+        filename = f"guild_{guild_id}.{ext}"
+        file_path = Path("uploads") / filename
+        with open(file_path, "wb") as f:
+            f.write(contents)
+
+        avatar_url = f"/uploads/{filename}"
+        cursor.execute("UPDATE guilds SET avatar_url = ? WHERE id = ?", (avatar_url, guild_id))
+        conn.commit()
+
+    return {"avatar_url": avatar_url}
+
+
+# ==================== GUILD: INVITE SYSTEM ====================
+
+@app.post("/api/guilds/{guild_id}/invite/{user_id}")
+def send_guild_invite(guild_id: int, user_id: int, user: dict = Depends(require_auth)):
+    """Send guild invitation. Chairman or President only."""
+    uid = user["id"]
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        # Check sender is chairman+
+        cursor.execute(
+            "SELECT role FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, uid),
+        )
+        row = cursor.fetchone()
+        if not row or row["role"] not in ("president", "chairman"):
+            raise HTTPException(403, "Только председатель или президент может приглашать")
+
+        # Check guild is active
+        cursor.execute("SELECT id FROM guilds WHERE id = ? AND disbanded_at IS NULL", (guild_id,))
+        if not cursor.fetchone():
+            raise HTTPException(404, "Гильдия не найдена")
+
+        # Check target is not self
+        if user_id == uid:
+            raise HTTPException(400, "Нельзя пригласить себя")
+
+        # Check target exists and is student
+        cursor.execute("SELECT id FROM users WHERE id = ? AND role = 'student'", (user_id,))
+        if not cursor.fetchone():
+            raise HTTPException(404, "Пользователь не найден")
+
+        # Check target is not already in a guild
+        cursor.execute("""
+            SELECT gm.id FROM guild_members gm
+            JOIN guilds g ON g.id = gm.guild_id
+            WHERE gm.user_id = ? AND g.disbanded_at IS NULL
+        """, (user_id,))
+        if cursor.fetchone():
+            raise HTTPException(400, "Пользователь уже в гильдии")
+
+        # Check no pending invite already exists from this guild
+        cursor.execute("""
+            SELECT id FROM guild_invitations
+            WHERE guild_id = ? AND to_user_id = ? AND status = 'pending'
+        """, (guild_id, user_id))
+        if cursor.fetchone():
+            raise HTTPException(400, "Приглашение уже отправлено")
+
+        cursor.execute("""
+            INSERT INTO guild_invitations (guild_id, from_user_id, to_user_id)
+            VALUES (?, ?, ?)
+        """, (guild_id, uid, user_id))
+        conn.commit()
+
+    return {"message": "Приглашение отправлено"}
+
+
+@app.get("/api/guilds/invitations/my")
+def get_my_invitations(user: dict = Depends(require_auth)):
+    """Get pending invitations for current user."""
+    uid = user["id"]
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT gi.id, gi.guild_id, gi.from_user_id, gi.created_at,
+                   g.name as guild_name, g.avatar_emoji, g.avatar_url,
+                   u.display_name as from_user_name
+            FROM guild_invitations gi
+            JOIN guilds g ON g.id = gi.guild_id AND g.disbanded_at IS NULL
+            JOIN users u ON u.id = gi.from_user_id
+            WHERE gi.to_user_id = ? AND gi.status = 'pending'
+            ORDER BY gi.created_at DESC
+        """, (uid,))
+        invitations = [dict(r) for r in cursor.fetchall()]
+    return {"invitations": invitations}
+
+
+@app.post("/api/guilds/invitations/{invite_id}/accept")
+def accept_invitation(invite_id: int, user: dict = Depends(require_auth)):
+    """Accept guild invitation and join the guild."""
+    uid = user["id"]
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT gi.*, g.name as guild_name
+            FROM guild_invitations gi
+            JOIN guilds g ON g.id = gi.guild_id AND g.disbanded_at IS NULL
+            WHERE gi.id = ? AND gi.to_user_id = ? AND gi.status = 'pending'
+        """, (invite_id, uid))
+        inv = cursor.fetchone()
+        if not inv:
+            raise HTTPException(404, "Приглашение не найдено или истекло")
+
+        # Check user not already in a guild
+        cursor.execute("""
+            SELECT gm.id FROM guild_members gm
+            JOIN guilds g ON g.id = gm.guild_id
+            WHERE gm.user_id = ? AND g.disbanded_at IS NULL
+        """, (uid,))
+        if cursor.fetchone():
+            raise HTTPException(400, "Вы уже в гильдии")
+
+        # Join
+        cursor.execute(
+            "INSERT INTO guild_members (guild_id, user_id, role) VALUES (?, ?, 'developer')",
+            (inv["guild_id"], uid),
+        )
+
+        # Mark invite accepted
+        cursor.execute(
+            "UPDATE guild_invitations SET status = 'accepted', resolved_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (invite_id,),
+        )
+
+        # Decline all other pending invites for this user
+        cursor.execute(
+            "UPDATE guild_invitations SET status = 'declined', resolved_at = CURRENT_TIMESTAMP WHERE to_user_id = ? AND status = 'pending' AND id != ?",
+            (uid, invite_id),
+        )
+
+        conn.commit()
+    return {"message": f"Вы вступили в гильдию «{inv['guild_name']}»!"}
+
+
+@app.post("/api/guilds/invitations/{invite_id}/decline")
+def decline_invitation(invite_id: int, user: dict = Depends(require_auth)):
+    """Decline guild invitation."""
+    uid = user["id"]
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id FROM guild_invitations WHERE id = ? AND to_user_id = ? AND status = 'pending'",
+            (invite_id, uid),
+        )
+        if not cursor.fetchone():
+            raise HTTPException(404, "Приглашение не найдено")
+
+        cursor.execute(
+            "UPDATE guild_invitations SET status = 'declined', resolved_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (invite_id,),
+        )
+        conn.commit()
+    return {"message": "Приглашение отклонено"}
 
 
 # ==================== STARTUP ====================
