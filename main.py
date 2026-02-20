@@ -6063,9 +6063,11 @@ def get_guild(guild_id: int, user: dict = Depends(require_auth)):
 
         cursor.execute("""
             SELECT gm.user_id, gm.role, gm.joined_at,
-                   u.display_name, u.xp, u.level, u.avatar_key
+                   u.display_name, u.xp, u.level, u.avatar_key,
+                   CASE WHEN s.avatar_data IS NOT NULL AND s.avatar_data != '' THEN 1 ELSE 0 END as has_avatar
             FROM guild_members gm
             JOIN users u ON u.id = gm.user_id
+            LEFT JOIN user_stats s ON s.user_id = u.id
             WHERE gm.guild_id = ?
             ORDER BY CASE gm.role
                 WHEN 'president' THEN 1

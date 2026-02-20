@@ -962,8 +962,8 @@
             }
 
             .leaderboard-sidebar {
-                width: 280px;
-                left: -300px;
+                width: 350px;
+                left: -370px;
             }
         }
 
@@ -1742,14 +1742,32 @@
         .leaderboard-sidebar {
             position: fixed;
             top: 0;
-            left: -320px;
-            width: 300px;
+            left: -420px;
+            width: 400px;
+            min-width: 300px;
+            max-width: 600px;
             height: 100vh;
             background: var(--bg-surface);
             border-right: 1px solid rgba(255, 255, 255, 0.08);
             z-index: 200;
             transition: left 0.3s ease;
             overflow-y: auto;
+        }
+
+        .leaderboard-resize-handle {
+            position: absolute;
+            top: 0;
+            right: -4px;
+            width: 8px;
+            height: 100%;
+            cursor: col-resize;
+            z-index: 201;
+            background: transparent;
+        }
+
+        .leaderboard-resize-handle:hover,
+        .leaderboard-resize-handle:active {
+            background: rgba(251, 191, 36, 0.3);
         }
 
         .leaderboard-sidebar.open {
@@ -2356,6 +2374,10 @@
         <header>
             <div class="logo">
                 <button class="header-btn" onclick="toggleLeaderboard()" title="Рейтинг">🏆</button>
+                <button class="header-btn" onclick="toggleGuildPanel()" title="Гильдия"
+                    style="position:relative;">🛡️<span id="guild-invite-badge" class="guild-invite-badge-count"
+                        style="display:none;">0</span></button>
+                <button class="header-btn" onclick="toggleGuildRankings()" title="Рейтинг гильдий">⚔️</button>
                 <button class="header-btn" onclick="toggleChatPanel()" title="Чат">💬</button>
                 <span class="logo-icon" aria-hidden="true">💎</span>
                 <span class="logo-text">Академия Pandora</span>
@@ -2402,14 +2424,7 @@
                 <button class="tab-btn lextype-tab" role="tab" aria-selected="false" onclick="openAlextype()">
                     <span class="tab-icon">⌨️</span> AlexType
                 </button>
-                <button class="tab-btn guild-tab" role="tab" aria-selected="false" onclick="toggleGuildPanel()"
-                    style="position:relative;">
-                    <span class="tab-icon">🛡️</span> Гильдия
-                    <span id="guild-invite-badge" class="guild-invite-badge-count" style="display:none;">0</span>
-                </button>
-                <button class="tab-btn guild-tab" role="tab" aria-selected="false" onclick="toggleGuildRankings()">
-                    <span class="tab-icon">⚔️</span> Рейтинг
-                </button>
+
             </div>
         </nav>
 
@@ -2435,6 +2450,7 @@
 
     <!-- Leaderboard Sidebar -->
     <div class="leaderboard-sidebar" id="leaderboard-panel">
+        <div class="leaderboard-resize-handle" id="leaderboard-resize"></div>
         <div class="leaderboard-header">
             <h3>🏆 Мировой Рейтинг</h3>
         </div>
@@ -5438,6 +5454,33 @@
             }
         }
 
+        // Leaderboard resize drag
+        (function () {
+            const handle = document.getElementById('leaderboard-resize');
+            const panel = document.getElementById('leaderboard-panel');
+            if (!handle || !panel) return;
+            let dragging = false;
+            handle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                dragging = true;
+                panel.style.transition = 'none';
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+            document.addEventListener('mousemove', (e) => {
+                if (!dragging) return;
+                const w = Math.min(600, Math.max(300, e.clientX));
+                panel.style.width = w + 'px';
+            });
+            document.addEventListener('mouseup', () => {
+                if (!dragging) return;
+                dragging = false;
+                panel.style.transition = '';
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            });
+        })();
+
         function toggleChatPanel() {
             const panel = document.getElementById('chat-panel');
             const overlay = document.getElementById('panel-overlay');
@@ -7072,10 +7115,12 @@
                 for (const m of (g.members || [])) {
                     membersHtml += `
                         <div class="guild-member-row">
-                            <span style="font-size:20px;">${roleEmojis[m.role] || '💻'}</span>
+                            <div class="guild-member-avatar guild-detail-avatar" data-user-id="${m.user_id}" data-has-avatar="${m.has_avatar ? 'true' : 'false'}">
+                                <span>${roleEmojis[m.role] || '💻'}</span>
+                            </div>
                             <div style="flex:1;min-width:0;">
                                 <div class="guild-member-name">${m.display_name}</div>
-                                <div class="guild-member-meta">${m.xp} XP · LV ${m.level}</div>
+                                <div class="guild-member-meta">${m.xp.toLocaleString()} XP · LV ${m.level}</div>
                             </div>
                             <span class="role-badge role-${m.role}">${roleNames[m.role]}</span>
                         </div>`;
@@ -7144,6 +7189,19 @@
                     </div>
                 `;
                 document.body.appendChild(overlay);
+
+                // Lazy load member avatars in the detail popup
+                const avatarEls = overlay.querySelectorAll('.guild-detail-avatar[data-has-avatar="true"]');
+                for (const el of avatarEls) {
+                    const uid = el.getAttribute('data-user-id');
+                    fetch(`${API_URL}/api/avatar/${uid}`)
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.avatar_data && data.avatar_data.startsWith('data:image')) {
+                                el.innerHTML = `<img src="${data.avatar_data}">`;
+                            }
+                        }).catch(() => { });
+                }
             } catch (e) {
                 console.error('Failed to load guild detail:', e);
             }
