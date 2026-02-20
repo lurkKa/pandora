@@ -3163,16 +3163,219 @@ def download_sqlite_backup(admin: dict = Depends(require_admin)):
 
 # ==================== TASK ROUTES ====================
 
-_TASKS_CACHE: dict = {"mtime": None, "data": None}
+_TASKS_CACHE: dict = {"mtime": None, "legacy_mtime": None, "data": None}
+
+ARCHIVED_TASK_ID_PREFIXES: tuple[str, ...] = (
+    # Legacy packs: generic/duplicate content and (historically) mixed schemas.
+    "py_nova_",
+    "js_nova_",
+    "fe_nova_",
+    "sc_nova_",
+    "py_v3_",
+    "js_v3_",
+    "fe_v3_",
+    "sc_v3_",
+)
+
+def is_archived_task_id(task_id: str) -> bool:
+    tid = str(task_id or "")
+    return any(tid.startswith(p) for p in ARCHIVED_TASK_ID_PREFIXES)
+
+def _dedupe_resources(items: list[dict]) -> list[dict]:
+    """Deduplicate resources by URL, preserving order."""
+    seen: set[str] = set()
+    out: list[dict] = []
+    for it in items or []:
+        if not isinstance(it, dict):
+            continue
+        url = str(it.get("url") or "").strip()
+        title = str(it.get("title") or "").strip()
+        if not url:
+            continue
+        if url in seen:
+            continue
+        seen.add(url)
+        out.append({"title": title or url, "url": url})
+    return out
+
+_DEFAULT_RESOURCES: dict[str, dict[str, list[dict]]] = {
+    "python": {
+        "docs": [
+            {"title": "Python: tutorial (EN)", "url": "https://docs.python.org/3/tutorial/index.html"},
+        ],
+        "videos": [
+            {"title": "Python: основы (freeCodeCamp, EN)", "url": "https://www.youtube.com/watch?v=rfscVS0vtbw"},
+        ],
+    },
+    "javascript": {
+        "docs": [
+            {"title": "MDN: руководство по JavaScript (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide"},
+        ],
+        "videos": [
+            {"title": "JavaScript: основы (freeCodeCamp, EN)", "url": "https://www.youtube.com/watch?v=PkZNo7MFNFg"},
+        ],
+    },
+    "frontend": {
+        "docs": [
+            {"title": "MDN: HTML основы (RU)", "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/HTML_basics"},
+            {"title": "MDN: CSS основы (RU)", "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/CSS_basics"},
+        ],
+        "videos": [
+            {"title": "HTML: полный курс (freeCodeCamp, EN)", "url": "https://www.youtube.com/watch?v=pQN-pnXPaVg"},
+            {"title": "CSS: crash course (Traversy Media, EN)", "url": "https://www.youtube.com/watch?v=yfoY53QXEnI"},
+        ],
+    },
+    "scratch": {
+        "docs": [
+            {"title": "Scratch: идеи и туториалы", "url": "https://scratch.mit.edu/ideas"},
+            {"title": "Scratch Wiki: блоки", "url": "https://en.scratch-wiki.info/wiki/Blocks"},
+        ],
+        "videos": [
+            {"title": "Scratch Team: видео", "url": "https://www.youtube.com/@ScratchTeam/videos"},
+        ],
+    },
+}
+
+def resources_for_task(task: dict) -> dict:
+    """
+    Build per-task learning resources (docs + videos).
+    Stored server-side so the client stays dumb and tasks.json stays schema-compatible.
+    """
+    category = str(task.get("category") or "").lower()
+    explicit = task.get("resources") if isinstance(task.get("resources"), dict) else {}
+    explicit_docs = explicit.get("docs") if isinstance(explicit.get("docs"), list) else []
+    explicit_videos = explicit.get("videos") if isinstance(explicit.get("videos"), list) else []
+
+    # If tasks.json provides resources explicitly (and both groups are non-empty),
+    # treat them as authoritative.
+    if explicit_docs and explicit_videos:
+        return {"docs": _dedupe_resources(explicit_docs), "videos": _dedupe_resources(explicit_videos)}
+
+    text = " ".join(
+        [
+            str(task.get("title") or ""),
+            str(task.get("story") or ""),
+            str(task.get("description") or ""),
+            str(task.get("initial_code") or ""),
+        ]
+    ).lower()
+
+    docs: list[dict] = []
+    videos: list[dict] = []
+
+    if explicit_docs:
+        docs.extend(explicit_docs)
+    if explicit_videos:
+        videos.extend(explicit_videos)
+
+    defaults = _DEFAULT_RESOURCES.get(category) or {}
+    docs.extend(defaults.get("docs") or [])
+    videos.extend(defaults.get("videos") or [])
+
+    # Concept-sensitive docs (best-effort keyword matching; falls back to defaults).
+    if category == "python":
+        if any(k in text for k in ("регуляр", "regex", "re.")):
+            docs.insert(0, {"title": "Python: re module (EN)", "url": "https://docs.python.org/3/library/re.html"})
+        elif any(k in text for k in ("словар", "dict", "ключ", "{")):
+            docs.insert(0, {"title": "Python: dictionaries (EN)", "url": "https://docs.python.org/3/tutorial/datastructures.html#dictionaries"})
+        elif any(k in text for k in ("спис", "list", "[")):
+            docs.insert(0, {"title": "Python: lists (EN)", "url": "https://docs.python.org/3/tutorial/introduction.html#lists"})
+        elif any(k in text for k in ("цикл", "for ", "while ")):
+            docs.insert(0, {"title": "Python: control flow (EN)", "url": "https://docs.python.org/3/tutorial/controlflow.html"})
+        elif "функц" in text or "def " in text:
+            docs.insert(0, {"title": "Python: defining functions (EN)", "url": "https://docs.python.org/3/tutorial/controlflow.html#defining-functions"})
+        elif any(k in text for k in ("строк", "string", "split", "join")):
+            docs.insert(0, {"title": "Python: strings (EN)", "url": "https://docs.python.org/3/tutorial/introduction.html#strings"})
+        elif any(k in text for k in ("random", "случайн")):
+            docs.insert(0, {"title": "Python: random module (EN)", "url": "https://docs.python.org/3/library/random.html"})
+        elif any(k in text for k in ("множ", "set(")):
+            docs.insert(0, {"title": "Python: sets (EN)", "url": "https://docs.python.org/3/tutorial/datastructures.html#sets"})
+
+    elif category == "javascript":
+        if any(k in text for k in ("регуляр", "regex", "/g", "regexp")):
+            docs.insert(0, {"title": "MDN: регулярные выражения (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide/Regular_Expressions"})
+        elif any(k in text for k in ("массив", "array", "[")):
+            docs.insert(0, {"title": "MDN: Array (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Array"})
+        elif any(k in text for k in ("объект", "object", "{")):
+            docs.insert(0, {"title": "MDN: объекты (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide/Working_with_objects"})
+        elif "функц" in text or "function" in text or "=>" in text:
+            docs.insert(0, {"title": "MDN: функции (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide/Functions"})
+        elif any(k in text for k in ("строк", "string", ".split", ".join")):
+            docs.insert(0, {"title": "MDN: String (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/String"})
+        elif any(k in text for k in ("math", "случайн", "random")):
+            docs.insert(0, {"title": "MDN: Math (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Math"})
+        elif "date" in text or "время" in text:
+            docs.insert(0, {"title": "MDN: Date (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Date"})
+
+    elif category == "frontend":
+        if "grid" in text:
+            docs.insert(0, {"title": "MDN: CSS Grid (RU)", "url": "https://developer.mozilla.org/ru/docs/Learn/CSS/CSS_layout/Grids"})
+        if "flex" in text:
+            docs.insert(0, {"title": "MDN: Flexbox (RU)", "url": "https://developer.mozilla.org/ru/docs/Learn/CSS/CSS_layout/Flexbox"})
+        if any(k in text for k in ("@media", "адаптив", "responsive", "768px")):
+            docs.insert(0, {"title": "MDN: media queries (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/CSS/Media_Queries/Using_media_queries"})
+        if any(k in text for k in ("--", ":root", "переменн")):
+            docs.insert(0, {"title": "MDN: CSS-переменные (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/CSS/Using_CSS_custom_properties"})
+        if any(k in text for k in ("position", "absolute", "relative", "fixed", "sticky")):
+            docs.insert(0, {"title": "MDN: position (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/CSS/position"})
+        if any(k in text for k in ("margin", "padding", "border", "box")):
+            docs.insert(0, {"title": "MDN: блочная модель (RU)", "url": "https://developer.mozilla.org/ru/docs/Learn/CSS/Building_blocks/The_box_model"})
+
+    elif category == "scratch":
+        if any(k in text for k in ("движ", "шаг", "поверн", "координат")):
+            docs.insert(0, {"title": "Scratch Wiki: Motion Blocks", "url": "https://en.scratch-wiki.info/wiki/Motion_Blocks"})
+        elif any(k in text for k in ("костюм", "сказать", "говор", "внешн")):
+            docs.insert(0, {"title": "Scratch Wiki: Looks Blocks", "url": "https://en.scratch-wiki.info/wiki/Looks_Blocks"})
+        elif any(k in text for k in ("звук", "громк")):
+            docs.insert(0, {"title": "Scratch Wiki: Sound Blocks", "url": "https://en.scratch-wiki.info/wiki/Sound_Blocks"})
+        elif any(k in text for k in ("флаж", "клик", "клавиш", "сообщен", "broadcast")):
+            docs.insert(0, {"title": "Scratch Wiki: Events Blocks", "url": "https://en.scratch-wiki.info/wiki/Events_Blocks"})
+        elif any(k in text for k in ("всегда", "повтор", "если", "таймер", "клон")):
+            docs.insert(0, {"title": "Scratch Wiki: Control Blocks", "url": "https://en.scratch-wiki.info/wiki/Control_Blocks"})
+        elif any(k in text for k in ("спрос", "касается", "сенсор")):
+            docs.insert(0, {"title": "Scratch Wiki: Sensing Blocks", "url": "https://en.scratch-wiki.info/wiki/Sensing_Blocks"})
+        elif any(k in text for k in ("переменн", "score", "level")):
+            docs.insert(0, {"title": "Scratch Wiki: Variables Blocks", "url": "https://en.scratch-wiki.info/wiki/Variables_Blocks"})
+        elif any(k in text for k in (">", "<", "=", "оператор")):
+            docs.insert(0, {"title": "Scratch Wiki: Operators Blocks", "url": "https://en.scratch-wiki.info/wiki/Operators_Blocks"})
+
+    return {"docs": _dedupe_resources(docs), "videos": _dedupe_resources(videos)}
 
 def load_tasks() -> dict:
-    """Load tasks.json with a simple mtime-based cache."""
+    """Load tasks.json (+ optional tasks_legacy.json) with a simple mtime-based cache."""
     tasks_path = Path("tasks.json")
+    legacy_path = Path("tasks_legacy.json")
     try:
         mtime = tasks_path.stat().st_mtime
-        if _TASKS_CACHE["data"] is None or _TASKS_CACHE["mtime"] != mtime:
-            _TASKS_CACHE["data"] = json.loads(tasks_path.read_text(encoding="utf-8"))
+        legacy_mtime = legacy_path.stat().st_mtime if legacy_path.exists() else None
+
+        if (
+            _TASKS_CACHE["data"] is None
+            or _TASKS_CACHE["mtime"] != mtime
+            or _TASKS_CACHE["legacy_mtime"] != legacy_mtime
+        ):
+            curated = json.loads(tasks_path.read_text(encoding="utf-8"))
+            curated_tasks = curated.get("tasks", []) if isinstance(curated, dict) else []
+
+            legacy_tasks = []
+            if legacy_path.exists():
+                try:
+                    legacy = json.loads(legacy_path.read_text(encoding="utf-8"))
+                    legacy_tasks = legacy.get("tasks", []) if isinstance(legacy, dict) else []
+                except Exception as e:
+                    log_error("Failed to load tasks_legacy.json", e)
+                    legacy_tasks = []
+
+            combined = {
+                "meta": curated.get("meta", {}) if isinstance(curated, dict) else {},
+                "categories": curated.get("categories", []) if isinstance(curated, dict) else [],
+                "tasks": (curated_tasks if isinstance(curated_tasks, list) else [])
+                + (legacy_tasks if isinstance(legacy_tasks, list) else []),
+            }
+            _TASKS_CACHE["data"] = combined
             _TASKS_CACHE["mtime"] = mtime
+            _TASKS_CACHE["legacy_mtime"] = legacy_mtime
+
         return _TASKS_CACHE["data"] or {"meta": {}, "categories": [], "tasks": []}
     except FileNotFoundError:
         return {"meta": {}, "categories": [], "tasks": []}
@@ -3200,6 +3403,7 @@ def public_task(task: dict) -> dict:
         "story": task.get("story"),
         "description": task.get("description"),
         "initial_code": task.get("initial_code"),
+        "resources": resources_for_task(task),
         "prerequisites": task.get("prerequisites") or [],
         "check": {
             "engine": logic.get("engine"),
@@ -3271,7 +3475,11 @@ def _utc_now_sql() -> str:
 def _default_homework_task_ids(tasks_raw: list[dict], min_count: int = 3) -> list[str]:
     cat_weight = {"python": 0, "javascript": 1, "frontend": 2, "scratch": 3}
     tier_weight = {"D": 0, "C": 1, "B": 2, "A": 3, "S": 4}
-    candidates = [t for t in tasks_raw if t.get("id") and t.get("category") in cat_weight]
+    candidates = [
+        t
+        for t in tasks_raw
+        if t.get("id") and not is_archived_task_id(t.get("id")) and t.get("category") in cat_weight
+    ]
     candidates.sort(
         key=lambda t: (
             cat_weight.get(t.get("category"), 9),
@@ -3310,6 +3518,8 @@ def _smart_select_homework_tasks(
     for t in tasks_raw:
         tid = t.get("id")
         if not tid or tid in completed_ids:
+            continue
+        if is_archived_task_id(tid):
             continue
         cat = t.get("category")
         if cat not in ("python", "javascript", "frontend", "scratch"):
@@ -3658,11 +3868,28 @@ def get_roadmap(user: dict = Depends(require_auth)):
             (user["id"],)
         )
         pending_ids = set(row["task_id"] for row in cursor.fetchall())
+        
+        # Include archived tasks if they are explicitly assigned as active homework
+        cursor.execute(
+            """
+            SELECT DISTINCT hst.task_id
+            FROM homework_targets ht
+            JOIN homework_sets hs ON hs.id = ht.homework_set_id
+            JOIN homework_set_tasks hst ON hst.homework_set_id = hs.id
+            WHERE ht.user_id = ?
+              AND hs.status = 'active'
+            """,
+            (user["id"],),
+        )
+        homework_ids = {str(row["task_id"]) for row in cursor.fetchall()}
 
     counts = _counts_by_category_and_tier(tasks_by_id, completed_ids)
 
     tasks = []
     for t in tasks_raw:
+        tid = str(t.get("id") or "")
+        if is_archived_task_id(tid) and tid not in homework_ids:
+            continue
         unlocked, unlock_info = _unlock_state(t, completed_ids, counts)
         pt = public_task(t)
         pt["completed"] = pt["id"] in completed_ids
@@ -4585,7 +4812,7 @@ def get_tasks(
 ):
     """Get all tasks with optional filtering (public payload)."""
     data = load_tasks()
-    tasks = [public_task(t) for t in data.get("tasks", [])]
+    tasks = [public_task(t) for t in data.get("tasks", []) if not is_archived_task_id(t.get("id"))]
     
     if category:
         tasks = [t for t in tasks if t.get("category") == category]
@@ -4604,7 +4831,7 @@ def get_random_task(
 ):
     """Get a single random task."""
     data = load_tasks()
-    tasks = [public_task(t) for t in data.get("tasks", [])]
+    tasks = [public_task(t) for t in data.get("tasks", []) if not is_archived_task_id(t.get("id"))]
     
     if category:
         tasks = [t for t in tasks if t.get("category") == category]

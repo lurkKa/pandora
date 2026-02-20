@@ -18,6 +18,7 @@ ENV/
 logs/
 uploads/
 backups/
+tasks_full_backup_*.json
 
 # Secrets / local env
 .pandora_jwt_secret

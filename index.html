@@ -759,6 +759,45 @@
             line-height: 1.6;
         }
 
+        .task-resources {
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px dashed rgba(255, 255, 255, 0.12);
+        }
+
+        .task-resources .resources-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .task-resources .resources-group {
+            margin-top: 10px;
+        }
+
+        .task-resources .resources-label {
+            font-size: 11px;
+            color: var(--accent-soft);
+            margin-bottom: 6px;
+        }
+
+        .task-resources a.resource-link {
+            display: block;
+            font-size: 12px;
+            color: #93c5fd;
+            text-decoration: none;
+            line-height: 1.45;
+            margin: 4px 0;
+            word-break: break-word;
+        }
+
+        .task-resources a.resource-link:hover {
+            text-decoration: underline;
+        }
+
         .editor-area {
             flex-grow: 1;
             display: flex;
@@ -3434,6 +3473,7 @@
                     <h3>📋 Task</h3>
                     <div class="task-box">
                         <p id="modal-task"></p>
+                        <div id="modal-resources" class="task-resources" style="display:none;"></div>
                         <div id="frontend-task-tools" style="display:none; margin-top:10px;">
                             <button type="button" id="frontend-hint-btn"
                                 style="font-size:11px; padding:5px 9px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.08); color:var(--text-bright); cursor:pointer;"
@@ -4207,6 +4247,42 @@
         }
 
         // ==================== QUEST MODAL ====================
+        function renderTaskResources(task) {
+            const container = document.getElementById('modal-resources');
+            if (!container) return;
+
+            const res = task && task.resources ? task.resources : null;
+            const docs = res && Array.isArray(res.docs) ? res.docs : [];
+            const videos = res && Array.isArray(res.videos) ? res.videos : [];
+
+            if (docs.length === 0 && videos.length === 0) {
+                container.style.display = 'none';
+                container.innerHTML = '';
+                return;
+            }
+
+            const renderLinks = (items) => (items || [])
+                .map(it => {
+                    const url = String((it && it.url) || '').trim();
+                    if (!url) return '';
+                    const title = String((it && it.title) || url).trim();
+                    return `<a class="resource-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(title)}</a>`;
+                })
+                .filter(Boolean)
+                .join('');
+
+            let html = `<div class="resources-title">🧭 Ресурсы</div>`;
+            if (docs.length) {
+                html += `<div class="resources-group"><div class="resources-label">📚 Документация</div>${renderLinks(docs)}</div>`;
+            }
+            if (videos.length) {
+                html += `<div class="resources-group"><div class="resources-label">🎥 Видео</div>${renderLinks(videos)}</div>`;
+            }
+
+            container.innerHTML = html;
+            container.style.display = 'block';
+        }
+
         function collectRegexMatches(text, pattern) {
             const source = String(text || '');
             if (!source) return [];
@@ -4317,6 +4393,7 @@
 
             const taskCategory = task && task.category ? task.category : '';
             const taskDescription = String((task && task.description) || '');
+            renderTaskResources(task);
             frontendHintsExpanded = false;
             hintsEl.style.display = 'none';
             hintBtn.textContent = '💡 Показать подсказки';

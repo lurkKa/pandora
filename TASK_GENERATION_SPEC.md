@@ -1,8 +1,8 @@
-# Task Generation Specification v1.0
+# Task Generation Specification v2.0
 
 > **Purpose**: This document provides a complete specification for AI systems to generate high-quality programming tasks for the Code Adventures LMS.  
-> **Target**: GPT-4, Claude, Gemini, or any capable LLM  
-> **Output Format**: JSON array of task objects
+> **Target**: Any capable LLM  
+> **Output Format**: JSON array of task objects (to append into `tasks.json`)
 
 ---
 
@@ -10,10 +10,10 @@
 
 You are generating tasks for a gamified LMS that teaches programming through RPG-style quests. Tasks are validated client-side using:
 
-- **Python**: Pyodide (Python 3.11 in WebAssembly)
-- **JavaScript**: Native browser engine (V8/SpiderMonkey)
-- **Frontend**: HTML/CSS rendered in sandboxed iframe, validated via string matching
-- **Scratch**: External links, manually reviewed by teacher
+- **Python**: server-side sandbox harness (Python 3.x) using simple `eval()` expressions from `cases`
+- **JavaScript**: server-side sandbox harness (Node.js `vm`) using simple expressions from `cases`
+- **Frontend**: server-side HTML/CSS checks (string/regex + basic selector/property heuristics)
+- **Scratch**: manual review (student uploads `.sb3`)
 
 ---
 
@@ -24,19 +24,38 @@ You are generating tasks for a gamified LMS that teaches programming through RPG
   "id": "string",           // Unique, snake_case: py_03_loops, js_05_objects
   "category": "string",     // ENUM: "python" | "javascript" | "frontend" | "scratch"
   "tier": "string",         // ENUM: "D" | "C" | "B" | "A" | "S"
-  "xp": "integer",          // Range: 50-500 based on tier
+  "xp": "integer",          // Must match tier curve used in tasks.json (see table below)
   "title": "string",        // Max 40 chars, engaging, fantasy-themed
   "story": "string",        // 1-2 sentences, sets narrative context
   "description": "string",  // Technical task description, clear and concise
   "initial_code": "string", // Starter code with placeholders/comments
+  "resources": {            // REQUIRED: at least 1 docs + 1 video link
+    "docs": [               // list of docs links
+      { "title": "string", "url": "string" }
+    ],
+    "videos": [             // list of video links (can be a playlist/channel link)
+      { "title": "string", "url": "string" }
+    ]
+  },
+  "prerequisites": ["string"], // OPTIONAL: task IDs to unlock this task (skill-tree)
+  "campaign": {                // OPTIONAL: roadmap metadata for Campaign Map UI
+    "act": "integer",
+    "chapter": "integer",
+    "order": "integer",
+    "type": "string"           // "quest" | "boss" | "side"
+  },
   "check_logic": {
     "engine": "string",     // ENUM: "pyodide" | "javascript" | "iframe" | "manual"
     "cases": [              // Array of test cases (not for "manual" engine)
       {
-        "code": "string",       // Expression to evaluate (e.g., "add(2, 3)")
-        "expected": "any",      // Expected return value (number, string, array, object)
-        "type": "string"        // Optional: "variable_value" for checking variable existence
+        "type": "string",       // OPTIONAL: "variable_value" (python/js) or frontend case type
+        "name": "string",       // REQUIRED for type="variable_value"
+        "code": "string",       // REQUIRED for python/js (expression to eval, e.g., "add(2, 3)")
+        "expected": "any"       // REQUIRED: expected value (or expected pattern for frontend cases)
       }
+    ],
+    "hidden_cases": [          // OPTIONAL: same schema as cases (server-only)
+      { "code": "string", "expected": "any" }
     ]
   }
 }
@@ -48,11 +67,11 @@ You are generating tasks for a gamified LMS that teaches programming through RPG
 
 | Tier | Difficulty | Concepts | XP Range | Test Cases |
 |------|------------|----------|----------|------------|
-| **D** | Absolute beginner | Variables, print, basic types | 50-60 | 1-2 simple |
-| **C** | Beginner | Functions, conditionals, strings | 80-120 | 2-3 |
-| **B** | Intermediate | Loops, arrays/lists, objects/dicts | 150-200 | 3-4 edge cases |
-| **A** | Advanced | Algorithms, recursion, complex logic | 250-400 | 4-5 with edge cases |
-| **S** | Expert/Boss | Optimization, system design, multi-step | 500+ | 5+ comprehensive |
+| **D** | Absolute beginner | Variables, basic types | 15-25 | 1-2 simple |
+| **C** | Beginner | Functions, conditionals, strings | 40-80 | 2-3 |
+| **B** | Intermediate | Loops, arrays/lists, objects/dicts | 105-180 | 3-4 edge cases |
+| **A** | Advanced | Algorithms, regex, tricky cases | 205-325 | 4-5 with edge cases |
+| **S** | Expert/Boss | Optimization, multi-step logic | 365-550 | 5+ comprehensive |
 
 ---
 
@@ -207,24 +226,40 @@ function functionName(param1, param2) {
 - Prefer list comprehensions for B+ tier
 - Test with `==` comparison (works for primitives, lists, dicts in Pyodide)
 - Avoid external imports (no numpy, pandas, etc.)
+  - If you MUST use standard-library modules (e.g., `re`, `random`), include them in `initial_code` and keep it explicit.
 
 ### JavaScript Tasks
 - Use `function` declarations, not arrow functions for beginners
-- Test with `JSON.stringify()` for array/object comparison
 - Avoid DOM manipulation (separate category)
 - Avoid `async/await` unless tier A+
+  - The harness uses deep-equality for arrays/objects, so `expected` can be objects/arrays directly.
 
 ### Frontend Tasks
-- Engine: `iframe` with `content_contain` string check
-- Focus on CSS properties, not complex layouts
-- Test for presence of key properties: `display: flex`, `border-radius`, etc.
-- Include a visible element, not just styles
+Engine: `iframe`.
+
+Supported `cases` formats (pick the strictest you can):
+- `{ "type": "content_contain", "expected": "<div class=\\"card\\">" }`
+- `{ "type": "content_regex", "expected": "..." }` (regex string)
+- `{ "type": "selector_exists", "expected": ".card" }` (simple selectors: `.class`, `#id`, or tag)
+- `{ "type": "text_contains", "expected": "..." }`
+- `{ "type": "css_property", "expected": { "selector": ".card", "property": "display", "value": "grid" } }`
 
 ### Scratch Tasks
 - Engine: `manual` (teacher reviews)
 - Provide clear, step-by-step instructions
-- Initial code should be a placeholder for the Scratch project link
+- Initial code can be a short checklist or placeholder (it is not executed)
 - Focus on visual/interactive concepts: movement, events, loops
+
+---
+
+## Roadmap (Skill Tree) Rules
+
+To make tasks feel like a real learning roadmap (not a random list):
+- Keep **one main concept per task** (especially D/C tiers).
+- Use `campaign` to place tasks into **Acts/Chapters** (D→C→B→A→S).
+- Use `prerequisites` sparingly to create **micro-chains** (e.g., “variables → strings → functions”).
+- Add occasional **boss** tasks that combine 2–3 concepts, but keep acceptance criteria crystal clear.
+- Do not produce “filler packs” with repeated story/title templates (these are considered junk tasks).
 
 ---
 
@@ -262,14 +297,16 @@ import requests  # Will fail in Pyodide
 Use this prompt to generate tasks:
 
 ```
-Generate [N] programming tasks for [CATEGORY] at tier [TIER].
+Generate [N] programming tasks for [CATEGORY] at tier [TIER] for the PANDORA LMS.
 
 Requirements:
 - Follow the JSON schema exactly
-- Each task must have a fantasy RPG narrative
+- Each task must have a fantasy RPG narrative (RU text for title/story/description)
 - Include [X] test cases with edge cases
 - Initial code should have clear placeholders
 - Tasks should teach: [CONCEPT LIST]
+- Each task MUST include `resources.docs` (>=1) and `resources.videos` (>=1) with working URLs
+- Avoid filler / duplicated templates; each task must feel distinct and purposeful
 
 Output format: JSON array only, no explanation.
 ```
@@ -347,3 +384,4 @@ Append to existing `tasks` array, do not overwrite.
 ---
 
 *Last Updated: 2026-01-29*
+*Revised: 2026-02-20*
