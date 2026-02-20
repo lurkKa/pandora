@@ -6459,12 +6459,12 @@ class GuildXpAdjust(BaseModel):
 
 @app.post("/api/guilds/{guild_id}/members/{member_id}/xp")
 def president_adjust_xp(guild_id: int, member_id: int, body: GuildXpAdjust, user: dict = Depends(require_auth)):
-    """President adjusts member XP. Limited to ±200."""
+    """President adjusts member XP. Daily limit: ±200 total."""
     uid = user["id"]
     delta = body.delta_xp
 
-    if abs(delta) > 200 or delta == 0:
-        raise HTTPException(400, "Допустимый диапазон: от -200 до +200 XP (не 0)")
+    if delta == 0:
+        raise HTTPException(400, "Значение не может быть 0")
 
     with get_db() as conn:
         cursor = conn.cursor()
@@ -6489,12 +6489,28 @@ def president_adjust_xp(guild_id: int, member_id: int, body: GuildXpAdjust, user
         if not cursor.fetchone():
             raise HTTPException(404, "Участник не найден")
 
+        # Daily limit: sum of absolute adjustments today by this president
+        cursor.execute("""
+            SELECT COALESCE(SUM(ABS(xp_change)), 0) as used
+            FROM xp_log
+            WHERE user_id = ? AND reason LIKE 'guild_president_adjust%'
+            AND DATE(logged_at) = DATE('now')
+        """, (member_id,))
+        used_today = cursor.fetchone()["used"]
+        remaining = 200 - used_today
+
+        if abs(delta) > remaining:
+            raise HTTPException(
+                400,
+                f"Дневной лимит 200 XP. Использовано {used_today}, осталось {remaining}",
+            )
+
         reason = f"guild_president_adjust: {body.reason}" if body.reason else "guild_president_adjust"
         new_xp, new_level = apply_xp_change(cursor, member_id, delta, reason)
         conn.commit()
 
     sign = "+" if delta > 0 else ""
-    return {"message": f"XP изменён на {sign}{delta}", "new_xp": new_xp, "new_level": new_level}
+    return {"message": f"XP изменён на {sign}{delta} (осталось {remaining - abs(delta)}/200 на сегодня)", "new_xp": new_xp, "new_level": new_level}
 
 
 # ==================== GUILD: CHAT ====================
