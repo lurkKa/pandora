@@ -1518,8 +1518,8 @@ def serve_alextype():
 # AlexType last-reward timestamps per user (in-memory cooldown)
 _alextype_last_reward: dict[int, float] = {}
 _ALEXTYPE_COOLDOWN_S = 30
-_ALEXTYPE_DIFFICULTY_MULT = {"D": 0.78, "C": 1.09, "B": 1.56, "A": 2.03, "S": 2.50}
-_ALEXTYPE_MAX_XP = 260  # Cap per session (+30%)
+_ALEXTYPE_DIFFICULTY_MULT = {"D": 0.59, "C": 0.82, "B": 1.17, "A": 1.52, "S": 1.88}
+_ALEXTYPE_MAX_XP = 195  # Cap per session (-25% from 260)
 
 @app.post("/api/alextype/complete")
 def alextype_complete(data: AlexTypeCompleteRequest, user: dict = Depends(require_auth)):
@@ -2517,6 +2517,34 @@ def get_profile(user: dict = Depends(require_auth)):
         """, (user["xp"],))
         position = cursor.fetchone()[0]
 
+        # ---- XP Breakdown: tasks / AlexType / expert-polymath ----
+        # AlexType XP (reason starts with 'AlexType')
+        cursor.execute("""
+            SELECT COALESCE(SUM(xp_change), 0) FROM xp_log
+            WHERE user_id = ? AND reason LIKE 'AlexType%'
+        """, (user["id"],))
+        xp_alextype = max(0, cursor.fetchone()[0])
+
+        # Task XP (from completed_tasks table, only valid)
+        cursor.execute("""
+            SELECT COALESCE(SUM(xp_earned), 0) FROM completed_tasks
+            WHERE user_id = ? AND is_valid != 0
+        """, (user["id"],))
+        xp_tasks = max(0, cursor.fetchone()[0])
+
+        tasks_completed = stats["total_quests"]
+
+        # Expert Polymath XP = total - tasks - alextype (achievements, bonuses, admin, etc.)
+        total_xp = max(0, int(user.get("xp", 0)))
+        xp_expert = max(0, total_xp - xp_tasks - xp_alextype)
+
+        xp_breakdown = {
+            "tasks_completed": tasks_completed,
+            "xp_tasks": xp_tasks,
+            "xp_alextype": xp_alextype,
+            "xp_expert": xp_expert,
+        }
+
     avatar_key = user.get("avatar_key")
     avatar_url = f"/static/avatars/{avatar_key}.svg" if avatar_key else None
 
@@ -2531,7 +2559,8 @@ def get_profile(user: dict = Depends(require_auth)):
         "current_rank": current_rank,
         "next_rank": next_rank,
         "stats": stats,
-        "leaderboard_position": position
+        "leaderboard_position": position,
+        "xp_breakdown": xp_breakdown
     }
 
 @app.put("/api/profile")

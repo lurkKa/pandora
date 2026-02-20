@@ -2515,6 +2515,38 @@
             </div>
         </div>
 
+        <!-- XP Breakdown Stats -->
+        <div style="padding:16px; border-bottom:1px solid rgba(255,255,255,0.05);">
+            <h4 style="margin-bottom:12px; color:var(--text-bright);">📊 Статистика XP</h4>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <div style="background:rgba(0,0,0,0.25); border-radius:10px; padding:12px; text-align:center;">
+                    <div id="xp-stat-tasks-count"
+                        style="font-size:22px; font-weight:700; color:#fbbf24; text-shadow:0 0 8px rgba(251,191,36,0.4);">
+                        0</div>
+                    <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;">📋 Задач выполнено</div>
+                </div>
+                <div style="background:rgba(0,0,0,0.25); border-radius:10px; padding:12px; text-align:center;">
+                    <div id="xp-stat-tasks-xp"
+                        style="font-size:22px; font-weight:700; color:#fbbf24; text-shadow:0 0 8px rgba(251,191,36,0.4);">
+                        0</div>
+                    <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;">⭐ XP от задач</div>
+                </div>
+                <div style="background:rgba(0,0,0,0.25); border-radius:10px; padding:12px; text-align:center;">
+                    <div id="xp-stat-alextype"
+                        style="font-size:22px; font-weight:700; color:#fbbf24; text-shadow:0 0 8px rgba(251,191,36,0.4);">
+                        0</div>
+                    <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;">⌨️ XP от AlexType</div>
+                </div>
+                <div style="background:rgba(0,0,0,0.25); border-radius:10px; padding:12px; text-align:center;">
+                    <div id="xp-stat-expert"
+                        style="font-size:22px; font-weight:700; color:#fbbf24; text-shadow:0 0 8px rgba(251,191,36,0.4);">
+                        0</div>
+                    <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;">🧠 Эксперт-полимат XP
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- XP Progress Chart -->
         <div style="padding:16px; border-bottom:1px solid rgba(255,255,255,0.05);">
             <h4 style="margin-bottom:12px; color:var(--text-bright);">📈 Прогресс XP</h4>
@@ -4501,6 +4533,15 @@
                 document.getElementById('profile-quests').innerText = profile.stats?.total_quests || 0;
                 document.getElementById('profile-streak').innerText = profile.stats?.streak_days || 0;
                 document.getElementById('profile-position').innerText = '#' + (profile.leaderboard_position || 1);
+
+                // XP Breakdown stats
+                if (profile.xp_breakdown) {
+                    const b = profile.xp_breakdown;
+                    document.getElementById('xp-stat-tasks-count').textContent = (b.tasks_completed || 0).toLocaleString();
+                    document.getElementById('xp-stat-tasks-xp').textContent = (b.xp_tasks || 0).toLocaleString();
+                    document.getElementById('xp-stat-alextype').textContent = (b.xp_alextype || 0).toLocaleString();
+                    document.getElementById('xp-stat-expert').textContent = (b.xp_expert || 0).toLocaleString();
+                }
 
                 // Rank progress (with null checks)
                 if (profile.current_rank) {
