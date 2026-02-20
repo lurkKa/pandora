@@ -857,6 +857,9 @@
                 <li class="nav-item" onclick="showSection('settings')" tabindex="0" role="button">
                     <span class="icon">⚙️</span> Settings
                 </li>
+                <li class="nav-item" onclick="showSection('guilds')" tabindex="0" role="button">
+                    <span class="icon">🛡️</span> Гильдии
+                </li>
             </ul>
             <div class="admin-info">
                 <div class="admin-avatar">S</div>
@@ -1235,6 +1238,50 @@
                     <div id="rewards-list" style="padding: 16px;">
                         <!-- Populated by JS -->
                     </div>
+                </div>
+            </section>
+
+            <!-- Guild Management Section -->
+            <section id="section-guilds" class="section">
+                <div class="page-header">
+                    <h2>🛡️ Управление гильдиями</h2>
+                    <p>Рейтинг, настройки и модерация</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>⚙️ Настройки</h3>
+                    </div>
+                    <div style="padding: 24px; display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label>Макс. кол-во гильдий</label>
+                            <input type="number" id="admin-max-guilds" min="1" max="20" value="2" style="width:120px;">
+                        </div>
+                        <button class="btn btn-primary" onclick="saveGuildSettings()">Сохранить</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>⚔️ Рейтинг гильдий</h3>
+                        <button class="btn btn-small" onclick="loadAdminGuilds()">🔄 Обновить</button>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Гильдия</th>
+                                <th>Участников</th>
+                                <th>XP</th>
+                                <th>Квестов</th>
+                                <th>Очки</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-guilds-table">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
                 </div>
             </section>
 
@@ -2027,6 +2074,7 @@
             if (name === 'rewards') populateUserDropdowns();
             if (name === 'paste-requests') loadPasteRequests();
             if (name === 'homework') { loadHomeworkTasks(); loadHomeworkSets(); loadHomeworkStudents(); }
+            if (name === 'guilds') { loadAdminGuilds(); loadGuildSettings(); }
         }
 
         // ==================== PASTE REQUESTS ====================
@@ -2697,6 +2745,78 @@
         }
 
         // ==================== INIT ====================
+        // ==================== GUILD ADMIN ====================
+        async function loadAdminGuilds() {
+            try {
+                const res = await fetch(`${API_URL}/api/admin/guilds/rankings`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                const tbody = document.getElementById('admin-guilds-table');
+                if (!data.rankings || data.rankings.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-secondary);">Гильдий пока нет</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = data.rankings.map(g => `
+                    <tr>
+                        <td style="font-weight:700;">${g.rank}</td>
+                        <td>${g.avatar_emoji} ${g.name}</td>
+                        <td>${g.member_count}</td>
+                        <td>${g.total_xp.toLocaleString()}</td>
+                        <td>${g.total_tasks}</td>
+                        <td style="font-weight:700; color:var(--accent-light);">${g.score}</td>
+                        <td><button class="btn btn-small" style="background:var(--danger); color:white;" onclick="adminDisbandGuild(${g.id}, '${g.name.replace(/'/g, "\\'")}')">Распустить</button></td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load guilds:', e);
+            }
+        }
+
+        async function loadGuildSettings() {
+            try {
+                const res = await fetch(`${API_URL}/api/admin/guilds/settings`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                document.getElementById('admin-max-guilds').value = data.max_guilds || 2;
+            } catch (e) { }
+        }
+
+        async function saveGuildSettings() {
+            const maxGuilds = parseInt(document.getElementById('admin-max-guilds').value);
+            try {
+                const res = await fetch(`${API_URL}/api/admin/guilds/settings`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ max_guilds: maxGuilds })
+                });
+                const data = await res.json();
+                alert(data.message || 'Сохранено');
+            } catch (e) {
+                alert('Ошибка сохранения');
+            }
+        }
+
+        async function adminDisbandGuild(guildId, guildName) {
+            if (!confirm(`⚠️ Расформировать гильдию «${guildName}»? Это нельзя отменить!`)) return;
+            try {
+                const res = await fetch(`${API_URL}/api/admin/guilds/${guildId}/disband`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                if (!res.ok) { alert(data.detail || 'Ошибка'); return; }
+                alert('Гильдия расформирована');
+                loadAdminGuilds();
+            } catch (e) {
+                alert('Ошибка');
+            }
+        }
+
         window.addEventListener('load', checkAuth);
 
         // Keyboard accessibility for nav items

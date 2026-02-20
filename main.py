@@ -598,7 +598,56 @@ def init_db():
                 UNIQUE(homework_set_id, user_id)
             )
         """)
-        
+
+        # ========== GUILD SYSTEM ==========
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS guilds (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                description TEXT DEFAULT '',
+                avatar_emoji TEXT DEFAULT '🛡️',
+                created_by INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                disbanded_at TIMESTAMP,
+                FOREIGN KEY (created_by) REFERENCES users(id)
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS guild_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                guild_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                role TEXT DEFAULT 'developer',
+                joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (guild_id) REFERENCES guilds(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                UNIQUE(user_id)
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS guild_titles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                from_guild_id INTEGER NOT NULL,
+                to_guild_id INTEGER NOT NULL,
+                title_text TEXT NOT NULL,
+                effect_type TEXT NOT NULL,
+                effect_value REAL NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NOT NULL,
+                FOREIGN KEY (from_guild_id) REFERENCES guilds(id) ON DELETE CASCADE,
+                FOREIGN KEY (to_guild_id) REFERENCES guilds(id) ON DELETE CASCADE
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS guild_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
+
         # Performance indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_xp ON users(xp DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)")
@@ -612,6 +661,10 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_achievements_user ON user_achievements(user_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_homework_sets_deadline ON homework_sets(deadline_at, status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_homework_targets_user ON homework_targets(user_id, homework_set_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_guilds_active ON guilds(disbanded_at)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_members_guild ON guild_members(guild_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_members_user ON guild_members(user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_titles_to ON guild_titles(to_guild_id, expires_at)")
         
         conn.commit()
         
@@ -822,6 +875,32 @@ def apply_xp_change(cursor, user_id: int, delta_xp: int, reason: str, task_id: s
     Returns (new_total_xp, new_level).
     """
     delta = int(delta_xp or 0)
+
+    # --- Guild XP bonus ---
+    if delta > 0:
+        try:
+            cursor.execute(
+                "SELECT gm.role FROM guild_members gm "
+                "JOIN guilds g ON g.id = gm.guild_id "
+                "WHERE gm.user_id = ? AND g.disbanded_at IS NULL",
+                (user_id,),
+            )
+            gm_row = cursor.fetchone()
+            if gm_row:
+                bonus_pct = {"president": 0.10, "chairman": 0.05}.get(gm_row["role"], 0)
+                if bonus_pct:
+                    delta = int(delta * (1 + bonus_pct))
+            # Guild title debuff
+            cursor.execute(
+                "SELECT gt.effect_value FROM guild_titles gt "
+                "JOIN guild_members gm ON gm.guild_id = gt.to_guild_id "
+                "WHERE gm.user_id = ? AND gt.expires_at > CURRENT_TIMESTAMP",
+                (user_id,),
+            )
+            for title_row in cursor.fetchall():
+                delta = int(delta * (1 + title_row["effect_value"]))
+        except Exception:
+            pass  # guild tables may not exist yet on first run
 
     cursor.execute("SELECT xp FROM users WHERE id = ?", (user_id,))
     row = cursor.fetchone()
@@ -1518,8 +1597,8 @@ def serve_alextype():
 # AlexType last-reward timestamps per user (in-memory cooldown)
 _alextype_last_reward: dict[int, float] = {}
 _ALEXTYPE_COOLDOWN_S = 30
-_ALEXTYPE_DIFFICULTY_MULT = {"D": 0.59, "C": 0.82, "B": 1.17, "A": 1.52, "S": 1.88}
-_ALEXTYPE_MAX_XP = 195  # Cap per session (-25% from 260)
+_ALEXTYPE_DIFFICULTY_MULT = {"D": 0.50, "C": 0.70, "B": 1.00, "A": 1.29, "S": 2.00}
+_ALEXTYPE_MAX_XP = {"D": 30, "C": 60, "B": 120, "A": 165, "S": 250}  # Per-rank caps (15% reduction + S>A fix)
 
 @app.post("/api/alextype/complete")
 def alextype_complete(data: AlexTypeCompleteRequest, user: dict = Depends(require_auth)):
@@ -1569,7 +1648,8 @@ def alextype_complete(data: AlexTypeCompleteRequest, user: dict = Depends(requir
     # XP formula: chars × accuracy × difficulty_multiplier / divisor
     mult = _ALEXTYPE_DIFFICULTY_MULT[level]
     raw_xp = (data.chars_typed * data.accuracy * mult) / 2.0
-    xp = min(int(raw_xp), _ALEXTYPE_MAX_XP)
+    cap = _ALEXTYPE_MAX_XP.get(level, 120)
+    xp = min(int(raw_xp), cap)
     xp = max(1, xp)
 
     with get_db() as conn:
@@ -5607,6 +5687,520 @@ def get_my_rewards(user: dict = Depends(require_auth)):
         """, (user["id"],))
         rewards = [dict(row) for row in cursor.fetchall()]
     return {"rewards": rewards}
+
+# ==================== GUILD SYSTEM ====================
+
+_GUILD_AVATARS = ["🛡️", "⚔️", "🐉", "🔥", "🌟", "💎", "🏰", "🦅", "🐺", "🦁", "👑", "🎯", "💀", "🌙", "⚡", "🔱"]
+
+_GUILD_TITLE_PRESETS = {
+    "curse": {"title_text": "Проклятие", "effect_type": "xp_debuff", "effect_value": -0.03},
+    "weakness": {"title_text": "Слабость", "effect_type": "xp_debuff", "effect_value": -0.02},
+    "shame": {"title_text": "Позор", "effect_type": "xp_debuff", "effect_value": -0.05},
+}
+
+class GuildCreateRequest(BaseModel):
+    name: str
+    description: str = ""
+    avatar_emoji: str = "🛡️"
+
+class GuildTitleRequest(BaseModel):
+    to_guild_id: int
+    preset: str  # curse, weakness, shame
+
+class GuildRoleRequest(BaseModel):
+    role: str  # president, chairman, developer
+
+class GuildSettingsRequest(BaseModel):
+    max_guilds: int = 2
+
+
+def _get_max_guilds(cursor) -> int:
+    cursor.execute("SELECT value FROM guild_settings WHERE key = 'max_guilds'")
+    row = cursor.fetchone()
+    return int(row["value"]) if row else 2
+
+
+def _guild_ranking_score(cursor, guild_id: int) -> dict:
+    """Calculate a guild's ranking score."""
+    cursor.execute("""
+        SELECT COUNT(*) as cnt FROM guild_members WHERE guild_id = ?
+    """, (guild_id,))
+    member_count = cursor.fetchone()["cnt"]
+
+    cursor.execute("""
+        SELECT COALESCE(SUM(u.xp), 0) as total_xp
+        FROM guild_members gm JOIN users u ON u.id = gm.user_id
+        WHERE gm.guild_id = ?
+    """, (guild_id,))
+    total_xp = cursor.fetchone()["total_xp"]
+
+    cursor.execute("""
+        SELECT COUNT(*) as cnt
+        FROM completed_tasks ct
+        JOIN guild_members gm ON gm.user_id = ct.user_id
+        WHERE gm.guild_id = ? AND ct.is_valid = 1
+    """, (guild_id,))
+    total_tasks = cursor.fetchone()["cnt"]
+
+    score = (total_tasks * 2) + int(total_xp * 0.01) + (member_count * 5)
+    return {
+        "member_count": member_count,
+        "total_xp": total_xp,
+        "total_tasks": total_tasks,
+        "score": score,
+    }
+
+
+@app.post("/api/guilds")
+def create_guild(data: GuildCreateRequest, user: dict = Depends(require_auth)):
+    """Create a new guild — the creator becomes president."""
+    name = data.name.strip()
+    if not name or len(name) < 2 or len(name) > 30:
+        raise HTTPException(400, "Название гильдии: 2-30 символов")
+    if data.avatar_emoji not in _GUILD_AVATARS:
+        data.avatar_emoji = "🛡️"
+    uid = user["id"]
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        # Check if already in a guild
+        cursor.execute("SELECT guild_id FROM guild_members WHERE user_id = ?", (uid,))
+        if cursor.fetchone():
+            raise HTTPException(400, "Вы уже состоите в гильдии")
+
+        # Check max guilds
+        max_guilds = _get_max_guilds(cursor)
+        cursor.execute("SELECT COUNT(*) as cnt FROM guilds WHERE disbanded_at IS NULL")
+        if cursor.fetchone()["cnt"] >= max_guilds:
+            raise HTTPException(400, f"Достигнут лимит гильдий ({max_guilds})")
+
+        # Check unique name
+        cursor.execute("SELECT id FROM guilds WHERE name = ? AND disbanded_at IS NULL", (name,))
+        if cursor.fetchone():
+            raise HTTPException(400, "Гильдия с таким именем уже существует")
+
+        cursor.execute(
+            "INSERT INTO guilds (name, description, avatar_emoji, created_by) VALUES (?, ?, ?, ?)",
+            (name, data.description[:200], data.avatar_emoji, uid),
+        )
+        guild_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO guild_members (guild_id, user_id, role) VALUES (?, ?, 'president')",
+            (guild_id, uid),
+        )
+        conn.commit()
+
+    return {"guild_id": guild_id, "message": f"Гильдия «{name}» создана!"}
+
+
+@app.get("/api/guilds")
+def list_guilds(user: dict = Depends(require_auth)):
+    """List all active guilds."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT g.*, u.display_name as creator_name
+            FROM guilds g
+            JOIN users u ON u.id = g.created_by
+            WHERE g.disbanded_at IS NULL
+            ORDER BY g.created_at
+        """)
+        guilds = []
+        for row in cursor.fetchall():
+            g = dict(row)
+            stats = _guild_ranking_score(cursor, g["id"])
+            g.update(stats)
+            guilds.append(g)
+    return {"guilds": guilds}
+
+
+@app.get("/api/guilds/my")
+def get_my_guild(user: dict = Depends(require_auth)):
+    """Get current user's guild."""
+    uid = user["id"]
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT g.*, gm.role as my_role, u.display_name as creator_name
+            FROM guild_members gm
+            JOIN guilds g ON g.id = gm.guild_id
+            JOIN users u ON u.id = g.created_by
+            WHERE gm.user_id = ? AND g.disbanded_at IS NULL
+        """, (uid,))
+        row = cursor.fetchone()
+        if not row:
+            return {"guild": None}
+
+        guild = dict(row)
+        stats = _guild_ranking_score(cursor, guild["id"])
+        guild.update(stats)
+
+        # Members
+        cursor.execute("""
+            SELECT gm.user_id, gm.role, gm.joined_at,
+                   u.display_name, u.xp, u.level, u.avatar_key
+            FROM guild_members gm
+            JOIN users u ON u.id = gm.user_id
+            WHERE gm.guild_id = ?
+            ORDER BY CASE gm.role
+                WHEN 'president' THEN 1
+                WHEN 'chairman' THEN 2
+                ELSE 3
+            END, u.xp DESC
+        """, (guild["id"],))
+        guild["members"] = [dict(m) for m in cursor.fetchall()]
+
+        # Active titles on this guild
+        cursor.execute("""
+            SELECT gt.*, fg.name as from_guild_name
+            FROM guild_titles gt
+            JOIN guilds fg ON fg.id = gt.from_guild_id
+            WHERE gt.to_guild_id = ? AND gt.expires_at > CURRENT_TIMESTAMP
+        """, (guild["id"],))
+        guild["active_titles"] = [dict(t) for t in cursor.fetchall()]
+
+    return {"guild": guild}
+
+
+@app.get("/api/guilds/rankings")
+def guild_rankings(user: dict = Depends(require_auth)):
+    """Get guild rankings sorted by score."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT g.id, g.name, g.avatar_emoji, g.created_at
+            FROM guilds g
+            WHERE g.disbanded_at IS NULL
+        """)
+        guilds = []
+        for row in cursor.fetchall():
+            g = dict(row)
+            stats = _guild_ranking_score(cursor, g["id"])
+            g.update(stats)
+            guilds.append(g)
+        guilds.sort(key=lambda x: x["score"], reverse=True)
+        for i, g in enumerate(guilds):
+            g["rank"] = i + 1
+
+        # Active titles
+        cursor.execute("""
+            SELECT gt.to_guild_id, gt.title_text, gt.effect_type, gt.effect_value,
+                   fg.name as from_guild_name
+            FROM guild_titles gt
+            JOIN guilds fg ON fg.id = gt.from_guild_id
+            WHERE gt.expires_at > CURRENT_TIMESTAMP
+        """)
+        titles = {}
+        for t in cursor.fetchall():
+            gid = t["to_guild_id"]
+            if gid not in titles:
+                titles[gid] = []
+            titles[gid].append(dict(t))
+
+        for g in guilds:
+            g["titles"] = titles.get(g["id"], [])
+
+    return {"rankings": guilds}
+
+
+@app.get("/api/guilds/titles")
+def get_active_titles(user: dict = Depends(require_auth)):
+    """Get all active titles."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT gt.*, fg.name as from_guild_name, tg.name as to_guild_name
+            FROM guild_titles gt
+            JOIN guilds fg ON fg.id = gt.from_guild_id
+            JOIN guilds tg ON tg.id = gt.to_guild_id
+            WHERE gt.expires_at > CURRENT_TIMESTAMP
+            ORDER BY gt.created_at DESC
+        """)
+        titles = [dict(t) for t in cursor.fetchall()]
+    return {"titles": titles}
+
+
+@app.get("/api/guilds/{guild_id}")
+def get_guild(guild_id: int, user: dict = Depends(require_auth)):
+    """Get guild detail."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT g.*, u.display_name as creator_name
+            FROM guilds g
+            JOIN users u ON u.id = g.created_by
+            WHERE g.id = ? AND g.disbanded_at IS NULL
+        """, (guild_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(404, "Гильдия не найдена")
+        guild = dict(row)
+        stats = _guild_ranking_score(cursor, guild_id)
+        guild.update(stats)
+
+        cursor.execute("""
+            SELECT gm.user_id, gm.role, gm.joined_at,
+                   u.display_name, u.xp, u.level, u.avatar_key
+            FROM guild_members gm
+            JOIN users u ON u.id = gm.user_id
+            WHERE gm.guild_id = ?
+            ORDER BY CASE gm.role
+                WHEN 'president' THEN 1
+                WHEN 'chairman' THEN 2
+                ELSE 3
+            END, u.xp DESC
+        """, (guild_id,))
+        guild["members"] = [dict(m) for m in cursor.fetchall()]
+
+    return {"guild": guild}
+
+
+@app.post("/api/guilds/{guild_id}/join")
+def join_guild(guild_id: int, user: dict = Depends(require_auth)):
+    """Join a guild."""
+    uid = user["id"]
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT guild_id FROM guild_members WHERE user_id = ?", (uid,))
+        if cursor.fetchone():
+            raise HTTPException(400, "Вы уже состоите в гильдии")
+        cursor.execute("SELECT id FROM guilds WHERE id = ? AND disbanded_at IS NULL", (guild_id,))
+        if not cursor.fetchone():
+            raise HTTPException(404, "Гильдия не найдена")
+        cursor.execute(
+            "INSERT INTO guild_members (guild_id, user_id, role) VALUES (?, ?, 'developer')",
+            (guild_id, uid),
+        )
+        conn.commit()
+    return {"message": "Вы вступили в гильдию!"}
+
+
+@app.post("/api/guilds/{guild_id}/leave")
+def leave_guild(guild_id: int, user: dict = Depends(require_auth)):
+    """Leave a guild. Presidents must transfer or disband."""
+    uid = user["id"]
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT role FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, uid),
+        )
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(400, "Вы не состоите в этой гильдии")
+        if row["role"] == "president":
+            raise HTTPException(400, "Президент не может покинуть гильдию. Передайте роль или расформируйте.")
+        cursor.execute(
+            "DELETE FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, uid),
+        )
+        conn.commit()
+    return {"message": "Вы покинули гильдию"}
+
+
+@app.post("/api/guilds/{guild_id}/disband")
+def disband_guild(guild_id: int, user: dict = Depends(require_auth)):
+    """Disband a guild (president only)."""
+    uid = user["id"]
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT role FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, uid),
+        )
+        row = cursor.fetchone()
+        if not row or row["role"] != "president":
+            raise HTTPException(403, "Только президент может расформировать гильдию")
+        cursor.execute(
+            "UPDATE guilds SET disbanded_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (guild_id,),
+        )
+        cursor.execute("DELETE FROM guild_members WHERE guild_id = ?", (guild_id,))
+        cursor.execute("DELETE FROM guild_titles WHERE from_guild_id = ? OR to_guild_id = ?", (guild_id, guild_id))
+        conn.commit()
+    return {"message": "Гильдия расформирована"}
+
+
+@app.post("/api/guilds/{guild_id}/members/{member_id}/role")
+def set_member_role(guild_id: int, member_id: int, data: GuildRoleRequest, user: dict = Depends(require_auth)):
+    """Set a member's role (president only)."""
+    uid = user["id"]
+    if data.role not in ("president", "chairman", "developer"):
+        raise HTTPException(400, "Недопустимая роль")
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT role FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, uid),
+        )
+        row = cursor.fetchone()
+        if not row or row["role"] != "president":
+            raise HTTPException(403, "Только президент может менять роли")
+        cursor.execute(
+            "SELECT id FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, member_id),
+        )
+        if not cursor.fetchone():
+            raise HTTPException(404, "Участник не найден")
+
+        if data.role == "president":
+            # Transfer presidency
+            cursor.execute(
+                "UPDATE guild_members SET role = 'chairman' WHERE guild_id = ? AND user_id = ?",
+                (guild_id, uid),
+            )
+        cursor.execute(
+            "UPDATE guild_members SET role = ? WHERE guild_id = ? AND user_id = ?",
+            (data.role, guild_id, member_id),
+        )
+        conn.commit()
+    role_emoji = {"president": "👑", "chairman": "🎖️", "developer": "💻"}.get(data.role, "")
+    return {"message": f"Роль изменена на {role_emoji} {data.role}"}
+
+
+@app.post("/api/guilds/{guild_id}/kick/{member_id}")
+def kick_member(guild_id: int, member_id: int, user: dict = Depends(require_auth)):
+    """Kick a member (president/chairman can kick developers)."""
+    uid = user["id"]
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT role FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, uid),
+        )
+        caller = cursor.fetchone()
+        if not caller or caller["role"] not in ("president", "chairman"):
+            raise HTTPException(403, "Недостаточно прав")
+        cursor.execute(
+            "SELECT role FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, member_id),
+        )
+        target = cursor.fetchone()
+        if not target:
+            raise HTTPException(404, "Участник не найден")
+        if target["role"] == "president":
+            raise HTTPException(400, "Нельзя исключить президента")
+        if target["role"] == "chairman" and caller["role"] != "president":
+            raise HTTPException(403, "Только президент может исключить председателя")
+        cursor.execute(
+            "DELETE FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, member_id),
+        )
+        conn.commit()
+    return {"message": "Участник исключён"}
+
+
+@app.post("/api/guilds/{guild_id}/titles")
+def assign_title(guild_id: int, data: GuildTitleRequest, user: dict = Depends(require_auth)):
+    """Top-1 guild president can assign debuff titles to other guilds."""
+    uid = user["id"]
+    if data.preset not in _GUILD_TITLE_PRESETS:
+        raise HTTPException(400, "Неизвестный тип титула")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        # Verify user is president of the requesting guild
+        cursor.execute(
+            "SELECT role FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, uid),
+        )
+        row = cursor.fetchone()
+        if not row or row["role"] != "president":
+            raise HTTPException(403, "Только президент может назначать титулы")
+
+        # Verify this guild is #1
+        cursor.execute("SELECT id FROM guilds WHERE disbanded_at IS NULL")
+        all_ids = [r["id"] for r in cursor.fetchall()]
+        ranked = sorted(all_ids, key=lambda gid: _guild_ranking_score(cursor, gid)["score"], reverse=True)
+        if not ranked or ranked[0] != guild_id:
+            raise HTTPException(403, "Только гильдия №1 может назначать титулы")
+
+        if data.to_guild_id == guild_id:
+            raise HTTPException(400, "Нельзя назначить титул своей гильдии")
+
+        # Check target guild exists
+        cursor.execute("SELECT id FROM guilds WHERE id = ? AND disbanded_at IS NULL", (data.to_guild_id,))
+        if not cursor.fetchone():
+            raise HTTPException(404, "Целевая гильдия не найдена")
+
+        # Check cooldown — max 1 title per day per target
+        cursor.execute("""
+            SELECT id FROM guild_titles
+            WHERE from_guild_id = ? AND to_guild_id = ?
+              AND created_at > datetime('now', '-1 day')
+        """, (guild_id, data.to_guild_id))
+        if cursor.fetchone():
+            raise HTTPException(429, "Можно назначать титул одной гильдии раз в сутки")
+
+        preset = _GUILD_TITLE_PRESETS[data.preset]
+        cursor.execute("""
+            INSERT INTO guild_titles (from_guild_id, to_guild_id, title_text, effect_type, effect_value, expires_at)
+            VALUES (?, ?, ?, ?, ?, datetime('now', '+1 day'))
+        """, (guild_id, data.to_guild_id, preset["title_text"], preset["effect_type"], preset["effect_value"]))
+        conn.commit()
+
+    return {"message": f"Титул «{preset['title_text']}» назначен!"}
+
+
+# ==================== ADMIN: GUILD MANAGEMENT ====================
+
+@app.post("/api/admin/guilds/settings")
+def update_guild_settings(data: GuildSettingsRequest, admin: dict = Depends(require_admin)):
+    """Update guild settings (max guilds, etc.)."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT OR REPLACE INTO guild_settings (key, value) VALUES ('max_guilds', ?)",
+            (str(data.max_guilds),),
+        )
+        conn.commit()
+    return {"message": f"Лимит гильдий: {data.max_guilds}"}
+
+
+@app.get("/api/admin/guilds/settings")
+def get_guild_settings(admin: dict = Depends(require_admin)):
+    """Get guild settings."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        max_guilds = _get_max_guilds(cursor)
+    return {"max_guilds": max_guilds}
+
+
+@app.post("/api/admin/guilds/{guild_id}/disband")
+def admin_disband_guild(guild_id: int, admin: dict = Depends(require_admin)):
+    """Admin force-disband a guild."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM guilds WHERE id = ? AND disbanded_at IS NULL", (guild_id,))
+        if not cursor.fetchone():
+            raise HTTPException(404, "Гильдия не найдена")
+        cursor.execute(
+            "UPDATE guilds SET disbanded_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (guild_id,),
+        )
+        cursor.execute("DELETE FROM guild_members WHERE guild_id = ?", (guild_id,))
+        cursor.execute("DELETE FROM guild_titles WHERE from_guild_id = ? OR to_guild_id = ?", (guild_id, guild_id))
+        conn.commit()
+    return {"message": "Гильдия расформирована администратором"}
+
+
+@app.get("/api/admin/guilds/rankings")
+def admin_guild_rankings(admin: dict = Depends(require_admin)):
+    """Get guild rankings for admin panel with historical data."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT g.id, g.name, g.avatar_emoji, g.created_at FROM guilds g WHERE g.disbanded_at IS NULL")
+        guilds = []
+        for row in cursor.fetchall():
+            g = dict(row)
+            stats = _guild_ranking_score(cursor, g["id"])
+            g.update(stats)
+            guilds.append(g)
+        guilds.sort(key=lambda x: x["score"], reverse=True)
+        for i, g in enumerate(guilds):
+            g["rank"] = i + 1
+    return {"rankings": guilds}
+
 
 # ==================== STARTUP ====================
 

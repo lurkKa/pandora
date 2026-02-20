@@ -2360,6 +2360,12 @@
                 <button class="tab-btn lextype-tab" role="tab" aria-selected="false" onclick="openAlextype()">
                     <span class="tab-icon">⌨️</span> AlexType
                 </button>
+                <button class="tab-btn guild-tab" role="tab" aria-selected="false" onclick="toggleGuildPanel()">
+                    <span class="tab-icon">🛡️</span> Гильдия
+                </button>
+                <button class="tab-btn guild-tab" role="tab" aria-selected="false" onclick="toggleGuildRankings()">
+                    <span class="tab-icon">⚔️</span> Рейтинг
+                </button>
             </div>
         </nav>
 
@@ -2412,6 +2418,270 @@
             </div>
         </div>
     </div>
+
+    <!-- ========== GUILD: MY GUILD PANEL ========== -->
+    <div class="leaderboard-sidebar guild-panel" id="guild-panel">
+        <div class="leaderboard-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h3>🛡️ Моя Гильдия</h3>
+            <button class="btn btn-small" onclick="toggleGuildPanel()"
+                style="padding:6px 10px; font-size:11px;">✕</button>
+        </div>
+        <div id="guild-content" style="padding:12px;">
+            <div style="color:var(--text-secondary); text-align:center; font-size:13px;">Загрузка...</div>
+        </div>
+    </div>
+
+    <!-- ========== GUILD: RANKINGS PANEL ========== -->
+    <div class="leaderboard-sidebar guild-panel" id="guild-rankings-panel"
+        style="left:auto; right:-380px; border-right:none; border-left:1px solid rgba(255,255,255,0.08); width:360px; transition:right 0.3s ease;">
+        <div class="leaderboard-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h3>⚔️ Рейтинг Гильдий</h3>
+            <button class="btn btn-small" onclick="toggleGuildRankings()"
+                style="padding:6px 10px; font-size:11px;">✕</button>
+        </div>
+        <div id="guild-rankings-content" style="padding:12px;">
+            <div style="color:var(--text-secondary); text-align:center; font-size:13px;">Загрузка...</div>
+        </div>
+    </div>
+
+    <!-- Guild Create Modal -->
+    <div class="modal-overlay" id="guild-create-modal" role="dialog" aria-modal="true">
+        <div class="modal-content" style="max-width:440px;">
+            <div class="modal-header">
+                <h2>🛡️ Создать Гильдию</h2>
+                <button class="btn-close" onclick="closeGuildCreateModal()">✕ Close</button>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <div class="form-group" style="margin-bottom:16px;">
+                    <label class="form-label">Название гильдии</label>
+                    <input type="text" id="guild-name-input" class="form-input" placeholder="2-30 символов"
+                        maxlength="30">
+                </div>
+                <div class="form-group" style="margin-bottom:16px;">
+                    <label class="form-label">Описание</label>
+                    <textarea id="guild-desc-input" class="form-input" placeholder="О чём ваша гильдия..."
+                        maxlength="200" rows="2" style="resize:vertical;"></textarea>
+                </div>
+                <div class="form-group" style="margin-bottom:16px;">
+                    <label class="form-label">Символ</label>
+                    <div id="guild-avatar-grid" style="display:grid; grid-template-columns:repeat(8, 1fr); gap:6px;">
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="createGuild()" style="width:100%;">Создать гильдию</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Guild tab styling */
+        .tab-btn.guild-tab {
+            background: rgba(234, 179, 8, 0.08);
+            border-color: rgba(234, 179, 8, 0.2);
+        }
+
+        .tab-btn.guild-tab:hover {
+            background: rgba(234, 179, 8, 0.18);
+            border-color: rgba(234, 179, 8, 0.4);
+        }
+
+        /* Guild panels */
+        .guild-panel.open {
+            left: 0 !important;
+            right: 0 !important;
+        }
+
+        /* Guild card */
+        .guild-card {
+            background: linear-gradient(135deg, rgba(234, 179, 8, 0.1), rgba(139, 92, 246, 0.08));
+            border: 1px solid rgba(234, 179, 8, 0.2);
+            border-radius: 14px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .guild-card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .guild-card-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+        }
+
+        .guild-card-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-bright);
+        }
+
+        .guild-card-role {
+            font-size: 11px;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .guild-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .guild-stat {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .guild-stat-val {
+            font-size: 20px;
+            font-weight: 700;
+            color: #fbbf24;
+        }
+
+        .guild-stat-lbl {
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .guild-member-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.12);
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+
+        .guild-member-row .role-badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+
+        .role-president {
+            background: rgba(251, 191, 36, 0.2);
+            color: #fbbf24;
+        }
+
+        .role-chairman {
+            background: rgba(167, 139, 250, 0.2);
+            color: #a78bfa;
+        }
+
+        .role-developer {
+            background: rgba(96, 165, 250, 0.2);
+            color: #60a5fa;
+        }
+
+        /* Rankings table */
+        .guild-rank-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.15);
+            margin-bottom: 8px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .guild-rank-row:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .guild-rank-row.rank-1 {
+            border: 1px solid rgba(251, 191, 36, 0.3);
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(0, 0, 0, 0.15));
+        }
+
+        .guild-rank-pos {
+            font-size: 16px;
+            font-weight: 800;
+            width: 28px;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .guild-rank-row.rank-1 .guild-rank-pos {
+            color: #fbbf24;
+        }
+
+        .guild-rank-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .guild-rank-name {
+            font-weight: 600;
+            color: var(--text-bright);
+            font-size: 14px;
+        }
+
+        .guild-rank-meta {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .guild-rank-score {
+            font-size: 16px;
+            font-weight: 700;
+            color: #fbbf24;
+            text-shadow: 0 0 6px rgba(251, 191, 36, 0.3);
+        }
+
+        .guild-title-badge {
+            display: inline-block;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            margin-left: 4px;
+        }
+
+        /* Guild create avatar picker */
+        .guild-avatar-pick {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .guild-avatar-pick:hover {
+            border-color: var(--accent);
+            background: rgba(139, 92, 246, 0.15);
+        }
+
+        .guild-avatar-pick.selected {
+            border-color: #fbbf24;
+            background: rgba(251, 191, 36, 0.15);
+            box-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+        }
+    </style>
 
     <!-- Profile Panel -->
     <div class="profile-panel" id="profile-panel">
@@ -5719,6 +5989,347 @@
                 container.innerHTML = html;
             } catch (e) {
                 console.error('Failed to load profile leaderboard:', e);
+            }
+        }
+
+        // ==================== GUILD SYSTEM ====================
+        const GUILD_AVATARS = ['🛡️', '⚔️', '🐉', '🔥', '🌟', '💎', '🏰', '🦅', '🐺', '🦁', '👑', '🎯', '💀', '🌙', '⚡', '🔱'];
+        let selectedGuildAvatar = '🛡️';
+
+        function toggleGuildPanel() {
+            const panel = document.getElementById('guild-panel');
+            const overlay = document.getElementById('panel-overlay');
+            const isOpen = panel.classList.contains('open');
+            // Close other panels
+            document.getElementById('guild-rankings-panel').classList.remove('open');
+            document.getElementById('leaderboard-panel').classList.remove('open');
+            document.getElementById('chat-panel').classList.remove('open');
+            if (isOpen) {
+                panel.classList.remove('open');
+                overlay.classList.remove('visible');
+            } else {
+                panel.classList.add('open');
+                overlay.classList.add('visible');
+                loadMyGuild();
+            }
+        }
+
+        function toggleGuildRankings() {
+            const panel = document.getElementById('guild-rankings-panel');
+            const overlay = document.getElementById('panel-overlay');
+            const isOpen = panel.classList.contains('open');
+            document.getElementById('guild-panel').classList.remove('open');
+            document.getElementById('leaderboard-panel').classList.remove('open');
+            document.getElementById('chat-panel').classList.remove('open');
+            if (isOpen) {
+                panel.classList.remove('open');
+                overlay.classList.remove('visible');
+            } else {
+                panel.classList.add('open');
+                overlay.classList.add('visible');
+                loadGuildRankings();
+            }
+        }
+
+        async function loadMyGuild() {
+            const container = document.getElementById('guild-content');
+            try {
+                const res = await fetch(`${API_URL}/api/guilds/my`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                if (!data.guild) {
+                    renderNoGuild(container);
+                    return;
+                }
+                renderMyGuild(container, data.guild);
+            } catch (e) {
+                container.innerHTML = '<div style="color:var(--danger);text-align:center;">Ошибка загрузки</div>';
+            }
+        }
+
+        function renderNoGuild(container) {
+            container.innerHTML = `
+                <div style="text-align:center; padding:30px 10px;">
+                    <div style="font-size:48px; margin-bottom:12px;">🛡️</div>
+                    <h3 style="color:var(--text-bright); margin-bottom:8px;">Вы не в гильдии</h3>
+                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:16px;">
+                        Создайте свою гильдию или вступите в существующую
+                    </p>
+                    <button class="btn btn-primary" onclick="openGuildCreateModal()" style="margin-bottom:10px; width:100%;">
+                        ✨ Создать гильдию
+                    </button>
+                    <div style="color:var(--text-secondary); font-size:11px; margin-bottom:12px;">— или —</div>
+                    <div id="guild-join-list" style="text-align:left;">
+                        <div style="color:var(--text-secondary); font-size:12px; text-align:center;">Загрузка списка...</div>
+                    </div>
+                </div>
+            `;
+            loadGuildJoinList();
+        }
+
+        async function loadGuildJoinList() {
+            const container = document.getElementById('guild-join-list');
+            try {
+                const res = await fetch(`${API_URL}/api/guilds`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                if (!data.guilds || data.guilds.length === 0) {
+                    container.innerHTML = '<div style="color:var(--text-secondary); font-size:12px; text-align:center;">Нет доступных гильдий</div>';
+                    return;
+                }
+                let html = '<div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px; font-weight:600;">Доступные гильдии:</div>';
+                for (const g of data.guilds) {
+                    html += `
+                        <div class="guild-rank-row" onclick="joinGuild(${g.id})" style="cursor:pointer;">
+                            <span style="font-size:24px;">${g.avatar_emoji}</span>
+                            <div class="guild-rank-info">
+                                <div class="guild-rank-name">${g.name}</div>
+                                <div class="guild-rank-meta">${g.member_count} уч. · ${g.total_xp} XP</div>
+                            </div>
+                            <span style="font-size:11px; color:var(--success);">Вступить →</span>
+                        </div>`;
+                }
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = '<div style="color:var(--danger); font-size:12px;">Ошибка</div>';
+            }
+        }
+
+        function renderMyGuild(container, guild) {
+            const roleEmojis = { president: '👑', chairman: '🎖️', developer: '💻' };
+            const roleNames = { president: 'Президент', chairman: 'Председатель', developer: 'Разработчик' };
+            const isPresident = guild.my_role === 'president';
+            const isChairmanOrAbove = guild.my_role === 'president' || guild.my_role === 'chairman';
+            const bonusPct = guild.my_role === 'president' ? '+10%' : guild.my_role === 'chairman' ? '+5%' : '';
+            const bonusHtml = bonusPct ? `<span style="color:var(--success); font-size:11px; margin-left:6px;">${bonusPct} XP</span>` : '';
+
+            let titlesHtml = '';
+            if (guild.active_titles && guild.active_titles.length > 0) {
+                titlesHtml = '<div style="margin-bottom:12px;">';
+                for (const t of guild.active_titles) {
+                    titlesHtml += `<span class="guild-title-badge">⚠️ ${t.title_text} (от ${t.from_guild_name})</span> `;
+                }
+                titlesHtml += '</div>';
+            }
+
+            let membersHtml = '';
+            for (const m of guild.members) {
+                const roleClass = 'role-' + m.role;
+                const kickBtn = (isChairmanOrAbove && m.user_id !== currentUser.id && m.role !== 'president')
+                    ? `<button onclick="kickMember(${guild.id}, ${m.user_id})" style="font-size:10px; padding:2px 6px; border-radius:4px; border:1px solid rgba(239,68,68,0.3); background:transparent; color:#f87171; cursor:pointer;" title="Исключить">✕</button>`
+                    : '';
+                const roleDropdown = isPresident && m.user_id !== currentUser.id
+                    ? `<select onchange="setRole(${guild.id}, ${m.user_id}, this.value)" style="font-size:10px; padding:2px 4px; background:transparent; border:1px solid rgba(255,255,255,0.15); border-radius:4px; color:var(--text-secondary); cursor:pointer;">
+                        <option value="developer" ${m.role === 'developer' ? 'selected' : ''}>💻</option>
+                        <option value="chairman" ${m.role === 'chairman' ? 'selected' : ''}>🎖️</option>
+                        <option value="president" ${m.role === 'president' ? 'selected' : ''}>👑</option>
+                       </select>`
+                    : '';
+                membersHtml += `
+                    <div class="guild-member-row">
+                        <span style="font-size:18px;">${roleEmojis[m.role] || '💻'}</span>
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-weight:600; color:var(--text-bright); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${m.display_name}</div>
+                            <div style="font-size:11px; color:var(--text-secondary);">${m.xp} XP · LV ${m.level}</div>
+                        </div>
+                        <span class="role-badge ${roleClass}">${roleNames[m.role]}</span>
+                        ${roleDropdown}
+                        ${kickBtn}
+                    </div>`;
+            }
+
+            const leaveOrDisbandBtn = isPresident
+                ? `<button class="btn" onclick="disbandGuild(${guild.id})" style="width:100%; background:var(--danger); color:white; margin-top:8px; font-size:12px;">🗑️ Расформировать</button>`
+                : `<button class="btn" onclick="leaveGuild(${guild.id})" style="width:100%; background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.3); margin-top:8px; font-size:12px;">🚪 Покинуть</button>`;
+
+            container.innerHTML = `
+                <div class="guild-card">
+                    <div class="guild-card-header">
+                        <div class="guild-card-avatar">${guild.avatar_emoji}</div>
+                        <div>
+                            <div class="guild-card-name">${guild.name}</div>
+                            <div class="guild-card-role">${roleEmojis[guild.my_role] || ''} ${roleNames[guild.my_role] || guild.my_role}${bonusHtml}</div>
+                        </div>
+                    </div>
+                    ${guild.description ? `<p style="color:var(--text-secondary); font-size:12px; margin-bottom:12px;">${guild.description}</p>` : ''}
+                    ${titlesHtml}
+                    <div class="guild-stats-grid">
+                        <div class="guild-stat">
+                            <div class="guild-stat-val">${guild.member_count}</div>
+                            <div class="guild-stat-lbl">Участников</div>
+                        </div>
+                        <div class="guild-stat">
+                            <div class="guild-stat-val">${guild.total_xp.toLocaleString()}</div>
+                            <div class="guild-stat-lbl">Общий XP</div>
+                        </div>
+                        <div class="guild-stat">
+                            <div class="guild-stat-val">${guild.total_tasks}</div>
+                            <div class="guild-stat-lbl">Квестов</div>
+                        </div>
+                    </div>
+                </div>
+                <h4 style="color:var(--text-bright); margin-bottom:8px; font-size:13px;">👥 Участники (${guild.members.length})</h4>
+                ${membersHtml}
+                ${leaveOrDisbandBtn}
+            `;
+        }
+
+        async function loadGuildRankings() {
+            const container = document.getElementById('guild-rankings-content');
+            try {
+                const res = await fetch(`${API_URL}/api/guilds/rankings`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                if (!data.rankings || data.rankings.length === 0) {
+                    container.innerHTML = '<div style="color:var(--text-secondary); text-align:center; padding:30px; font-size:13px;">Гильдий пока нет</div>';
+                    return;
+                }
+                let html = '';
+                for (const g of data.rankings) {
+                    const posEmoji = g.rank === 1 ? '🥇' : g.rank === 2 ? '🥈' : g.rank === 3 ? '🥉' : `#${g.rank}`;
+                    const titleBadges = (g.titles || []).map(t => `<span class="guild-title-badge">⚠️ ${t.title_text}</span>`).join('');
+                    html += `
+                        <div class="guild-rank-row ${g.rank === 1 ? 'rank-1' : ''}">
+                            <div class="guild-rank-pos">${posEmoji}</div>
+                            <span style="font-size:24px;">${g.avatar_emoji}</span>
+                            <div class="guild-rank-info">
+                                <div class="guild-rank-name">${g.name} ${titleBadges}</div>
+                                <div class="guild-rank-meta">${g.member_count} уч. · ${g.total_tasks} квестов · ${g.total_xp.toLocaleString()} XP</div>
+                            </div>
+                            <div class="guild-rank-score">${g.score}</div>
+                        </div>`;
+                }
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = '<div style="color:var(--danger); text-align:center;">Ошибка загрузки</div>';
+            }
+        }
+
+        function openGuildCreateModal() {
+            const modal = document.getElementById('guild-create-modal');
+            modal.classList.add('active');
+            document.getElementById('guild-name-input').value = '';
+            document.getElementById('guild-desc-input').value = '';
+            selectedGuildAvatar = '🛡️';
+            const grid = document.getElementById('guild-avatar-grid');
+            grid.innerHTML = GUILD_AVATARS.map(a =>
+                `<div class="guild-avatar-pick ${a === selectedGuildAvatar ? 'selected' : ''}" onclick="selectGuildAvatar(this, '${a}')">${a}</div>`
+            ).join('');
+        }
+
+        function closeGuildCreateModal() {
+            document.getElementById('guild-create-modal').classList.remove('active');
+        }
+
+        function selectGuildAvatar(el, emoji) {
+            document.querySelectorAll('.guild-avatar-pick').forEach(e => e.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedGuildAvatar = emoji;
+        }
+
+        async function createGuild() {
+            const name = document.getElementById('guild-name-input').value.trim();
+            const desc = document.getElementById('guild-desc-input').value.trim();
+            if (!name || name.length < 2) {
+                alert('Название должно быть от 2 символов');
+                return;
+            }
+            try {
+                const res = await fetch(`${API_URL}/api/guilds`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name, description: desc, avatar_emoji: selectedGuildAvatar })
+                });
+                const data = await res.json();
+                if (!res.ok) { alert(data.detail || 'Ошибка'); return; }
+                closeGuildCreateModal();
+                loadMyGuild();
+            } catch (e) {
+                alert('Ошибка создания гильдии');
+            }
+        }
+
+        async function joinGuild(guildId) {
+            if (!confirm('Вступить в эту гильдию?')) return;
+            try {
+                const res = await fetch(`${API_URL}/api/guilds/${guildId}/join`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                if (!res.ok) { alert(data.detail || 'Ошибка'); return; }
+                loadMyGuild();
+            } catch (e) {
+                alert('Ошибка');
+            }
+        }
+
+        async function leaveGuild(guildId) {
+            if (!confirm('Вы уверены, что хотите покинуть гильдию?')) return;
+            try {
+                const res = await fetch(`${API_URL}/api/guilds/${guildId}/leave`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                if (!res.ok) { alert(data.detail || 'Ошибка'); return; }
+                loadMyGuild();
+            } catch (e) {
+                alert('Ошибка');
+            }
+        }
+
+        async function disbandGuild(guildId) {
+            if (!confirm('⚠️ Расформировать гильдию? Это действие нельзя отменить!')) return;
+            try {
+                const res = await fetch(`${API_URL}/api/guilds/${guildId}/disband`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                if (!res.ok) { alert(data.detail || 'Ошибка'); return; }
+                loadMyGuild();
+            } catch (e) {
+                alert('Ошибка');
+            }
+        }
+
+        async function kickMember(guildId, memberId) {
+            if (!confirm('Исключить участника из гильдии?')) return;
+            try {
+                const res = await fetch(`${API_URL}/api/guilds/${guildId}/kick/${memberId}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                if (!res.ok) { alert(data.detail || 'Ошибка'); return; }
+                loadMyGuild();
+            } catch (e) {
+                alert('Ошибка');
+            }
+        }
+
+        async function setRole(guildId, memberId, role) {
+            try {
+                const res = await fetch(`${API_URL}/api/guilds/${guildId}/members/${memberId}/role`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ role })
+                });
+                const data = await res.json();
+                if (!res.ok) { alert(data.detail || 'Ошибка'); return; }
+                loadMyGuild();
+            } catch (e) {
+                alert('Ошибка');
             }
         }
 
