@@ -518,6 +518,19 @@ def init_db():
                 FOREIGN KEY (sender_id) REFERENCES users(id)
             )
         """)
+
+        # Guild chat messages
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS guild_chat_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                guild_id INTEGER NOT NULL,
+                sender_id INTEGER NOT NULL,
+                message TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (guild_id) REFERENCES guilds(id) ON DELETE CASCADE,
+                FOREIGN KEY (sender_id) REFERENCES users(id)
+            )
+        """)
         
         # XP history for progress graph
         cursor.execute("""
@@ -740,6 +753,7 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_titles_to ON guild_titles(to_guild_id, expires_at)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_invitations_to ON guild_invitations(to_user_id, status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_invitations_guild ON guild_invitations(guild_id, status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_chat_guild ON guild_chat_messages(guild_id, created_at DESC)")
         
         conn.commit()
         
@@ -860,6 +874,12 @@ def init_db():
 
         try:
             cursor.execute("ALTER TABLE users ADD COLUMN avatar_key TEXT")
+        except sqlite3.OperationalError:
+            pass
+
+        # Online tracking: precise last-seen timestamp
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN last_seen_at TIMESTAMP")
         except sqlite3.OperationalError:
             pass
         
@@ -2224,7 +2244,8 @@ def get_leaderboard(limit: int = Query(20, le=100)):
                    COALESCE(u.avatar_key, '') as avatar_key,
                    CASE WHEN s.avatar_data IS NOT NULL AND s.avatar_data != '' THEN 1 ELSE 0 END as has_avatar,
                    gm.guild_id as guild_id,
-                   g.name as guild_name
+                   g.name as guild_name,
+                   gm.role as guild_role
             FROM users u
             LEFT JOIN ranks r ON u.xp >= r.min_xp
             LEFT JOIN user_stats s ON u.id = s.user_id
@@ -2250,6 +2271,7 @@ def get_leaderboard(limit: int = Query(20, le=100)):
                 "has_avatar": bool(row["has_avatar"]),
                 "guild_id": row["guild_id"],
                 "guild_name": row["guild_name"],
+                "guild_role": row["guild_role"],
             })
     return {"leaderboard": leaders}
 
@@ -5932,12 +5954,16 @@ def get_my_guild(user: dict = Depends(require_auth)):
         stats = _guild_ranking_score(cursor, guild["id"])
         guild.update(stats)
 
-        # Members
+        # Members with online status and avatar info
         cursor.execute("""
             SELECT gm.user_id, gm.role, gm.joined_at,
-                   u.display_name, u.xp, u.level, u.avatar_key
+                   u.display_name, u.xp, u.level, u.avatar_key, u.last_seen_at,
+                   CASE WHEN s.avatar_data IS NOT NULL AND s.avatar_data != '' THEN 1 ELSE 0 END as has_avatar,
+                   COALESCE(s.total_quests, 0) as total_quests,
+                   COALESCE(s.streak_days, 0) as streak_days
             FROM guild_members gm
             JOIN users u ON u.id = gm.user_id
+            LEFT JOIN user_stats s ON s.user_id = u.id
             WHERE gm.guild_id = ?
             ORDER BY CASE gm.role
                 WHEN 'president' THEN 1
@@ -6306,6 +6332,239 @@ def admin_guild_rankings(admin: dict = Depends(require_admin)):
         for i, g in enumerate(guilds):
             g["rank"] = i + 1
     return {"rankings": guilds}
+
+
+# ==================== HEARTBEAT ====================
+
+@app.post("/api/heartbeat")
+def heartbeat(user: dict = Depends(require_auth)):
+    """Update user's last_seen_at for online tracking."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE users SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (user["id"],),
+        )
+        conn.commit()
+    return {"ok": True}
+
+
+# ==================== GUILD: MEMBER DETAIL ====================
+
+@app.get("/api/guilds/{guild_id}/members/{member_id}/detail")
+def get_guild_member_detail(guild_id: int, member_id: int, user: dict = Depends(require_auth)):
+    """Get detailed stats for a guild member. President sees full stats."""
+    uid = user["id"]
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        # Verify requester is in the guild
+        cursor.execute(
+            "SELECT role FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, uid),
+        )
+        my_row = cursor.fetchone()
+        if not my_row:
+            raise HTTPException(403, "Вы не в этой гильдии")
+
+        is_president = my_row["role"] == "president"
+
+        # Verify target is in the guild
+        cursor.execute(
+            "SELECT role FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, member_id),
+        )
+        if not cursor.fetchone():
+            raise HTTPException(404, "Участник не найден")
+
+        # Basic info
+        cursor.execute("""
+            SELECT u.id, u.display_name, u.xp, u.level, u.created_at, u.last_seen_at,
+                   COALESCE(s.total_quests, 0) as total_quests,
+                   COALESCE(s.streak_days, 0) as streak_days,
+                   COALESCE(s.best_streak, 0) as best_streak,
+                   gm.role, gm.joined_at
+            FROM users u
+            LEFT JOIN user_stats s ON s.user_id = u.id
+            JOIN guild_members gm ON gm.user_id = u.id AND gm.guild_id = ?
+            WHERE u.id = ?
+        """, (guild_id, member_id))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(404, "Пользователь не найден")
+
+        detail = dict(row)
+
+        # Rank
+        cursor.execute(
+            "SELECT name_ru, badge_emoji, color FROM ranks WHERE min_xp <= ? ORDER BY min_xp DESC LIMIT 1",
+            (detail["xp"],),
+        )
+        rank = cursor.fetchone()
+        if rank:
+            detail["rank_name"] = rank["name_ru"]
+            detail["rank_badge"] = rank["badge_emoji"]
+            detail["rank_color"] = rank["color"]
+
+        # Recent completions (last 10)
+        cursor.execute("""
+            SELECT task_id, completed_at, xp_earned, category
+            FROM completed_tasks
+            WHERE user_id = ? AND is_valid = 1
+            ORDER BY completed_at DESC
+            LIMIT 10
+        """, (member_id,))
+        detail["recent_completions"] = [dict(r) for r in cursor.fetchall()]
+
+        # Category breakdown
+        cursor.execute("""
+            SELECT category, COUNT(*) as count, SUM(xp_earned) as total_xp
+            FROM completed_tasks
+            WHERE user_id = ? AND is_valid = 1
+            GROUP BY category
+        """, (member_id,))
+        detail["category_stats"] = [dict(r) for r in cursor.fetchall()]
+
+        # President-only: XP log (last 20 entries)
+        if is_president:
+            cursor.execute("""
+                SELECT xp_change, reason, logged_at
+                FROM xp_log
+                WHERE user_id = ?
+                ORDER BY logged_at DESC
+                LIMIT 20
+            """, (member_id,))
+            detail["xp_log"] = [dict(r) for r in cursor.fetchall()]
+
+            # Today's activity (XP earned today)
+            cursor.execute("""
+                SELECT COALESCE(SUM(xp_change), 0) as today_xp
+                FROM xp_log
+                WHERE user_id = ? AND DATE(logged_at) = DATE('now')
+                AND xp_change > 0
+            """, (member_id,))
+            detail["today_xp"] = cursor.fetchone()["today_xp"]
+
+        detail["is_president_view"] = is_president
+
+    return detail
+
+
+# ==================== GUILD: PRESIDENT XP ADJUST ====================
+
+class GuildXpAdjust(BaseModel):
+    delta_xp: int
+    reason: str = ""
+
+
+@app.post("/api/guilds/{guild_id}/members/{member_id}/xp")
+def president_adjust_xp(guild_id: int, member_id: int, body: GuildXpAdjust, user: dict = Depends(require_auth)):
+    """President adjusts member XP. Limited to ±200."""
+    uid = user["id"]
+    delta = body.delta_xp
+
+    if abs(delta) > 200 or delta == 0:
+        raise HTTPException(400, "Допустимый диапазон: от -200 до +200 XP (не 0)")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        # Check president
+        cursor.execute(
+            "SELECT role FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, uid),
+        )
+        row = cursor.fetchone()
+        if not row or row["role"] != "president":
+            raise HTTPException(403, "Только президент может изменять XP")
+
+        # Check target is in guild and not self
+        if member_id == uid:
+            raise HTTPException(400, "Нельзя изменять свой XP")
+
+        cursor.execute(
+            "SELECT id FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, member_id),
+        )
+        if not cursor.fetchone():
+            raise HTTPException(404, "Участник не найден")
+
+        reason = f"guild_president_adjust: {body.reason}" if body.reason else "guild_president_adjust"
+        new_xp, new_level = apply_xp_change(cursor, member_id, delta, reason)
+        conn.commit()
+
+    sign = "+" if delta > 0 else ""
+    return {"message": f"XP изменён на {sign}{delta}", "new_xp": new_xp, "new_level": new_level}
+
+
+# ==================== GUILD: CHAT ====================
+
+@app.get("/api/guilds/{guild_id}/chat")
+def get_guild_chat(guild_id: int, limit: int = Query(50, le=100), user: dict = Depends(require_auth)):
+    """Get guild chat messages."""
+    uid = user["id"]
+    with get_db() as conn:
+        cursor = conn.cursor()
+        # Verify membership
+        cursor.execute(
+            "SELECT id FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, uid),
+        )
+        if not cursor.fetchone():
+            raise HTTPException(403, "Вы не в этой гильдии")
+
+        cursor.execute("""
+            SELECT gcm.id, gcm.message, gcm.created_at,
+                   gcm.sender_id, u.display_name, gm.role
+            FROM guild_chat_messages gcm
+            JOIN users u ON u.id = gcm.sender_id
+            JOIN guild_members gm ON gm.user_id = gcm.sender_id AND gm.guild_id = ?
+            WHERE gcm.guild_id = ?
+            ORDER BY gcm.created_at DESC
+            LIMIT ?
+        """, (guild_id, guild_id, limit))
+        messages = [dict(m) for m in cursor.fetchall()]
+        messages.reverse()  # chronological order
+    return {"messages": messages}
+
+
+class GuildChatMessage(BaseModel):
+    message: str
+
+
+@app.post("/api/guilds/{guild_id}/chat")
+def send_guild_chat(guild_id: int, msg: GuildChatMessage, user: dict = Depends(require_auth)):
+    """Send message to guild chat."""
+    uid = user["id"]
+    text = msg.message.strip()
+    if not text or len(text) > 500:
+        raise HTTPException(400, "Сообщение от 1 до 500 символов")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        # Verify membership
+        cursor.execute(
+            "SELECT id FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, uid),
+        )
+        if not cursor.fetchone():
+            raise HTTPException(403, "Вы не в этой гильдии")
+
+        # Rate limit: 1 msg/sec
+        cursor.execute("""
+            SELECT COUNT(*) as cnt FROM guild_chat_messages
+            WHERE guild_id = ? AND sender_id = ?
+            AND created_at > datetime('now', '-1 second')
+        """, (guild_id, uid))
+        if cursor.fetchone()["cnt"] > 0:
+            raise HTTPException(429, "Подождите секунду")
+
+        cursor.execute(
+            "INSERT INTO guild_chat_messages (guild_id, sender_id, message) VALUES (?, ?, ?)",
+            (guild_id, uid, text),
+        )
+        conn.commit()
+    return {"message": "ok"}
 
 
 # ==================== GUILD: AVATAR UPLOAD ====================

@@ -1778,37 +1778,79 @@
             gap: 12px;
             padding: 14px 20px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-            transition: background 0.2s;
+            transition: all 0.25s ease;
+            border-radius: 12px;
+            margin: 2px 8px;
+            border: 2px solid transparent;
         }
 
         .leader-item:hover {
             background: var(--bg-hover);
         }
 
+        /* Top 3 glowing borders */
+        .leader-item.leader-gold {
+            background: rgba(251, 191, 36, 0.06);
+            border: 2px solid rgba(251, 191, 36, 0.5);
+            box-shadow: 0 0 16px rgba(251, 191, 36, 0.2), inset 0 0 12px rgba(251, 191, 36, 0.05);
+        }
+
+        .leader-item.leader-gold:hover {
+            background: rgba(251, 191, 36, 0.12);
+            box-shadow: 0 0 24px rgba(251, 191, 36, 0.35), inset 0 0 16px rgba(251, 191, 36, 0.08);
+        }
+
+        .leader-item.leader-silver {
+            background: rgba(192, 192, 220, 0.06);
+            border: 2px solid rgba(192, 192, 220, 0.4);
+            box-shadow: 0 0 14px rgba(192, 192, 220, 0.15), inset 0 0 10px rgba(192, 192, 220, 0.04);
+        }
+
+        .leader-item.leader-silver:hover {
+            background: rgba(192, 192, 220, 0.1);
+            box-shadow: 0 0 20px rgba(192, 192, 220, 0.3), inset 0 0 14px rgba(192, 192, 220, 0.06);
+        }
+
+        .leader-item.leader-bronze {
+            background: rgba(205, 127, 50, 0.06);
+            border: 2px solid rgba(205, 127, 50, 0.4);
+            box-shadow: 0 0 14px rgba(205, 127, 50, 0.15), inset 0 0 10px rgba(205, 127, 50, 0.04);
+        }
+
+        .leader-item.leader-bronze:hover {
+            background: rgba(205, 127, 50, 0.1);
+            box-shadow: 0 0 20px rgba(205, 127, 50, 0.3), inset 0 0 14px rgba(205, 127, 50, 0.06);
+        }
+
         .leader-position {
-            width: 28px;
-            height: 28px;
+            width: 36px;
+            height: 36px;
+            min-width: 36px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 700;
-            font-size: 12px;
+            font-weight: 800;
+            font-size: 16px;
+            flex-shrink: 0;
         }
 
         .leader-position.gold {
-            background: #fbbf24;
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
             color: #000;
+            box-shadow: 0 2px 8px rgba(251, 191, 36, 0.4);
         }
 
         .leader-position.silver {
-            background: #9ca3af;
+            background: linear-gradient(135deg, #d1d5db, #9ca3af);
             color: #000;
+            box-shadow: 0 2px 8px rgba(156, 163, 175, 0.4);
         }
 
         .leader-position.bronze {
-            background: #cd7f32;
+            background: linear-gradient(135deg, #d97706, #cd7f32);
             color: #fff;
+            box-shadow: 0 2px 8px rgba(205, 127, 50, 0.4);
         }
 
         .leader-position.default {
@@ -2935,6 +2977,203 @@
             transform: scale(1.1);
         }
 
+        /* ---- Guild Chat ---- */
+        .guild-chat-container {
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            margin-top: 14px;
+            display: flex;
+            flex-direction: column;
+            max-height: 300px;
+        }
+
+        .guild-chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-height: 120px;
+            max-height: 220px;
+        }
+
+        .guild-chat-msg {
+            font-size: 13px;
+            line-height: 1.4;
+            padding: 6px 10px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .guild-chat-msg .chat-author {
+            font-weight: 700;
+            font-size: 11px;
+            margin-bottom: 2px;
+        }
+
+        .guild-chat-msg .chat-author.role-president {
+            color: #fbbf24;
+        }
+
+        .guild-chat-msg .chat-author.role-chairman {
+            color: #a78bfa;
+        }
+
+        .guild-chat-msg .chat-author.role-developer {
+            color: #60a5fa;
+        }
+
+        .guild-chat-msg .chat-text {
+            color: var(--text-secondary);
+        }
+
+        .guild-chat-msg .chat-time {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .guild-chat-input-row {
+            display: flex;
+            gap: 8px;
+            padding: 8px 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .guild-chat-input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: var(--text-bright);
+            padding: 8px 12px;
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .guild-chat-input:focus {
+            border-color: rgba(251, 191, 36, 0.5);
+        }
+
+        .guild-chat-send {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            border: none;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #000;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+            flex-shrink: 0;
+        }
+
+        .guild-chat-send:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+        }
+
+        /* ---- Online/Offline indicator ---- */
+        .online-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: inline-block;
+        }
+
+        .online-dot.online {
+            background: #22c55e;
+            box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+        }
+
+        .online-dot.offline {
+            background: #6b7280;
+        }
+
+        /* ---- Enhanced guild rank rows ---- */
+        .guild-rank-row {
+            cursor: pointer;
+            transition: all 0.25s ease;
+            border: 1px solid transparent;
+        }
+
+        .guild-rank-row:hover {
+            background: rgba(251, 191, 36, 0.08);
+            border-color: rgba(251, 191, 36, 0.15);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .guild-rank-row.rank-1 {
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(245, 158, 11, 0.04));
+            border-color: rgba(251, 191, 36, 0.2);
+        }
+
+        .guild-rank-row.rank-2 {
+            background: linear-gradient(135deg, rgba(192, 192, 220, 0.06), rgba(156, 163, 175, 0.03));
+            border-color: rgba(192, 192, 220, 0.15);
+        }
+
+        .guild-rank-row.rank-3 {
+            background: linear-gradient(135deg, rgba(205, 127, 50, 0.06), rgba(180, 100, 40, 0.03));
+            border-color: rgba(205, 127, 50, 0.15);
+        }
+
+        .guild-rank-score {
+            font-weight: 800;
+            font-size: 16px;
+            color: var(--warning);
+            text-shadow: 0 0 8px rgba(251, 191, 36, 0.3);
+        }
+
+        /* ---- Guild member avatar in list ---- */
+        .guild-member-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 18px;
+            background: rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+        }
+
+        .guild-member-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* ---- President guild tag in leaderboard ---- */
+        .guild-tag {
+            font-size: 10px;
+            margin-left: 4px;
+            font-weight: 600;
+        }
+
+        .guild-tag-president {
+            color: #fbbf24;
+            text-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
+        }
+
+        .guild-tag-chairman {
+            color: #a78bfa;
+            text-shadow: 0 0 6px rgba(167, 139, 250, 0.4);
+        }
+
+        .guild-tag-member {
+            color: var(--text-muted);
+        }
+
         /* ---- Invite button in leaderboard ---- */
         .guild-invite-btn {
             width: 32px;
@@ -3699,6 +3938,7 @@
             // Preload guild data (for invite buttons in leaderboard)
             loadMyGuild().catch(() => { });
             loadMyInvitations().catch(() => { });
+            startHeartbeat();
 
             // Initialize new features
             setTimeout(() => {
@@ -5046,10 +5286,11 @@
                             class="guild-invite-btn" title="Пригласить в гильдию">📩</button>`
                         : '';
                     const guildTag = user.guild_name
-                        ? `<span style="font-size:10px;color:var(--warning);margin-left:4px;">[${user.guild_name}]</span>`
+                        ? `<span class="guild-tag guild-tag-${user.guild_role === 'president' ? 'president' : user.guild_role === 'chairman' ? 'chairman' : 'member'}">${user.guild_role === 'president' ? '👑' : ''} [${user.guild_name}]</span>`
                         : '';
+                    const topClass = user.position === 1 ? 'leader-gold' : user.position === 2 ? 'leader-silver' : user.position === 3 ? 'leader-bronze' : '';
                     list.innerHTML += `
-                        <div class="leader-item" onclick="openPublicProfile(${user.id})" style="cursor:pointer;">
+                        <div class="leader-item ${topClass}" onclick="openPublicProfile(${user.id})" style="cursor:pointer;">
                             <div class="leader-position ${posClass}">${user.position}</div>
                             <div id="${avatarId}" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;margin-right:8px;" data-user-id="${user.id}" data-has-avatar="${user.has_avatar}">
                                 <span style="font-size:24px;">🧙</span>
@@ -6480,6 +6721,7 @@
 
             let membersHtml = '';
             for (const m of guild.members) {
+                const isOnline = m.last_seen_at && (Date.now() - new Date(m.last_seen_at + 'Z').getTime() < 5 * 60 * 1000);
                 const roleClass = 'role-' + m.role;
                 const kickBtn = (isChairmanOrAbove && m.user_id !== currentUser.id && m.role !== 'president')
                     ? `<button class="guild-kick-btn" onclick="kickMember(${guild.id}, ${m.user_id})" title="Исключить">✕</button>`
@@ -6492,11 +6734,14 @@
                        </select>`
                     : '';
                 membersHtml += `
-                    <div class="guild-member-row">
-                        <span style="font-size:20px;">${roleEmojis[m.role] || '💻'}</span>
+                    <div class="guild-member-row" style="cursor:pointer;" onclick="showMemberDetail(${guild.id}, ${m.user_id})">
+                        <div class="guild-member-avatar" id="gm-avatar-${m.user_id}" data-user-id="${m.user_id}" data-has-avatar="${m.has_avatar ? 'true' : 'false'}">
+                            <span>${roleEmojis[m.role] || '💻'}</span>
+                        </div>
+                        <span class="online-dot ${isOnline ? 'online' : 'offline'}" title="${isOnline ? 'Онлайн' : 'Офлайн'}"></span>
                         <div style="flex:1; min-width:0;">
                             <div class="guild-member-name">${m.display_name}</div>
-                            <div class="guild-member-meta">${m.xp} XP · LV ${m.level}</div>
+                            <div class="guild-member-meta">${m.xp.toLocaleString()} XP · LV ${m.level} · 🔥${m.streak_days || 0}</div>
                         </div>
                         <span class="role-badge ${roleClass}">${roleNames[m.role]}</span>
                         ${roleDropdown}
@@ -6534,10 +6779,25 @@
                         </div>
                     </div>
                 </div>
+                <div class="guild-section-title">💬 Чат гильдии</div>
+                <div class="guild-chat-container">
+                    <div class="guild-chat-messages" id="guild-chat-messages"></div>
+                    <div class="guild-chat-input-row">
+                        <input class="guild-chat-input" id="guild-chat-input" placeholder="Сообщение..." maxlength="500"
+                            onkeydown="if(event.key==='Enter'){sendGuildChatMsg(${guild.id})}">
+                        <button class="guild-chat-send" onclick="sendGuildChatMsg(${guild.id})">➤</button>
+                    </div>
+                </div>
                 <div class="guild-section-title">👥 Участники (${guild.members.length})</div>
                 ${membersHtml}
                 ${leaveOrDisbandBtn}
             `;
+            // Load guild chat and member avatars
+            loadGuildChat(guild.id);
+            loadGuildMemberAvatars();
+            // Auto-refresh chat every 15s
+            if (window._guildChatInterval) clearInterval(window._guildChatInterval);
+            window._guildChatInterval = setInterval(() => loadGuildChat(guild.id), 15000);
         }
 
         async function loadGuildRankings() {
@@ -6555,15 +6815,16 @@
                 for (const g of data.rankings) {
                     const posEmoji = g.rank === 1 ? '🥇' : g.rank === 2 ? '🥈' : g.rank === 3 ? '🥉' : `#${g.rank}`;
                     const titleBadges = (g.titles || []).map(t => `<span class="guild-title-badge">⚠️ ${t.title_text}</span>`).join('');
+                    const rankClass = g.rank <= 3 ? `rank-${g.rank}` : '';
                     html += `
-                        <div class="guild-rank-row ${g.rank === 1 ? 'rank-1' : ''}" onclick="showGuildDetail(${g.id})">
+                        <div class="guild-rank-row ${rankClass}" onclick="showGuildDetail(${g.id})">
                             <div class="guild-rank-pos">${posEmoji}</div>
                             <span class="guild-rank-emoji">${g.avatar_emoji}</span>
                             <div class="guild-rank-info">
                                 <div class="guild-rank-name">${g.name} ${titleBadges}</div>
-                                <div class="guild-rank-meta">${g.member_count} уч. · ${g.total_tasks} квестов · ${g.total_xp.toLocaleString()} XP</div>
+                                <div class="guild-rank-meta">👥${g.member_count} · 🎯${g.total_tasks} · ${g.total_xp.toLocaleString()} XP</div>
                             </div>
-                            <div class="guild-rank-score">${g.score}</div>
+                            <div class="guild-rank-score">⭐${g.score}</div>
                         </div>`;
                 }
                 container.innerHTML = html;
@@ -6885,6 +7146,214 @@
                 document.body.appendChild(overlay);
             } catch (e) {
                 console.error('Failed to load guild detail:', e);
+            }
+        }
+
+        // ==================== GUILD: CHAT FUNCTIONS ====================
+        async function loadGuildChat(guildId) {
+            const container = document.getElementById('guild-chat-messages');
+            if (!container) return;
+            try {
+                const res = await fetch(`${API_URL}/api/guilds/${guildId}/chat`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                const msgs = data.messages || [];
+                if (msgs.length === 0) {
+                    container.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:30px;font-size:13px;">Пока нет сообщений</div>';
+                    return;
+                }
+                container.innerHTML = msgs.map(m => {
+                    const time = new Date(m.created_at + 'Z').toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
+                    return `<div class="guild-chat-msg">
+                        <div class="chat-author role-${m.role}">${m.display_name}</div>
+                        <div class="chat-text">${m.message.replace(/</g, '&lt;')}</div>
+                        <div class="chat-time">${time}</div>
+                    </div>`;
+                }).join('');
+                container.scrollTop = container.scrollHeight;
+            } catch (e) { /* silent */ }
+        }
+
+        async function sendGuildChatMsg(guildId) {
+            const input = document.getElementById('guild-chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+            input.value = '';
+            try {
+                const res = await fetch(`${API_URL}/api/guilds/${guildId}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message: text })
+                });
+                if (!res.ok) {
+                    const data = await res.json();
+                    alert(data.detail || 'Ошибка');
+                    return;
+                }
+                loadGuildChat(guildId);
+            } catch (e) { alert('Ошибка'); }
+        }
+
+        // ==================== GUILD: MEMBER AVATARS ====================
+        function loadGuildMemberAvatars() {
+            const els = document.querySelectorAll('.guild-member-avatar[data-has-avatar="true"]');
+            for (const el of els) {
+                const uid = el.getAttribute('data-user-id');
+                if (avatarCache.has(uid)) {
+                    el.innerHTML = avatarCache.get(uid).replace('width:32px;height:32px', 'width:100%;height:100%');
+                } else {
+                    fetch(`${API_URL}/api/avatar/${uid}`)
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.avatar_data && data.avatar_data.startsWith('data:image')) {
+                                el.innerHTML = `<img src="${data.avatar_data}">`;
+                                avatarCache.set(uid, `<img src="${data.avatar_data}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">`);
+                            }
+                        }).catch(() => { });
+                }
+            }
+        }
+
+        // ==================== GUILD: MEMBER DETAIL POPUP ====================
+        async function showMemberDetail(guildId, memberId) {
+            try {
+                const res = await fetch(`${API_URL}/api/guilds/${guildId}/members/${memberId}/detail`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const d = await res.json();
+                if (!res.ok) { alert(d.detail || 'Ошибка'); return; }
+
+                const roleEmojis = { president: '👑', chairman: '🎖️', developer: '💻' };
+                const roleNames = { president: 'Президент', chairman: 'Председатель', developer: 'Разработчик' };
+                const isOnline = d.last_seen_at && (Date.now() - new Date(d.last_seen_at + 'Z').getTime() < 5 * 60 * 1000);
+
+                // Category stats
+                let catHtml = '';
+                for (const c of (d.category_stats || [])) {
+                    catHtml += `<div class="guild-stat"><div class="guild-stat-val">${c.count}</div><div class="guild-stat-lbl">${c.category || '?'}</div></div>`;
+                }
+
+                // Recent completions
+                let recentHtml = '';
+                for (const r of (d.recent_completions || []).slice(0, 5)) {
+                    const t = new Date(r.completed_at).toLocaleDateString('ru');
+                    recentHtml += `<div style="font-size:12px;color:var(--text-secondary);padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.03);">📝 ${r.task_id} · +${r.xp_earned} XP · ${t}</div>`;
+                }
+
+                // President XP adjust controls
+                let xpAdjustHtml = '';
+                if (d.is_president_view) {
+                    xpAdjustHtml = `
+                        <div class="guild-section-title" style="margin-top:16px;">⚡ Управление XP (±200)</div>
+                        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+                            <input type="number" id="xp-adjust-amount" min="-200" max="200" value="50" style="width:80px;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:var(--text-bright);font-size:14px;text-align:center;">
+                            <input type="text" id="xp-adjust-reason" placeholder="Причина..." style="flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:var(--text-bright);font-size:13px;">
+                            <button onclick="presidentAdjustXP(${guildId}, ${memberId}, 1)" class="guild-kick-btn" style="background:rgba(34,197,94,0.15);border-color:rgba(34,197,94,0.3);color:#22c55e;width:36px;height:36px;">+</button>
+                            <button onclick="presidentAdjustXP(${guildId}, ${memberId}, -1)" class="guild-kick-btn" style="width:36px;height:36px;">−</button>
+                        </div>
+                        <div style="font-size:11px;color:var(--text-muted);">Сегодня заработано: ${(d.today_xp || 0).toLocaleString()} XP</div>`;
+
+                    // XP log
+                    if (d.xp_log && d.xp_log.length > 0) {
+                        xpAdjustHtml += '<div class="guild-section-title" style="margin-top:12px;">📋 Журнал XP</div>';
+                        for (const log of d.xp_log.slice(0, 10)) {
+                            const sign = log.xp_change > 0 ? '+' : '';
+                            const color = log.xp_change > 0 ? '#22c55e' : '#ef4444';
+                            const t = new Date(log.logged_at).toLocaleString('ru', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                            xpAdjustHtml += `<div style="font-size:11px;padding:3px 0;color:var(--text-secondary);">
+                                <span style="color:${color};font-weight:700;">${sign}${log.xp_change}</span> · ${log.reason || '—'} · ${t}</div>`;
+                        }
+                    }
+                }
+
+                const overlay = document.createElement('div');
+                overlay.className = 'modal-overlay active';
+                overlay.style.zIndex = '300';
+                overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+                overlay.innerHTML = `
+                    <div class="guild-create-dialog" style="max-width:480px;">
+                        <div class="guild-create-header">
+                            <h2>${d.display_name}</h2>
+                            <button class="guild-close-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+                        </div>
+                        <div class="guild-create-body" style="padding:20px;">
+                            <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+                                <div style="font-size:36px;">${roleEmojis[d.role] || '💻'}</div>
+                                <div>
+                                    <div style="font-size:18px;font-weight:700;color:var(--text-bright);">${d.display_name}</div>
+                                    <div style="font-size:13px;color:var(--text-secondary);">${d.rank_badge || ''} ${d.rank_name || ''} · LV ${d.level}</div>
+                                    <div style="font-size:12px;color:var(--text-muted);">
+                                        <span class="online-dot ${isOnline ? 'online' : 'offline'}"></span>
+                                        ${isOnline ? 'Онлайн' : 'Офлайн'}
+                                        · Роль: ${roleNames[d.role] || d.role}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="guild-stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px;">
+                                <div class="guild-stat"><div class="guild-stat-val">${d.xp.toLocaleString()}</div><div class="guild-stat-lbl">XP</div></div>
+                                <div class="guild-stat"><div class="guild-stat-val">${d.total_quests}</div><div class="guild-stat-lbl">Квестов</div></div>
+                                <div class="guild-stat"><div class="guild-stat-val">🔥${d.streak_days}</div><div class="guild-stat-lbl">Страйк</div></div>
+                                <div class="guild-stat"><div class="guild-stat-val">${d.best_streak}</div><div class="guild-stat-lbl">Рекорд</div></div>
+                            </div>
+                            ${catHtml ? `<div class="guild-section-title">📊 По категориям</div><div class="guild-stats-grid" style="grid-template-columns:repeat(${Math.min((d.category_stats || []).length, 4)},1fr);margin-bottom:12px;">${catHtml}</div>` : ''}
+                            ${recentHtml ? `<div class="guild-section-title">📝 Последние квесты</div>${recentHtml}` : ''}
+                            ${xpAdjustHtml}
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+            } catch (e) {
+                console.error('Failed to load member detail:', e);
+            }
+        }
+
+        async function presidentAdjustXP(guildId, memberId, sign) {
+            const amountEl = document.getElementById('xp-adjust-amount');
+            const reasonEl = document.getElementById('xp-adjust-reason');
+            const amount = parseInt(amountEl.value) * sign;
+            if (!amount || Math.abs(amount) > 200) {
+                alert('Допустимый диапазон: от -200 до +200 XP');
+                return;
+            }
+            try {
+                const res = await fetch(`${API_URL}/api/guilds/${guildId}/members/${memberId}/xp`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ delta_xp: amount, reason: reasonEl.value.trim() })
+                });
+                const data = await res.json();
+                if (!res.ok) { alert(data.detail || 'Ошибка'); return; }
+                alert(data.message);
+                // Refresh popup
+                document.querySelector('.modal-overlay')?.remove();
+                showMemberDetail(guildId, memberId);
+                loadMyGuild(); // refresh guild panel
+            } catch (e) { alert('Ошибка'); }
+        }
+
+        // ==================== HEARTBEAT ====================
+        function startHeartbeat() {
+            // Send heartbeat every 60 seconds
+            setInterval(() => {
+                if (!authToken) return;
+                fetch(`${API_URL}/api/heartbeat`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                }).catch(() => { });
+            }, 60000);
+            // Send initial heartbeat
+            if (authToken) {
+                fetch(`${API_URL}/api/heartbeat`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                }).catch(() => { });
             }
         }
 
