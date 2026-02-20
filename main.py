@@ -6410,7 +6410,7 @@ def get_guild_member_detail(guild_id: int, member_id: int, user: dict = Depends(
 
         # Recent completions (last 10)
         cursor.execute("""
-            SELECT task_id, completed_at, xp_earned, category
+            SELECT task_id, completed_at, xp_earned
             FROM completed_tasks
             WHERE user_id = ? AND is_valid = 1
             ORDER BY completed_at DESC
@@ -6418,14 +6418,17 @@ def get_guild_member_detail(guild_id: int, member_id: int, user: dict = Depends(
         """, (member_id,))
         detail["recent_completions"] = [dict(r) for r in cursor.fetchall()]
 
-        # Category breakdown
-        cursor.execute("""
-            SELECT category, COUNT(*) as count, SUM(xp_earned) as total_xp
-            FROM completed_tasks
-            WHERE user_id = ? AND is_valid = 1
-            GROUP BY category
-        """, (member_id,))
-        detail["category_stats"] = [dict(r) for r in cursor.fetchall()]
+        # Category breakdown (from submissions if available)
+        try:
+            cursor.execute("""
+                SELECT category, COUNT(*) as count, SUM(xp_earned) as total_xp
+                FROM completed_tasks
+                WHERE user_id = ? AND is_valid = 1 AND category IS NOT NULL
+                GROUP BY category
+            """, (member_id,))
+            detail["category_stats"] = [dict(r) for r in cursor.fetchall()]
+        except Exception:
+            detail["category_stats"] = []
 
         # President-only: XP log (last 20 entries)
         if is_president:
