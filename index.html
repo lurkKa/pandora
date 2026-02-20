@@ -2420,59 +2420,62 @@
     </div>
 
     <!-- ========== GUILD: MY GUILD PANEL ========== -->
-    <div class="leaderboard-sidebar guild-panel" id="guild-panel">
-        <div class="leaderboard-header" style="display:flex; justify-content:space-between; align-items:center;">
+    <div class="guild-sidebar guild-sidebar-left" id="guild-panel">
+        <div class="guild-panel-header">
             <h3>🛡️ Моя Гильдия</h3>
-            <button class="btn btn-small" onclick="toggleGuildPanel()"
-                style="padding:6px 10px; font-size:11px;">✕</button>
+            <button class="guild-close-btn" onclick="toggleGuildPanel()">✕</button>
         </div>
-        <div id="guild-content" style="padding:12px;">
-            <div style="color:var(--text-secondary); text-align:center; font-size:13px;">Загрузка...</div>
+        <div id="guild-content" class="guild-panel-body">
+            <div style="color:var(--text-secondary); text-align:center; padding:40px 0; font-size:14px;">Загрузка...
+            </div>
         </div>
     </div>
 
     <!-- ========== GUILD: RANKINGS PANEL ========== -->
-    <div class="leaderboard-sidebar guild-panel" id="guild-rankings-panel"
-        style="left:auto; right:-380px; border-right:none; border-left:1px solid rgba(255,255,255,0.08); width:360px; transition:right 0.3s ease;">
-        <div class="leaderboard-header" style="display:flex; justify-content:space-between; align-items:center;">
+    <div class="guild-sidebar guild-sidebar-right" id="guild-rankings-panel">
+        <div class="guild-panel-header">
             <h3>⚔️ Рейтинг Гильдий</h3>
-            <button class="btn btn-small" onclick="toggleGuildRankings()"
-                style="padding:6px 10px; font-size:11px;">✕</button>
+            <button class="guild-close-btn" onclick="toggleGuildRankings()">✕</button>
         </div>
-        <div id="guild-rankings-content" style="padding:12px;">
-            <div style="color:var(--text-secondary); text-align:center; font-size:13px;">Загрузка...</div>
+        <div id="guild-rankings-content" class="guild-panel-body">
+            <div style="color:var(--text-secondary); text-align:center; padding:40px 0; font-size:14px;">Загрузка...
+            </div>
         </div>
     </div>
 
     <!-- Guild Create Modal -->
     <div class="modal-overlay" id="guild-create-modal" role="dialog" aria-modal="true">
-        <div class="modal-content" style="max-width:440px;">
-            <div class="modal-header">
+        <div class="guild-create-dialog">
+            <div class="guild-create-header">
                 <h2>🛡️ Создать Гильдию</h2>
-                <button class="btn-close" onclick="closeGuildCreateModal()">✕ Close</button>
+                <button class="guild-close-btn" onclick="closeGuildCreateModal()">✕</button>
             </div>
-            <div class="modal-body" style="padding:20px;">
-                <div class="form-group" style="margin-bottom:16px;">
-                    <label class="form-label">Название гильдии</label>
-                    <input type="text" id="guild-name-input" class="form-input" placeholder="2-30 символов"
+            <div class="guild-create-body">
+                <div class="guild-form-group">
+                    <label class="guild-form-label">Название гильдии</label>
+                    <input type="text" id="guild-name-input" class="guild-form-input" placeholder="2–30 символов"
                         maxlength="30">
                 </div>
-                <div class="form-group" style="margin-bottom:16px;">
-                    <label class="form-label">Описание</label>
-                    <textarea id="guild-desc-input" class="form-input" placeholder="О чём ваша гильдия..."
-                        maxlength="200" rows="2" style="resize:vertical;"></textarea>
+                <div class="guild-form-group">
+                    <label class="guild-form-label">Описание</label>
+                    <textarea id="guild-desc-input" class="guild-form-input" placeholder="О чём ваша гильдия..."
+                        maxlength="200" rows="3" style="resize:vertical;"></textarea>
                 </div>
-                <div class="form-group" style="margin-bottom:16px;">
-                    <label class="form-label">Символ</label>
-                    <div id="guild-avatar-grid" style="display:grid; grid-template-columns:repeat(8, 1fr); gap:6px;">
+                <div class="guild-form-group">
+                    <label class="guild-form-label">Символ гильдии</label>
+                    <div id="guild-avatar-grid" style="display:grid; grid-template-columns:repeat(8,1fr); gap:8px;">
                     </div>
                 </div>
-                <button class="btn btn-primary" onclick="createGuild()" style="width:100%;">Создать гильдию</button>
+                <button class="btn btn-primary guild-create-submit" onclick="createGuild()">
+                    ✨ Создать гильдию
+                </button>
             </div>
         </div>
     </div>
 
     <style>
+        /* ========== GUILD SYSTEM STYLES ========== */
+
         /* Guild tab styling */
         .tab-btn.guild-tab {
             background: rgba(234, 179, 8, 0.08);
@@ -2484,94 +2487,204 @@
             border-color: rgba(234, 179, 8, 0.4);
         }
 
-        /* Guild panels */
-        .guild-panel.open {
-            left: 0 !important;
-            right: 0 !important;
+        /* ---- Guild sidebar panels ---- */
+        .guild-sidebar {
+            position: fixed;
+            top: 0;
+            width: 380px;
+            height: 100vh;
+            background: var(--bg-surface);
+            z-index: 200;
+            overflow-y: auto;
+            transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
         }
 
-        /* Guild card */
+        .guild-sidebar-left {
+            left: 0;
+            transform: translateX(-100%);
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .guild-sidebar-left.open {
+            transform: translateX(0);
+        }
+
+        .guild-sidebar-right {
+            right: 0;
+            transform: translateX(100%);
+            border-left: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .guild-sidebar-right.open {
+            transform: translateX(0);
+        }
+
+        .guild-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            background: var(--bg-elevated);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .guild-panel-header h3 {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-bright);
+            margin: 0;
+        }
+
+        .guild-close-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .guild-close-btn:hover {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #f87171;
+        }
+
+        .guild-panel-body {
+            padding: 20px;
+        }
+
+        /* ---- Guild card ---- */
         .guild-card {
             background: linear-gradient(135deg, rgba(234, 179, 8, 0.1), rgba(139, 92, 246, 0.08));
             border: 1px solid rgba(234, 179, 8, 0.2);
-            border-radius: 14px;
-            padding: 16px;
-            margin-bottom: 12px;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
         }
 
         .guild-card-header {
             display: flex;
             align-items: center;
-            gap: 12px;
-            margin-bottom: 12px;
+            gap: 14px;
+            margin-bottom: 14px;
         }
 
         .guild-card-avatar {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
             background: rgba(0, 0, 0, 0.3);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 28px;
+            font-size: 32px;
+            flex-shrink: 0;
         }
 
         .guild-card-name {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 700;
             color: var(--text-bright);
         }
 
         .guild-card-role {
-            font-size: 11px;
+            font-size: 13px;
             color: var(--accent);
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.8px;
+            margin-top: 2px;
         }
 
+        .guild-card-desc {
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 14px;
+        }
+
+        /* ---- Guild stats ---- */
         .guild-stats-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            margin-bottom: 12px;
+            gap: 10px;
+            margin-bottom: 16px;
         }
 
         .guild-stat {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 10px;
-            padding: 10px;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 12px;
+            padding: 14px 10px;
             text-align: center;
         }
 
         .guild-stat-val {
-            font-size: 20px;
+            font-size: 22px;
             font-weight: 700;
             color: #fbbf24;
         }
 
         .guild-stat-lbl {
-            font-size: 10px;
+            font-size: 11px;
             color: var(--text-secondary);
-            margin-top: 2px;
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* ---- Guild members ---- */
+        .guild-section-title {
+            color: var(--text-bright);
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 10px;
         }
 
         .guild-member-row {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 8px 10px;
-            border-radius: 10px;
-            background: rgba(0, 0, 0, 0.12);
-            margin-bottom: 6px;
-            font-size: 13px;
+            gap: 12px;
+            padding: 10px 14px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.15);
+            margin-bottom: 8px;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .guild-member-row:hover {
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .guild-member-name {
+            font-weight: 600;
+            color: var(--text-bright);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .guild-member-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
         }
 
         .guild-member-row .role-badge {
-            font-size: 10px;
-            padding: 2px 6px;
+            font-size: 11px;
+            padding: 3px 8px;
             border-radius: 6px;
             font-weight: 600;
+            white-space: nowrap;
         }
 
         .role-president {
@@ -2589,15 +2702,67 @@
             color: #60a5fa;
         }
 
-        /* Rankings table */
+        .guild-role-select {
+            font-size: 12px;
+            padding: 4px 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        .guild-kick-btn {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .guild-kick-btn:hover {
+            background: rgba(239, 68, 68, 0.25);
+        }
+
+        .guild-action-btn {
+            width: 100%;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 12px;
+            border: none;
+        }
+
+        .guild-action-btn.danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .guild-action-btn.danger:hover {
+            background: rgba(239, 68, 68, 0.3);
+        }
+
+        .guild-action-btn.danger-solid {
+            background: var(--danger, #ef4444);
+            color: white;
+        }
+
+        /* ---- Rankings ---- */
         .guild-rank-row {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 10px 12px;
-            border-radius: 12px;
+            gap: 12px;
+            padding: 14px 16px;
+            border-radius: 14px;
             background: rgba(0, 0, 0, 0.15);
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             transition: all 0.2s;
             cursor: pointer;
         }
@@ -2608,19 +2773,25 @@
 
         .guild-rank-row.rank-1 {
             border: 1px solid rgba(251, 191, 36, 0.3);
-            background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(0, 0, 0, 0.15));
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(0, 0, 0, 0.15));
         }
 
         .guild-rank-pos {
-            font-size: 16px;
+            font-size: 18px;
             font-weight: 800;
-            width: 28px;
+            width: 32px;
             text-align: center;
             color: var(--text-secondary);
+            flex-shrink: 0;
         }
 
         .guild-rank-row.rank-1 .guild-rank-pos {
             color: #fbbf24;
+        }
+
+        .guild-rank-emoji {
+            font-size: 28px;
+            flex-shrink: 0;
         }
 
         .guild-rank-info {
@@ -2631,42 +2802,120 @@
         .guild-rank-name {
             font-weight: 600;
             color: var(--text-bright);
-            font-size: 14px;
+            font-size: 15px;
         }
 
         .guild-rank-meta {
-            font-size: 11px;
+            font-size: 12px;
             color: var(--text-secondary);
+            margin-top: 2px;
         }
 
         .guild-rank-score {
-            font-size: 16px;
+            font-size: 18px;
             font-weight: 700;
             color: #fbbf24;
-            text-shadow: 0 0 6px rgba(251, 191, 36, 0.3);
+            text-shadow: 0 0 8px rgba(251, 191, 36, 0.3);
+            flex-shrink: 0;
         }
 
         .guild-title-badge {
             display: inline-block;
-            font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 4px;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 6px;
             background: rgba(239, 68, 68, 0.15);
             color: #f87171;
             margin-left: 4px;
         }
 
-        /* Guild create avatar picker */
+        /* ---- Create modal ---- */
+        .guild-create-dialog {
+            background: var(--bg-surface);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            width: 92%;
+            max-width: 460px;
+            overflow: hidden;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+        }
+
+        .guild-create-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 24px 28px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .guild-create-header h2 {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-bright);
+            margin: 0;
+        }
+
+        .guild-create-body {
+            padding: 28px;
+        }
+
+        .guild-form-group {
+            margin-bottom: 20px;
+        }
+
+        .guild-form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .guild-form-input {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--bg-deep, #0a0a0f);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: var(--text-bright);
+            font-size: 15px;
+            font-family: inherit;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            box-sizing: border-box;
+        }
+
+        .guild-form-input::placeholder {
+            color: var(--text-muted, rgba(255, 255, 255, 0.3));
+        }
+
+        .guild-form-input:focus {
+            outline: none;
+            border-color: #fbbf24;
+            box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.15);
+        }
+
+        .guild-create-submit {
+            width: 100%;
+            padding: 14px;
+            font-size: 15px;
+            font-weight: 600;
+            border-radius: 12px;
+            margin-top: 4px;
+        }
+
+        /* Guild avatar picker */
         .guild-avatar-pick {
-            width: 36px;
-            height: 36px;
-            border-radius: 8px;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
             border: 2px solid rgba(255, 255, 255, 0.1);
-            background: rgba(0, 0, 0, 0.2);
+            background: rgba(0, 0, 0, 0.25);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 22px;
             cursor: pointer;
             transition: all 0.2s;
         }
@@ -2674,12 +2923,26 @@
         .guild-avatar-pick:hover {
             border-color: var(--accent);
             background: rgba(139, 92, 246, 0.15);
+            transform: scale(1.08);
         }
 
         .guild-avatar-pick.selected {
             border-color: #fbbf24;
             background: rgba(251, 191, 36, 0.15);
-            box-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+            box-shadow: 0 0 12px rgba(251, 191, 36, 0.3);
+            transform: scale(1.1);
+        }
+
+        /* ---- Responsive ---- */
+        @media (max-width: 480px) {
+            .guild-sidebar {
+                width: 100%;
+            }
+
+            .guild-create-dialog {
+                width: 96%;
+                border-radius: 16px;
+            }
         }
     </style>
 
@@ -6050,18 +6313,18 @@
 
         function renderNoGuild(container) {
             container.innerHTML = `
-                <div style="text-align:center; padding:30px 10px;">
-                    <div style="font-size:48px; margin-bottom:12px;">🛡️</div>
-                    <h3 style="color:var(--text-bright); margin-bottom:8px;">Вы не в гильдии</h3>
-                    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:16px;">
+                <div style="text-align:center; padding:40px 10px;">
+                    <div style="font-size:56px; margin-bottom:16px;">🛡️</div>
+                    <h3 style="color:var(--text-bright); margin-bottom:10px; font-size:18px;">Вы не в гильдии</h3>
+                    <p style="color:var(--text-secondary); font-size:14px; margin-bottom:20px; line-height:1.5;">
                         Создайте свою гильдию или вступите в существующую
                     </p>
-                    <button class="btn btn-primary" onclick="openGuildCreateModal()" style="margin-bottom:10px; width:100%;">
+                    <button class="btn btn-primary" onclick="openGuildCreateModal()" style="margin-bottom:16px; width:100%; padding:14px; font-size:15px; border-radius:12px;">
                         ✨ Создать гильдию
                     </button>
-                    <div style="color:var(--text-secondary); font-size:11px; margin-bottom:12px;">— или —</div>
+                    <div style="color:var(--text-secondary); font-size:13px; margin-bottom:16px;">— или —</div>
                     <div id="guild-join-list" style="text-align:left;">
-                        <div style="color:var(--text-secondary); font-size:12px; text-align:center;">Загрузка списка...</div>
+                        <div style="color:var(--text-secondary); font-size:14px; text-align:center;">Загрузка списка...</div>
                     </div>
                 </div>
             `;
@@ -6076,24 +6339,24 @@
                 });
                 const data = await res.json();
                 if (!data.guilds || data.guilds.length === 0) {
-                    container.innerHTML = '<div style="color:var(--text-secondary); font-size:12px; text-align:center;">Нет доступных гильдий</div>';
+                    container.innerHTML = '<div style="color:var(--text-secondary); font-size:14px; text-align:center;">Нет доступных гильдий</div>';
                     return;
                 }
-                let html = '<div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px; font-weight:600;">Доступные гильдии:</div>';
+                let html = '<div class="guild-section-title">Доступные гильдии:</div>';
                 for (const g of data.guilds) {
                     html += `
                         <div class="guild-rank-row" onclick="joinGuild(${g.id})" style="cursor:pointer;">
-                            <span style="font-size:24px;">${g.avatar_emoji}</span>
+                            <span class="guild-rank-emoji">${g.avatar_emoji}</span>
                             <div class="guild-rank-info">
                                 <div class="guild-rank-name">${g.name}</div>
                                 <div class="guild-rank-meta">${g.member_count} уч. · ${g.total_xp} XP</div>
                             </div>
-                            <span style="font-size:11px; color:var(--success);">Вступить →</span>
+                            <span style="font-size:13px; color:var(--success); font-weight:600;">Вступить →</span>
                         </div>`;
                 }
                 container.innerHTML = html;
             } catch (e) {
-                container.innerHTML = '<div style="color:var(--danger); font-size:12px;">Ошибка</div>';
+                container.innerHTML = '<div style="color:var(--danger); font-size:14px;">Ошибка</div>';
             }
         }
 
@@ -6103,11 +6366,11 @@
             const isPresident = guild.my_role === 'president';
             const isChairmanOrAbove = guild.my_role === 'president' || guild.my_role === 'chairman';
             const bonusPct = guild.my_role === 'president' ? '+10%' : guild.my_role === 'chairman' ? '+5%' : '';
-            const bonusHtml = bonusPct ? `<span style="color:var(--success); font-size:11px; margin-left:6px;">${bonusPct} XP</span>` : '';
+            const bonusHtml = bonusPct ? `<span style="color:var(--success); font-size:12px; margin-left:8px; font-weight:600;">${bonusPct} XP</span>` : '';
 
             let titlesHtml = '';
             if (guild.active_titles && guild.active_titles.length > 0) {
-                titlesHtml = '<div style="margin-bottom:12px;">';
+                titlesHtml = '<div style="margin-bottom:14px;">';
                 for (const t of guild.active_titles) {
                     titlesHtml += `<span class="guild-title-badge">⚠️ ${t.title_text} (от ${t.from_guild_name})</span> `;
                 }
@@ -6118,21 +6381,21 @@
             for (const m of guild.members) {
                 const roleClass = 'role-' + m.role;
                 const kickBtn = (isChairmanOrAbove && m.user_id !== currentUser.id && m.role !== 'president')
-                    ? `<button onclick="kickMember(${guild.id}, ${m.user_id})" style="font-size:10px; padding:2px 6px; border-radius:4px; border:1px solid rgba(239,68,68,0.3); background:transparent; color:#f87171; cursor:pointer;" title="Исключить">✕</button>`
+                    ? `<button class="guild-kick-btn" onclick="kickMember(${guild.id}, ${m.user_id})" title="Исключить">✕</button>`
                     : '';
                 const roleDropdown = isPresident && m.user_id !== currentUser.id
-                    ? `<select onchange="setRole(${guild.id}, ${m.user_id}, this.value)" style="font-size:10px; padding:2px 4px; background:transparent; border:1px solid rgba(255,255,255,0.15); border-radius:4px; color:var(--text-secondary); cursor:pointer;">
-                        <option value="developer" ${m.role === 'developer' ? 'selected' : ''}>💻</option>
-                        <option value="chairman" ${m.role === 'chairman' ? 'selected' : ''}>🎖️</option>
-                        <option value="president" ${m.role === 'president' ? 'selected' : ''}>👑</option>
+                    ? `<select class="guild-role-select" onchange="setRole(${guild.id}, ${m.user_id}, this.value)">
+                        <option value="developer" ${m.role === 'developer' ? 'selected' : ''}>💻 Разр.</option>
+                        <option value="chairman" ${m.role === 'chairman' ? 'selected' : ''}>🎖️ Предс.</option>
+                        <option value="president" ${m.role === 'president' ? 'selected' : ''}>👑 През.</option>
                        </select>`
                     : '';
                 membersHtml += `
                     <div class="guild-member-row">
-                        <span style="font-size:18px;">${roleEmojis[m.role] || '💻'}</span>
+                        <span style="font-size:20px;">${roleEmojis[m.role] || '💻'}</span>
                         <div style="flex:1; min-width:0;">
-                            <div style="font-weight:600; color:var(--text-bright); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${m.display_name}</div>
-                            <div style="font-size:11px; color:var(--text-secondary);">${m.xp} XP · LV ${m.level}</div>
+                            <div class="guild-member-name">${m.display_name}</div>
+                            <div class="guild-member-meta">${m.xp} XP · LV ${m.level}</div>
                         </div>
                         <span class="role-badge ${roleClass}">${roleNames[m.role]}</span>
                         ${roleDropdown}
@@ -6141,8 +6404,8 @@
             }
 
             const leaveOrDisbandBtn = isPresident
-                ? `<button class="btn" onclick="disbandGuild(${guild.id})" style="width:100%; background:var(--danger); color:white; margin-top:8px; font-size:12px;">🗑️ Расформировать</button>`
-                : `<button class="btn" onclick="leaveGuild(${guild.id})" style="width:100%; background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.3); margin-top:8px; font-size:12px;">🚪 Покинуть</button>`;
+                ? `<button class="guild-action-btn danger-solid" onclick="disbandGuild(${guild.id})">🗑️ Расформировать</button>`
+                : `<button class="guild-action-btn danger" onclick="leaveGuild(${guild.id})">🚪 Покинуть гильдию</button>`;
 
             container.innerHTML = `
                 <div class="guild-card">
@@ -6153,7 +6416,7 @@
                             <div class="guild-card-role">${roleEmojis[guild.my_role] || ''} ${roleNames[guild.my_role] || guild.my_role}${bonusHtml}</div>
                         </div>
                     </div>
-                    ${guild.description ? `<p style="color:var(--text-secondary); font-size:12px; margin-bottom:12px;">${guild.description}</p>` : ''}
+                    ${guild.description ? `<p class="guild-card-desc">${guild.description}</p>` : ''}
                     ${titlesHtml}
                     <div class="guild-stats-grid">
                         <div class="guild-stat">
@@ -6170,7 +6433,7 @@
                         </div>
                     </div>
                 </div>
-                <h4 style="color:var(--text-bright); margin-bottom:8px; font-size:13px;">👥 Участники (${guild.members.length})</h4>
+                <div class="guild-section-title">👥 Участники (${guild.members.length})</div>
                 ${membersHtml}
                 ${leaveOrDisbandBtn}
             `;
@@ -6184,7 +6447,7 @@
                 });
                 const data = await res.json();
                 if (!data.rankings || data.rankings.length === 0) {
-                    container.innerHTML = '<div style="color:var(--text-secondary); text-align:center; padding:30px; font-size:13px;">Гильдий пока нет</div>';
+                    container.innerHTML = '<div style="color:var(--text-secondary); text-align:center; padding:40px 0; font-size:14px;">Гильдий пока нет</div>';
                     return;
                 }
                 let html = '';
@@ -6194,7 +6457,7 @@
                     html += `
                         <div class="guild-rank-row ${g.rank === 1 ? 'rank-1' : ''}">
                             <div class="guild-rank-pos">${posEmoji}</div>
-                            <span style="font-size:24px;">${g.avatar_emoji}</span>
+                            <span class="guild-rank-emoji">${g.avatar_emoji}</span>
                             <div class="guild-rank-info">
                                 <div class="guild-rank-name">${g.name} ${titleBadges}</div>
                                 <div class="guild-rank-meta">${g.member_count} уч. · ${g.total_tasks} квестов · ${g.total_xp.toLocaleString()} XP</div>
@@ -6204,7 +6467,7 @@
                 }
                 container.innerHTML = html;
             } catch (e) {
-                container.innerHTML = '<div style="color:var(--danger); text-align:center;">Ошибка загрузки</div>';
+                container.innerHTML = '<div style="color:var(--danger); text-align:center; padding:20px; font-size:14px;">Ошибка загрузки</div>';
             }
         }
 
