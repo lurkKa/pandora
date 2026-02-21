@@ -1,0 +1,2834 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensei Panel - Академия Pandora</title>
+    <style>
+        /* ========== WCAG AAA COMPLIANT DESIGN ========== */
+        :root {
+            --bg-deep: #0a0a0f;
+            --bg-card: #12121a;
+            --bg-hover: #1a1a25;
+            --text-primary: #f0f0f5;
+            --text-secondary: #a0a0b0;
+            --accent: #7c5cbf;
+            --accent-light: #9d7de0;
+            --success: #4ade80;
+            --warning: #fbbf24;
+            --danger: #f87171;
+            --border: #2a2a3a;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* Focus styles for accessibility */
+        :focus-visible {
+            outline: 3px solid var(--accent-light);
+            outline-offset: 2px;
+        }
+
+        /* ========== LAYOUT ========== */
+        .admin-container {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            min-height: 100vh;
+        }
+
+        /* ========== SIDEBAR ========== */
+        .sidebar {
+            background: var(--bg-card);
+            border-right: 1px solid var(--border);
+            padding: 24px 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-logo {
+            padding: 0 24px 24px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 24px;
+        }
+
+        .sidebar-logo h1 {
+            font-size: 20px;
+            color: var(--accent-light);
+            font-weight: 600;
+        }
+
+        .sidebar-logo p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .nav-menu {
+            list-style: none;
+            flex-grow: 1;
+        }
+
+        .nav-item {
+            padding: 14px 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-secondary);
+            font-size: 15px;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--bg-hover);
+            color: var(--accent-light);
+            border-left-color: var(--accent);
+        }
+
+        .nav-item .icon {
+            font-size: 18px;
+            width: 24px;
+            text-align: center;
+        }
+
+        .admin-info {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .admin-avatar {
+            width: 40px;
+            height: 40px;
+            background: var(--accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        /* ========== MAIN CONTENT ========== */
+        .main-content {
+            padding: 32px;
+            overflow-y: auto;
+        }
+
+        .page-header {
+            margin-bottom: 32px;
+        }
+
+        .page-header h2 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .page-header p {
+            color: var(--text-secondary);
+        }
+
+        /* ========== STATS CARDS ========== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .stat-card .label {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: bold;
+            color: var(--accent-light);
+        }
+
+        /* ========== TABLES ========== */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+
+        .card-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 16px 24px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: var(--bg-hover);
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+        }
+
+        tr:hover td {
+            background: var(--bg-hover);
+        }
+
+        /* ========== BUTTONS ========== */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-light);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: #000;
+        }
+
+        .btn-danger {
+            background: transparent;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .btn-warning {
+            background: transparent;
+            color: var(--warning);
+            border: 1px solid var(--warning);
+        }
+
+        .btn-warning:hover {
+            background: var(--warning);
+            color: #000;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: #000;
+        }
+
+        .btn-success:hover {
+            background: #22c55e;
+        }
+
+        /* ========== FORMS ========== */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-deep);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 15px;
+        }
+
+        .form-group input:focus {
+            border-color: var(--accent);
+        }
+
+        /* ========== BADGES ========== */
+        .badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-pending {
+            background: rgba(251, 191, 36, 0.2);
+            color: var(--warning);
+        }
+
+        .badge-approved {
+            background: rgba(74, 222, 128, 0.2);
+            color: var(--success);
+        }
+
+        .badge-rejected {
+            background: rgba(248, 113, 113, 0.2);
+            color: var(--danger);
+        }
+
+        /* ========== MODAL ========== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 500px;
+            padding: 32px;
+        }
+
+        .modal h3 {
+            margin-bottom: 24px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 24px;
+        }
+
+        /* ========== SECTIONS ========== */
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        /* ========== LOGIN PAGE ========== */
+        #login-page {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .login-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .login-card h1 {
+            color: var(--accent-light);
+            margin-bottom: 8px;
+        }
+
+        .login-card .subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+        }
+
+        .error-msg {
+            background: rgba(248, 113, 113, 0.2);
+            color: var(--danger);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        /* ========== LEADERBOARD ========== */
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .leaderboard-item:last-child {
+            border-bottom: none;
+        }
+
+        .rank {
+            width: 32px;
+            height: 32px;
+            background: var(--accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .rank.gold {
+            background: #fbbf24;
+            color: #000;
+        }
+
+        .rank.silver {
+            background: #9ca3af;
+            color: #000;
+        }
+
+        .rank.bronze {
+            background: #cd7f32;
+            color: #fff;
+        }
+
+        /* ========== RESPONSIVE — Ideal adaptation for any device ========== */
+
+        /* Tablet */
+        @media (max-width: 960px) {
+            .admin-container {
+                grid-template-columns: 220px 1fr;
+            }
+
+            .main-content {
+                padding: 24px;
+            }
+
+            .stat-card .value {
+                font-size: 26px;
+            }
+
+            th,
+            td {
+                padding: 12px 16px;
+                font-size: 13px;
+            }
+        }
+
+        /* Mobile — sidebar collapses to top nav */
+        @media (max-width: 768px) {
+            .admin-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+
+            .sidebar {
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+                padding: 12px 0;
+                flex-direction: column;
+                gap: 0;
+            }
+
+            .sidebar-logo {
+                padding: 0 16px 12px;
+                margin-bottom: 12px;
+            }
+
+            .sidebar-logo h1 {
+                font-size: 18px;
+            }
+
+            .nav-menu {
+                display: flex;
+                overflow-x: auto;
+                gap: 2px;
+                padding: 0 12px;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                -ms-overflow-style: none;
+            }
+
+            .nav-menu::-webkit-scrollbar {
+                display: none;
+            }
+
+            .nav-item {
+                flex-shrink: 0;
+                padding: 10px 14px;
+                border-left: none;
+                border-bottom: 3px solid transparent;
+                border-radius: 8px 8px 0 0;
+                font-size: 13px;
+                white-space: nowrap;
+                min-height: 44px;
+                gap: 6px;
+            }
+
+            .nav-item.active {
+                border-left-color: transparent;
+                border-bottom-color: var(--accent);
+            }
+
+            .nav-item .icon {
+                font-size: 16px;
+            }
+
+            .admin-info {
+                display: none;
+            }
+
+            .main-content {
+                padding: 16px 12px;
+                padding-bottom: calc(16px + env(safe-area-inset-bottom));
+            }
+
+            .page-header {
+                margin-bottom: 20px;
+            }
+
+            .page-header h2 {
+                font-size: 22px;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+                margin-bottom: 20px;
+            }
+
+            .stat-card {
+                padding: 16px;
+            }
+
+            .stat-card .value {
+                font-size: 24px;
+            }
+
+            /* Scrollable tables */
+            .card {
+                border-radius: 10px;
+                margin-bottom: 16px;
+            }
+
+            .card-header {
+                padding: 14px 16px;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+
+            .card-header h3 {
+                font-size: 16px;
+            }
+
+            table {
+                display: block;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            thead {
+                display: table;
+                width: 100%;
+            }
+
+            tbody {
+                display: table;
+                width: 100%;
+            }
+
+            th,
+            td {
+                padding: 10px 12px;
+                font-size: 12px;
+                white-space: nowrap;
+            }
+
+            .btn {
+                min-height: 44px;
+                padding: 10px 16px;
+                font-size: 13px;
+            }
+
+            .btn-small {
+                min-height: 36px;
+                padding: 6px 12px;
+                font-size: 11px;
+            }
+
+            /* Login card */
+            .login-card {
+                padding: 28px 20px;
+                border-radius: 12px;
+            }
+
+            .form-group input {
+                font-size: 16px;
+                /* Prevent iOS zoom */
+                padding: 12px 14px;
+                min-height: 44px;
+            }
+
+            /* Modal */
+            .modal {
+                width: 95%;
+                padding: 24px 20px;
+                border-radius: 12px;
+            }
+
+            .modal-actions {
+                flex-wrap: wrap;
+            }
+
+            .modal-actions .btn {
+                flex: 1;
+                justify-content: center;
+            }
+
+            /* Leaderboard */
+            .leaderboard-item {
+                padding: 12px;
+                gap: 10px;
+            }
+        }
+
+        /* Small phones */
+        @media (max-width: 480px) {
+            .main-content {
+                padding: 12px 8px;
+                padding-left: max(8px, env(safe-area-inset-left));
+                padding-right: max(8px, env(safe-area-inset-right));
+            }
+
+            .sidebar-logo {
+                padding: 0 12px 10px;
+            }
+
+            .sidebar-logo h1 {
+                font-size: 16px;
+            }
+
+            .sidebar-logo p {
+                display: none;
+            }
+
+            .nav-item {
+                padding: 8px 10px;
+                font-size: 12px;
+            }
+
+            .nav-item .icon {
+                font-size: 14px;
+                width: auto;
+            }
+
+            .page-header h2 {
+                font-size: 20px;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+
+            .stat-card {
+                padding: 12px;
+            }
+
+            .stat-card .value {
+                font-size: 20px;
+            }
+
+            .stat-card .label {
+                font-size: 12px;
+            }
+
+            .card-header {
+                padding: 12px 14px;
+            }
+
+            th,
+            td {
+                padding: 8px 10px;
+                font-size: 11px;
+            }
+
+            .login-card {
+                padding: 20px 16px;
+            }
+
+            .login-card h1 {
+                font-size: 20px;
+            }
+        }
+
+        /* Very small phones */
+        @media (max-width: 360px) {
+            .nav-item {
+                padding: 8px;
+                font-size: 11px;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .page-header h2 {
+                font-size: 18px;
+            }
+        }
+
+        /* Landscape phones */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .sidebar {
+                padding: 8px 0;
+            }
+
+            .sidebar-logo {
+                padding: 0 12px 8px;
+                margin-bottom: 8px;
+            }
+
+            .nav-item {
+                padding: 6px 12px;
+                min-height: 36px;
+            }
+
+            .main-content {
+                padding: 12px 16px;
+            }
+
+            .page-header {
+                margin-bottom: 12px;
+            }
+        }
+
+        /* Touch devices */
+        @media (hover: none) {
+            .nav-item:hover {
+                background: transparent;
+                color: var(--text-secondary);
+            }
+
+            .nav-item.active:hover {
+                background: var(--bg-hover);
+                color: var(--accent-light);
+            }
+
+            tr:hover td {
+                background: transparent;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- LOGIN PAGE -->
+    <div id="login-page">
+        <div class="login-card">
+            <h1>⚔️ Sensei Panel</h1>
+            <p class="subtitle">Admin access only</p>
+            <div class="error-msg" id="login-error"></div>
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" placeholder="admin">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="••••••••">
+            </div>
+            <button class="btn btn-primary" style="width: 100%;" onclick="login()">
+                Enter Dashboard
+            </button>
+        </div>
+    </div>
+
+    <!-- ADMIN DASHBOARD -->
+    <div id="dashboard" class="admin-container" style="display: none;">
+        <!-- Sidebar -->
+        <nav class="sidebar" role="navigation" aria-label="Main">
+            <div class="sidebar-logo">
+                <h1>⚔️ Sensei Panel</h1>
+                <p>Academy Management</p>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item active" onclick="showSection('overview')" tabindex="0" role="button">
+                    <span class="icon">📊</span> Overview
+                </li>
+                <li class="nav-item" onclick="showSection('students')" tabindex="0" role="button">
+                    <span class="icon">👥</span> Students
+                </li>
+                <li class="nav-item" onclick="showSection('reviews')" tabindex="0" role="button">
+                    <span class="icon">📝</span> Reviews
+                </li>
+                <li class="nav-item" onclick="showSection('history')" tabindex="0" role="button">
+                    <span class="icon">📜</span> История заданий
+                </li>
+                <li class="nav-item" onclick="showSection('progress')" tabindex="0" role="button">
+                    <span class="icon">📈</span> Прогресс
+                </li>
+                <li class="nav-item" onclick="showSection('priorities')" tabindex="0" role="button">
+                    <span class="icon">🎯</span> Приоритеты
+                </li>
+                <li class="nav-item" onclick="showSection('rewards')" tabindex="0" role="button">
+                    <span class="icon">🏅</span> Награды
+                </li>
+                <li class="nav-item" onclick="showSection('leaderboard')" tabindex="0" role="button">
+                    <span class="icon">🏆</span> Leaderboard
+                </li>
+                <li class="nav-item" onclick="showSection('paste-requests')" tabindex="0" role="button">
+                    <span class="icon">📋</span> Вставки
+                </li>
+                <li class="nav-item" onclick="showSection('events')" tabindex="0" role="button">
+                    <span class="icon">🎉</span> Events
+                </li>
+                <li class="nav-item" onclick="showSection('homework')" tabindex="0" role="button">
+                    <span class="icon">📌</span> ДЗ
+                </li>
+                <li class="nav-item" onclick="showSection('settings')" tabindex="0" role="button">
+                    <span class="icon">⚙️</span> Settings
+                </li>
+                <li class="nav-item" onclick="showSection('guilds')" tabindex="0" role="button">
+                    <span class="icon">🛡️</span> Гильдии
+                </li>
+            </ul>
+            <div class="admin-info">
+                <div class="admin-avatar">S</div>
+                <div>
+                    <div style="font-weight: 600;" id="admin-name">Sensei</div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">Administrator</div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Overview Section -->
+            <section id="section-overview" class="section active">
+                <div class="page-header">
+                    <h2>Dashboard Overview</h2>
+                    <p>Monitor your academy's progress</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="label">Total Students</div>
+                        <div class="value" id="stat-students">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Quests Completed</div>
+                        <div class="value" id="stat-completed">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Pending Reviews</div>
+                        <div class="value" id="stat-pending">0</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Quick Actions</h3>
+                    </div>
+                    <div style="padding: 24px; display: flex; gap: 16px; flex-wrap: wrap;">
+                        <button class="btn btn-primary" onclick="showSection('students'); openAddModal();">
+                            ➕ Add Student
+                        </button>
+                        <button class="btn btn-primary" onclick="showSection('reviews')">
+                            📝 Review Submissions
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Students Section -->
+            <section id="section-students" class="section">
+                <div class="page-header">
+                    <h2>Student Management</h2>
+                    <p>Create and manage student accounts</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>All Students</h3>
+                        <button class="btn btn-primary" onclick="openAddModal()">➕ Add New</button>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Username</th>
+                                <th>Level</th>
+                                <th>XP</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="students-table">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Reviews Section -->
+            <section id="section-reviews" class="section">
+                <div class="page-header">
+                    <h2>Submission Reviews</h2>
+                    <p>Review Scratch and manual submissions</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Pending Submissions <span id="reviews-dedupe-info"
+                                style="font-size:12px; color: var(--text-secondary); margin-left:8px;"></span></h3>
+                        <button class="btn btn-small" onclick="cleanupDuplicateReviews()">🧹 Подчистить дубли</button>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Task</th>
+                                <th>Link</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reviews-table">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Leaderboard Section -->
+            <section id="section-leaderboard" class="section">
+                <div class="page-header">
+                    <h2>Leaderboard</h2>
+                    <p>Top performing students</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Rankings</h3>
+                    </div>
+                    <div id="leaderboard-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Paste Requests Section -->
+            <section id="section-paste-requests" class="section">
+                <div class="page-header">
+                    <h2>📋 Запросы на вставку</h2>
+                    <p>Одобрите или отклоните запросы учеников</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Ожидающие запросы</h3>
+                        <button class="btn btn-small" onclick="loadPasteRequests()">🔄 Обновить</button>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Ученик</th>
+                                <th>Задание</th>
+                                <th>Время</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="paste-requests-table">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Settings Section -->
+            <section id="section-settings" class="section">
+                <div class="page-header">
+                    <h2>Settings</h2>
+                    <p>Manage your admin account</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🔐 Change Your Password</h3>
+                    </div>
+                    <div style="padding: 24px;">
+                        <div class="form-group">
+                            <label for="current-password">Current Password</label>
+                            <input type="password" id="current-password" placeholder="••••••••">
+                        </div>
+                        <div class="form-group">
+                            <label for="new-password-self">New Password</label>
+                            <input type="password" id="new-password-self" placeholder="••••••••">
+                        </div>
+                        <div class="form-group">
+                            <label for="confirm-password">Confirm New Password</label>
+                            <input type="password" id="confirm-password" placeholder="••••••••">
+                        </div>
+                        <button class="btn btn-primary" onclick="changeOwnPassword()">Change Password</button>
+                        <p id="password-msg" style="margin-top: 12px; color: var(--success); display: none;"></p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📋 Admin Credentials</h3>
+                    </div>
+                    <div style="padding: 24px; color: var(--text-secondary);">
+                        <p><strong>Login:</strong> use your current admin username/password from database or env vars.
+                        </p>
+                        <p style="margin-top: 8px; font-size: 13px;">Если при старте создан bootstrap-админ, пароль
+                            берите из server logs (строка `Bootstrap admin created`).</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- History Section (Completed Tasks) -->
+            <section id="section-history" class="section">
+                <div class="page-header">
+                    <h2>📜 История заданий</h2>
+                    <p>Просмотр выполненных заданий учеников с кодом</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Выберите ученика</h3>
+                    </div>
+                    <div style="padding: 24px;">
+                        <select id="history-user-select" onchange="loadCompletions()"
+                            style="width: 100%; padding: 12px 16px; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 15px;">
+                            <option value="">-- Выберите ученика --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="card" id="completions-card" style="display: none;">
+                    <div class="card-header">
+                        <h3>Выполненные задания</h3>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Задание</th>
+                                <th>Категория</th>
+                                <th>XP</th>
+                                <th>Дата</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="completions-table">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Progress Section (Charts) -->
+            <section id="section-progress" class="section">
+                <div class="page-header">
+                    <h2>📈 График прогресса</h2>
+                    <p>Визуализация роста учеников по времени</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Настройки графика</h3>
+                    </div>
+                    <div style="padding: 24px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="show-all-users" onchange="loadProgressChart()">
+                            <span>Показать всех учеников</span>
+                        </label>
+                        <select id="progress-user-select" onchange="loadProgressChart()"
+                            style="padding: 12px 16px; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 15px; min-width: 200px;">
+                            <option value="">-- Или выберите ученика --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Кривая прогресса XP</h3>
+                    </div>
+                    <div style="padding: 24px;">
+                        <canvas id="progress-chart" height="300"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Priorities Section -->
+            <section id="section-priorities" class="section">
+                <div class="page-header">
+                    <h2>🎯 Приоритеты обучения</h2>
+                    <p>Настройте распределение заданий для каждого ученика</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Выберите ученика</h3>
+                    </div>
+                    <div style="padding: 24px;">
+                        <select id="priorities-user-select" onchange="loadPriorities()"
+                            style="width: 100%; padding: 12px 16px; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 15px;">
+                            <option value="">-- Выберите ученика --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="card" id="priorities-card" style="display: none;">
+                    <div class="card-header">
+                        <h3>Распределение приоритетов (%)</h3>
+                    </div>
+                    <div style="padding: 24px;">
+                        <p style="color: var(--text-secondary); margin-bottom: 16px;">Сумма должна равняться 100%</p>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                            <div class="form-group">
+                                <label>🐱 Scratch</label>
+                                <input type="number" id="priority-scratch" min="0" max="100" value="25">
+                            </div>
+                            <div class="form-group">
+                                <label>🎨 Frontend</label>
+                                <input type="number" id="priority-frontend" min="0" max="100" value="25">
+                            </div>
+                            <div class="form-group">
+                                <label>⚡ JavaScript</label>
+                                <input type="number" id="priority-javascript" min="0" max="100" value="25">
+                            </div>
+                            <div class="form-group">
+                                <label>🐍 Python</label>
+                                <input type="number" id="priority-python" min="0" max="100" value="25">
+                            </div>
+                        </div>
+                        <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center;">
+                            <button class="btn btn-primary" onclick="savePriorities()">Сохранить</button>
+                            <span id="priority-total" style="color: var(--text-secondary);">Сумма: 100%</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Rewards Section -->
+            <section id="section-rewards" class="section">
+                <div class="page-header">
+                    <h2>🏅 Награды</h2>
+                    <p>Выдача наград ученикам</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Выдать награду</h3>
+                    </div>
+                    <div style="padding: 24px;">
+                        <div class="form-group">
+                            <label>Ученик</label>
+                            <select id="reward-user-select"
+                                style="width: 100%; padding: 12px 16px; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 15px;">
+                                <option value="">-- Выберите ученика --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Иконка награды</label>
+                            <select id="reward-icon"
+                                style="width: 100%; padding: 12px 16px; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 15px;">
+                                <option value="🏆">🏆 Трофей</option>
+                                <option value="⭐">⭐ Звезда</option>
+                                <option value="🎖️">🎖️ Медаль</option>
+                                <option value="💎">💎 Кристалл</option>
+                                <option value="🔥">🔥 Огонь</option>
+                                <option value="⚡">⚡ Молния</option>
+                                <option value="🌟">🌟 Сияние</option>
+                                <option value="👑">👑 Корона</option>
+                                <option value="🎯">🎯 Цель</option>
+                                <option value="🚀">🚀 Ракета</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Название награды</label>
+                            <input type="text" id="reward-title" placeholder="Мастер Python">
+                        </div>
+                        <div class="form-group">
+                            <label>Комментарий</label>
+                            <textarea id="reward-comment" rows="3" placeholder="За отличное выполнение проекта..."
+                                style="width: 100%; padding: 12px 16px; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 15px; resize: vertical;"></textarea>
+                        </div>
+                        <button class="btn btn-primary" onclick="giveReward()">Выдать награду</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>История наград</h3>
+                        <select id="rewards-history-user" onchange="loadRewardsHistory()"
+                            style="padding: 8px 12px; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary);">
+                            <option value="">-- Все ученики --</option>
+                        </select>
+                    </div>
+                    <div id="rewards-list" style="padding: 16px;">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Guild Management Section -->
+            <section id="section-guilds" class="section">
+                <div class="page-header">
+                    <h2>🛡️ Управление гильдиями</h2>
+                    <p>Рейтинг, настройки и модерация</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>⚙️ Настройки</h3>
+                    </div>
+                    <div style="padding: 24px; display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label>Макс. кол-во гильдий</label>
+                            <input type="number" id="admin-max-guilds" min="1" max="20" value="2" style="width:120px;">
+                        </div>
+                        <button class="btn btn-primary" onclick="saveGuildSettings()">Сохранить</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>⚔️ Рейтинг гильдий</h3>
+                        <button class="btn btn-small" onclick="loadAdminGuilds()">🔄 Обновить</button>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Гильдия</th>
+                                <th>Участников</th>
+                                <th>XP</th>
+                                <th>Квестов</th>
+                                <th>Очки</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-guilds-table">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Events Section -->
+            <section id="section-events" class="section">
+                <div class="page-header">
+                    <h2>🎉 Event Management</h2>
+                    <p>Create XP events and bonus periods</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>➕ Create New Event</h3>
+                    </div>
+                    <div style="padding: 24px;">
+                        <div class="form-group">
+                            <label for="event-name">Event Name</label>
+                            <input type="text" id="event-name-input" placeholder="Неделя Кода">
+                        </div>
+                        <div class="form-group">
+                            <label for="event-desc">Description</label>
+                            <input type="text" id="event-desc" placeholder="Двойной XP за все квесты!">
+                        </div>
+                        <div class="form-group">
+                            <label for="event-type">Bonus Type</label>
+                            <select id="event-type"
+                                style="width: 100%; padding: 12px 16px; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 15px;">
+                                <option value="xp_multiplier">XP Multiplier (x1.5, x2)</option>
+                                <option value="streak_bonus">Streak Bonus (+% per day)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="event-value">Bonus Value</label>
+                            <input type="number" id="event-value" placeholder="1.5" step="0.1" min="0.1">
+                            <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+                                For multiplier: 1.5 = +50%, 2 = +100%. For streak: 0.1 = +10% per day
+                            </p>
+                        </div>
+                        <button class="btn btn-primary" onclick="createEvent()">Create Event</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Active Events</h3>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Value</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="events-table">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Homework Section -->
+            <section id="section-homework" class="section">
+                <div class="page-header">
+                    <h2>📌 Домашние задания</h2>
+                    <p>Создавайте и управляйте ДЗ для учеников</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>➕ Назначить ДЗ</h3>
+                    </div>
+                    <div style="padding: 24px;">
+                        <div class="form-group">
+                            <label for="hw-title">Название (необязательно)</label>
+                            <input type="text" id="hw-title" placeholder="ДЗ на 17.02 — циклы и функции">
+                        </div>
+                        <div class="form-group">
+                            <label>Задачи <span style="color:var(--text-secondary);font-size:12px;">(минимум 3, если
+                                    пусто — выберутся автоматически)</span></label>
+                            <div style="margin-bottom:8px;display:flex;gap:8px;flex-wrap:wrap;">
+                                <button class="btn btn-small" onclick="hwFilterTasks('all')"
+                                    style="font-size:12px;">Все</button>
+                                <button class="btn btn-small" onclick="hwFilterTasks('python')"
+                                    style="font-size:12px;">🐍 Python</button>
+                                <button class="btn btn-small" onclick="hwFilterTasks('javascript')"
+                                    style="font-size:12px;">⚡ JS</button>
+                                <button class="btn btn-small" onclick="hwFilterTasks('frontend')"
+                                    style="font-size:12px;">🎨 Frontend</button>
+                                <button class="btn btn-small" onclick="hwFilterTasks('scratch')"
+                                    style="font-size:12px;">🐱 Scratch</button>
+                            </div>
+                            <div id="hw-tasks-list"
+                                style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;background:var(--bg-deep);padding:8px;">
+                                <p style="color:var(--text-secondary);text-align:center;padding:16px;">Загрузка задач...
+                                </p>
+                            </div>
+                            <p style="font-size:12px;color:var(--text-secondary);margin-top:4px;">Выбрано: <span
+                                    id="hw-selected-count">0</span> задач</p>
+                        </div>
+                        <div class="form-group">
+                            <label>Для кого</label>
+                            <select id="hw-target"
+                                style="width:100%;padding:12px 16px;background:var(--bg-deep);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:15px;">
+                                <option value="all">Все ученики</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="assignHomework()">📌 Назначить ДЗ</button>
+                        <span id="hw-assign-status" style="margin-left:12px;color:var(--success);display:none;"></span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Активные ДЗ</h3>
+                        <button class="btn btn-small" onclick="loadHomeworkSets()">🔄 Обновить</button>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Название</th>
+                                <th>Задач</th>
+                                <th>Учеников</th>
+                                <th>Дедлайн</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody id="homework-table">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Add Student Modal -->
+    <div class="modal-overlay" id="add-modal">
+        <div class="modal" role="dialog" aria-labelledby="modal-title">
+            <h3 id="modal-title">Add New Student</h3>
+            <div class="form-group">
+                <label for="new-username">Username</label>
+                <input type="text" id="new-username" placeholder="student1">
+            </div>
+            <div class="form-group">
+                <label for="new-password">Password</label>
+                <input type="password" id="new-password" placeholder="••••••••">
+            </div>
+            <div class="form-group">
+                <label for="new-displayname">Display Name</label>
+                <input type="text" id="new-displayname" placeholder="John Doe">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-danger" onclick="closeAddModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="createStudent()">Create Student</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Code Viewer Modal -->
+    <div class="modal-overlay" id="code-modal">
+        <div class="modal" role="dialog" style="max-width: 800px; max-height: 80vh;">
+            <h3 id="code-modal-title">Код задания</h3>
+            <div style="margin: 16px 0; display: flex; gap: 12px; align-items: center;">
+                <span class="badge" id="code-modal-category">python</span>
+                <span style="color: var(--text-secondary);" id="code-modal-xp">XP: 50</span>
+            </div>
+            <pre id="code-content"
+                style="background: #1a1a25; border: 1px solid var(--border); border-radius: 8px; padding: 16px; overflow: auto; max-height: 400px; font-family: 'Consolas', 'Monaco', monospace; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word;"></pre>
+            <div style="margin-top: 16px; display: flex; gap: 12px;">
+                <a id="code-download-link" class="btn btn-primary" download
+                    style="text-decoration: none; display: none;">📥 Скачать файл</a>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-danger" onclick="closeCodeModal()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Adjust XP Modal -->
+    <div class="modal-overlay" id="adjust-modal">
+        <div class="modal" role="dialog">
+            <h3>Пересмотреть XP</h3>
+            <input type="hidden" id="adjust-completion-id">
+            <div class="form-group">
+                <label>Текущий XP: <span id="adjust-current-xp">0</span></label>
+            </div>
+            <div class="form-group">
+                <label>Новая оценка (0-10)</label>
+                <input type="range" id="adjust-score" min="0" max="10" value="10" oninput="updateAdjustPreview()">
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary);">
+                    <span>0 (отменить)</span>
+                    <span id="adjust-score-value">10</span>
+                    <span>10 (полный)</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Новый XP: <span id="adjust-new-xp" style="color: var(--accent-light);">0</span></label>
+            </div>
+            <div class="form-group">
+                <label>Причина</label>
+                <input type="text" id="adjust-reason" placeholder="Плагиат / недоработка / ...">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-danger" onclick="closeAdjustModal()">Отмена</button>
+                <button class="btn btn-primary" onclick="submitAdjustment()">Применить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Review Modal (enhanced) -->
+    <div class="modal-overlay" id="review-modal">
+        <div class="modal" role="dialog" style="max-width: 600px;">
+            <h3>Оценка работы</h3>
+            <input type="hidden" id="review-submission-id">
+            <div class="form-group">
+                <label>Задание: <span id="review-task-name">-</span></label>
+            </div>
+            <div class="form-group">
+                <label>Максимум XP: <span id="review-max-xp">-</span></label>
+            </div>
+            <div class="form-group">
+                <label>Условие задачи</label>
+                <div id="review-task-description"
+                    style="white-space: pre-wrap; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; color: var(--text-primary); font-size: 14px; line-height: 1.45; max-height: 180px; overflow: auto;">
+                    -
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Оценка (0-10)</label>
+                <input type="range" id="review-score" min="0" max="10" value="10" oninput="updateReviewPreview()">
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary);">
+                    <span>0</span>
+                    <span id="review-score-value">10</span>
+                    <span>10</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Начислится XP: <span id="review-calculated-xp" style="color: var(--success);">-</span></label>
+            </div>
+            <div class="form-group">
+                <label>Комментарий</label>
+                <textarea id="review-feedback" rows="3" placeholder="Отзыв для ученика..."
+                    style="width: 100%; padding: 12px 16px; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 15px; resize: vertical;"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-danger" onclick="closeReviewModal()">Отмена</button>
+                <button class="btn btn-warning" onclick="submitReview('rejected')">Отклонить</button>
+                <button class="btn btn-success" onclick="submitReview('approved')">Одобрить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin XP Adjust Modal -->
+    <div class="modal-overlay" id="xp-adjust-modal">
+        <div class="modal" role="dialog">
+            <h3>⚡ Управление XP</h3>
+            <input type="hidden" id="xp-adjust-user-id">
+            <div class="form-group">
+                <label>Ученик: <span id="xp-adjust-name"
+                        style="color: var(--accent-light); font-weight: 600;"></span></label>
+            </div>
+            <div class="form-group">
+                <label>Текущий XP: <span id="xp-adjust-current" style="font-weight: 600;"></span></label>
+            </div>
+            <div class="form-group">
+                <label>Изменение XP (+ добавить, − убрать)</label>
+                <input type="number" id="xp-adjust-delta" placeholder="Например: 50 или -30"
+                    style="width:100%;padding:12px 16px;background:var(--bg-deep);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:15px;">
+            </div>
+            <div class="form-group">
+                <label>Причина</label>
+                <input type="text" id="xp-adjust-reason" placeholder="Бонус за активность / Штраф за списывание / ..."
+                    style="width:100%;padding:12px 16px;background:var(--bg-deep);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:15px;">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-danger" onclick="closeXPAdjustModal()">Отмена</button>
+                <button class="btn btn-primary" onclick="submitXPAdjust()">Применить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart.js CDN + date adapter -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+    <script>
+        // ==================== STATE ====================
+        function getAdminApiUrl() {
+            const isHosted = window.location.protocol === 'http:' || window.location.protocol === 'https:';
+            const savedApi = (localStorage.getItem('api_url') || '').trim();
+
+            if (isHosted) {
+                const originApi = window.location.origin.replace(/\/$/, '');
+                if (savedApi && savedApi !== originApi) {
+                    localStorage.removeItem('api_url');
+                }
+                localStorage.setItem('api_url', originApi);
+                return originApi;
+            }
+
+            if (savedApi) return savedApi.replace(/\/$/, '');
+            return 'http://127.0.0.1:8000';
+        }
+
+        let API_URL = getAdminApiUrl();
+        let authToken = localStorage.getItem('admin_token');
+        let currentSubmissions = []; // For code viewing in submissions
+        let reviewTasksMap = {};
+        const REQUEST_TIMEOUT_MS = 45000;
+        const AUTH_REQUEST_TIMEOUT_MS = 60000;
+
+        async function fetchJsonWithTimeout(url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const res = await fetch(url, { ...options, signal: controller.signal });
+                const data = await res.json().catch(() => ({}));
+                return { res, data };
+            } catch (e) {
+                if (e && e.name === 'AbortError') {
+                    throw new Error(`Request timeout after ${Math.round(timeoutMs / 1000)}s`);
+                }
+                throw e;
+            } finally {
+                clearTimeout(timeoutId);
+            }
+        }
+
+        // ==================== AUTH ====================
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorEl = document.getElementById('login-error');
+            const btn = document.querySelector('#login-page button.btn-primary');
+            if (!username || !password) {
+                errorEl.style.display = 'block';
+                errorEl.innerText = 'Username and password required';
+                return;
+            }
+
+            try {
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerText = 'Signing in...';
+                }
+
+                const { res, data } = await fetchJsonWithTimeout(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                }, AUTH_REQUEST_TIMEOUT_MS);
+
+                if (!res.ok) {
+                    errorEl.style.display = 'block';
+                    errorEl.innerText = typeof data?.detail === 'string' ? data.detail : 'Invalid credentials';
+                    return;
+                }
+
+                if (data.user.role !== 'admin') {
+                    errorEl.style.display = 'block';
+                    errorEl.innerText = 'Admin access required';
+                    return;
+                }
+
+                authToken = data.token;
+                localStorage.setItem('admin_token', authToken);
+
+                document.getElementById('login-page').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'grid';
+                document.getElementById('admin-name').innerText = data.user.display_name;
+
+                await loadDashboard();
+            } catch (e) {
+                errorEl.style.display = 'block';
+                errorEl.innerText = `Connection failed: ${e.message || e}. Server busy, retry in 10-20s.`;
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = 'Enter Dashboard';
+                }
+            }
+        }
+
+        async function checkAuth() {
+            if (!authToken) return;
+
+            try {
+                const { res, data: user } = await fetchJsonWithTimeout(`${API_URL}/api/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                }, AUTH_REQUEST_TIMEOUT_MS);
+                if (res.ok) {
+                    if (user.role === 'admin') {
+                        document.getElementById('login-page').style.display = 'none';
+                        document.getElementById('dashboard').style.display = 'grid';
+                        document.getElementById('admin-name').innerText = user.display_name;
+                        await loadDashboard();
+                    }
+                }
+            } catch (e) {
+                localStorage.removeItem('admin_token');
+            }
+        }
+
+        // ==================== API HELPERS ====================
+        async function api(endpoint, method = 'GET', body = null) {
+            const opts = {
+                method,
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            };
+            if (body !== null && body !== undefined) {
+                opts.headers['Content-Type'] = 'application/json';
+                opts.body = JSON.stringify(body);
+            }
+
+            const { res, data } = await fetchJsonWithTimeout(`${API_URL}${endpoint}`, opts);
+            if (!res.ok) {
+                if (res.status === 401) {
+                    localStorage.removeItem('admin_token');
+                    authToken = null;
+                }
+                const detail = typeof data?.detail === 'string' ? data.detail : `HTTP ${res.status}`;
+                throw new Error(detail);
+            }
+            return data;
+        }
+
+        // ==================== DASHBOARD ====================
+        async function loadDashboard() {
+            try {
+                // Load stats
+                const stats = await api('/api/admin/stats');
+                document.getElementById('stat-students').innerText = stats.students;
+                document.getElementById('stat-completed').innerText = stats.completed_tasks;
+                document.getElementById('stat-pending').innerText = stats.pending_reviews;
+
+                // Load students
+                await Promise.all([
+                    loadStudents(),
+                    loadSubmissions()
+                ]);
+                loadLeaderboard(stats.leaderboard);
+            } catch (e) {
+                const errorEl = document.getElementById('login-error');
+                if (errorEl && document.getElementById('login-page').style.display !== 'none') {
+                    errorEl.style.display = 'block';
+                    errorEl.innerText = `Dashboard load failed: ${e.message || e}`;
+                } else {
+                    console.error('Dashboard load failed:', e);
+                    alert(`Dashboard load failed: ${e.message || e}`);
+                }
+            }
+        }
+
+        async function loadStudents() {
+            const data = await api('/api/admin/users');
+            const tbody = document.getElementById('students-table');
+            tbody.innerHTML = '';
+
+            data.users.filter(u => u.role !== 'admin').forEach(user => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${user.display_name}</td>
+                        <td>${user.username}</td>
+                        <td>Lv. ${user.level}</td>
+                        <td>${user.xp} XP</td>
+                        <td>
+                            <button class="btn btn-warning btn-small" onclick="openXPAdjustModal(${user.id}, '${user.display_name.replace(/'/g, "\\'")}', ${user.xp})" title="Изменить XP">
+                                ⚡ ±XP
+                            </button>
+                            <button class="btn btn-primary btn-small" onclick="resetPassword(${user.id}, '${user.username}')">
+                                🔑 Reset
+                            </button>
+                            <button class="btn btn-danger btn-small" onclick="deleteUser(${user.id})">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function loadSubmissions() {
+            const data = await api('/api/admin/submissions?compact_duplicates=true');
+            const tbody = document.getElementById('reviews-table');
+            const dedupeInfo = document.getElementById('reviews-dedupe-info');
+            tbody.innerHTML = '';
+            dedupeInfo.innerText = '';
+
+            if (!data.submissions || data.submissions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--text-secondary);">No submissions yet</td></tr>';
+                return;
+            }
+
+            const hiddenDupes = data.meta?.pending_duplicates_hidden || 0;
+            if (hiddenDupes > 0) {
+                dedupeInfo.innerText = `(скрыто дублей: ${hiddenDupes})`;
+            }
+
+            // Load tasks to get XP info
+            let tasksMap = {};
+            try {
+                const tasksData = await fetch(`${API_URL}/api/tasks`);
+                const tasks = await tasksData.json();
+                if (tasks.tasks) {
+                    tasks.tasks.forEach(t => tasksMap[t.id] = t);
+                }
+            } catch (e) { console.error('Failed to load tasks'); }
+            reviewTasksMap = tasksMap;
+
+            currentSubmissions = data.submissions; // Store for code viewing
+            data.submissions.forEach(sub => {
+                const statusClass = sub.status === 'pending' ? 'badge-pending' :
+                    sub.status === 'approved' ? 'badge-approved' : 'badge-rejected';
+                const task = tasksMap[sub.task_id] || {};
+                const taskName = task.title || sub.task_id;
+                const maxXP = task.xp || 0;
+                const dupeCount = Number(sub.pending_duplicates || 0);
+                const downloadLink = sub.link && sub.link.includes('/uploads/')
+                    ? `<a href="${API_URL}${sub.link}" download class="btn btn-small" style="margin-left:4px;">📥</a>`
+                    : '';
+                const scoreInfo = sub.score !== null ? ` (${sub.score}/10)` : '';
+                const dupeInfo = dupeCount > 0
+                    ? `<div style="font-size:11px; color: var(--warning); margin-top: 2px;">+${dupeCount} дубль(ей) скрыт</div>`
+                    : '';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${sub.display_name}</td>
+                        <td title="${sub.task_id}">${taskName}${dupeInfo}</td>
+                        <td>
+                            ${sub.link ? `<a href="${sub.link.startsWith('http') ? sub.link : API_URL + sub.link}" target="_blank" style="color: var(--accent-light);">🔗</a>` : '-'}
+                            ${downloadLink}
+                        </td>
+                        <td><span class="badge ${statusClass}">${sub.status}${scoreInfo}</span></td>
+                        <td>
+                            <button class="btn btn-small" onclick="viewSubmissionCode(${sub.id})" title="Смотреть код">👁️</button>
+                            ${sub.status === 'pending' ? `
+                                <button class="btn btn-primary btn-small" onclick="openReviewModalById(${sub.id})">📝</button>
+                            ` : sub.feedback ? `<span title="${sub.feedback}" style="cursor:help;">💬</span>` : ''}
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function cleanupDuplicateReviews() {
+            if (!confirm('Подчистить дубли pending-ревью (оставить только последнюю отправку на задачу)?')) return;
+            try {
+                const res = await api('/api/admin/submissions/cleanup-duplicates', 'POST');
+                alert(`Подчищено дублей: ${res.cleaned || 0}`);
+                loadSubmissions();
+                loadDashboard();
+            } catch (e) {
+                alert('Не удалось подчистить дубли');
+            }
+        }
+
+        function loadLeaderboard(leaders) {
+            const container = document.getElementById('leaderboard-list');
+            container.innerHTML = '';
+
+            if (!leaders || leaders.length === 0) {
+                container.innerHTML = '<p style="padding: 24px; color: var(--text-secondary);">No students yet</p>';
+                return;
+            }
+
+            leaders.forEach((user, i) => {
+                const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+                container.innerHTML += `
+                    <div class="leaderboard-item">
+                        <div class="rank ${rankClass}">${i + 1}</div>
+                        <div style="flex-grow: 1;">
+                            <div style="font-weight: 600;">${user.display_name}</div>
+                            <div style="font-size: 13px; color: var(--text-secondary);">Level ${user.level}</div>
+                        </div>
+                        <div style="font-weight: bold; color: var(--accent-light);">${user.xp} XP</div>
+                    </div>
+                `;
+            });
+        }
+
+        // ==================== ACTIONS ====================
+        async function createStudent() {
+            const username = document.getElementById('new-username').value;
+            const password = document.getElementById('new-password').value;
+            const displayName = document.getElementById('new-displayname').value;
+
+            if (!username || !password || !displayName) {
+                alert('All fields required');
+                return;
+            }
+
+            try {
+                await api('/api/admin/users', 'POST', {
+                    username, password, display_name: displayName
+                });
+
+                closeAddModal();
+                await loadStudents();
+                await loadDashboard();
+            } catch (e) {
+                alert(`Create student failed: ${e.message || e}`);
+            }
+        }
+
+        async function deleteUser(id) {
+            if (!confirm('Delete this student?')) return;
+            await api(`/api/admin/users/${id}`, 'DELETE');
+            loadStudents();
+            loadDashboard();
+        }
+
+        async function reviewSubmission(id, status) {
+            await api(`/api/admin/submissions/${id}`, 'PUT', { status });
+            loadSubmissions();
+            loadDashboard();
+        }
+
+        async function resetPassword(userId, username) {
+            const newPass = prompt(`Enter new password for ${username}:`);
+            if (!newPass) return;
+
+            try {
+                await api('/api/admin/reset-password', 'POST', {
+                    user_id: userId,
+                    new_password: newPass
+                });
+                alert(`Password reset for ${username}!`);
+            } catch (e) {
+                alert('Error resetting password');
+            }
+        }
+
+        async function changeOwnPassword() {
+            const current = document.getElementById('current-password').value;
+            const newPass = document.getElementById('new-password-self').value;
+            const confirm = document.getElementById('confirm-password').value;
+            const msgEl = document.getElementById('password-msg');
+
+            if (!current || !newPass || !confirm) {
+                msgEl.style.display = 'block';
+                msgEl.style.color = 'var(--danger)';
+                msgEl.innerText = 'All fields required';
+                return;
+            }
+
+            if (newPass !== confirm) {
+                msgEl.style.display = 'block';
+                msgEl.style.color = 'var(--danger)';
+                msgEl.innerText = 'Passwords do not match';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/api/auth/change-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        current_password: current,
+                        new_password: newPass
+                    })
+                });
+
+                if (!res.ok) {
+                    const data = await res.json();
+                    msgEl.style.display = 'block';
+                    msgEl.style.color = 'var(--danger)';
+                    msgEl.innerText = data.detail || 'Error changing password';
+                    return;
+                }
+
+                msgEl.style.display = 'block';
+                msgEl.style.color = 'var(--success)';
+                msgEl.innerText = '✓ Password changed successfully!';
+                document.getElementById('current-password').value = '';
+                document.getElementById('new-password-self').value = '';
+                document.getElementById('confirm-password').value = '';
+            } catch (e) {
+                msgEl.style.display = 'block';
+                msgEl.style.color = 'var(--danger)';
+                msgEl.innerText = 'Connection error';
+            }
+        }
+
+        // ==================== EVENTS ====================
+        async function loadEvents() {
+            try {
+                const res = await fetch(`${API_URL}/api/events/active`);
+                const data = await res.json();
+
+                // Also get inactive events
+                const allRes = await fetch(`${API_URL}/api/events/active`);
+                const allData = await allRes.json();
+
+                const tbody = document.getElementById('events-table');
+                tbody.innerHTML = '';
+
+                if (!data.events || data.events.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--text-secondary);">No events yet</td></tr>';
+                    return;
+                }
+
+                data.events.forEach(event => {
+                    const typeLabel = event.bonus_type === 'xp_multiplier' ? 'XP Multiplier' : 'Streak Bonus';
+                    const statusClass = event.is_active ? 'badge-approved' : 'badge-rejected';
+                    const statusText = event.is_active ? 'Active' : 'Inactive';
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${event.name}</td>
+                            <td>${typeLabel}</td>
+                            <td>${event.bonus_value}</td>
+                            <td><span class="badge ${statusClass}">${statusText}</span></td>
+                            <td>
+                                <button class="btn btn-primary btn-small" onclick="toggleEvent(${event.id})">
+                                    ${event.is_active ? '⏸ Pause' : '▶ Start'}
+                                </button>
+                                <button class="btn btn-danger btn-small" onclick="deleteEvent(${event.id})">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (e) {
+                console.error('Failed to load events:', e);
+            }
+        }
+
+        async function createEvent() {
+            const name = document.getElementById('event-name-input').value.trim();
+            const description = document.getElementById('event-desc').value.trim();
+            const bonus_type = document.getElementById('event-type').value;
+            const bonus_value = parseFloat(document.getElementById('event-value').value);
+
+            if (!name || !bonus_value) {
+                alert('Name and value required');
+                return;
+            }
+
+            try {
+                await api('/api/admin/events', 'POST', { name, description, bonus_type, bonus_value });
+                document.getElementById('event-name-input').value = '';
+                document.getElementById('event-desc').value = '';
+                document.getElementById('event-value').value = '';
+                loadEvents();
+                alert('Event created!');
+            } catch (e) {
+                alert('Error creating event');
+            }
+        }
+
+        async function toggleEvent(id) {
+            await api(`/api/admin/events/${id}`, 'PUT');
+            loadEvents();
+        }
+
+        async function deleteEvent(id) {
+            if (!confirm('Delete this event?')) return;
+            await api(`/api/admin/events/${id}`, 'DELETE');
+            loadEvents();
+        }
+
+        // ==================== UI ====================
+        function showSection(name, navEl = null) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+            document.getElementById(`section-${name}`).classList.add('active');
+            const resolvedNav = navEl
+                || document.querySelector(`.nav-item[onclick*="showSection('${name}'"]`);
+            if (resolvedNav) resolvedNav.classList.add('active');
+
+            // Load data when section is shown
+            if (name === 'events') loadEvents();
+            if (name === 'history') populateUserDropdowns();
+            if (name === 'progress') { populateUserDropdowns(); loadProgressChart(); }
+            if (name === 'priorities') populateUserDropdowns();
+            if (name === 'rewards') populateUserDropdowns();
+            if (name === 'paste-requests') loadPasteRequests();
+            if (name === 'homework') { loadHomeworkTasks(); loadHomeworkSets(); loadHomeworkStudents(); }
+            if (name === 'guilds') { loadAdminGuilds(); loadGuildSettings(); }
+        }
+
+        // ==================== PASTE REQUESTS ====================
+        async function loadPasteRequests() {
+            try {
+                const data = await api('/api/paste-requests/pending');
+                const table = document.getElementById('paste-requests-table');
+
+                if (!data.requests || data.requests.length === 0) {
+                    table.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-secondary);">Нет ожидающих запросов</td></tr>';
+                    return;
+                }
+
+                table.innerHTML = data.requests.map(req => `
+                    <tr>
+                        <td>${req.display_name}</td>
+                        <td>${req.task_title || req.task_id}</td>
+                        <td>${new Date(req.created_at).toLocaleString('ru-RU')}</td>
+                        <td>
+                            <button class="btn btn-success btn-small" onclick="approvePaste(${req.id})">✅ Одобрить</button>
+                            <button class="btn btn-danger btn-small" onclick="rejectPaste(${req.id})">❌ Отклонить</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load paste requests:', e);
+            }
+        }
+
+        async function approvePaste(requestId) {
+            try {
+                await api(`/api/paste-request/${requestId}/approve`, 'POST');
+                loadPasteRequests();
+            } catch (e) {
+                alert('Ошибка при одобрении');
+            }
+        }
+
+        async function rejectPaste(requestId) {
+            try {
+                await api(`/api/paste-request/${requestId}/reject`, 'POST');
+                loadPasteRequests();
+            } catch (e) {
+                alert('Ошибка при отклонении');
+            }
+        }
+
+        function openAddModal() {
+            document.getElementById('add-modal').classList.add('active');
+            document.getElementById('new-username').focus();
+        }
+
+        function closeAddModal() {
+            document.getElementById('add-modal').classList.remove('active');
+            document.getElementById('new-username').value = '';
+            document.getElementById('new-password').value = '';
+            document.getElementById('new-displayname').value = '';
+        }
+
+        // ==================== XP ADJUST ====================
+        function openXPAdjustModal(userId, displayName, currentXP) {
+            document.getElementById('xp-adjust-user-id').value = userId;
+            document.getElementById('xp-adjust-name').innerText = displayName;
+            document.getElementById('xp-adjust-current').innerText = currentXP + ' XP';
+            document.getElementById('xp-adjust-delta').value = '';
+            document.getElementById('xp-adjust-reason').value = '';
+            document.getElementById('xp-adjust-modal').classList.add('active');
+            document.getElementById('xp-adjust-delta').focus();
+        }
+
+        function closeXPAdjustModal() {
+            document.getElementById('xp-adjust-modal').classList.remove('active');
+        }
+
+        async function submitXPAdjust() {
+            const userId = parseInt(document.getElementById('xp-adjust-user-id').value);
+            const delta = parseInt(document.getElementById('xp-adjust-delta').value);
+            const reason = document.getElementById('xp-adjust-reason').value.trim();
+
+            if (!delta || isNaN(delta) || delta === 0) {
+                alert('Введите ненулевое значение XP');
+                return;
+            }
+
+            try {
+                const result = await api('/api/admin/adjust-xp', 'POST', {
+                    user_id: userId,
+                    delta_xp: delta,
+                    reason: reason || 'Ручная корректировка Sensei'
+                });
+                const sign = delta > 0 ? '+' : '';
+                alert(`${result.user_display_name}: ${sign}${delta} XP\nНовый XP: ${result.new_xp} (Lv. ${result.new_level})`);
+                closeXPAdjustModal();
+                await loadStudents();
+                await loadDashboard();
+            } catch (e) {
+                alert(`Ошибка: ${e.message || e}`);
+            }
+        }
+
+        // ==================== USER DROPDOWNS ====================
+        async function populateUserDropdowns() {
+            try {
+                const data = await api('/api/admin/users');
+                const students = data.users.filter(u => u.role === 'student');
+
+                const dropdowns = [
+                    'history-user-select',
+                    'progress-user-select',
+                    'priorities-user-select',
+                    'reward-user-select',
+                    'rewards-history-user'
+                ];
+
+                dropdowns.forEach(id => {
+                    const select = document.getElementById(id);
+                    if (!select) return;
+                    const currentVal = select.value;
+                    select.innerHTML = '<option value="">-- Выберите ученика --</option>';
+                    students.forEach(s => {
+                        select.innerHTML += `<option value="${s.id}">${s.display_name} (@${s.username})</option>`;
+                    });
+                    select.value = currentVal;
+                });
+            } catch (e) {
+                console.error('Failed to populate dropdowns:', e);
+            }
+        }
+
+        // ==================== COMPLETIONS HISTORY ====================
+        let currentCompletions = [];
+
+        async function loadCompletions() {
+            const userId = document.getElementById('history-user-select').value;
+            const card = document.getElementById('completions-card');
+            const tbody = document.getElementById('completions-table');
+
+            if (!userId) {
+                card.style.display = 'none';
+                return;
+            }
+
+            try {
+                const data = await api(`/api/admin/users/${userId}/completions`);
+                currentCompletions = data.completions;
+                card.style.display = 'block';
+                tbody.innerHTML = '';
+
+                if (data.completions.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--text-secondary);">Нет выполненных заданий</td></tr>';
+                    return;
+                }
+
+                const categoryIcons = { python: '🐍', javascript: '⚡', frontend: '🎨', scratch: '🐱' };
+
+                data.completions.forEach(c => {
+                    const validClass = c.is_valid === 0 ? 'style="opacity: 0.5; text-decoration: line-through;"' : '';
+                    tbody.innerHTML += `
+                        <tr ${validClass}>
+                            <td>${c.task_title}</td>
+                            <td>${categoryIcons[c.task_category] || '📜'} ${c.task_category}</td>
+                            <td>${c.xp_earned || 0} / ${c.max_xp}</td>
+                            <td>${new Date(c.completed_at).toLocaleDateString()}</td>
+                            <td>
+                                <button class="btn btn-small" onclick="viewCode(${c.id})" title="Смотреть код">👁️</button>
+                                <button class="btn btn-warning btn-small" onclick="openAdjustModal(${c.id})" title="Пересмотреть XP">⚖️</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (e) {
+                console.error('Failed to load completions:', e);
+                tbody.innerHTML = '<tr><td colspan="5" style="color: var(--danger);">Ошибка загрузки</td></tr>';
+            }
+        }
+
+        function viewCode(completionId) {
+            const c = currentCompletions.find(x => x.id === completionId);
+            if (!c) return;
+
+            document.getElementById('code-modal-title').innerText = c.task_title;
+            document.getElementById('code-modal-category').innerText = c.task_category;
+            document.getElementById('code-modal-xp').innerText = `XP: ${c.xp_earned || 0}`;
+
+            const code = c.solution || c.submission_content || '(нет кода)';
+            document.getElementById('code-content').textContent = code;
+
+            const downloadLink = document.getElementById('code-download-link');
+            if (c.link && c.link.includes('/uploads/')) {
+                downloadLink.href = API_URL + c.link;
+                downloadLink.style.display = 'inline-block';
+            } else {
+                downloadLink.style.display = 'none';
+            }
+
+            document.getElementById('code-modal').classList.add('active');
+        }
+
+        function closeCodeModal() {
+            document.getElementById('code-modal').classList.remove('active');
+        }
+
+        // View code from submissions (pending review)
+        function viewSubmissionCode(submissionId) {
+            const sub = currentSubmissions.find(x => x.id === submissionId);
+            if (!sub) return;
+
+            document.getElementById('code-modal-title').innerText = sub.task_id;
+            document.getElementById('code-modal-category').innerText = sub.category || 'unknown';
+            document.getElementById('code-modal-xp').innerText = `Статус: ${sub.status}`;
+
+            const code = sub.code || sub.content || '(нет кода)';
+            document.getElementById('code-content').textContent = code;
+
+            const downloadLink = document.getElementById('code-download-link');
+            if (sub.link && sub.link.includes('/uploads/')) {
+                downloadLink.href = API_URL + sub.link;
+                downloadLink.style.display = 'inline-block';
+            } else {
+                downloadLink.style.display = 'none';
+            }
+
+            document.getElementById('code-modal').classList.add('active');
+        }
+
+        let adjustCurrentXP = 0;
+
+        function openAdjustModal(completionId) {
+            const c = currentCompletions.find(x => x.id === completionId);
+            if (!c) return;
+
+            adjustCurrentXP = c.xp_earned || 0;
+            document.getElementById('adjust-completion-id').value = completionId;
+            document.getElementById('adjust-current-xp').innerText = adjustCurrentXP;
+            document.getElementById('adjust-score').value = 10;
+            updateAdjustPreview();
+
+            document.getElementById('adjust-modal').classList.add('active');
+        }
+
+        function closeAdjustModal() {
+            document.getElementById('adjust-modal').classList.remove('active');
+        }
+
+        function updateAdjustPreview() {
+            const score = parseInt(document.getElementById('adjust-score').value);
+            document.getElementById('adjust-score-value').innerText = score;
+            const newXP = Math.round(adjustCurrentXP * score / 10);
+            document.getElementById('adjust-new-xp').innerText = newXP;
+        }
+
+        async function submitAdjustment() {
+            const completionId = document.getElementById('adjust-completion-id').value;
+            const newScore = parseInt(document.getElementById('adjust-score').value);
+            const reason = document.getElementById('adjust-reason').value.trim();
+
+            try {
+                await api(`/api/admin/completions/${completionId}/adjust`, 'PUT', { new_score: newScore, reason });
+                closeAdjustModal();
+                loadCompletions();
+                alert('XP пересмотрен!');
+            } catch (e) {
+                alert('Ошибка при пересмотре XP');
+            }
+        }
+
+        // ==================== PROGRESS CHARTS ====================
+        let progressChart = null;
+
+        async function loadProgressChart() {
+            const showAll = document.getElementById('show-all-users').checked;
+            const userId = document.getElementById('progress-user-select').value;
+
+            if (!showAll && !userId) {
+                if (progressChart) progressChart.destroy();
+                return;
+            }
+
+            try {
+                let url = '/api/admin/progress?';
+                if (showAll) url += 'all_users=true';
+                else url += `user_id=${userId}`;
+
+                const data = await api(url);
+                renderProgressChart(data.users || []);
+            } catch (e) {
+                console.error('Failed to load progress:', e);
+            }
+        }
+
+        /* Fill date gaps so chart shows continuous lines, not just sparse dots */
+        function fillDateGaps(timeline) {
+            if (!timeline || timeline.length < 2) return timeline || [];
+            const filled = [];
+            const sorted = [...timeline].sort((a, b) => a.date.localeCompare(b.date));
+            let cur = new Date(sorted[0].date);
+            const end = new Date(sorted[sorted.length - 1].date);
+            let idx = 0;
+            let lastXP = 0;
+
+            while (cur <= end) {
+                const dateStr = cur.toISOString().slice(0, 10);
+                if (idx < sorted.length && sorted[idx].date === dateStr) {
+                    lastXP = sorted[idx].xp;
+                    idx++;
+                }
+                filled.push({ x: dateStr, y: lastXP });
+                cur.setDate(cur.getDate() + 1);
+            }
+            return filled;
+        }
+
+        function renderProgressChart(users) {
+            const ctx = document.getElementById('progress-chart').getContext('2d');
+            if (progressChart) progressChart.destroy();
+
+            const colors = ['#8b5cf6', '#4ade80', '#fbbf24', '#f87171', '#60a5fa', '#f472b6', '#a78bfa', '#38bdf8'];
+
+            const datasets = users.map((user, i) => {
+                const filled = fillDateGaps(user.timeline);
+                return {
+                    label: user.display_name,
+                    data: filled,
+                    borderColor: colors[i % colors.length],
+                    backgroundColor: colors[i % colors.length] + '22',
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: filled.length > 30 ? 0 : 3,
+                    pointHoverRadius: 5,
+                    borderWidth: 2.5
+                };
+            });
+
+            progressChart = new Chart(ctx, {
+                type: 'line',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: { unit: 'day', tooltipFormat: 'dd MMM yyyy', displayFormats: { day: 'dd.MM' } },
+                            title: { display: true, text: 'Дата', color: '#a0a0b0', font: { size: 13 } },
+                            ticks: { color: '#a0a0b0', maxTicksLimit: 15 },
+                            grid: { color: '#2a2a3a' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Кумулятивный XP', color: '#a0a0b0', font: { size: 13 } },
+                            ticks: { color: '#a0a0b0' },
+                            grid: { color: '#2a2a3a' },
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#f0f0f5', usePointStyle: true, padding: 16 } },
+                        tooltip: {
+                            backgroundColor: '#1a1a24',
+                            borderColor: '#8b5cf6',
+                            borderWidth: 1,
+                            titleColor: '#f0f0f5',
+                            bodyColor: '#e0e0e5',
+                            callbacks: {
+                                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString()} XP`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ==================== PRIORITIES ====================
+        let currentPriorityUserId = null;
+
+        async function loadPriorities() {
+            const userId = document.getElementById('priorities-user-select').value;
+            const card = document.getElementById('priorities-card');
+
+            if (!userId) {
+                card.style.display = 'none';
+                return;
+            }
+
+            currentPriorityUserId = userId;
+
+            try {
+                const data = await api(`/api/admin/priorities/${userId}`);
+                document.getElementById('priority-scratch').value = data.scratch_priority || 25;
+                document.getElementById('priority-frontend').value = data.frontend_priority || 25;
+                document.getElementById('priority-javascript').value = data.javascript_priority || 25;
+                document.getElementById('priority-python').value = data.python_priority || 25;
+                updatePriorityTotal();
+                card.style.display = 'block';
+            } catch (e) {
+                console.error('Failed to load priorities:', e);
+            }
+        }
+
+        function updatePriorityTotal() {
+            const s = parseInt(document.getElementById('priority-scratch').value) || 0;
+            const f = parseInt(document.getElementById('priority-frontend').value) || 0;
+            const j = parseInt(document.getElementById('priority-javascript').value) || 0;
+            const p = parseInt(document.getElementById('priority-python').value) || 0;
+            const total = s + f + j + p;
+            const el = document.getElementById('priority-total');
+            el.innerText = `Сумма: ${total}%`;
+            el.style.color = total === 100 ? 'var(--success)' : 'var(--danger)';
+        }
+
+        // Add event listeners for priority inputs
+        ['priority-scratch', 'priority-frontend', 'priority-javascript', 'priority-python'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('input', updatePriorityTotal);
+        });
+
+        async function savePriorities() {
+            if (!currentPriorityUserId) return;
+
+            const data = {
+                scratch_priority: parseInt(document.getElementById('priority-scratch').value) || 0,
+                frontend_priority: parseInt(document.getElementById('priority-frontend').value) || 0,
+                javascript_priority: parseInt(document.getElementById('priority-javascript').value) || 0,
+                python_priority: parseInt(document.getElementById('priority-python').value) || 0
+            };
+
+            const total = data.scratch_priority + data.frontend_priority + data.javascript_priority + data.python_priority;
+            if (total !== 100) {
+                alert('Сумма приоритетов должна быть 100%!');
+                return;
+            }
+
+            try {
+                await api(`/api/admin/priorities/${currentPriorityUserId}`, 'PUT', data);
+                alert('Приоритеты сохранены!');
+            } catch (e) {
+                alert('Ошибка сохранения');
+            }
+        }
+
+        // ==================== REWARDS ====================
+        async function giveReward() {
+            const user_id = document.getElementById('reward-user-select').value;
+            const icon = document.getElementById('reward-icon').value;
+            const title = document.getElementById('reward-title').value.trim();
+            const comment = document.getElementById('reward-comment').value.trim();
+
+            if (!user_id || !title) {
+                alert('Выберите ученика и введите название награды!');
+                return;
+            }
+
+            try {
+                await api('/api/admin/rewards', 'POST', { user_id: parseInt(user_id), icon, title, comment });
+                document.getElementById('reward-title').value = '';
+                document.getElementById('reward-comment').value = '';
+                loadRewardsHistory();
+                alert('Награда выдана!');
+            } catch (e) {
+                alert('Ошибка выдачи награды');
+            }
+        }
+
+        async function loadRewardsHistory() {
+            const userId = document.getElementById('rewards-history-user').value;
+            const list = document.getElementById('rewards-list');
+
+            if (!userId) {
+                list.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">Выберите ученика для просмотра наград</p>';
+                return;
+            }
+
+            try {
+                const data = await api(`/api/admin/rewards/${userId}`);
+
+                if (data.rewards.length === 0) {
+                    list.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">У этого ученика пока нет наград</p>';
+                    return;
+                }
+
+                list.innerHTML = data.rewards.map(r => `
+                    <div style="display: flex; gap: 12px; padding: 12px; border-bottom: 1px solid var(--border);">
+                        <span style="font-size: 24px;">${r.icon}</span>
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600;">${r.title}</div>
+                            <div style="font-size: 13px; color: var(--text-secondary);">${r.comment || ''}</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+                                ${new Date(r.awarded_at).toLocaleDateString()} • ${r.awarded_by_name || 'Sensei'}
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                list.innerHTML = '<p style="color: var(--danger);">Ошибка загрузки</p>';
+            }
+        }
+
+        // ==================== ENHANCED REVIEW ====================
+        let currentReviewMaxXP = 0;
+
+        function openReviewModalById(submissionId) {
+            const sub = currentSubmissions.find(s => Number(s.id) === Number(submissionId));
+            if (!sub) return;
+
+            const task = reviewTasksMap[sub.task_id] || {};
+            const taskName = task.title || sub.task_id;
+            const maxXP = Number(task.xp || 0);
+            const taskDesc = [
+                task.description || '',
+                task.story ? `Сюжет: ${task.story}` : '',
+                Array.isArray(task.prerequisites) && task.prerequisites.length > 0
+                    ? `Пререквизиты: ${task.prerequisites.join(', ')}`
+                    : '',
+            ].filter(Boolean).join('\n\n') || 'Описание задачи отсутствует.';
+
+            openReviewModal(submissionId, taskName, maxXP, sub.link || '', taskDesc);
+        }
+
+        function openReviewModal(submissionId, taskName, maxXP, link, taskDescription = 'Описание задачи отсутствует.') {
+            currentReviewMaxXP = maxXP;
+            document.getElementById('review-submission-id').value = submissionId;
+            document.getElementById('review-task-name').innerText = taskName;
+            document.getElementById('review-max-xp').innerText = maxXP;
+            document.getElementById('review-task-description').innerText = taskDescription;
+            document.getElementById('review-score').value = 10;
+            document.getElementById('review-feedback').value = '';
+            updateReviewPreview();
+            document.getElementById('review-modal').classList.add('active');
+        }
+
+        function closeReviewModal() {
+            document.getElementById('review-modal').classList.remove('active');
+        }
+
+        function updateReviewPreview() {
+            const score = parseInt(document.getElementById('review-score').value);
+            document.getElementById('review-score-value').innerText = score;
+            const xp = Math.round((currentReviewMaxXP || 0) * score / 10);
+            document.getElementById('review-calculated-xp').innerText = xp;
+        }
+
+        async function submitReview(status) {
+            const submissionId = document.getElementById('review-submission-id').value;
+            const score = parseInt(document.getElementById('review-score').value);
+            const feedback = document.getElementById('review-feedback').value.trim();
+
+            try {
+                await api(`/api/admin/submissions/${submissionId}`, 'PUT', { status, score, feedback });
+                closeReviewModal();
+                loadSubmissions();
+                loadDashboard();
+                alert(status === 'approved' ? 'Работа одобрена!' : 'Работа отклонена');
+            } catch (e) {
+                alert('Ошибка при ревью');
+            }
+        }
+
+        // ==================== HOMEWORK ====================
+        let hwAllTasks = [];
+        let hwCurrentFilter = 'all';
+
+        async function loadHomeworkTasks() {
+            try {
+                const data = await api('/api/roadmap');
+                hwAllTasks = (data.tasks || []).map(t => ({
+                    id: t.id, title: t.title || t.id,
+                    category: t.category || '?', tier: t.tier || '?'
+                }));
+                renderHwTasks();
+            } catch (e) { console.warn('Failed to load tasks for HW:', e); }
+        }
+
+        function hwFilterTasks(cat) {
+            hwCurrentFilter = cat;
+            renderHwTasks();
+        }
+
+        function renderHwTasks() {
+            const list = document.getElementById('hw-tasks-list');
+            const filtered = hwCurrentFilter === 'all'
+                ? hwAllTasks
+                : hwAllTasks.filter(t => t.category === hwCurrentFilter);
+            if (filtered.length === 0) {
+                list.innerHTML = '<p style="color:var(--text-secondary);text-align:center;padding:16px;">Нет задач</p>';
+                return;
+            }
+            list.innerHTML = filtered.map(t => `
+                <label style="display:flex;align-items:center;gap:8px;padding:4px 8px;cursor:pointer;border-radius:6px;font-size:13px;"
+                       onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
+                    <input type="checkbox" class="hw-task-cb" value="${t.id}" onchange="updateHwCount()">
+                    <span style="color:var(--text-secondary);min-width:24px;">${t.tier}</span>
+                    <span>${t.title}</span>
+                    <span style="color:var(--text-secondary);margin-left:auto;font-size:11px;">${t.category}</span>
+                </label>
+            `).join('');
+        }
+
+        function updateHwCount() {
+            const count = document.querySelectorAll('.hw-task-cb:checked').length;
+            document.getElementById('hw-selected-count').textContent = count;
+        }
+
+        async function loadHomeworkStudents() {
+            try {
+                const data = await api('/api/admin/students');
+                const sel = document.getElementById('hw-target');
+                sel.innerHTML = '<option value="all">Все ученики</option>';
+                for (const s of (data.students || [])) {
+                    sel.innerHTML += `<option value="${s.id}">${s.display_name}</option>`;
+                }
+            } catch (e) { }
+        }
+
+        async function assignHomework() {
+            const title = document.getElementById('hw-title').value.trim();
+            const checked = [...document.querySelectorAll('.hw-task-cb:checked')].map(cb => cb.value);
+            const targetVal = document.getElementById('hw-target').value;
+            const statusEl = document.getElementById('hw-assign-status');
+
+            const body = { title: title || null, task_ids: checked.length ? checked : null };
+            if (targetVal !== 'all') body.user_ids = [parseInt(targetVal)];
+
+            try {
+                const result = await api('/api/admin/homework', 'POST', body);
+                statusEl.style.display = 'inline';
+                statusEl.textContent = `✅ ДЗ назначено! ${result.task_count} задач → ${result.target_count} учеников. Дедлайн: ${result.deadline_at}`;
+                statusEl.style.color = 'var(--success)';
+                document.querySelectorAll('.hw-task-cb:checked').forEach(cb => cb.checked = false);
+                updateHwCount();
+                document.getElementById('hw-title').value = '';
+                loadHomeworkSets();
+                setTimeout(() => { statusEl.style.display = 'none'; }, 8000);
+            } catch (e) {
+                statusEl.style.display = 'inline';
+                statusEl.textContent = `❌ Ошибка: ${e.message}`;
+                statusEl.style.color = 'var(--danger)';
+                setTimeout(() => { statusEl.style.display = 'none'; }, 6000);
+            }
+        }
+
+        async function loadHomeworkSets() {
+            try {
+                const data = await api('/api/admin/homework');
+                const sets = data.items || data.sets || [];
+                const table = document.getElementById('homework-table');
+                if (sets.length === 0) {
+                    table.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);">Нет домашних заданий</td></tr>';
+                    return;
+                }
+                table.innerHTML = sets.map(s => {
+                    const deadline = s.deadline_at ? new Date(s.deadline_at + 'Z').toLocaleString('ru-RU') : '—';
+                    const isOverdue = s.deadline_at && new Date(s.deadline_at + 'Z') < new Date();
+                    const statusBadge = isOverdue
+                        ? '<span class="badge badge-rejected">Просрочено</span>'
+                        : '<span class="badge badge-approved">Активно</span>';
+                    return `<tr>
+                        <td>${s.title || '—'}</td>
+                        <td>${s.task_count || '?'}</td>
+                        <td>${s.target_count || '?'}</td>
+                        <td>${deadline}</td>
+                        <td>${statusBadge}</td>
+                    </tr>`;
+                }).join('');
+            } catch (e) {
+                document.getElementById('homework-table').innerHTML =
+                    '<tr><td colspan="5" style="color:var(--danger);">Ошибка загрузки</td></tr>';
+            }
+        }
+
+        // ==================== INIT ====================
+        // ==================== GUILD ADMIN ====================
+        async function loadAdminGuilds() {
+            try {
+                const res = await fetch(`${API_URL}/api/admin/guilds/rankings`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                const tbody = document.getElementById('admin-guilds-table');
+                if (!data.rankings || data.rankings.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-secondary);">Гильдий пока нет</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = data.rankings.map(g => `
+                    <tr>
+                        <td style="font-weight:700;">${g.rank}</td>
+                        <td>${g.avatar_emoji} ${g.name}</td>
+                        <td>${g.member_count}</td>
+                        <td>${g.total_xp.toLocaleString()}</td>
+                        <td>${g.total_tasks}</td>
+                        <td style="font-weight:700; color:var(--accent-light);">${g.score}</td>
+                        <td><button class="btn btn-small" style="background:var(--danger); color:white;" onclick="adminDisbandGuild(${g.id}, '${g.name.replace(/'/g, "\\'")}')">Распустить</button></td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load guilds:', e);
+            }
+        }
+
+        async function loadGuildSettings() {
+            try {
+                const res = await fetch(`${API_URL}/api/admin/guilds/settings`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                document.getElementById('admin-max-guilds').value = data.max_guilds || 2;
+            } catch (e) { }
+        }
+
+        async function saveGuildSettings() {
+            const maxGuilds = parseInt(document.getElementById('admin-max-guilds').value);
+            try {
+                const res = await fetch(`${API_URL}/api/admin/guilds/settings`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ max_guilds: maxGuilds })
+                });
+                const data = await res.json();
+                alert(data.message || 'Сохранено');
+            } catch (e) {
+                alert('Ошибка сохранения');
+            }
+        }
+
+        async function adminDisbandGuild(guildId, guildName) {
+            if (!confirm(`⚠️ Расформировать гильдию «${guildName}»? Это нельзя отменить!`)) return;
+            try {
+                const res = await fetch(`${API_URL}/api/admin/guilds/${guildId}/disband`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                if (!res.ok) { alert(data.detail || 'Ошибка'); return; }
+                alert('Гильдия расформирована');
+                loadAdminGuilds();
+            } catch (e) {
+                alert('Ошибка');
+            }
+        }
+
+        window.addEventListener('load', checkAuth);
+
+        // Keyboard accessibility for nav items
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('keydown', e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    item.click();
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

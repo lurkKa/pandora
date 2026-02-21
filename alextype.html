@@ -1,0 +1,1385 @@
+<!doctype html>
+<html lang="ru">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AlexType — Тренажёр печати</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-void: #08080c;
+      --bg-deep: #0e0e14;
+      --bg-surface: #14141c;
+      --bg-elevated: #1a1a24;
+      --bg-hover: #222230;
+
+      --text-bright: #f5f5f7;
+      --text-primary: #e0e0e5;
+      --text-secondary: #9898a8;
+      --text-muted: #6a6a78;
+
+      --accent: #8b5cf6;
+      --accent-soft: #a78bfa;
+      --accent-glow: rgba(139, 92, 246, 0.3);
+
+      --success: #34d399;
+      --success-soft: rgba(52, 211, 153, 0.15);
+      --warning: #fbbf24;
+      --danger: #f87171;
+
+      --border: rgba(139, 92, 246, 0.12);
+      --border-subtle: rgba(255, 255, 255, 0.06);
+
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-void);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 24px 16px;
+      background-image:
+        radial-gradient(ellipse at 20% 0%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 100%, rgba(52, 211, 153, 0.05) 0%, transparent 50%);
+    }
+
+    .wrap {
+      max-width: 860px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+
+    /* ===== HEADER ===== */
+    .header-card {
+      background: linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-elevated) 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--success), var(--warning));
+      opacity: 0.7;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, var(--accent), #6d28d9);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .logo h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, var(--accent-soft) 0%, var(--text-bright) 50%, var(--success) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .logo-sub {
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-top: 6px;
+      margin-left: 54px;
+    }
+
+    /* ===== BACK LINK ===== */
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 4px;
+      transition: color 0.2s;
+    }
+
+    .back-link:hover {
+      color: var(--accent-soft);
+    }
+
+    /* ===== CARDS ===== */
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      transition: border-color 0.3s;
+    }
+
+    .card:hover {
+      border-color: var(--border);
+    }
+
+    /* ===== CONTROLS ===== */
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    select {
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    select:focus {
+      border-color: var(--accent);
+    }
+
+    button {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px 18px;
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: var(--bg-hover);
+      border-color: var(--border);
+      transform: translateY(-1px);
+    }
+
+    button.primary {
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(139, 92, 246, 0.1));
+      border-color: rgba(139, 92, 246, 0.4);
+      color: var(--accent-soft);
+    }
+
+    button.primary:hover {
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(139, 92, 246, 0.15));
+      border-color: var(--accent);
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+
+    .status {
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 500;
+      margin-left: auto;
+    }
+
+    /* ===== TYPING AREA ===== */
+    .sample {
+      line-height: 1.75;
+      font-size: 17px;
+      background: var(--bg-deep);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      min-height: 100px;
+      white-space: pre-wrap;
+      font-family: 'Inter', monospace;
+      margin-bottom: 12px;
+      letter-spacing: 0.2px;
+    }
+
+    .sample .ok {
+      color: var(--success);
+      text-shadow: 0 0 8px rgba(52, 211, 153, 0.3);
+    }
+
+    .sample .bad {
+      color: var(--danger);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      text-shadow: 0 0 8px rgba(248, 113, 113, 0.3);
+    }
+
+    .sample .rest {
+      color: var(--text-muted);
+    }
+
+    .sample .cursor-char {
+      color: var(--text-bright);
+      background: rgba(139, 92, 246, 0.25);
+      border-radius: 2px;
+      padding: 0 1px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      font-size: 16px;
+      font-family: 'Inter', monospace;
+      line-height: 1.65;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.3s, box-shadow 0.3s;
+      letter-spacing: 0.2px;
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    /* ===== STATS ===== */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .stat {
+      background: var(--bg-deep);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      text-align: center;
+      transition: border-color 0.3s, transform 0.2s;
+    }
+
+    .stat:hover {
+      border-color: var(--border);
+      transform: translateY(-2px);
+    }
+
+    .stat-label {
+      display: block;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      display: block;
+      color: var(--text-bright);
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .stat:nth-child(1) .stat-value {
+      color: var(--accent-soft);
+    }
+
+    .stat:nth-child(2) .stat-value {
+      color: var(--success);
+    }
+
+    .stat:nth-child(3) .stat-value {
+      color: var(--warning);
+    }
+
+    .stat:nth-child(4) .stat-value {
+      color: var(--text-bright);
+    }
+
+    .status-ok {
+      color: var(--success) !important;
+      font-weight: 600;
+    }
+
+    .status-bad {
+      color: var(--danger) !important;
+      font-weight: 600;
+    }
+
+    /* ===== XP TOAST ===== */
+    .xp-toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(109, 40, 217, 0.9));
+      border: 1px solid rgba(139, 92, 246, 0.6);
+      border-radius: var(--radius-md);
+      padding: 16px 24px;
+      color: var(--text-bright);
+      font-weight: 700;
+      font-size: 18px;
+      z-index: 9999;
+      animation: xpSlideIn 0.4s ease-out, xpFadeOut 0.4s ease-in 2.6s forwards;
+      box-shadow: 0 0 30px var(--accent-glow), 0 8px 32px rgba(0, 0, 0, 0.4);
+      pointer-events: none;
+    }
+
+    .xp-toast .xp-sub {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--accent-soft);
+      margin-top: 4px;
+    }
+
+    @keyframes xpSlideIn {
+      from {
+        transform: translateX(100px);
+        opacity: 0;
+      }
+
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes xpFadeOut {
+      to {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+    }
+
+    .xp-preview {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-left: auto;
+      padding: 4px 10px;
+      background: var(--bg-deep);
+      border-radius: 6px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    /* ===== LEVEL BADGE ===== */
+    .level-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .level-badge.D {
+      background: rgba(34, 197, 94, 0.15);
+      color: #22c55e;
+    }
+
+    .level-badge.C {
+      background: rgba(59, 130, 246, 0.15);
+      color: #3b82f6;
+    }
+
+    .level-badge.B {
+      background: rgba(168, 85, 247, 0.15);
+      color: #a855f7;
+    }
+
+    .level-badge.A {
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+    }
+
+    .level-badge.S {
+      background: linear-gradient(135deg, rgba(244, 63, 94, 0.15), rgba(245, 158, 11, 0.15));
+      color: #f43f5e;
+    }
+
+    /* ===== RESPONSIVE — Ideal adaptation for any device ===== */
+
+    /* Tablet landscape & small desktop */
+    @media (max-width: 960px) {
+      .wrap {
+        max-width: 720px;
+      }
+    }
+
+    /* Tablet portrait */
+    @media (max-width: 768px) {
+      body {
+        padding: 16px 12px;
+      }
+
+      .wrap {
+        gap: 12px;
+      }
+
+      .header-card {
+        padding: 18px 20px;
+      }
+
+      .logo h1 {
+        font-size: 22px;
+      }
+
+      .logo-sub {
+        font-size: 12px;
+        margin-left: 54px;
+      }
+
+      .controls {
+        gap: 8px;
+      }
+
+      select,
+      button {
+        padding: 10px 14px;
+        font-size: 13px;
+      }
+
+      .sample {
+        font-size: 16px;
+        padding: 14px;
+        min-height: 90px;
+      }
+
+      textarea {
+        font-size: 15px;
+        padding: 14px;
+        min-height: 90px;
+      }
+
+      .stat-value {
+        font-size: 20px;
+      }
+    }
+
+    /* Large phones */
+    @media (max-width: 640px) {
+      body {
+        padding: 12px 8px;
+        /* Safe area for notched phones */
+        padding-left: max(8px, env(safe-area-inset-left));
+        padding-right: max(8px, env(safe-area-inset-right));
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
+      }
+
+      .wrap {
+        gap: 10px;
+      }
+
+      .header-card {
+        padding: 14px 16px;
+        border-radius: var(--radius-md);
+      }
+
+      .logo-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 18px;
+        border-radius: var(--radius-sm);
+      }
+
+      .logo h1 {
+        font-size: 20px;
+      }
+
+      .logo-sub {
+        margin-left: 48px;
+        font-size: 11px;
+        line-height: 1.4;
+      }
+
+      .card {
+        padding: 14px;
+        border-radius: var(--radius-md);
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .controls select,
+      .controls button {
+        width: 100%;
+        min-height: 44px;
+        /* Touch-friendly minimum */
+        font-size: 14px;
+        justify-content: center;
+        text-align: center;
+      }
+
+      .controls button.primary {
+        grid-column: 1 / -1;
+        /* Full width */
+      }
+
+      .level-badge {
+        justify-self: start;
+      }
+
+      .status {
+        grid-column: 1 / -1;
+        margin-left: 0;
+        width: 100%;
+        text-align: center;
+        padding: 6px 0;
+      }
+
+      .xp-preview {
+        display: none;
+      }
+
+      .sample {
+        font-size: 15px;
+        padding: 12px;
+        min-height: 80px;
+        line-height: 1.7;
+        border-radius: var(--radius-sm);
+      }
+
+      textarea {
+        font-size: 16px;
+        /* Prevent iOS zoom on focus */
+        padding: 12px;
+        min-height: 80px;
+        border-radius: var(--radius-sm);
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+      }
+
+      .stat {
+        padding: 12px;
+        border-radius: var(--radius-sm);
+      }
+
+      .stat-value {
+        font-size: 20px;
+      }
+
+      .stat-label {
+        font-size: 10px;
+        letter-spacing: 0.6px;
+      }
+
+      /* XP toast: full width on mobile */
+      .xp-toast {
+        left: 12px;
+        right: 12px;
+        top: 12px;
+        text-align: center;
+        border-radius: var(--radius-sm);
+        padding: 12px 16px;
+        font-size: 16px;
+      }
+
+      .back-link {
+        font-size: 12px;
+        margin-bottom: 2px;
+      }
+    }
+
+    /* Small phones (iPhone SE, Galaxy S series) */
+    @media (max-width: 480px) {
+      body {
+        padding: 8px 6px;
+        padding-left: max(6px, env(safe-area-inset-left));
+        padding-right: max(6px, env(safe-area-inset-right));
+      }
+
+      .header-card {
+        padding: 12px 14px;
+      }
+
+      .logo-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 16px;
+      }
+
+      .logo h1 {
+        font-size: 18px;
+      }
+
+      .logo-sub {
+        margin-left: 44px;
+        font-size: 10px;
+      }
+
+      .card {
+        padding: 10px;
+      }
+
+      .controls {
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+
+      .controls select,
+      .controls button {
+        padding: 8px 10px;
+        font-size: 13px;
+      }
+
+      .sample {
+        font-size: 14px;
+        padding: 10px;
+        min-height: 70px;
+        line-height: 1.65;
+      }
+
+      textarea {
+        font-size: 16px;
+        /* Keep 16px to prevent iOS zoom */
+        padding: 10px;
+        min-height: 70px;
+      }
+
+      .stats {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+      }
+
+      .stat {
+        padding: 8px 4px;
+      }
+
+      .stat-value {
+        font-size: 16px;
+      }
+
+      .stat-label {
+        font-size: 9px;
+        letter-spacing: 0.4px;
+        margin-bottom: 4px;
+      }
+    }
+
+    /* Very small phones (320-360px) */
+    @media (max-width: 360px) {
+      .logo h1 {
+        font-size: 16px;
+      }
+
+      .logo-sub {
+        display: none;
+      }
+
+      .controls {
+        grid-template-columns: 1fr;
+      }
+
+      .sample {
+        font-size: 13px;
+        padding: 8px;
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .stat-value {
+        font-size: 18px;
+      }
+    }
+
+    /* Landscape phones — maximize typing area */
+    @media (max-height: 500px) and (orientation: landscape) {
+      body {
+        padding: 8px 16px;
+      }
+
+      .wrap {
+        gap: 8px;
+      }
+
+      .header-card {
+        padding: 8px 16px;
+      }
+
+      .header-card::before {
+        height: 1px;
+      }
+
+      .logo-icon {
+        width: 28px;
+        height: 28px;
+        font-size: 14px;
+      }
+
+      .logo h1 {
+        font-size: 18px;
+      }
+
+      .logo-sub {
+        display: none;
+      }
+
+      .card {
+        padding: 10px;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .controls select,
+      .controls button {
+        padding: 6px 12px;
+        min-height: 36px;
+        font-size: 12px;
+      }
+
+      .sample {
+        font-size: 14px;
+        min-height: 50px;
+        padding: 8px 12px;
+      }
+
+      textarea {
+        min-height: 50px;
+        padding: 8px 12px;
+        font-size: 14px;
+      }
+
+      .stats {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+      }
+
+      .stat {
+        padding: 6px 8px;
+      }
+
+      .stat-value {
+        font-size: 16px;
+      }
+
+      .stat-label {
+        font-size: 9px;
+        margin-bottom: 2px;
+      }
+
+      .back-link {
+        display: none;
+      }
+    }
+
+    /* Large desktop / ultra-wide */
+    @media (min-width: 1200px) {
+      .wrap {
+        max-width: 900px;
+      }
+
+      .sample {
+        font-size: 18px;
+        padding: 20px;
+      }
+
+      textarea {
+        font-size: 17px;
+        padding: 20px;
+      }
+    }
+
+    /* Hover-capable devices only — remove hover effects on touch */
+    @media (hover: none) {
+      .stat:hover {
+        transform: none;
+        border-color: var(--border-subtle);
+      }
+
+      button:hover {
+        transform: none;
+      }
+
+      .card:hover {
+        border-color: var(--border-subtle);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <a href="/" class="back-link">← Вернуться в Академию</a>
+
+    <div class="header-card">
+      <div class="logo">
+        <div class="logo-icon">⌨️</div>
+        <h1>AlexType</h1>
+      </div>
+      <div class="logo-sub">Тренажёр печати Академии Pandora — уровни сложности, точность и скорость → XP</div>
+    </div>
+
+    <div class="card controls">
+      <label for="level" style="font-weight:600;font-size:14px;">Уровень:</label>
+      <select id="level">
+        <option value="D">D — Новичок</option>
+        <option value="C">C — Ученик</option>
+        <option value="B">B — Воин</option>
+        <option value="A">A — Мастер</option>
+        <option value="S">S — Легенда</option>
+      </select>
+      <select id="lang">
+        <option value="ru">🇷🇺 Русский</option>
+        <option value="en">🇬🇧 English</option>
+      </select>
+      <span id="levelBadge" class="level-badge D">D</span>
+      <button id="newText" class="primary">✨ Новый текст</button>
+      <button id="reset">🔄 Сброс</button>
+      <span id="xpPreview" class="xp-preview">~5-8 XP</span>
+      <span id="status" class="status">Готово к старту</span>
+    </div>
+
+    <div class="card">
+      <div id="sample" class="sample"></div>
+      <textarea id="input" placeholder="Начни печатать здесь..." autocomplete="off" spellcheck="false"></textarea>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <span class="stat-label">Символы</span>
+        <span class="stat-value" id="chars">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Точность</span>
+        <span class="stat-value" id="accuracy">100%</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">CPM</span>
+        <span class="stat-value" id="cpm">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Время</span>
+        <span class="stat-value" id="time">0s</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== TEXT POOLS BY DIFFICULTY & LANGUAGE =====
+    // D: ~30 chars | C: ~80-100 chars | B: ~180-200 chars | A: ~350-400 chars | S: ~700-800 chars
+    const TEXTS = {
+      ru: {
+        D: [
+          "Привет мир, как дела сегодня?",
+          "Добрый день, рад вас видеть.",
+          "Скоро лето, будет тепло и хорошо.",
+          "Чистый код работает без ошибок.",
+          "Книга лежит на столе у окна.",
+          "Солнце светит ярко над городом.",
+          "Я люблю учиться каждый новый день.",
+          "Код работает правильно и быстро.",
+          "Программа запущена без проблем.",
+          "Тест пройден, все модули в норме.",
+          "Дождь идет за окном, тепло внутри.",
+          "Кот спит на диване, тихо мурча.",
+          "Весна пришла, деревья зеленеют.",
+          "Утро начинается с чашки кофе.",
+          "Задача решена, можно двигаться дальше.",
+          "Мышка и клавиатура - инструменты мастера.",
+          "Ветер дует с севера, холодно на улице.",
+          "Музыка играет тихо, приятно работать.",
+          "Друзья всегда помогут в трудный час.",
+          "Новый проект начинается с идеи.",
+        ],
+        C: [
+          "Из сундука первым достают то, что положили сверху. Так работает стек - структура данных.",
+          "Смелость города берет. Программист тоже должен быть смелым, чтобы решать сложные задачи каждый день.",
+          "Программист пишет код каждый день, стараясь сделать его понятным и чистым для других разработчиков.",
+          "Тайга стояла тихая и величественная, укрытая снегом, и ни один звук не нарушал покой зимнего леса.",
+          "Роса блестела на траве как алмазы, когда первые лучи солнца пробились сквозь утренний туман над лугом.",
+          "Дружба помогает преодолеть любые трудности. Вместе люди способны на большее, чем поодиночке.",
+          "Честное слово - это не пустой звук. За каждым обещанием должно стоять действие и ответственность.",
+          "Ученье - свет, а неученье - тьма. Знания открывают двери, которые были закрыты для невежества.",
+          "Каждая новая строка кода делает мир немного лучше, если она написана с умом и заботой о пользователе.",
+          "JavaScript - язык для веб-разработки. Он позволяет создавать интерактивные страницы и приложения.",
+          "Массив - это упорядоченная коллекция элементов. Доступ к каждому элементу осуществляется по индексу.",
+          "Цикл позволяет повторять действия нужное количество раз. Это основа любого алгоритма обработки данных.",
+          "Переменная хранит значение, которое можно менять по ходу выполнения программы. Это базовая концепция.",
+          "Функция принимает аргументы и возвращает результат. Хорошая функция делает ровно одну задачу.",
+          "Условный оператор позволяет программе принимать решения. Если условие истинно, выполняется один блок кода.",
+        ],
+        B: [
+          "Капитан смотрел в подзорную трубу, а на горизонте показалась земля. Матросы закричали от радости. Долгое путешествие подходило к концу. Корабль поднял паруса и устремился к берегу. Все были счастливы после месяцев в открытом море.",
+          "Человеческий гений способен покорить стихии, если не теряет дисциплину. История знает множество примеров, когда упорство и знания побеждали природу. Но для этого нужна команда, план и несокрушимая воля к победе.",
+          "Наутилус плыл под водой с невероятной скоростью, рассекая глубины океана. Капитан Немо стоял у штурвала и смотрел сквозь иллюминатор на подводный мир. Рыбы сверкали в свете прожекторов, а водоросли колыхались как деревья.",
+          "Путешествие к центру Земли началось с кратера потухшего вулкана. Профессор вел группу вниз по узким тоннелям. Каждый шаг открывал новые чудеса подземного мира. Сталактиты свисали с потолка как хрустальные люстры.",
+          "Хороший программист пишет код, который могут понять другие люди. Это значит использовать понятные имена переменных, писать комментарии и разбивать сложную логику на простые функции. Читаемость важнее краткости.",
+          "Алгоритм сортировки массива - одна из базовых задач информатики. Существует множество подходов: пузырьковая сортировка, быстрая сортировка, сортировка слиянием. Каждый метод имеет свои преимущества и недостатки.",
+          "Функция должна делать одну вещь и делать её хорошо. Этот принцип называется единственной ответственностью. Когда функция выполняет слишком много задач, её сложно понять, протестировать и поддерживать.",
+          "В мире программирования постоянное обучение - это необходимость. Технологии меняются быстро, и чтобы оставаться востребованным специалистом, нужно осваивать новые инструменты, фреймворки и подходы к разработке.",
+          "Рекурсия - это способ решения задачи, когда функция вызывает саму себя. Классический пример - вычисление факториала числа. Важно всегда определять базовый случай, чтобы рекурсия не стала бесконечной.",
+          "Базы данных хранят информацию структурированно. SQL позволяет создавать таблицы, добавлять записи и выполнять сложные запросы. Правильная структура базы данных - основа надежного приложения.",
+        ],
+        A: [
+          "Побеждает тот, кто не сдается до последнего вздоха и сохраняет ясность мысли. В программировании, как и в жизни, самые сложные задачи требуют терпения и систематического подхода. Нельзя просто надеяться на удачу - нужно анализировать проблему, разбивать её на части и решать шаг за шагом. Именно эта методичность отличает настоящего профессионала от новичка. Каждая ошибка - это урок, каждый баг - возможность стать лучше.",
+          "Объектно-ориентированное программирование позволяет моделировать реальный мир с помощью классов и объектов. Класс - это чертеж, по которому создаются объекты. Наследование позволяет создавать иерархии классов, инкапсуляция скрывает внутреннюю реализацию, а полиморфизм дает возможность использовать разные объекты через единый интерфейс. Эти принципы лежат в основе большинства современных языков программирования.",
+          "Архитектура приложения определяет его масштабируемость, надежность и простоту поддержки. Выбор между монолитом и микросервисами зависит от размера команды, сложности проекта и требований к производительности. Монолит проще в начале, но может стать узким местом при росте. Микросервисы дают гибкость, но усложняют инфраструктуру. Нет единого правильного ответа - есть компромиссы, которые нужно осознанно принимать.",
+          "Искусственный интеллект меняет мир быстрее, чем мы успеваем осмыслить последствия этих изменений. Машинное обучение позволяет компьютерам находить паттерны в данных, которые человек не способен заметить. Нейронные сети имитируют работу мозга, обрабатывая информацию через слои искусственных нейронов. Но за каждой моделью стоит огромная работа по сбору данных, обучению и валидации.",
+          "Серверная часть приложения отвечает за обработку данных, аутентификацию и бизнес-логику. REST API предоставляет стандартизированный интерфейс для клиент-серверного взаимодействия. Каждый endpoint принимает запросы, обрабатывает их и возвращает ответ в формате JSON. Безопасность обеспечивается токенами, шифрованием и валидацией входных данных. Правильно спроектированный API - основа масштабируемого приложения.",
+          "Рефакторинг кода - это процесс улучшения структуры без изменения внешнего поведения программы. Код со временем накапливает технический долг: дублирование, сложные условия, длинные функции. Рефакторинг устраняет эти проблемы, делая код чище и понятнее. Важно проводить рефакторинг малыми шагами, покрывая код тестами перед изменениями. Это снижает риск внесения ошибок и сохраняет работоспособность системы.",
+          "Паттерны проектирования - это проверенные решения типичных задач в разработке программного обеспечения. Синглтон гарантирует единственный экземпляр класса. Фабрика создает объекты без привязки к конкретным классам. Наблюдатель позволяет подписываться на события. Стратегия инкапсулирует семейство алгоритмов. Знание паттернов помогает писать гибкий и расширяемый код, но важно не злоупотреблять ими.",
+          "Тестирование - неотъемлемая часть разработки качественного программного обеспечения. Юнит-тесты проверяют отдельные функции и модули в изоляции. Интеграционные тесты убеждаются, что компоненты работают вместе. Сквозные тесты имитируют поведение пользователя. Покрытие кода тестами дает уверенность при внесении изменений и рефакторинге. Хорошие тесты - это документация, которая всегда актуальна.",
+        ],
+        S: [
+          "Нет ничего ни хорошего, ни плохого; размышление делает все таковым, и именно в этом сила человеческого выбора. Эта мысль Шекспира применима даже к программированию. Код сам по себе не хорош и не плох - его ценность определяется контекстом. Элегантное решение в одной ситуации может быть чрезмерно сложным в другой. Простой подход, который кажется примитивным, может оказаться идеальным для прототипа. Мудрость разработчика состоит в умении оценить ситуацию и выбрать подходящий инструмент. Не существует серебряной пули, универсального фреймворка или единственно правильной архитектуры. Есть только компромиссы, которые мы осознанно принимаем, понимая их последствия. Настоящий профессионализм - это не знание всех технологий, а умение выбрать именно ту, которая решит конкретную задачу наилучшим образом.",
+          "Микросервисная архитектура разбивает монолитное приложение на независимые сервисы, каждый из которых отвечает за свою область. Каждый микросервис имеет собственную базу данных, развертывается независимо и общается с другими через API или очереди сообщений. Это дает команде возможность работать автономно над отдельными частями системы, выбирать подходящий технологический стек для каждого сервиса и масштабировать компоненты по отдельности. Однако микросервисы привносят сложность: распределенные транзакции, согласованность данных, мониторинг десятков сервисов, сетевые задержки и проблемы с отладкой. Нужен зрелый DevOps-процесс с автоматизированным CI/CD, контейнеризацией и оркестрацией. Kubernetes стал стандартом для управления контейнерами, но его освоение требует значительных усилий.",
+          "Контейнеризация с помощью Docker позволяет упаковать приложение со всеми зависимостями и запустить его в любой среде. Dockerfile описывает шаги сборки образа, docker-compose управляет многоконтейнерными приложениями. Образы хранятся в реестрах и могут быть развернуты на любом сервере с установленным Docker. Это решает проблему несовместимости окружений между разработкой и продакшеном. Оркестрация контейнеров с помощью Kubernetes добавляет автоматическое масштабирование, балансировку нагрузки и самовосстановление. Pods, Services, Deployments, ConfigMaps - каждый примитив Kubernetes решает конкретную задачу. Helm-чарты упрощают развертывание сложных приложений. Но за мощностью скрывается сложность: сетевые политики, persistent volumes, resource limits, liveness probes - все требует глубокого понимания.",
+          "Непрерывная интеграция и развертывание автоматизируют процесс тестирования и доставки кода в производственную среду. При каждом коммите запускается пайплайн: линтинг, юнит-тесты, интеграционные тесты, сборка артефактов, развертывание на staging, smoke-тесты, и наконец релиз в продакшен. Blue-green deployment позволяет переключаться между версиями без простоя. Canary releases направляют часть трафика на новую версию для проверки. Feature flags дают возможность включать функционал постепенно. Мониторинг и алерты отслеживают здоровье системы в реальном времени. Prometheus собирает метрики, Grafana визуализирует их, PagerDuty уведомляет дежурных инженеров. Логи агрегируются в ELK-стек или Loki. Distributed tracing через Jaeger помогает найти узкие места в цепочке микросервисов.",
+          "Безопасность веб-приложений начинается с понимания основных угроз. SQL-инъекции позволяют злоумышленнику выполнять произвольные запросы к базе данных, если входные данные не валидируются. Cross-Site Scripting внедряет вредоносный JavaScript в страницу. CSRF заставляет браузер пользователя выполнять нежелательные действия на сайте, где он авторизован. Защита включает параметризованные запросы, экранирование вывода, CSRF-токены, Content Security Policy и Strict-Transport-Security. Аутентификация через JWT-токены требует правильного хранения секретов, ротации ключей и валидации claims. OAuth2 и OpenID Connect стандартизируют процесс авторизации через внешних провайдеров. Двухфакторная аутентификация добавляет второй уровень защиты. Rate limiting предотвращает брутфорс. OWASP Top 10 - обязательный чеклист для каждого разработчика.",
+          "Алгоритмы и структуры данных - фундамент компьютерной науки. Массивы обеспечивают доступ по индексу за константное время, но вставка в середину требует сдвига элементов. Связанные списки позволяют быструю вставку, но поиск линеен. Хеш-таблицы дают амортизированный доступ за константное время ценой памяти. Деревья поиска поддерживают упорядоченность данных с логарифмическими операциями. Графы моделируют связи между объектами; BFS и DFS обходят их по-разному. Динамическое программирование разбивает задачу на подзадачи и запоминает результаты. Жадные алгоритмы принимают локально оптимальные решения. Сортировка: quicksort в среднем работает за O(n log n), mergesort стабилен, heapsort не требует дополнительной памяти. Знание сложности алгоритмов critical для оптимизации производительности.",
+        ],
+      },
+      en: {
+        D: [
+          "Hello world, how are you today?",
+          "Good morning, nice to see you.",
+          "Summer is coming, it will be warm.",
+          "Clean code works without errors.",
+          "The book is on the table by the window.",
+          "The sun shines brightly over the city.",
+          "I love to learn something new each day.",
+          "The code runs correctly and fast.",
+          "The program started without issues.",
+          "Test passed, all modules are fine.",
+          "Rain falls outside, warm and cozy inside.",
+          "The cat sleeps on the couch, purring.",
+          "Spring has arrived, trees turn green.",
+          "Morning begins with a cup of coffee.",
+          "Task solved, we can move forward now.",
+          "Mouse and keyboard are tools of a master.",
+          "Wind blows from the north, cold outside.",
+          "Music plays softly, pleasant to work.",
+          "Friends will always help in hard times.",
+          "A new project starts with a great idea.",
+        ],
+        C: [
+          "From a stack you first take what was put on top. This is how the stack data structure works in computer science.",
+          "Courage conquers cities. A programmer also needs courage to solve complex problems and debug tricky issues daily.",
+          "A programmer writes code every day, trying to make it clean and readable for other developers on the team.",
+          "The forest stood quiet and majestic, covered with snow, and not a single sound broke the peace of the winter woods.",
+          "Dew glistened on the grass like diamonds when the first rays of the sun broke through the morning fog over the meadow.",
+          "Friendship helps overcome any difficulties. Together people are capable of much more than they are alone in this world.",
+          "An honest word is not an empty sound. Behind every promise there must be action and true responsibility for results.",
+          "Learning is light, and ignorance is darkness. Knowledge opens doors that were previously closed to those who did not study.",
+          "Every new line of code makes the world a little better, if it is written with care and thought for the end user.",
+          "JavaScript is a language for web development. It allows you to create interactive pages and modern web applications.",
+          "An array is an ordered collection of elements. Access to each element is done by its numerical index position.",
+          "A loop allows repeating actions the needed number of times. This is the core foundation of any data processing algorithm.",
+          "A variable stores a value that can be changed during program execution. This is the most basic concept in programming.",
+          "A function takes arguments and returns a result. A well-designed function should handle exactly one task and nothing more.",
+          "A conditional operator lets a program make decisions. If the condition is true, one block of code is executed instead.",
+        ],
+        B: [
+          "The captain looked through the telescope and land appeared on the horizon. The sailors shouted with joy. The long voyage was coming to an end. The ship raised its sails and headed for the shore. Everyone was happy after months on the open sea.",
+          "Human genius can conquer the elements if it does not lose discipline. History knows many examples when persistence and knowledge defeated nature. But this requires a team, a plan, and an unwavering will to succeed in the face of adversity.",
+          "The Nautilus sailed underwater at incredible speed, cutting through the depths of the ocean. Captain Nemo stood at the helm and looked through the porthole at the underwater world. Fish sparkled in the searchlights and seaweed swayed like trees.",
+          "The journey to the center of the Earth began at the crater of an extinct volcano. The professor led the group down narrow tunnels. Each step revealed new wonders of the underground world. Stalactites hung from the ceiling like crystal chandeliers.",
+          "A good programmer writes code that other people can understand. This means using clear variable names, writing comments, and breaking complex logic into simple functions. Readability is more important than brevity in professional software development.",
+          "The array sorting algorithm is one of the fundamental tasks in computer science. There are many approaches: bubble sort, quicksort, merge sort. Each method has its own advantages and trade-offs that make it suitable for different situations.",
+          "A function should do one thing and do it well. This principle is called single responsibility. When a function performs too many tasks, it becomes difficult to understand, test, and maintain over the long lifecycle of a project.",
+          "In the world of programming, continuous learning is a necessity. Technologies change rapidly, and to remain a sought-after specialist, you need to master new tools, frameworks, and approaches to software development on a regular basis.",
+          "Recursion is a way to solve a problem where a function calls itself. A classic example is calculating the factorial of a number. It is crucial to always define a base case so that the recursion does not become infinite and crash.",
+          "Databases store information in a structured manner. SQL allows you to create tables, add records, and execute complex queries. A properly designed database schema is the foundation of any reliable and performant application.",
+        ],
+        A: [
+          "The one who wins is the one who never gives up and keeps a clear mind. In programming, as in life, the most complex tasks require patience and a systematic approach. You cannot just hope for luck - you need to analyze the problem, break it down into parts, and solve it step by step. It is this methodical approach that distinguishes a true professional from a beginner. Every mistake is a lesson, every bug is an opportunity to become a better developer and grow your skills.",
+          "Object-oriented programming allows us to model the real world using classes and objects. A class is a blueprint from which objects are created. Inheritance allows creating class hierarchies, encapsulation hides internal implementation, and polymorphism enables using different objects through a single interface. These principles form the foundation of most modern programming languages and are essential for building maintainable software systems.",
+          "Application architecture determines its scalability, reliability, and ease of maintenance. The choice between a monolith and microservices depends on team size, project complexity, and performance requirements. A monolith is simpler at the start but can become a bottleneck as the system grows. Microservices provide flexibility but complicate the infrastructure. There is no single right answer - only trade-offs that must be consciously accepted and understood.",
+          "Artificial intelligence is changing the world faster than we can comprehend the consequences of these changes. Machine learning allows computers to find patterns in data that humans cannot notice. Neural networks mimic the workings of the brain, processing information through layers of artificial neurons. But behind every model lies enormous work in data collection, training, validation, and deployment to production systems.",
+          "The server side of an application handles data processing, authentication, and business logic. A REST API provides a standardized interface for client-server interaction. Each endpoint receives requests, processes them, and returns responses in JSON format. Security is ensured through tokens, encryption, and input validation. A well-designed API is the cornerstone of a scalable and maintainable application architecture.",
+          "Code refactoring is the process of improving structure without changing observable behavior. Code accumulates technical debt over time: duplication, complex conditions, long functions. Refactoring eliminates these problems, making code cleaner and more understandable. It is important to refactor in small steps, covering code with tests before changes. This reduces the risk of introducing bugs and preserves system functionality throughout the refactoring process.",
+          "Design patterns are proven solutions to common problems in software development. Singleton guarantees a single instance of a class. Factory creates objects without binding to concrete classes. Observer allows subscribing to events and reacting to changes. Strategy encapsulates a family of algorithms behind a common interface. Knowledge of patterns helps write flexible and extensible code, but it is important not to overuse them.",
+          "Testing is an integral part of developing quality software. Unit tests verify individual functions and modules in isolation from the rest of the system. Integration tests ensure that components work together correctly. End-to-end tests simulate real user behavior from start to finish. Code coverage with tests gives confidence when making changes and during refactoring. Good tests serve as documentation that is always up to date and accurate.",
+        ],
+        S: [
+          "There is nothing either good or bad, but thinking makes it so, and therein lies the power of human choice. This thought from Shakespeare applies even to programming. Code itself is neither good nor bad - its value is determined by context. An elegant solution in one situation may be overly complex in another. A simple approach that seems primitive may turn out to be perfect for a prototype. A developer's wisdom lies in the ability to assess the situation and choose the right tool. There is no silver bullet, universal framework, or single correct architecture. There are only trade-offs that we consciously accept, understanding their consequences. True professionalism is not knowing every technology, but being able to choose exactly the one that will solve a specific problem in the best possible way for the team and the business.",
+          "Microservice architecture breaks a monolithic application into independent services, each responsible for its own domain. Each microservice has its own database, is deployed independently, and communicates with others through APIs or message queues. This gives teams the ability to work autonomously on separate parts of the system, choose the appropriate technology stack for each service, and scale components individually based on load. However, microservices introduce complexity: distributed transactions, data consistency, monitoring dozens of services, network latency, and debugging difficulties. A mature DevOps process with automated CI/CD, containerization, and orchestration is essential. Kubernetes has become the standard for container management, but mastering it requires significant effort and deep understanding of networking and infrastructure concepts.",
+          "Containerization with Docker allows packaging an application with all its dependencies and running it in any environment. A Dockerfile describes the steps for building an image, docker-compose manages multi-container applications. Images are stored in registries and can be deployed to any server with Docker installed. This solves the problem of environment incompatibility between development and production. Container orchestration with Kubernetes adds automatic scaling, load balancing, and self-healing capabilities. Pods, Services, Deployments, ConfigMaps - each Kubernetes primitive solves a specific problem. Helm charts simplify the deployment of complex applications. But behind the power lies complexity: network policies, persistent volumes, resource limits, liveness probes - everything requires deep understanding and careful configuration.",
+          "Continuous integration and deployment automate the process of testing and delivering code to production. With each commit, a pipeline runs: linting, unit tests, integration tests, artifact building, deployment to staging, smoke tests, and finally release to production. Blue-green deployment allows switching between versions without downtime. Canary releases direct a portion of traffic to the new version for verification before full rollout. Feature flags enable gradual enablement of functionality. Monitoring and alerts track system health in real-time. Prometheus collects metrics, Grafana visualizes them, PagerDuty notifies on-call engineers of critical issues. Logs are aggregated using the ELK stack or Loki for centralized search and analysis. Distributed tracing through Jaeger helps find bottlenecks in microservice chains.",
+          "Web application security begins with understanding the main threats that exist in the modern internet landscape. SQL injection allows an attacker to execute arbitrary database queries when input data is not properly validated and sanitized. Cross-Site Scripting injects malicious JavaScript into pages viewed by other users. CSRF forces a user's browser to perform unwanted actions on a site where they are authenticated. Protection includes parameterized queries, output escaping, CSRF tokens, Content Security Policy headers, and Strict-Transport-Security. Authentication via JWT tokens requires proper secret storage, key rotation, and claims validation. OAuth2 and OpenID Connect standardize the authorization process through external identity providers. Two-factor authentication adds a second layer of protection. Rate limiting prevents brute-force attacks against login endpoints.",
+          "Algorithms and data structures form the foundation of computer science and software engineering. Arrays provide constant-time access by index, but insertion in the middle requires shifting elements. Linked lists allow fast insertion at any position, but searching is linear in the worst case. Hash tables provide amortized constant-time access at the cost of additional memory usage. Binary search trees maintain sorted data with logarithmic operations for insert, delete, and search. Graphs model relationships between objects; BFS and DFS traverse them in different ways, each suited to specific problems. Dynamic programming breaks a problem into subproblems and memoizes results to avoid redundant computation. Greedy algorithms make locally optimal choices hoping for a global optimum. Sorting: quicksort on average runs in O(n log n), mergesort is stable, heapsort requires no additional memory allocation.",
+        ],
+      },
+    };
+
+    const XP_PREVIEW = { D: "~4-7", C: "~12-18", B: "~30-42", A: "~55-83", S: "~110-180" };
+    const API_URL = window.location.origin;
+
+    function getAuthToken() {
+      return localStorage.getItem("auth_token") || "";
+    }
+
+    const levelEl = document.getElementById("level");
+    const langEl = document.getElementById("lang");
+    const badgeEl = document.getElementById("levelBadge");
+    const sampleEl = document.getElementById("sample");
+    const inputEl = document.getElementById("input");
+    const statusEl = document.getElementById("status");
+    const charsEl = document.getElementById("chars");
+    const accuracyEl = document.getElementById("accuracy");
+    const cpmEl = document.getElementById("cpm");
+    const timeEl = document.getElementById("time");
+    const xpPreviewEl = document.getElementById("xpPreview");
+
+    let targetText = "";
+    let startedAt = 0;
+    let timer = null;
+    let rewardSent = false;
+
+    function pickText() {
+      const lang = langEl.value || "ru";
+      const pool = (TEXTS[lang] || TEXTS.ru)[levelEl.value] || (TEXTS[lang] || TEXTS.ru).D;
+      targetText = pool[Math.floor(Math.random() * pool.length)];
+      inputEl.value = "";
+      startedAt = 0;
+      clearInterval(timer);
+      timer = null;
+      rewardSent = false;
+      renderSample();
+      setStats();
+      setStatus("Готово к старту", "");
+      updateBadge();
+      updateXPPreview();
+      inputEl.focus();
+    }
+
+    function updateBadge() {
+      const lv = levelEl.value;
+      badgeEl.textContent = lv;
+      badgeEl.className = `level-badge ${lv}`;
+    }
+
+    function updateXPPreview() {
+      const lv = levelEl.value;
+      xpPreviewEl.textContent = `${XP_PREVIEW[lv] || "~5"} XP`;
+    }
+
+    function setStatus(text, cls) {
+      statusEl.textContent = text;
+      statusEl.className = `status ${cls || ""}`.trim();
+    }
+
+    function renderSample() {
+      const typed = inputEl.value;
+      let ok = "";
+      let bad = "";
+      let i = 0;
+      while (i < typed.length && i < targetText.length && typed[i] === targetText[i]) {
+        ok += targetText[i];
+        i++;
+      }
+      if (i < typed.length && i < targetText.length) bad = targetText[i];
+      const cursorIdx = i + (bad ? 1 : 0);
+      const cursorChar = cursorIdx < targetText.length ? targetText[cursorIdx] : '';
+      const rest = targetText.slice(cursorIdx + (cursorChar ? 1 : 0));
+
+      sampleEl.innerHTML =
+        `<span class="ok">${esc(ok)}</span>` +
+        `<span class="bad">${esc(bad)}</span>` +
+        (cursorChar ? `<span class="cursor-char">${esc(cursorChar)}</span>` : '') +
+        `<span class="rest">${esc(rest)}</span>`;
+    }
+
+    function esc(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function getAccuracy() {
+      const typed = inputEl.value;
+      const total = typed.length;
+      let correct = 0;
+      for (let i = 0; i < total; i++) {
+        if (typed[i] === targetText[i]) correct++;
+      }
+      return total > 0 ? correct / total : 1;
+    }
+
+    function setStats() {
+      const typed = inputEl.value;
+      const total = typed.length;
+      let correct = 0;
+      for (let i = 0; i < total; i++) {
+        if (typed[i] === targetText[i]) correct++;
+      }
+      const elapsedMs = startedAt ? Date.now() - startedAt : 0;
+      const elapsedMin = elapsedMs > 0 ? (elapsedMs / 60000) : 0;
+      const cpm = elapsedMin > 0 ? Math.round(correct / elapsedMin) : 0;
+      const acc = total > 0 ? Math.round((correct / total) * 100) : 100;
+
+      charsEl.textContent = String(total);
+      accuracyEl.textContent = `${acc}%`;
+      cpmEl.textContent = String(cpm);
+      timeEl.textContent = `${Math.floor(elapsedMs / 1000)}s`;
+    }
+
+    function showXPToast(xp, message) {
+      const existing = document.querySelector('.xp-toast');
+      if (existing) existing.remove();
+
+      const toast = document.createElement('div');
+      toast.className = 'xp-toast';
+      toast.innerHTML = `⚡ +${xp} XP<div class="xp-sub">${esc(message)}</div>`;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3200);
+    }
+
+    async function claimXP() {
+      if (rewardSent) return;
+      rewardSent = true;
+
+      const token = getAuthToken();
+      if (!token) {
+        setStatus("✅ PASSED (войди для XP)", "status-ok");
+        return;
+      }
+
+      const accuracy = getAccuracy();
+      const elapsedMs = startedAt ? Date.now() - startedAt : 0;
+      const elapsedMin = elapsedMs > 0 ? (elapsedMs / 60000) : 0;
+      const cpmVal = elapsedMin > 0 ? Math.round(targetText.length / elapsedMin) : 0;
+
+      try {
+        const resp = await fetch(`${API_URL}/api/alextype/complete`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            level: levelEl.value,
+            chars_typed: inputEl.value.length,
+            accuracy: accuracy,
+            text_length: targetText.length,
+            cpm: cpmVal,
+            elapsed_ms: elapsedMs,
+            keystrokes: _keystrokeCount,
+          }),
+        });
+        const data = await resp.json();
+        if (data.xp_awarded > 0) {
+          showXPToast(data.xp_awarded, data.message || 'За набор текста');
+          setStatus(`✅ PASSED +${data.xp_awarded} XP`, "status-ok");
+        } else {
+          setStatus(`✅ PASSED — ${data.message || ''}`, "status-ok");
+        }
+      } catch (e) {
+        console.warn('AlexType XP claim failed:', e);
+        setStatus("✅ PASSED", "status-ok");
+      }
+    }
+
+    // ===== ANTI-CHEAT v3: Robust voice-input & paste protection =====
+    //
+    // Layer 1: Time-based keydown↔input correlation
+    //   Records timestamp of each keydown. insertText is allowed only if a keydown
+    //   occurred within the last 300ms. This is robust to any input method (IBus,
+    //   Fcitx, XKB, XIM) because it doesn't require 1:1 keydown↔insertText matching.
+    //   Voice input without real keydowns is caught; voice with synthetic keydowns
+    //   is caught by Layer 2 (burst).
+    //
+    // Layer 2: Burst detection
+    //   Voice input arrives in bursts (20-50+ chars in <100ms). Humans peak ~15 chars/sec.
+    //   Track recent insert timestamps; if >15 chars arrive within 250ms → block.
+    //
+    // Layer 3: Multi-character insertText blocking
+    //   Real keyboard always sends insertText with data.length === 1.
+    //   Voice/autocomplete sends data.length > 1 → block (except during IME composition).
+    //
+    let _keystrokeCount = 0;            // Real keydown events (sent to server)
+    let _lastKeydownTime = 0;           // Timestamp of last keydown (Layer 1)
+    let _inComposition = false;         // True during IME composition
+    let _voiceBlockCount = 0;           // How many voice inserts were blocked
+    const _recentInsertTimes = [];      // Timestamps of recent insertText events (Layer 2)
+    const _KEYDOWN_WINDOW_MS = 300;     // Max time between keydown and insertText
+    const _BURST_WINDOW_MS = 250;       // Burst detection window
+    const _BURST_MAX_CHARS = 15;        // Max chars allowed in burst window
+
+    // Kill browser Speech Recognition API
+    try {
+      window.SpeechRecognition = undefined;
+      window.webkitSpeechRecognition = undefined;
+      Object.defineProperty(window, 'SpeechRecognition', { value: undefined, writable: false, configurable: false });
+      Object.defineProperty(window, 'webkitSpeechRecognition', { value: undefined, writable: false, configurable: false });
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+    } catch (e) { }
+
+    // IME composition tracking — composition input is always trusted (real keyboard)
+    inputEl.addEventListener("compositionstart", () => { _inComposition = true; });
+    inputEl.addEventListener("compositionend", () => {
+      // Delay clearing _inComposition to handle all browser orderings:
+      // Chrome: insertText fires BEFORE compositionend → _inComposition is true → passes
+      // Firefox: insertText fires AFTER compositionend → needs this delay
+      setTimeout(() => { _inComposition = false; }, 150);
+    });
+
+    // ===== CORE: beforeinput — block ALL non-keyboard inserts =====
+    inputEl.addEventListener("beforeinput", (e) => {
+      // Always block: paste, drop, yank, replacement, link, autocomplete
+      const alwaysBlocked = [
+        "insertFromPaste", "insertFromDrop", "insertFromYank",
+        "insertReplacementText", "insertLink",
+        "insertFromPasteAsQuotation",
+      ];
+      if (alwaysBlocked.includes(e.inputType)) {
+        e.preventDefault();
+        setStatus("⛔ Вставка запрещена — печатай сам!", "status-bad");
+        return;
+      }
+
+      // Skip ALL checks during active composition (IME input is trusted)
+      if (_inComposition) return;
+
+      // For insertText: apply all three layers
+      if (e.inputType === "insertText") {
+        const now = Date.now();
+
+        // Layer 3: Multi-character insertText = voice/autocomplete
+        if (e.data && e.data.length > 1) {
+          e.preventDefault();
+          _voiceBlockCount++;
+          setStatus("⛔ Голосовой ввод запрещён — печатай сам!", "status-bad");
+          return;
+        }
+
+        // Layer 1: No recent keydown = no physical key press
+        if (now - _lastKeydownTime > _KEYDOWN_WINDOW_MS) {
+          e.preventDefault();
+          _voiceBlockCount++;
+          setStatus("⛔ Голосовой ввод запрещён — печатай сам!", "status-bad");
+          return;
+        }
+
+        // Layer 2: Burst detection — too many chars too fast
+        while (_recentInsertTimes.length > 0 && now - _recentInsertTimes[0] > _BURST_WINDOW_MS) {
+          _recentInsertTimes.shift();
+        }
+        if (_recentInsertTimes.length >= _BURST_MAX_CHARS) {
+          e.preventDefault();
+          _voiceBlockCount++;
+          setStatus("⛔ Голосовой ввод запрещён — печатай сам!", "status-bad");
+          return;
+        }
+
+        // All checks passed — accept this character
+        _recentInsertTimes.push(now);
+      }
+
+      // Allow: insertCompositionText, deleteContent*, historyUndo/Redo
+    });
+
+    inputEl.addEventListener("keydown", (e) => {
+      // Block clipboard shortcuts
+      if ((e.ctrlKey || e.metaKey) && ["v", "c", "x", "a"].includes(e.key.toLowerCase())) {
+        e.preventDefault();
+        if (e.key.toLowerCase() === "v") {
+          setStatus("⛔ Вставка запрещена — печатай сам!", "status-bad");
+        }
+        return;
+      }
+      // Don't count modifier-only keys or non-character keys
+      if (["Shift", "Control", "Alt", "Meta", "CapsLock", "Tab", "Escape",
+        "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
+        "Home", "End", "PageUp", "PageDown",
+        "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12"
+      ].includes(e.key)) {
+        return;
+      }
+      _keystrokeCount++;
+      _lastKeydownTime = Date.now();
+    });
+
+    inputEl.addEventListener("paste", (e) => {
+      e.preventDefault();
+      setStatus("⛔ Вставка запрещена — печатай сам!", "status-bad");
+    });
+
+    inputEl.addEventListener("copy", (e) => { e.preventDefault(); });
+    inputEl.addEventListener("cut", (e) => { e.preventDefault(); });
+    inputEl.addEventListener("contextmenu", (e) => { e.preventDefault(); });
+
+    // Block drag-and-drop text into textarea
+    inputEl.addEventListener("drop", (e) => {
+      e.preventDefault();
+      setStatus("⛔ Перетаскивание запрещено!", "status-bad");
+    });
+
+    inputEl.addEventListener("input", () => {
+      // Standard input handler
+      if (!startedAt && inputEl.value.length > 0) {
+        startedAt = Date.now();
+        timer = setInterval(setStats, 200);
+      }
+      renderSample();
+      setStats();
+
+      if (inputEl.value === targetText) {
+        clearInterval(timer);
+        timer = null;
+        claimXP();
+      } else if (inputEl.value.length >= targetText.length) {
+        setStatus("❌ FAILED", "status-bad");
+      } else {
+        setStatus("⏳ В процессе...", "");
+      }
+    });
+
+    document.getElementById("newText").addEventListener("click", pickText);
+    document.getElementById("reset").addEventListener("click", pickText);
+    levelEl.addEventListener("change", pickText);
+    langEl.addEventListener("change", pickText);
+
+    pickText();
+  </script>
+</body>
+
+</html>

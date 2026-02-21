@@ -1,0 +1,81 @@
+name: render-backup
+
+on:
+  schedule:
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: render-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        env:
+          PANDORA_BASE_URL: ${{ secrets.PANDORA_BASE_URL }}
+          PANDORA_BACKUP_USER: ${{ secrets.PANDORA_BACKUP_USER }}
+          PANDORA_BACKUP_PASS: ${{ secrets.PANDORA_BACKUP_PASS }}
+        run: |
+          set -euo pipefail
+          missing=0
+          [ -n "${PANDORA_BASE_URL:-}" ] || { echo "::error::Missing secret PANDORA_BASE_URL"; missing=1; }
+          [ -n "${PANDORA_BACKUP_USER:-}" ] || { echo "::error::Missing secret PANDORA_BACKUP_USER"; missing=1; }
+          [ -n "${PANDORA_BACKUP_PASS:-}" ] || { echo "::error::Missing secret PANDORA_BACKUP_PASS"; missing=1; }
+          [ "$missing" -eq 0 ] || exit 1
+
+      - name: Preflight ping
+        env:
+          PANDORA_BASE_URL: ${{ secrets.PANDORA_BASE_URL }}
+        run: |
+          set -euo pipefail
+          BASE="${PANDORA_BASE_URL%/}"
+          echo "Checking ${BASE}/ping"
+          curl -fsS --max-time 30 --retry 2 --retry-delay 5 "${BASE}/ping" > /dev/null
+
+      - name: Prepare backup path
+        run: |
+          mkdir -p backups
+          echo "BACKUP_FILE=backups/academy_backup_$(date -u +'%Y%m%dT%H%M%SZ').db.gz" >> "$GITHUB_ENV"
+
+      - name: Pull backup from Render
+        env:
+          PANDORA_BASE_URL: ${{ secrets.PANDORA_BASE_URL }}
+          PANDORA_BACKUP_USER: ${{ secrets.PANDORA_BACKUP_USER }}
+          PANDORA_BACKUP_PASS: ${{ secrets.PANDORA_BACKUP_PASS }}
+        run: |
+          python3 scripts/render_backup_pull.py \
+            --base-url "$PANDORA_BASE_URL" \
+            --username "$PANDORA_BACKUP_USER" \
+            --password "$PANDORA_BACKUP_PASS" \
+            --output "$BACKUP_FILE"
+
+      - name: Prune old backups (keep latest 21)
+        run: |
+          ls -1t backups/academy_backup_*.db.gz 2>/dev/null | tail -n +22 | xargs -r rm -f
+
+      - name: Publish backup branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          TMP_DIR="$(mktemp -d)"
+          cp -a backups "$TMP_DIR/backups"
+
+          ORPHAN_BRANCH="backup-orphan-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git checkout --orphan "$ORPHAN_BRANCH"
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          mkdir -p backups
+          cp -a "$TMP_DIR/backups/." backups/
+          printf "# Backup Branch\n\nAuto-generated SQLite snapshots.\n" > README.md
+          git add backups README.md
+          git commit -m "backup: $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push -f origin "HEAD:backup-snapshots"
