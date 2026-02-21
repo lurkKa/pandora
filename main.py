@@ -728,6 +728,22 @@ def init_db():
             )
         """)
 
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS guild_member_titles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                from_guild_id INTEGER NOT NULL,
+                to_user_id INTEGER NOT NULL,
+                title_text TEXT NOT NULL,
+                effect_type TEXT NOT NULL,
+                effect_value REAL NOT NULL,
+                effect_meta TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NOT NULL,
+                FOREIGN KEY (from_guild_id) REFERENCES guilds(id) ON DELETE CASCADE,
+                FOREIGN KEY (to_user_id) REFERENCES users(id)
+            )
+        """)
+
         # Migration: add avatar_url to guilds
         try:
             cursor.execute("ALTER TABLE guilds ADD COLUMN avatar_url TEXT DEFAULT NULL")
@@ -754,6 +770,8 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_invitations_to ON guild_invitations(to_user_id, status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_invitations_guild ON guild_invitations(guild_id, status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_chat_guild ON guild_chat_messages(guild_id, created_at DESC)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_member_titles_user ON guild_member_titles(to_user_id, expires_at)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_member_titles_guild ON guild_member_titles(from_guild_id)")
         
         conn.commit()
         
@@ -1001,7 +1019,7 @@ def apply_xp_change(cursor, user_id: int, delta_xp: int, reason: str, task_id: s
                 bonus_pct = {"president": 0.10, "chairman": 0.05}.get(gm_row["role"], 0)
                 if bonus_pct:
                     delta = int(delta * (1 + bonus_pct))
-            # Guild title debuff
+            # Guild title debuff (guild-level)
             cursor.execute(
                 "SELECT gt.effect_value FROM guild_titles gt "
                 "JOIN guild_members gm ON gm.guild_id = gt.to_guild_id "
@@ -1010,6 +1028,42 @@ def apply_xp_change(cursor, user_id: int, delta_xp: int, reason: str, task_id: s
             )
             for title_row in cursor.fetchall():
                 delta = int(delta * (1 + title_row["effect_value"]))
+            # Per-member titles (guild_member_titles)
+            cursor.execute(
+                "SELECT mt.effect_type, mt.effect_value, mt.effect_meta FROM guild_member_titles mt "
+                "WHERE mt.to_user_id = ? AND mt.expires_at > CURRENT_TIMESTAMP",
+                (user_id,),
+            )
+            for mt in cursor.fetchall():
+                etype = mt["effect_type"]
+                if etype == "xp_buff":
+                    delta = int(delta * (1 + mt["effect_value"]))
+                elif etype == "xp_debuff":
+                    delta = int(delta * (1 + mt["effect_value"]))
+                elif etype == "xp_cooldown":
+                    # Check if user earned XP in last N hours
+                    cooldown_h = int(mt["effect_value"] or 24)
+                    cursor.execute(
+                        "SELECT id FROM xp_log WHERE user_id = ? AND xp_change > 0 "
+                        "AND logged_at > datetime('now', ? || ' hours')",
+                        (user_id, str(-cooldown_h)),
+                    )
+                    if cursor.fetchone():
+                        delta = 0  # XP frozen
+                elif etype == "category_block":
+                    import json as _json
+                    try:
+                        meta = _json.loads(mt["effect_meta"] or "{}")
+                        blocked_cat = meta.get("category", "")
+                        if task_id and blocked_cat:
+                            # Check if this task belongs to the blocked category
+                            tasks_data = load_tasks()
+                            for t in tasks_data.get("tasks", []):
+                                if t.get("id") == task_id and (t.get("category") or "").lower() == blocked_cat.lower():
+                                    delta = 0
+                                    break
+                    except Exception:
+                        pass
         except Exception:
             pass  # guild tables may not exist yet on first run
 
@@ -6044,6 +6098,19 @@ _GUILD_TITLE_PRESETS = {
     "shame": {"title_text": "Позор", "effect_type": "xp_debuff", "effect_value": -0.05},
 }
 
+_GUILD_MEMBER_TITLE_PRESETS = {
+    # Positive (for own members)
+    "blessing": {"title_text": "Благословение", "effect_type": "xp_buff", "effect_value": 0.05, "duration": "+1 day", "positive": True, "icon": "✨"},
+    "inspiration": {"title_text": "Вдохновение", "effect_type": "xp_buff", "effect_value": 0.10, "duration": "+12 hours", "positive": True, "icon": "🔥"},
+    # Negative (for enemy players)
+    "hex": {"title_text": "Сглаз", "effect_type": "xp_debuff", "effect_value": -0.05, "duration": "+1 day", "positive": False, "icon": "💀"},
+    "slow": {"title_text": "Замедление", "effect_type": "xp_debuff", "effect_value": -0.50, "duration": "+12 hours", "positive": False, "icon": "🐌"},
+    "xp_cooldown": {"title_text": "Заморозка XP", "effect_type": "xp_cooldown", "effect_value": 24, "duration": "+1 day", "positive": False, "icon": "❄️"},
+    "category_block": {"title_text": "Блок категории", "effect_type": "category_block", "effect_value": 0, "duration": "+1 day", "positive": False, "icon": "🚫"},
+}
+
+_MAX_ACTIVE_MEMBER_TITLES = 3
+
 class GuildCreateRequest(BaseModel):
     name: str
     description: str = ""
@@ -6052,6 +6119,11 @@ class GuildCreateRequest(BaseModel):
 class GuildTitleRequest(BaseModel):
     to_guild_id: int
     preset: str  # curse, weakness, shame
+
+class GuildMemberTitleRequest(BaseModel):
+    to_user_id: int
+    preset: str  # blessing, inspiration, hex, slow, xp_cooldown, category_block
+    category: str = None  # required for category_block
 
 class GuildRoleRequest(BaseModel):
     role: str  # president, chairman, developer
@@ -6218,7 +6290,7 @@ def guild_rankings(user: dict = Depends(require_auth)):
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT g.id, g.name, g.avatar_emoji, g.created_at
+            SELECT g.id, g.name, g.avatar_emoji, g.avatar_url, g.created_at
             FROM guilds g
             WHERE g.disbanded_at IS NULL
         """)
@@ -6503,6 +6575,106 @@ def assign_title(guild_id: int, data: GuildTitleRequest, user: dict = Depends(re
     return {"message": f"Титул «{preset['title_text']}» назначен!"}
 
 
+@app.post("/api/guilds/{guild_id}/member-titles")
+def assign_member_title(guild_id: int, data: GuildMemberTitleRequest, user: dict = Depends(require_auth)):
+    """Top-1 guild president can assign per-member titles: positive to own members, negative to enemies."""
+    uid = user["id"]
+    if data.preset not in _GUILD_MEMBER_TITLE_PRESETS:
+        raise HTTPException(400, "Неизвестный тип титула")
+
+    preset = _GUILD_MEMBER_TITLE_PRESETS[data.preset]
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        # Verify user is president of the requesting guild
+        cursor.execute(
+            "SELECT role FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, uid),
+        )
+        row = cursor.fetchone()
+        if not row or row["role"] != "president":
+            raise HTTPException(403, "Только президент может назначать титулы")
+
+        # Verify this guild is #1
+        cursor.execute("SELECT id FROM guilds WHERE disbanded_at IS NULL")
+        all_ids = [r["id"] for r in cursor.fetchall()]
+        ranked = sorted(all_ids, key=lambda gid: _guild_ranking_score(cursor, gid)["score"], reverse=True)
+        if not ranked or ranked[0] != guild_id:
+            raise HTTPException(403, "Только гильдия №1 может назначать титулы")
+
+        # Check target user exists
+        cursor.execute("SELECT id FROM users WHERE id = ?", (data.to_user_id,))
+        if not cursor.fetchone():
+            raise HTTPException(404, "Пользователь не найден")
+
+        # Positive titles → only own members; Negative → only enemy players
+        cursor.execute(
+            "SELECT guild_id FROM guild_members WHERE user_id = ?",
+            (data.to_user_id,),
+        )
+        target_membership = cursor.fetchone()
+        is_own_member = target_membership and target_membership["guild_id"] == guild_id
+
+        if preset["positive"] and not is_own_member:
+            raise HTTPException(400, "Позитивные титулы можно давать только своим участникам")
+        if not preset["positive"] and is_own_member:
+            raise HTTPException(400, "Негативные титулы нельзя давать своим участникам")
+        if not preset["positive"] and not target_membership:
+            raise HTTPException(400, "Цель должна состоять в гильдии")
+
+        # For category_block, require a category
+        effect_meta = None
+        if data.preset == "category_block":
+            if not data.category or data.category.lower() not in ("python", "javascript", "frontend", "scratch"):
+                raise HTTPException(400, "Укажите категорию: python, javascript, frontend, scratch")
+            import json as _json
+            effect_meta = _json.dumps({"category": data.category.lower()})
+
+        # Check cooldown — 1 title per user per day
+        cursor.execute("""
+            SELECT id FROM guild_member_titles
+            WHERE from_guild_id = ? AND to_user_id = ?
+              AND created_at > datetime('now', '-1 day')
+        """, (guild_id, data.to_user_id))
+        if cursor.fetchone():
+            raise HTTPException(429, "Можно назначать титул одному игроку раз в сутки")
+
+        # Check active title limit
+        cursor.execute("""
+            SELECT COUNT(*) as cnt FROM guild_member_titles
+            WHERE from_guild_id = ? AND expires_at > CURRENT_TIMESTAMP
+        """, (guild_id,))
+        if cursor.fetchone()["cnt"] >= _MAX_ACTIVE_MEMBER_TITLES:
+            raise HTTPException(400, f"Максимум {_MAX_ACTIVE_MEMBER_TITLES} активных титулов одновременно")
+
+        cursor.execute("""
+            INSERT INTO guild_member_titles
+                (from_guild_id, to_user_id, title_text, effect_type, effect_value, effect_meta, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?, datetime('now', ?))
+        """, (guild_id, data.to_user_id, preset["title_text"], preset["effect_type"],
+              preset["effect_value"], effect_meta, preset["duration"]))
+        conn.commit()
+
+    return {"message": f"{preset['icon']} Титул «{preset['title_text']}» назначен!"}
+
+
+@app.get("/api/guilds/my-titles")
+def get_my_member_titles(user: dict = Depends(require_auth)):
+    """Get active per-member titles for current user."""
+    uid = user["id"]
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT mt.*, g.name as from_guild_name
+            FROM guild_member_titles mt
+            JOIN guilds g ON g.id = mt.from_guild_id
+            WHERE mt.to_user_id = ? AND mt.expires_at > CURRENT_TIMESTAMP
+            ORDER BY mt.created_at DESC
+        """, (uid,))
+        titles = [dict(t) for t in cursor.fetchall()]
+    return {"titles": titles}
+
+
 # ==================== ADMIN: GUILD MANAGEMENT ====================
 
 @app.post("/api/admin/guilds/settings")
@@ -6550,7 +6722,7 @@ def admin_guild_rankings(admin: dict = Depends(require_admin)):
     """Get guild rankings for admin panel with historical data."""
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT g.id, g.name, g.avatar_emoji, g.created_at FROM guilds g WHERE g.disbanded_at IS NULL")
+        cursor.execute("SELECT g.id, g.name, g.avatar_emoji, g.avatar_url, g.created_at FROM guilds g WHERE g.disbanded_at IS NULL")
         guilds = []
         for row in cursor.fetchall():
             g = dict(row)

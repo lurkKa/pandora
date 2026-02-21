@@ -2893,6 +2893,14 @@
             flex-shrink: 0;
         }
 
+        .guild-rank-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+
         .guild-rank-info {
             flex: 1;
             min-width: 0;
@@ -6800,9 +6808,12 @@
                 }
                 let html = '<div class="guild-section-title">Доступные гильдии:</div>';
                 for (const g of data.guilds) {
+                    const avatarEl = g.avatar_url
+                        ? `<img class="guild-rank-avatar" src="${API_URL}${g.avatar_url}">`
+                        : `<span class="guild-rank-emoji">${g.avatar_emoji}</span>`;
                     html += `
                         <div class="guild-rank-row" onclick="joinGuild(${g.id})" style="cursor:pointer;">
-                            <span class="guild-rank-emoji">${g.avatar_emoji}</span>
+                            ${avatarEl}
                             <div class="guild-rank-info">
                                 <div class="guild-rank-name">${g.name}</div>
                                 <div class="guild-rank-meta">${g.member_count} уч. · ${g.total_xp} XP</div>
@@ -6910,11 +6921,13 @@
                 </div>
                 <div class="guild-section-title">👥 Участники (${guild.members.length})</div>
                 ${membersHtml}
+                <div id="guild-title-mgmt"></div>
                 ${leaveOrDisbandBtn}
             `;
             // Load guild chat and member avatars
             loadGuildChat(guild.id);
             loadGuildMemberAvatars();
+            loadTitleManagement(guild.id);
             // Auto-refresh chat every 15s
             if (window._guildChatInterval) clearInterval(window._guildChatInterval);
             window._guildChatInterval = setInterval(() => loadGuildChat(guild.id), 15000);
@@ -6939,7 +6952,9 @@
                     html += `
                         <div class="guild-rank-row ${rankClass}" onclick="showGuildDetail(${g.id})">
                             <div class="guild-rank-pos">${posEmoji}</div>
-                            <span class="guild-rank-emoji">${g.avatar_emoji}</span>
+                            ${g.avatar_url
+                            ? `<img class="guild-rank-avatar" src="${API_URL}${g.avatar_url}">`
+                            : `<span class="guild-rank-emoji">${g.avatar_emoji}</span>`}
                             <div class="guild-rank-info">
                                 <div class="guild-rank-name">${g.name} ${titleBadges}</div>
                                 <div class="guild-rank-meta">👥${g.member_count} · 🎯${g.total_tasks} · ${g.total_xp.toLocaleString()} XP</div>
@@ -7471,6 +7486,168 @@
                 showMemberDetail(guildId, memberId);
                 loadMyGuild(); // refresh guild panel
             } catch (e) { alert('Ошибка'); }
+        }
+
+        // ==================== GUILD: TITLE MANAGEMENT ====================
+
+        const MEMBER_TITLE_PRESETS = {
+            blessing: { text: '✨ Благословение (+5% XP)', positive: true, icon: '✨' },
+            inspiration: { text: '🔥 Вдохновение (+10% XP, 12ч)', positive: true, icon: '🔥' },
+            hex: { text: '💀 Сглаз (-5% XP)', positive: false, icon: '💀' },
+            slow: { text: '🐌 Замедление (-50% XP, 12ч)', positive: false, icon: '🐌' },
+            xp_cooldown: { text: '❄️ Заморозка (XP раз в 24ч)', positive: false, icon: '❄️' },
+            category_block: { text: '🚫 Блок категории (0 XP)', positive: false, icon: '🚫' },
+        };
+
+        async function loadTitleManagement(guildId) {
+            const container = document.getElementById('guild-title-mgmt');
+            if (!container || !myGuildData || myGuildData.my_role !== 'president') return;
+
+            // Check if guild is #1
+            try {
+                const res = await fetch(`${API_URL}/api/guilds/rankings`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                const rankings = data.rankings || [];
+                if (!rankings.length || rankings[0].id !== guildId) {
+                    container.innerHTML = ''; return;
+                }
+            } catch (e) { return; }
+
+            // Load active member titles
+            let activeTitlesHtml = '';
+            try {
+                const res = await fetch(`${API_URL}/api/guilds/my-titles`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const d = await res.json();
+                // These are MY titles, not interesting. We need to show titles FROM our guild.
+            } catch (e) { }
+
+            // Build members list for positive titles
+            const ownMembers = (myGuildData.members || []).filter(m => m.user_id !== currentUser.id);
+
+            // Build enemy list from all guilds' members
+            let enemyPlayers = [];
+            try {
+                const res = await fetch(`${API_URL}/api/leaderboard?limit=100`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const lb = await res.json();
+                const ownMemberIds = new Set((myGuildData.members || []).map(m => m.user_id));
+                enemyPlayers = (lb.leaderboard || []).filter(p => p.guild_id && p.guild_id !== guildId && !ownMemberIds.has(p.id));
+            } catch (e) { }
+
+            container.innerHTML = `
+                <div class="guild-section-title" style="margin-top:16px;">🏷️ Титулы доминации (ТОП-1)</div>
+                <div style="display:flex;gap:6px;margin-bottom:12px;">
+                    <button class="guild-action-btn" onclick="showTitleTab('positive', ${guildId})" id="title-tab-positive"
+                        style="flex:1;font-size:13px;background:rgba(34,197,94,0.12);border-color:rgba(34,197,94,0.3);color:#22c55e;">
+                        ✨ Благословения
+                    </button>
+                    <button class="guild-action-btn" onclick="showTitleTab('negative', ${guildId})" id="title-tab-negative"
+                        style="flex:1;font-size:13px;background:rgba(239,68,68,0.12);border-color:rgba(239,68,68,0.3);color:#ef4444;">
+                        💀 Проклятия
+                    </button>
+                </div>
+                <div id="title-tab-content"></div>
+            `;
+            showTitleTab('positive', guildId);
+        }
+
+        function showTitleTab(type, guildId) {
+            const content = document.getElementById('title-tab-content');
+            if (!content) return;
+
+            const ownMembers = (myGuildData.members || []).filter(m => m.user_id !== currentUser.id);
+
+            if (type === 'positive') {
+                // Show own members + positive presets
+                let html = '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Дать бафф своему участнику:</div>';
+                if (ownMembers.length === 0) {
+                    html += '<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:12px;">Нет участников</div>';
+                } else {
+                    html += `<select id="title-target-user" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:var(--text-bright);font-size:13px;margin-bottom:8px;">`;
+                    for (const m of ownMembers) {
+                        html += `<option value="${m.user_id}">${m.display_name} (LV ${m.level})</option>`;
+                    }
+                    html += '</select>';
+                    html += `<select id="title-preset" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:var(--text-bright);font-size:13px;margin-bottom:8px;">`;
+                    for (const [key, p] of Object.entries(MEMBER_TITLE_PRESETS)) {
+                        if (p.positive) html += `<option value="${key}">${p.text}</option>`;
+                    }
+                    html += '</select>';
+                    html += `<button class="guild-action-btn" onclick="applyMemberTitle(${guildId})" style="width:100%;background:rgba(34,197,94,0.15);border-color:rgba(34,197,94,0.3);color:#22c55e;font-size:13px;">
+                        ✨ Назначить благословение
+                    </button>`;
+                }
+                content.innerHTML = html;
+            } else {
+                // Show enemy selector + negative presets
+                let html = '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Наложить дебафф на врага:</div>';
+                html += `<input type="number" id="title-target-enemy" placeholder="ID игрока" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:var(--text-bright);font-size:13px;margin-bottom:8px;">`;
+                html += `<select id="title-preset" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:var(--text-bright);font-size:13px;margin-bottom:8px;">`;
+                for (const [key, p] of Object.entries(MEMBER_TITLE_PRESETS)) {
+                    if (!p.positive) html += `<option value="${key}">${p.text}</option>`;
+                }
+                html += '</select>';
+                html += `<select id="title-category" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:var(--text-bright);font-size:13px;margin-bottom:8px;display:none;">
+                    <option value="python">Python</option>
+                    <option value="javascript">JavaScript</option>
+                    <option value="frontend">Frontend</option>
+                    <option value="scratch">Scratch</option>
+                </select>`;
+                html += `<button class="guild-action-btn" onclick="applyMemberTitle(${guildId})" style="width:100%;background:rgba(239,68,68,0.12);border-color:rgba(239,68,68,0.3);color:#ef4444;font-size:13px;">
+                    💀 Наложить проклятие
+                </button>`;
+                html += '<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Макс. 3 активных титула · 1 титул на игрока в сутки</div>';
+                content.innerHTML = html;
+                // Show category selector when category_block is chosen
+                const presetSel = document.getElementById('title-preset');
+                presetSel.addEventListener('change', () => {
+                    const catSel = document.getElementById('title-category');
+                    catSel.style.display = presetSel.value === 'category_block' ? 'block' : 'none';
+                });
+            }
+        }
+
+        async function applyMemberTitle(guildId) {
+            const presetSel = document.getElementById('title-preset');
+            const preset = presetSel ? presetSel.value : '';
+            if (!preset) { alert('Выберите тип титула'); return; }
+
+            const presetInfo = MEMBER_TITLE_PRESETS[preset];
+            let toUserId;
+            if (presetInfo.positive) {
+                const sel = document.getElementById('title-target-user');
+                toUserId = sel ? parseInt(sel.value) : 0;
+            } else {
+                const inp = document.getElementById('title-target-enemy');
+                toUserId = inp ? parseInt(inp.value) : 0;
+            }
+            if (!toUserId) { alert('Укажите цель'); return; }
+
+            const body = { to_user_id: toUserId, preset };
+            if (preset === 'category_block') {
+                const catSel = document.getElementById('title-category');
+                body.category = catSel ? catSel.value : 'python';
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/api/guilds/${guildId}/member-titles`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (!res.ok) { alert(data.detail || 'Ошибка'); return; }
+                alert(data.message);
+                loadMyGuild();
+            } catch (e) { alert('Ошибка назначения титула'); }
         }
 
         // ==================== HEARTBEAT ====================
