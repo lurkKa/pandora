@@ -265,42 +265,42 @@ def _sync_ranks(cursor):
     """
     ranks_data = [
         # (name,              name_ru,                  min_xp,    emoji,  color)
-        # --- Tier 0-1: Начало пути (Levels 1-5) ---
-        ("Novice",            "Новичок",                0,         "🌱",   "#4ade80"),   # Level 1
-        ("Apprentice",        "Ученик",                 50,        "📖",   "#86efac"),   # Level 2
-        # --- Tier 2: Первые шаги (Levels 5-10) ---
-        ("Student",           "Студент",                500,       "📚",   "#60a5fa"),   # Level 5
-        ("Coder",             "Кодер",                  2250,      "💻",   "#93c5fd"),   # Level 10
-        # --- Tier 3: Становление (Levels 15-25) ---
-        ("Developer",         "Разработчик",            5250,      "⌨️",   "#a78bfa"),   # Level 15
-        ("Programmer",        "Программист",            9500,      "🖥️",   "#c4b5fd"),   # Level 20
-        ("Engineer",          "Инженер",                15000,     "⚙️",   "#818cf8"),   # Level 25
-        # --- Tier 4: Профессионал (Levels 30-50) ---
-        ("Specialist",        "Специалист",             21750,     "🔧",   "#f472b6"),   # Level 30
-        ("Craftsman",         "Мастеровой",             38000,     "🛠️",   "#fb7185"),   # Level 40
-        ("Expert",            "Эксперт",                61250,     "🎯",   "#fbbf24"),   # Level 50
-        # --- Tier 5: Элита (Levels 60-100) ---
-        ("Veteran",           "Ветеран",                88500,     "⚔️",   "#fcd34d"),   # Level 60
-        ("Master",            "Мастер",                 119750,    "🗡️",   "#f97316"),   # Level 70
-        ("Sage",              "Мудрец",                 160000,    "📜",   "#fb923c"),   # Level 80
-        ("Mentor",            "Наставник",              200250,    "🏅",   "#ea580c"),   # Level 90
-        ("Grandmaster",       "Грандмастер",            247500,    "🏆",   "#ef4444"),   # Level 100
+        # --- Tier 0-1: Тень-Посвящение (Levels 1-5) ---
+        ("Shadow Initiate",   "Тень-Посвящённый",       0,         "🗡️",   "#4ade80"),   # Level 1
+        ("Eagle Bearer",      "Носитель Орла",          50,        "🦅",   "#86efac"),   # Level 2
+        # --- Tier 2: Скрытые клинки (Levels 5-10) ---
+        ("Hidden Blade",      "Скрытый Клинок",         500,       "🔪",   "#60a5fa"),   # Level 5
+        ("Rift Walker",       "Странник Разлома",       2250,      "🌀",   "#93c5fd"),   # Level 10
+        # --- Tier 3: Восхождение (Levels 15-25) ---
+        ("Soul Keeper",       "Хранитель Душ",          5250,      "👁️",   "#a78bfa"),   # Level 15
+        ("Gryphon Knight",    "Рыцарь Грифона",         9500,      "🦅",   "#c4b5fd"),   # Level 20
+        ("Storm Warden",      "Страж Бури",             15000,     "⛈️",   "#818cf8"),   # Level 25
+        # --- Tier 4: Тайные стражи (Levels 30-50) ---
+        ("Arcane Sentinel",   "Тайный Страж",           21750,     "🔮",   "#f472b6"),   # Level 30
+        ("Blood Templar",     "Кровавый Храмовник",     38000,     "⚔️",   "#fb7185"),   # Level 40
+        ("Astral Blade",      "Астральный Клинок",      61250,     "✨",   "#fbbf24"),   # Level 50
+        # --- Tier 5: Высшие (Levels 60-100) ---
+        ("Dragon Rider",      "Наездник Драконов",      88500,     "🐉",   "#fcd34d"),   # Level 60
+        ("Shadow Monarch",    "Теневой Монарх",         119750,    "👑",   "#f97316"),   # Level 70
+        ("Archmage",          "Архимаг",                160000,    "📜",   "#fb923c"),   # Level 80
+        ("Phoenix Lord",      "Повелитель Фениксов",    200250,    "🔥",   "#ea580c"),   # Level 90
+        ("Archangel",         "Архангел",               247500,    "🏆",   "#ef4444"),   # Level 100
         # --- Tier 6: Легенда (Levels 120-200) ---
-        ("Architect",         "Архитектор",             357000,    "🏛️",   "#dc2626"),   # Level 120
-        ("Virtuoso",          "Виртуоз",                497500,    "🎭",   "#e11d48"),   # Level 142
-        ("Legend",             "Легенда",               995000,    "👑",   "#be123c"),   # Level 200
+        ("Void Emperor",      "Император Пустоты",      357000,    "🏛️",   "#dc2626"),   # Level 120
+        ("Seraph Sovereign",  "Серафим-Властелин",      497500,    "🎭",   "#e11d48"),   # Level 142
+        ("Ascended Lich",     "Вознесённый Лич",        995000,    "👑",   "#be123c"),   # Level 200
         # --- Tier 7: Мифический (Levels 250-400) ---
-        ("Mythic Coder",      "Мифический Кодер",       1556250,   "🐉",   "#9333ea"),   # Level 250
-        ("Overlord",          "Повелитель",             2495000,   "⚡",   "#7c3aed"),   # Level 317
-        ("Titan",             "Титан",                  3990000,   "🔱",   "#6d28d9"),   # Level 400
+        ("Azure Dragon",      "Лазурный Дракон",        1556250,   "🐉",   "#9333ea"),   # Level 250
+        ("Chaos Overlord",    "Повелитель Хаоса",       2495000,   "⚡",   "#7c3aed"),   # Level 317
+        ("Titan of Erathia",  "Титан Эрафии",           3990000,   "🔱",   "#6d28d9"),   # Level 400
         # --- Tier 8: Бессмертный (Levels 500-700) ---
-        ("Demigod",           "Полубог",                6237500,   "✨",   "#c026d3"),   # Level 500
-        ("Immortal",          "Бессмертный",            8722500,   "💫",   "#a21caf"),   # Level 591
-        ("Transcendent",      "Трансцендент",           12247500,  "🌌",   "#86198f"),   # Level 700
+        ("Dimension Lord",    "Повелитель Измерений",   6237500,   "✨",   "#c026d3"),   # Level 500
+        ("Isu Ascendant",     "Вознесённый Ису",        8722500,   "💫",   "#a21caf"),   # Level 591
+        ("Precursor God",     "Бог-Предтеча",           12247500,  "🌌",   "#86198f"),   # Level 700
         # --- Tier 9: Абсолют (Levels 800-1000) ---
-        ("Ascendant",         "Вознесённый",            15980000,  "🌠",   "#b91c1c"),   # Level 800
-        ("Code God",          "Бог Кода",               20247500,  "💎",   "#991b1b"),   # Level 900
-        ("World Architect",   "Архитектор Миров",       24975000,  "🌟",   "#fef08a"),   # Level 1000
+        ("World Eater",       "Пожиратель Миров",       15980000,  "🌠",   "#b91c1c"),   # Level 800
+        ("Creator Genesis",   "Создатель-Генезис",      20247500,  "💎",   "#991b1b"),   # Level 900
+        ("Pandora Architect", "Архитектор Пандоры",      24975000,  "🌟",   "#fef08a"),   # Level 1000
     ]
 
     cursor.execute("DELETE FROM ranks")
@@ -750,6 +750,26 @@ def init_db():
         except Exception:
             pass  # column already exists
 
+        # Migration: add custom_role_name to guild_members
+        try:
+            cursor.execute("ALTER TABLE guild_members ADD COLUMN custom_role_name TEXT DEFAULT NULL")
+        except Exception:
+            pass  # column already exists
+
+        # ========== TIME TRACKING ==========
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS time_tracking (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                date TEXT NOT NULL,
+                total_seconds INTEGER DEFAULT 0,
+                task_seconds INTEGER DEFAULT 0,
+                alextype_seconds INTEGER DEFAULT 0,
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                UNIQUE(user_id, date)
+            )
+        """)
+
         # Performance indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_xp ON users(xp DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)")
@@ -772,6 +792,7 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_chat_guild ON guild_chat_messages(guild_id, created_at DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_member_titles_user ON guild_member_titles(to_user_id, expires_at)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_member_titles_guild ON guild_member_titles(from_guild_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_time_tracking_user_date ON time_tracking(user_id, date)")
         
         conn.commit()
         
@@ -1817,6 +1838,13 @@ def alextype_complete(data: AlexTypeCompleteRequest, user: dict = Depends(requir
     xp = min(int(raw_xp), cap)
     xp = max(1, xp)
 
+    # ===== ALEX EXCLUSIVE 15% BOOST =====
+    username = user.get("username", "")
+    alex_boost_applied = False
+    if username == "Alex":
+        xp = int(xp * 1.15)
+        alex_boost_applied = True
+
     with get_db() as conn:
         cursor = conn.cursor()
         new_xp, new_level = apply_xp_change(
@@ -1828,6 +1856,7 @@ def alextype_complete(data: AlexTypeCompleteRequest, user: dict = Depends(requir
 
     return {
         "xp_awarded": xp,
+        "alex_boost": alex_boost_applied,
         "new_total_xp": new_xp,
         "new_level": new_level,
         "message": f"+{xp} XP за набор текста!",
@@ -2293,7 +2322,7 @@ def get_leaderboard(limit: int = Query(20, le=100)):
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT u.id, u.display_name, u.xp, u.level,
+            SELECT u.id, u.username, u.display_name, u.xp, u.level,
                    r.name_ru as rank_name, r.badge_emoji as rank_badge, r.color as rank_color,
                    COALESCE(u.avatar_key, '') as avatar_key,
                    CASE WHEN s.avatar_data IS NOT NULL AND s.avatar_data != '' THEN 1 ELSE 0 END as has_avatar,
@@ -2310,11 +2339,32 @@ def get_leaderboard(limit: int = Query(20, le=100)):
             ORDER BY u.xp DESC
             LIMIT ?
         """, (limit,))
+        rows = cursor.fetchall()
+
+        # Fetch active positive titles for all users
+        cursor.execute("""
+            SELECT mt.to_user_id, mt.title_text, mt.effect_type, mt.effect_value
+            FROM guild_member_titles mt
+            WHERE mt.expires_at > CURRENT_TIMESTAMP AND mt.effect_type = 'xp_buff'
+        """)
+        user_titles = {}
+        for t in cursor.fetchall():
+            uid = t["to_user_id"]
+            if uid not in user_titles:
+                user_titles[uid] = []
+            user_titles[uid].append({
+                "title_text": t["title_text"],
+                "effect_type": t["effect_type"],
+                "effect_value": t["effect_value"],
+            })
+
         leaders = []
-        for i, row in enumerate(cursor.fetchall(), 1):
-            leaders.append({
+        for i, row in enumerate(rows, 1):
+            uid = row["id"]
+            is_alex = row["username"] == "Alex"
+            entry = {
                 "position": i,
-                "id": row["id"],
+                "id": uid,
                 "display_name": row["display_name"],
                 "xp": row["xp"],
                 "level": row["level"],
@@ -2326,7 +2376,10 @@ def get_leaderboard(limit: int = Query(20, le=100)):
                 "guild_id": row["guild_id"],
                 "guild_name": row["guild_name"],
                 "guild_role": row["guild_role"],
-            })
+                "alex_boost": is_alex,
+                "active_titles": user_titles.get(uid, []),
+            }
+            leaders.append(entry)
     return {"leaderboard": leaders}
 
 @app.get("/api/avatar/{user_id}")
@@ -6099,17 +6152,14 @@ _GUILD_TITLE_PRESETS = {
 }
 
 _GUILD_MEMBER_TITLE_PRESETS = {
-    # Positive (for own members)
+    # Positive titles only (for own members)
     "blessing": {"title_text": "Благословение", "effect_type": "xp_buff", "effect_value": 0.05, "duration": "+1 day", "positive": True, "icon": "✨"},
     "inspiration": {"title_text": "Вдохновение", "effect_type": "xp_buff", "effect_value": 0.10, "duration": "+12 hours", "positive": True, "icon": "🔥"},
-    # Negative (for enemy players)
-    "hex": {"title_text": "Сглаз", "effect_type": "xp_debuff", "effect_value": -0.05, "duration": "+1 day", "positive": False, "icon": "💀"},
-    "slow": {"title_text": "Замедление", "effect_type": "xp_debuff", "effect_value": -0.50, "duration": "+12 hours", "positive": False, "icon": "🐌"},
-    "xp_cooldown": {"title_text": "Заморозка XP", "effect_type": "xp_cooldown", "effect_value": 24, "duration": "+1 day", "positive": False, "icon": "❄️"},
-    "category_block": {"title_text": "Блок категории", "effect_type": "category_block", "effect_value": 0, "duration": "+1 day", "positive": False, "icon": "🚫"},
+    "typing_master": {"title_text": "Мастер Набора", "effect_type": "xp_buff", "effect_value": 0.08, "duration": "+12 hours", "positive": True, "icon": "⌨️"},
+    "quest_champion": {"title_text": "Чемпион Квестов", "effect_type": "xp_buff", "effect_value": 0.08, "duration": "+12 hours", "positive": True, "icon": "🏆"},
 }
 
-_MAX_ACTIVE_MEMBER_TITLES = 3
+_MAX_ACTIVE_MEMBER_TITLES = 5
 
 class GuildCreateRequest(BaseModel):
     name: str
@@ -6255,7 +6305,7 @@ def get_my_guild(user: dict = Depends(require_auth)):
 
         # Members with online status and avatar info
         cursor.execute("""
-            SELECT gm.user_id, gm.role, gm.joined_at,
+            SELECT gm.user_id, gm.role, gm.custom_role_name, gm.joined_at,
                    u.display_name, u.xp, u.level, u.avatar_key, u.last_seen_at,
                    CASE WHEN s.avatar_data IS NOT NULL AND s.avatar_data != '' THEN 1 ELSE 0 END as has_avatar,
                    COALESCE(s.total_quests, 0) as total_quests,
@@ -6361,7 +6411,7 @@ def get_guild(guild_id: int, user: dict = Depends(require_auth)):
         guild.update(stats)
 
         cursor.execute("""
-            SELECT gm.user_id, gm.role, gm.joined_at,
+            SELECT gm.user_id, gm.role, gm.custom_role_name, gm.joined_at,
                    u.display_name, u.xp, u.level, u.avatar_key,
                    CASE WHEN s.avatar_data IS NOT NULL AND s.avatar_data != '' THEN 1 ELSE 0 END as has_avatar
             FROM guild_members gm
@@ -6607,7 +6657,7 @@ def assign_member_title(guild_id: int, data: GuildMemberTitleRequest, user: dict
         if not cursor.fetchone():
             raise HTTPException(404, "Пользователь не найден")
 
-        # Positive titles → only own members; Negative → only enemy players
+        # All titles are now positive → only own members
         cursor.execute(
             "SELECT guild_id FROM guild_members WHERE user_id = ?",
             (data.to_user_id,),
@@ -6615,12 +6665,8 @@ def assign_member_title(guild_id: int, data: GuildMemberTitleRequest, user: dict
         target_membership = cursor.fetchone()
         is_own_member = target_membership and target_membership["guild_id"] == guild_id
 
-        if preset["positive"] and not is_own_member:
-            raise HTTPException(400, "Позитивные титулы можно давать только своим участникам")
-        if not preset["positive"] and is_own_member:
-            raise HTTPException(400, "Негативные титулы нельзя давать своим участникам")
-        if not preset["positive"] and not target_membership:
-            raise HTTPException(400, "Цель должна состоять в гильдии")
+        if not is_own_member:
+            raise HTTPException(400, "Титулы можно давать только своим участникам")
 
         # For category_block, require a category
         effect_meta = None
@@ -6673,6 +6719,185 @@ def get_my_member_titles(user: dict = Depends(require_auth)):
         """, (uid,))
         titles = [dict(t) for t in cursor.fetchall()]
     return {"titles": titles}
+
+
+# ==================== GUILD: TITLE RENAME ====================
+
+class TitleRenameRequest(BaseModel):
+    title_text: str
+
+@app.put("/api/guilds/{guild_id}/member-titles/{title_id}/rename")
+def rename_member_title(guild_id: int, title_id: int, data: TitleRenameRequest, user: dict = Depends(require_auth)):
+    """President can rename active member titles."""
+    uid = user["id"]
+    new_name = data.title_text.strip()
+    if not new_name or len(new_name) < 2 or len(new_name) > 30:
+        raise HTTPException(400, "Название титула: 2—30 символов")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        # Verify president
+        cursor.execute(
+            "SELECT role FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, uid),
+        )
+        row = cursor.fetchone()
+        if not row or row["role"] != "president":
+            raise HTTPException(403, "Только президент может переименовывать титулы")
+
+        # Verify title belongs to this guild and is active
+        cursor.execute(
+            "SELECT id FROM guild_member_titles WHERE id = ? AND from_guild_id = ? AND expires_at > CURRENT_TIMESTAMP",
+            (title_id, guild_id),
+        )
+        if not cursor.fetchone():
+            raise HTTPException(404, "Титул не найден или истёк")
+
+        cursor.execute(
+            "UPDATE guild_member_titles SET title_text = ? WHERE id = ?",
+            (new_name, title_id),
+        )
+        conn.commit()
+    return {"message": f"Титул переименован в «{new_name}»"}
+
+
+# ==================== GUILD: RANK NAME CUSTOMIZATION ====================
+
+class RoleNameRequest(BaseModel):
+    custom_role_name: str
+
+@app.put("/api/guilds/{guild_id}/members/{member_id}/role-name")
+def set_custom_role_name(guild_id: int, member_id: int, data: RoleNameRequest, user: dict = Depends(require_auth)):
+    """Rename guild rank display name. President can rename anyone, members can rename only themselves."""
+    uid = user["id"]
+    new_name = data.custom_role_name.strip()
+    if not new_name or len(new_name) < 2 or len(new_name) > 30:
+        raise HTTPException(400, "Название ранга: 2—30 символов")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        # Check caller is in guild
+        cursor.execute(
+            "SELECT role FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, uid),
+        )
+        caller = cursor.fetchone()
+        if not caller:
+            raise HTTPException(403, "Вы не в этой гильдии")
+
+        is_president = caller["role"] == "president"
+
+        # Non-presidents can only rename themselves
+        if not is_president and member_id != uid:
+            raise HTTPException(403, "Вы можете переименовать только свой ранг")
+
+        # Verify target is in guild
+        cursor.execute(
+            "SELECT id FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, member_id),
+        )
+        if not cursor.fetchone():
+            raise HTTPException(404, "Участник не найден")
+
+        cursor.execute(
+            "UPDATE guild_members SET custom_role_name = ? WHERE guild_id = ? AND user_id = ?",
+            (new_name, guild_id, member_id),
+        )
+        conn.commit()
+    return {"message": f"Ранг переименован в «{new_name}»"}
+
+
+# ==================== ADMIN: TIME TRACKING ====================
+
+@app.get("/api/admin/time-tracking")
+def admin_time_tracking(days: int = Query(7, le=365), admin: dict = Depends(require_admin)):
+    """Get time tracking data for all students."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT u.id, u.display_name,
+                   COALESCE(SUM(tt.total_seconds), 0) as total_seconds,
+                   COALESCE(SUM(tt.task_seconds), 0) as task_seconds,
+                   COALESCE(SUM(tt.alextype_seconds), 0) as alextype_seconds
+            FROM users u
+            LEFT JOIN time_tracking tt ON tt.user_id = u.id
+            WHERE u.role = 'student'
+            GROUP BY u.id
+            ORDER BY total_seconds DESC
+        """)
+        students = [dict(r) for r in cursor.fetchall()]
+
+        # Daily breakdown for requested period
+        cursor.execute("""
+            SELECT tt.user_id, tt.date, tt.total_seconds, tt.task_seconds, tt.alextype_seconds
+            FROM time_tracking tt
+            JOIN users u ON u.id = tt.user_id AND u.role = 'student'
+            WHERE tt.date >= date('now', ? || ' days')
+            ORDER BY tt.date ASC
+        """, (str(-days),))
+        daily_data = {}
+        for r in cursor.fetchall():
+            uid = r["user_id"]
+            if uid not in daily_data:
+                daily_data[uid] = []
+            daily_data[uid].append(dict(r))
+
+        for s in students:
+            s["daily"] = daily_data.get(s["id"], [])
+
+    return {"students": students}
+
+
+# ==================== GUILD: MEMBER TIME TRACKING ====================
+
+@app.get("/api/guilds/{guild_id}/members/{member_id}/time-tracking")
+def guild_member_time_tracking(guild_id: int, member_id: int, days: int = Query(7, le=365), user: dict = Depends(require_auth)):
+    """Get time tracking for a guild member. President and the member themselves can view."""
+    uid = user["id"]
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        # Check caller is in guild
+        cursor.execute(
+            "SELECT role FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, uid),
+        )
+        caller = cursor.fetchone()
+        if not caller:
+            raise HTTPException(403, "Вы не в этой гильдии")
+
+        is_president = caller["role"] == "president"
+        if not is_president and member_id != uid:
+            raise HTTPException(403, "Только президент может просматривать время других участников")
+
+        # Verify target is in guild
+        cursor.execute(
+            "SELECT id FROM guild_members WHERE guild_id = ? AND user_id = ?",
+            (guild_id, member_id),
+        )
+        if not cursor.fetchone():
+            raise HTTPException(404, "Участник не найден")
+
+        # Aggregated totals
+        cursor.execute("""
+            SELECT COALESCE(SUM(total_seconds), 0) as total_seconds,
+                   COALESCE(SUM(task_seconds), 0) as task_seconds,
+                   COALESCE(SUM(alextype_seconds), 0) as alextype_seconds
+            FROM time_tracking WHERE user_id = ?
+        """, (member_id,))
+        totals = dict(cursor.fetchone())
+
+        # Daily breakdown for requested period
+        cursor.execute("""
+            SELECT date, total_seconds, task_seconds, alextype_seconds
+            FROM time_tracking
+            WHERE user_id = ? AND date >= date('now', ? || ' days')
+            ORDER BY date ASC
+        """, (member_id, str(-days)))
+        daily = [dict(r) for r in cursor.fetchall()]
+
+    return {"totals": totals, "daily": daily}
 
 
 # ==================== ADMIN: GUILD MANAGEMENT ====================
@@ -6737,15 +6962,41 @@ def admin_guild_rankings(admin: dict = Depends(require_admin)):
 
 # ==================== HEARTBEAT ====================
 
+class HeartbeatRequest(BaseModel):
+    context: str = "general"  # "general", "tasks", "alextype"
+
+_HEARTBEAT_INTERVAL_S = 30  # Expected heartbeat interval
+
 @app.post("/api/heartbeat")
-def heartbeat(user: dict = Depends(require_auth)):
-    """Update user's last_seen_at for online tracking."""
+def heartbeat(body: HeartbeatRequest = HeartbeatRequest(), user: dict = Depends(require_auth)):
+    """Update user's last_seen_at and track time on platform."""
+    uid = user["id"]
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    ctx = body.context if body.context in ("general", "tasks", "alextype") else "general"
+
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute(
             "UPDATE users SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?",
-            (user["id"],),
+            (uid,),
         )
+        # Upsert time tracking
+        cursor.execute("""
+            INSERT INTO time_tracking (user_id, date, total_seconds, task_seconds, alextype_seconds)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, date) DO UPDATE SET
+                total_seconds = total_seconds + ?,
+                task_seconds = task_seconds + ?,
+                alextype_seconds = alextype_seconds + ?
+        """, (
+            uid, today,
+            _HEARTBEAT_INTERVAL_S,
+            _HEARTBEAT_INTERVAL_S if ctx == "tasks" else 0,
+            _HEARTBEAT_INTERVAL_S if ctx == "alextype" else 0,
+            _HEARTBEAT_INTERVAL_S,
+            _HEARTBEAT_INTERVAL_S if ctx == "tasks" else 0,
+            _HEARTBEAT_INTERVAL_S if ctx == "alextype" else 0,
+        ))
         conn.commit()
     return {"ok": True}
 
@@ -6784,7 +7035,7 @@ def get_guild_member_detail(guild_id: int, member_id: int, user: dict = Depends(
                    COALESCE(s.total_quests, 0) as total_quests,
                    COALESCE(s.streak_days, 0) as streak_days,
                    COALESCE(s.best_streak, 0) as best_streak,
-                   gm.role, gm.joined_at
+                   gm.role, gm.custom_role_name, gm.joined_at
             FROM users u
             LEFT JOIN user_stats s ON s.user_id = u.id
             JOIN guild_members gm ON gm.user_id = u.id AND gm.guild_id = ?

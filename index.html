@@ -5383,12 +5383,18 @@
                         && !user.guild_id
                         && user.id !== (currentUser ? currentUser.id : null);
                     const inviteBtn = canInvite
-                        ? `<button onclick="event.stopPropagation(); sendGuildInvite(${user.id}, '${user.display_name.replace(/'/g, "\\'")}')"
+                        ? `<button onclick="event.stopPropagation(); sendGuildInvite(${user.id}, '${user.display_name.replace(/'/g, "\\\'")}')" 
                             class="guild-invite-btn" title="Пригласить в гильдию">📩</button>`
                         : '';
                     const guildTag = user.guild_name
                         ? `<span class="guild-tag guild-tag-${user.guild_role === 'president' ? 'president' : user.guild_role === 'chairman' ? 'chairman' : 'member'}">${user.guild_role === 'president' ? '👑' : ''} [${user.guild_name}]</span>`
                         : '';
+                    const alexBoostBadge = user.alex_boost
+                        ? `<span style="display:inline-block;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a2e;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;margin-left:6px;vertical-align:middle;">⚡+15%</span>`
+                        : '';
+                    const titleBadges = (user.active_titles || []).map(t =>
+                        `<span style="display:inline-block;background:rgba(34,197,94,0.15);color:#22c55e;font-size:10px;font-weight:600;padding:1px 6px;border-radius:6px;margin-left:4px;vertical-align:middle;">✨ ${t.title_text}</span>`
+                    ).join('');
                     const topClass = user.position === 1 ? 'leader-gold' : user.position === 2 ? 'leader-silver' : user.position === 3 ? 'leader-bronze' : '';
                     list.innerHTML += `
                         <div class="leader-item ${topClass}" onclick="openPublicProfile(${user.id})" style="cursor:pointer;">
@@ -5397,7 +5403,7 @@
                                 <span style="font-size:24px;">🧙</span>
                             </div>
                             <div class="leader-info">
-                                <div class="leader-name">${user.display_name}${guildTag}</div>
+                                <div class="leader-name">${user.display_name}${guildTag}${alexBoostBadge}${titleBadges}</div>
                                 <div class="leader-rank">${user.rank_badge} ${user.rank_name}</div>
                             </div>
                             <div class="leader-xp">${user.xp.toLocaleString()} XP</div>
@@ -6827,6 +6833,18 @@
             }
         }
 
+        function formatLastSeen(isoStr) {
+            if (!isoStr) return 'Нет данных';
+            const diff = Date.now() - new Date(isoStr + 'Z').getTime();
+            if (diff < 2 * 60 * 1000) return '🟢 В сети';
+            const mins = Math.floor(diff / 60000);
+            if (mins < 60) return `Был(а) ${mins} мин. назад`;
+            const hours = Math.floor(mins / 60);
+            if (hours < 24) return `Был(а) ${hours} ч. назад`;
+            const days = Math.floor(hours / 24);
+            return `Был(а) ${days} дн. назад`;
+        }
+
         function renderMyGuild(container, guild) {
             const roleEmojis = { president: '👑', chairman: '🎖️', developer: '💻' };
             const roleNames = { president: 'Президент', chairman: 'Председатель', developer: 'Разработчик' };
@@ -6853,7 +6871,9 @@
             let membersHtml = '';
             for (const m of guild.members) {
                 const isOnline = m.last_seen_at && (Date.now() - new Date(m.last_seen_at + 'Z').getTime() < 5 * 60 * 1000);
+                const lastSeenStr = formatLastSeen(m.last_seen_at);
                 const roleClass = 'role-' + m.role;
+                const displayRoleName = m.custom_role_name || roleNames[m.role];
                 const kickBtn = (isChairmanOrAbove && m.user_id !== currentUser.id && m.role !== 'president')
                     ? `<button class="guild-kick-btn" onclick="kickMember(${guild.id}, ${m.user_id})" title="Исключить">✕</button>`
                     : '';
@@ -6864,17 +6884,22 @@
                         <option value="president" ${m.role === 'president' ? 'selected' : ''}>👑 През.</option>
                        </select>`
                     : '';
+                const renameBtn = (isPresident || m.user_id === currentUser.id)
+                    ? `<button class="guild-kick-btn" onclick="event.stopPropagation(); renameGuildRank(${guild.id}, ${m.user_id}, '${displayRoleName.replace(/'/g, "\\\'")}')" title="Переименовать ранг" style="background:rgba(96,165,250,0.1);border-color:rgba(96,165,250,0.3);color:#60a5fa;">✏️</button>`
+                    : '';
                 membersHtml += `
                     <div class="guild-member-row" style="cursor:pointer;" onclick="showMemberDetail(${guild.id}, ${m.user_id})">
                         <div class="guild-member-avatar" id="gm-avatar-${m.user_id}" data-user-id="${m.user_id}" data-has-avatar="${m.has_avatar ? 'true' : 'false'}">
                             <span>${roleEmojis[m.role] || '💻'}</span>
                         </div>
-                        <span class="online-dot ${isOnline ? 'online' : 'offline'}" title="${isOnline ? 'Онлайн' : 'Офлайн'}"></span>
+                        <span class="online-dot ${isOnline ? 'online' : 'offline'}" title="${lastSeenStr}"></span>
                         <div style="flex:1; min-width:0;">
                             <div class="guild-member-name">${m.display_name}</div>
                             <div class="guild-member-meta">${m.xp.toLocaleString()} XP · LV ${m.level} · 🔥${m.streak_days || 0}</div>
+                            <div style="font-size:10px;color:var(--text-muted);">${lastSeenStr}</div>
                         </div>
-                        <span class="role-badge ${roleClass}">${roleNames[m.role]}</span>
+                        <span class="role-badge ${roleClass}">${displayRoleName}</span>
+                        ${renameBtn}
                         ${roleDropdown}
                         ${kickBtn}
                     </div>`;
@@ -7380,6 +7405,8 @@
                 const roleEmojis = { president: '👑', chairman: '🎖️', developer: '💻' };
                 const roleNames = { president: 'Президент', chairman: 'Председатель', developer: 'Разработчик' };
                 const isOnline = d.last_seen_at && (Date.now() - new Date(d.last_seen_at + 'Z').getTime() < 5 * 60 * 1000);
+                const lastSeenStr = formatLastSeen(d.last_seen_at);
+                const displayRoleName = d.custom_role_name || roleNames[d.role] || d.role;
 
                 // Category stats
                 let catHtml = '';
@@ -7438,8 +7465,8 @@
                                     <div style="font-size:13px;color:var(--text-secondary);">${d.rank_badge || ''} ${d.rank_name || ''} · LV ${d.level}</div>
                                     <div style="font-size:12px;color:var(--text-muted);">
                                         <span class="online-dot ${isOnline ? 'online' : 'offline'}"></span>
-                                        ${isOnline ? 'Онлайн' : 'Офлайн'}
-                                        · Роль: ${roleNames[d.role] || d.role}
+                                        ${lastSeenStr}
+                                        · Роль: ${displayRoleName}
                                     </div>
                                 </div>
                             </div>
@@ -7452,12 +7479,104 @@
                             ${catHtml ? `<div class="guild-section-title">📊 По категориям</div><div class="guild-stats-grid" style="grid-template-columns:repeat(${Math.min((d.category_stats || []).length, 4)},1fr);margin-bottom:12px;">${catHtml}</div>` : ''}
                             ${recentHtml ? `<div class="guild-section-title">📝 Последние квесты</div>${recentHtml}` : ''}
                             ${xpAdjustHtml}
+                            ${d.is_president_view ? `<div class="guild-section-title" style="margin-top:16px;">⏱️ Время на платформе</div>
+                                <div style="display:flex;gap:6px;margin-bottom:10px;">
+                                    <button class="guild-action-btn" onclick="loadMemberTimeChart(${guildId}, ${memberId}, 7)" id="mtc-btn-7" style="flex:1;font-size:11px;background:rgba(99,102,241,0.15);border-color:rgba(99,102,241,0.35);color:#818cf8;">Неделя</button>
+                                    <button class="guild-action-btn" onclick="loadMemberTimeChart(${guildId}, ${memberId}, 30)" id="mtc-btn-30" style="flex:1;font-size:11px;opacity:0.6;">Месяц</button>
+                                    <button class="guild-action-btn" onclick="loadMemberTimeChart(${guildId}, ${memberId}, 365)" id="mtc-btn-365" style="flex:1;font-size:11px;opacity:0.6;">Год</button>
+                                </div>
+                                <div id="member-time-chart">Загрузка...</div>` : ''}
                         </div>
                     </div>
                 `;
                 document.body.appendChild(overlay);
+                // Load time chart if president
+                if (d.is_president_view) {
+                    loadMemberTimeChart(guildId, memberId, 7);
+                }
             } catch (e) {
                 console.error('Failed to load member detail:', e);
+            }
+        }
+
+        function fmtSec(s) {
+            const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+            return h > 0 ? `${h}ч ${m}м` : `${m}м`;
+        }
+
+        async function loadMemberTimeChart(guildId, memberId, days) {
+            // Update tab buttons
+            [7, 30, 365].forEach(d => {
+                const btn = document.getElementById(`mtc-btn-${d}`);
+                if (btn) {
+                    btn.style.opacity = d === days ? '1' : '0.6';
+                    if (d === days) {
+                        btn.style.background = 'rgba(99,102,241,0.15)';
+                        btn.style.borderColor = 'rgba(99,102,241,0.35)';
+                        btn.style.color = '#818cf8';
+                    } else {
+                        btn.style.background = '';
+                        btn.style.borderColor = '';
+                        btn.style.color = '';
+                    }
+                }
+            });
+
+            const container = document.getElementById('member-time-chart');
+            if (!container) return;
+            container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:12px;">Загрузка...</div>';
+
+            try {
+                const res = await fetch(`${API_URL}/api/guilds/${guildId}/members/${memberId}/time-tracking?days=${days}`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                if (!res.ok) { container.innerHTML = '<div style="color:var(--danger);font-size:12px;">Ошибка</div>'; return; }
+
+                const daily = data.daily || [];
+                const t = data.totals || {};
+
+                // Summary line
+                let html = `<div style="display:flex;gap:12px;margin-bottom:10px;font-size:12px;">
+                    <span style="color:#6366f1;font-weight:600;">⏱ ${fmtSec(t.total_seconds || 0)}</span>
+                    <span style="color:#22c55e;font-weight:600;">📝 ${fmtSec(t.task_seconds || 0)}</span>
+                    <span style="color:#f59e0b;font-weight:600;">⌨️ ${fmtSec(t.alextype_seconds || 0)}</span>
+                </div>`;
+
+                if (daily.length === 0) {
+                    html += '<div style="color:var(--text-muted);font-size:12px;text-align:center;">Нет данных</div>';
+                } else {
+                    const maxVal = Math.max(...daily.map(d => d.total_seconds), 1);
+                    const chartH = 80;
+                    const bw = Math.max(4, Math.min(16, Math.floor(400 / daily.length) - 2));
+
+                    let bars = '';
+                    for (const d of daily) {
+                        const totalH = Math.round((d.total_seconds / maxVal) * chartH);
+                        const taskH = Math.round((d.task_seconds / maxVal) * chartH);
+                        const alexH = Math.round((d.alextype_seconds / maxVal) * chartH);
+                        const otherH = Math.max(0, totalH - taskH - alexH);
+                        const dateLabel = d.date.slice(5);
+                        const tip = `${d.date}: ${fmtSec(d.total_seconds)}`;
+                        bars += `<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${chartH + 16}px;" title="${tip}">
+                            <div style="display:flex;flex-direction:column;justify-content:flex-end;height:${chartH}px;">
+                                <div style="width:${bw}px;height:${otherH}px;background:#6366f1;border-radius:2px 2px 0 0;min-height:${totalH > 0 ? 1 : 0}px;"></div>
+                                <div style="width:${bw}px;height:${taskH}px;background:#22c55e;min-height:${taskH > 0 ? 1 : 0}px;"></div>
+                                <div style="width:${bw}px;height:${alexH}px;background:#f59e0b;border-radius:0 0 2px 2px;min-height:${alexH > 0 ? 1 : 0}px;"></div>
+                            </div>
+                            <div style="font-size:7px;color:var(--text-muted);margin-top:2px;">${dateLabel}</div>
+                        </div>`;
+                    }
+                    html += `<div style="display:flex;align-items:flex-end;gap:1px;overflow-x:auto;">${bars}</div>`;
+                    html += `<div style="display:flex;gap:10px;margin-top:6px;font-size:10px;color:var(--text-muted);">
+                        <span><span style="display:inline-block;width:8px;height:8px;background:#6366f1;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Прочее</span>
+                        <span><span style="display:inline-block;width:8px;height:8px;background:#22c55e;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Задания</span>
+                        <span><span style="display:inline-block;width:8px;height:8px;background:#f59e0b;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>AlexType</span>
+                    </div>`;
+                }
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = '<div style="color:var(--danger);font-size:12px;">Ошибка загрузки</div>';
             }
         }
 
@@ -7493,10 +7612,8 @@
         const MEMBER_TITLE_PRESETS = {
             blessing: { text: '✨ Благословение (+5% XP)', positive: true, icon: '✨' },
             inspiration: { text: '🔥 Вдохновение (+10% XP, 12ч)', positive: true, icon: '🔥' },
-            hex: { text: '💀 Сглаз (-5% XP)', positive: false, icon: '💀' },
-            slow: { text: '🐌 Замедление (-50% XP, 12ч)', positive: false, icon: '🐌' },
-            xp_cooldown: { text: '❄️ Заморозка (XP раз в 24ч)', positive: false, icon: '❄️' },
-            category_block: { text: '🚫 Блок категории (0 XP)', positive: false, icon: '🚫' },
+            typing_master: { text: '⌨️ Мастер Набора (+8% XP, 12ч)', positive: true, icon: '⌨️' },
+            quest_champion: { text: '🏆 Чемпион Квестов (+8% XP, 12ч)', positive: true, icon: '🏆' },
         };
 
         async function loadTitleManagement(guildId) {
@@ -7540,17 +7657,7 @@
             } catch (e) { }
 
             container.innerHTML = `
-                <div class="guild-section-title" style="margin-top:16px;">🏷️ Титулы доминации (ТОП-1)</div>
-                <div style="display:flex;gap:6px;margin-bottom:12px;">
-                    <button class="guild-action-btn" onclick="showTitleTab('positive', ${guildId})" id="title-tab-positive"
-                        style="flex:1;font-size:13px;background:rgba(34,197,94,0.12);border-color:rgba(34,197,94,0.3);color:#22c55e;">
-                        ✨ Благословения
-                    </button>
-                    <button class="guild-action-btn" onclick="showTitleTab('negative', ${guildId})" id="title-tab-negative"
-                        style="flex:1;font-size:13px;background:rgba(239,68,68,0.12);border-color:rgba(239,68,68,0.3);color:#ef4444;">
-                        💀 Проклятия
-                    </button>
-                </div>
+                <div class="guild-section-title" style="margin-top:16px;">🏷️ Благословения (ТОП-1)</div>
                 <div id="title-tab-content"></div>
             `;
             showTitleTab('positive', guildId);
@@ -7583,32 +7690,6 @@
                     </button>`;
                 }
                 content.innerHTML = html;
-            } else {
-                // Show enemy selector + negative presets
-                let html = '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Наложить дебафф на врага:</div>';
-                html += `<input type="number" id="title-target-enemy" placeholder="ID игрока" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:var(--text-bright);font-size:13px;margin-bottom:8px;">`;
-                html += `<select id="title-preset" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:var(--text-bright);font-size:13px;margin-bottom:8px;">`;
-                for (const [key, p] of Object.entries(MEMBER_TITLE_PRESETS)) {
-                    if (!p.positive) html += `<option value="${key}">${p.text}</option>`;
-                }
-                html += '</select>';
-                html += `<select id="title-category" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:var(--text-bright);font-size:13px;margin-bottom:8px;display:none;">
-                    <option value="python">Python</option>
-                    <option value="javascript">JavaScript</option>
-                    <option value="frontend">Frontend</option>
-                    <option value="scratch">Scratch</option>
-                </select>`;
-                html += `<button class="guild-action-btn" onclick="applyMemberTitle(${guildId})" style="width:100%;background:rgba(239,68,68,0.12);border-color:rgba(239,68,68,0.3);color:#ef4444;font-size:13px;">
-                    💀 Наложить проклятие
-                </button>`;
-                html += '<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Макс. 3 активных титула · 1 титул на игрока в сутки</div>';
-                content.innerHTML = html;
-                // Show category selector when category_block is chosen
-                const presetSel = document.getElementById('title-preset');
-                presetSel.addEventListener('change', () => {
-                    const catSel = document.getElementById('title-category');
-                    catSel.style.display = presetSel.value === 'category_block' ? 'block' : 'none';
-                });
             }
         }
 
@@ -7651,22 +7732,47 @@
         }
 
         // ==================== HEARTBEAT ====================
+        let _currentPageContext = 'general';
+        function setPageContext(ctx) { _currentPageContext = ctx; }
+
         function startHeartbeat() {
-            // Send heartbeat every 60 seconds
+            // Send heartbeat every 30 seconds
             setInterval(() => {
                 if (!authToken) return;
                 fetch(`${API_URL}/api/heartbeat`, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${authToken}` }
+                    headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ context: _currentPageContext })
                 }).catch(() => { });
-            }, 60000);
+            }, 30000);
             // Send initial heartbeat
             if (authToken) {
                 fetch(`${API_URL}/api/heartbeat`, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${authToken}` }
+                    headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ context: _currentPageContext })
                 }).catch(() => { });
             }
+        }
+
+        // ==================== GUILD RANK RENAME ====================
+        async function renameGuildRank(guildId, memberId, currentName) {
+            const newName = prompt('Новое название ранга (2—30 символов):', currentName);
+            if (!newName || newName.trim().length < 2) return;
+            try {
+                const res = await fetch(`${API_URL}/api/guilds/${guildId}/members/${memberId}/role-name`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ custom_role_name: newName.trim() })
+                });
+                const data = await res.json();
+                if (!res.ok) { alert(data.detail || 'Ошибка'); return; }
+                alert(data.message);
+                loadMyGuild();
+            } catch (e) { alert('Ошибка'); }
         }
 
         // ==================== START ====================

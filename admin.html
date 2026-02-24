@@ -860,6 +860,9 @@
                 <li class="nav-item" onclick="showSection('guilds')" tabindex="0" role="button">
                     <span class="icon">🛡️</span> Гильдии
                 </li>
+                <li class="nav-item" onclick="showSection('timetracking')" tabindex="0" role="button">
+                    <span class="icon">⏱️</span> Время
+                </li>
             </ul>
             <div class="admin-info">
                 <div class="admin-avatar">S</div>
@@ -1282,6 +1285,27 @@
                             <!-- Populated by JS -->
                         </tbody>
                     </table>
+                </div>
+            </section>
+
+            <!-- Time Tracking Section -->
+            <section id="section-timetracking" class="section">
+                <div class="page-header">
+                    <h2>⏱️ Аналитика времени</h2>
+                    <p>Время на платформе и по активностям</p>
+                </div>
+
+                <div style="display:flex;gap:8px;margin-bottom:20px;">
+                    <button class="btn btn-primary btn-small" id="tt-btn-7" onclick="loadTimeTracking(7)"
+                        style="opacity:1;">Неделя</button>
+                    <button class="btn btn-small" id="tt-btn-30" onclick="loadTimeTracking(30)"
+                        style="opacity:0.6;">Месяц</button>
+                    <button class="btn btn-small" id="tt-btn-365" onclick="loadTimeTracking(365)"
+                        style="opacity:0.6;">Год</button>
+                </div>
+
+                <div id="tt-content">
+                    <!-- Populated by JS -->
                 </div>
             </section>
 
@@ -2075,6 +2099,7 @@
             if (name === 'paste-requests') loadPasteRequests();
             if (name === 'homework') { loadHomeworkTasks(); loadHomeworkSets(); loadHomeworkStudents(); }
             if (name === 'guilds') { loadAdminGuilds(); loadGuildSettings(); }
+            if (name === 'timetracking') loadTimeTracking();
         }
 
         // ==================== PASTE REQUESTS ====================
@@ -2814,6 +2839,90 @@
                 loadAdminGuilds();
             } catch (e) {
                 alert('Ошибка');
+            }
+        }
+
+        // ==================== TIME TRACKING ====================
+        function formatSeconds(s) {
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            return h > 0 ? `${h}ч ${m}м` : `${m}м`;
+        }
+
+        let _ttCurrentDays = 7;
+
+        function buildBarChart(daily, height = 160) {
+            if (!daily || daily.length === 0) return '<div style="color:var(--text-secondary);text-align:center;padding:20px;font-size:13px;">Нет данных</div>';
+
+            const maxVal = Math.max(...daily.map(d => d.total_seconds), 1);
+            const barWidth = Math.max(4, Math.min(24, Math.floor(600 / daily.length) - 2));
+
+            let bars = '';
+            for (const d of daily) {
+                const totalH = Math.round((d.total_seconds / maxVal) * height);
+                const taskH = Math.round((d.task_seconds / maxVal) * height);
+                const alexH = Math.round((d.alextype_seconds / maxVal) * height);
+                const otherH = Math.max(0, totalH - taskH - alexH);
+                const dateLabel = d.date.slice(5); // MM-DD
+                const tooltip = `${d.date}: ${formatSeconds(d.total_seconds)} (задания: ${formatSeconds(d.task_seconds)}, AlexType: ${formatSeconds(d.alextype_seconds)})`;
+
+                bars += `<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${height + 20}px;" title="${tooltip}">
+                    <div style="display:flex;flex-direction:column;justify-content:flex-end;height:${height}px;">
+                        <div style="width:${barWidth}px;height:${otherH}px;background:#6366f1;border-radius:2px 2px 0 0;min-height:${totalH > 0 ? 1 : 0}px;"></div>
+                        <div style="width:${barWidth}px;height:${taskH}px;background:#22c55e;min-height:${taskH > 0 ? 1 : 0}px;"></div>
+                        <div style="width:${barWidth}px;height:${alexH}px;background:#f59e0b;border-radius:0 0 2px 2px;min-height:${alexH > 0 ? 1 : 0}px;"></div>
+                    </div>
+                    <div style="font-size:8px;color:var(--text-muted);margin-top:3px;writing-mode:vertical-rl;text-orientation:mixed;height:auto;max-height:40px;overflow:hidden;">${dateLabel}</div>
+                </div>`;
+            }
+
+            return `<div style="display:flex;align-items:flex-end;gap:2px;overflow-x:auto;padding-bottom:4px;">${bars}</div>
+                <div style="display:flex;gap:16px;margin-top:8px;font-size:11px;color:var(--text-secondary);">
+                    <span><span style="display:inline-block;width:10px;height:10px;background:#6366f1;border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Прочее</span>
+                    <span><span style="display:inline-block;width:10px;height:10px;background:#22c55e;border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Задания</span>
+                    <span><span style="display:inline-block;width:10px;height:10px;background:#f59e0b;border-radius:2px;vertical-align:middle;margin-right:4px;"></span>AlexType</span>
+                </div>`;
+        }
+
+        async function loadTimeTracking(days = 7) {
+            _ttCurrentDays = days;
+            // Update tab buttons
+            [7, 30, 365].forEach(d => {
+                const btn = document.getElementById(`tt-btn-${d}`);
+                if (btn) {
+                    btn.style.opacity = d === days ? '1' : '0.6';
+                    btn.className = d === days ? 'btn btn-primary btn-small' : 'btn btn-small';
+                }
+            });
+            const container = document.getElementById('tt-content');
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);">Загрузка...</div>';
+
+            try {
+                const data = await api(`/api/admin/time-tracking?days=${days}`);
+                if (!data.students || data.students.length === 0) {
+                    container.innerHTML = '<div class="card"><div style="padding:40px;text-align:center;color:var(--text-secondary);">Нет данных</div></div>';
+                    return;
+                }
+                const periodLabel = days === 7 ? 'за неделю' : days === 30 ? 'за месяц' : 'за год';
+                let html = '';
+                for (const s of data.students) {
+                    const chart = buildBarChart(s.daily, days <= 30 ? 120 : 80);
+                    html += `<div class="card" style="margin-bottom:16px;">
+                        <div class="card-header">
+                            <h3>${s.display_name}</h3>
+                            <div style="display:flex;gap:16px;font-size:13px;">
+                                <span style="color:#6366f1;font-weight:600;">⏱ ${formatSeconds(s.total_seconds)}</span>
+                                <span style="color:#22c55e;font-weight:600;">📝 ${formatSeconds(s.task_seconds)}</span>
+                                <span style="color:#f59e0b;font-weight:600;">⌨️ ${formatSeconds(s.alextype_seconds)}</span>
+                            </div>
+                        </div>
+                        <div style="padding:16px 24px 20px;">${chart}</div>
+                    </div>`;
+                }
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = '<div class="card"><div style="padding:40px;text-align:center;color:var(--danger);">Ошибка загрузки</div></div>';
+                console.error('Failed to load time tracking:', e);
             }
         }
 
