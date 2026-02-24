@@ -6885,7 +6885,7 @@
                        </select>`
                     : '';
                 const renameBtn = (isPresident || m.user_id === currentUser.id)
-                    ? `<button class="guild-kick-btn" onclick="event.stopPropagation(); renameGuildRank(${guild.id}, ${m.user_id}, '${displayRoleName.replace(/'/g, "\\\'")}')" title="Переименовать ранг" style="background:rgba(96,165,250,0.1);border-color:rgba(96,165,250,0.3);color:#60a5fa;">✏️</button>`
+                    ? `<button class="guild-kick-btn" onclick="event.stopPropagation(); renameGuildRank(${guild.id}, ${m.user_id}, decodeURIComponent('${encodeURIComponent(displayRoleName)}'))" title="Переименовать ранг" style="background:rgba(96,165,250,0.1);border-color:rgba(96,165,250,0.3);color:#60a5fa;">✏️</button>`
                     : '';
                 membersHtml += `
                     <div class="guild-member-row" style="cursor:pointer;" onclick="showMemberDetail(${guild.id}, ${m.user_id})">
@@ -6946,6 +6946,7 @@
                 </div>
                 <div class="guild-section-title">👥 Участники (${guild.members.length})</div>
                 ${membersHtml}
+                ${isPresident ? `<div id="guild-time-tracking"></div>` : ''}
                 <div id="guild-title-mgmt"></div>
                 ${leaveOrDisbandBtn}
             `;
@@ -6953,6 +6954,7 @@
             loadGuildChat(guild.id);
             loadGuildMemberAvatars();
             loadTitleManagement(guild.id);
+            if (isPresident) loadGuildTimeTracking(guild.id, guild.members);
             // Auto-refresh chat every 15s
             if (window._guildChatInterval) clearInterval(window._guildChatInterval);
             window._guildChatInterval = setInterval(() => loadGuildChat(guild.id), 15000);
@@ -7467,6 +7469,7 @@
                                         <span class="online-dot ${isOnline ? 'online' : 'offline'}"></span>
                                         ${lastSeenStr}
                                         · Роль: ${displayRoleName}
+                                        ${d.is_president_view ? `<span onclick="event.stopPropagation(); this.closest('.modal-overlay').remove(); renameGuildRank(${guildId}, ${memberId}, decodeURIComponent('${encodeURIComponent(displayRoleName)}'))" style="cursor:pointer;color:#60a5fa;margin-left:4px;" title="Переименовать ранг">✏️</span>` : ''}
                                     </div>
                                 </div>
                             </div>
@@ -7578,6 +7581,105 @@
             } catch (e) {
                 container.innerHTML = '<div style="color:var(--danger);font-size:12px;">Ошибка загрузки</div>';
             }
+        }
+
+        // ==================== GUILD: TIME TRACKING OVERVIEW ====================
+        let _guildTTDays = 7;
+
+        async function loadGuildTimeTracking(guildId, members, days) {
+            days = days || _guildTTDays;
+            _guildTTDays = days;
+            const container = document.getElementById('guild-time-tracking');
+            if (!container) return;
+
+            // Tab buttons
+            const tabHtml = [7, 30, 365].map(d => {
+                const label = d === 7 ? 'Неделя' : d === 30 ? 'Месяц' : 'Год';
+                const active = d === days;
+                return `<button class="guild-action-btn" onclick="loadGuildTimeTracking(${guildId}, null, ${d})"
+                    style="flex:1;font-size:11px;${active ? 'background:rgba(99,102,241,0.15);border-color:rgba(99,102,241,0.35);color:#818cf8;opacity:1;' : 'opacity:0.6;'}">${label}</button>`;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="guild-section-title">⏱️ Время участников</div>
+                <div style="display:flex;gap:6px;margin-bottom:12px;">${tabHtml}</div>
+                <div id="guild-tt-charts" style="font-size:12px;color:var(--text-muted);text-align:center;padding:16px;">Загрузка...</div>
+            `;
+
+            // Use cached members if not provided
+            if (!members && myGuildData) members = myGuildData.members;
+            if (!members || members.length === 0) {
+                document.getElementById('guild-tt-charts').innerHTML = 'Нет участников';
+                return;
+            }
+
+            const chartsContainer = document.getElementById('guild-tt-charts');
+            let html = '';
+
+            // Fetch time for each member in parallel
+            const results = await Promise.allSettled(
+                members.map(m =>
+                    fetch(`${API_URL}/api/guilds/${guildId}/members/${m.user_id}/time-tracking?days=${days}`, {
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    }).then(r => r.ok ? r.json() : null)
+                )
+            );
+
+            for (let i = 0; i < members.length; i++) {
+                const m = members[i];
+                const res = results[i];
+                const data = res.status === 'fulfilled' && res.value ? res.value : null;
+
+                if (!data) {
+                    html += `<div style="padding:6px 0;color:var(--text-muted);font-size:12px;">${m.display_name}: нет данных</div>`;
+                    continue;
+                }
+
+                const t = data.totals || {};
+                const daily = data.daily || [];
+
+                // Build mini bar chart
+                let chartInner = '';
+                if (daily.length > 0) {
+                    const maxVal = Math.max(...daily.map(d => d.total_seconds), 1);
+                    const chartH = 60;
+                    const bw = Math.max(3, Math.min(12, Math.floor(300 / daily.length) - 1));
+
+                    for (const d of daily) {
+                        const totalH = Math.round((d.total_seconds / maxVal) * chartH);
+                        const taskH = Math.round((d.task_seconds / maxVal) * chartH);
+                        const alexH = Math.round((d.alextype_seconds / maxVal) * chartH);
+                        const otherH = Math.max(0, totalH - taskH - alexH);
+                        const tip = `${d.date}: ${fmtSec(d.total_seconds)}`;
+                        chartInner += `<div style="display:flex;flex-direction:column;justify-content:flex-end;height:${chartH}px;" title="${tip}">
+                            <div style="width:${bw}px;height:${otherH}px;background:#6366f1;border-radius:1px 1px 0 0;"></div>
+                            <div style="width:${bw}px;height:${taskH}px;background:#22c55e;"></div>
+                            <div style="width:${bw}px;height:${alexH}px;background:#f59e0b;border-radius:0 0 1px 1px;"></div>
+                        </div>`;
+                    }
+                }
+
+                html += `<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:10px 14px;margin-bottom:8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <span style="font-weight:600;color:var(--text-bright);font-size:13px;">${m.display_name}</span>
+                        <span style="font-size:11px;color:var(--text-secondary);">
+                            <span style="color:#6366f1;">⏱${fmtSec(t.total_seconds || 0)}</span>
+                            <span style="color:#22c55e;margin-left:6px;">📝${fmtSec(t.task_seconds || 0)}</span>
+                            <span style="color:#f59e0b;margin-left:6px;">⌨️${fmtSec(t.alextype_seconds || 0)}</span>
+                        </span>
+                    </div>
+                    ${chartInner ? `<div style="display:flex;align-items:flex-end;gap:1px;overflow-x:auto;">${chartInner}</div>` : '<div style="color:var(--text-muted);font-size:11px;">Нет данных</div>'}
+                </div>`;
+            }
+
+            // Legend
+            html += `<div style="display:flex;gap:10px;margin-top:4px;font-size:10px;color:var(--text-muted);">
+                <span><span style="display:inline-block;width:8px;height:8px;background:#6366f1;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Прочее</span>
+                <span><span style="display:inline-block;width:8px;height:8px;background:#22c55e;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Задания</span>
+                <span><span style="display:inline-block;width:8px;height:8px;background:#f59e0b;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>AlexType</span>
+            </div>`;
+
+            chartsContainer.innerHTML = html;
         }
 
         async function presidentAdjustXP(guildId, memberId, sign) {
