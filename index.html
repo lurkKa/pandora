@@ -6788,8 +6788,8 @@
             if (!container || invites.length === 0) return;
             let html = '<div class="guild-section-title" style="text-align:left; margin-bottom:10px;">📩 Приглашения</div>';
             for (const inv of invites) {
-                const avatar = inv.avatar_url
-                    ? `<img src="${API_URL}${inv.avatar_url}" style="width:36px;height:36px;border-radius:10px;object-fit:cover;">`
+                const avatar = (inv.icon_data || inv.avatar_url)
+                    ? `<img src="${inv.icon_data || (API_URL + inv.avatar_url)}" style="width:36px;height:36px;border-radius:10px;object-fit:cover;">`
                     : `<span style="font-size:24px;">${inv.avatar_emoji}</span>`;
                 html += `
                     <div class="guild-rank-row" style="cursor:default; margin-bottom:8px;">
@@ -6819,8 +6819,8 @@
                 }
                 let html = '<div class="guild-section-title">Доступные гильдии:</div>';
                 for (const g of data.guilds) {
-                    const avatarEl = g.avatar_url
-                        ? `<img class="guild-rank-avatar" src="${API_URL}${g.avatar_url}">`
+                    const avatarEl = (g.icon_data || g.avatar_url)
+                        ? `<img class="guild-rank-avatar" src="${g.icon_data || (API_URL + g.avatar_url)}">`
                         : `<span class="guild-rank-emoji">${g.avatar_emoji}</span>`;
                     html += `
                         <div class="guild-rank-row" onclick="joinGuild(${g.id})" style="cursor:pointer;">
@@ -6859,8 +6859,8 @@
             const bonusHtml = bonusPct ? `<span style="color:var(--success); font-size:12px; margin-left:8px; font-weight:600;">${bonusPct} XP</span>` : '';
 
             // Guild avatar display
-            const avatarDisplay = guild.avatar_url
-                ? `<img src="${API_URL}${guild.avatar_url}" style="width:56px;height:56px;border-radius:14px;object-fit:cover;cursor:${isPresident ? 'pointer' : 'default'};" ${isPresident ? `onclick="uploadGuildAvatar(${guild.id})" title="Изменить фото"` : ''}>`
+            const avatarDisplay = (guild.icon_data || guild.avatar_url)
+                ? `<img src="${guild.icon_data || (API_URL + guild.avatar_url)}" style="width:56px;height:56px;border-radius:14px;object-fit:cover;cursor:${isPresident ? 'pointer' : 'default'};" ${isPresident ? `onclick="uploadGuildAvatar(${guild.id})" title="Изменить фото"` : ''}>`
                 : `<div class="guild-card-avatar" ${isPresident ? `onclick="uploadGuildAvatar(${guild.id})" style="cursor:pointer;" title="Загрузить фото"` : ''}>${guild.avatar_emoji}</div>`;
             const uploadHint = isPresident ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;text-align:center;">📷 Фото</div>` : '';
 
@@ -6987,8 +6987,8 @@
                     html += `
                         <div class="guild-rank-row ${rankClass}" onclick="showGuildDetail(${g.id})">
                             <div class="guild-rank-pos">${posEmoji}</div>
-                            ${g.avatar_url
-                            ? `<img class="guild-rank-avatar" src="${API_URL}${g.avatar_url}">`
+                            ${(g.icon_data || g.avatar_url)
+                            ? `<img class="guild-rank-avatar" src="${g.icon_data || (API_URL + g.avatar_url)}">`
                             : `<span class="guild-rank-emoji">${g.avatar_emoji}</span>`}
                             <div class="guild-rank-info">
                                 <div class="guild-rank-name">${g.name} ${titleBadges}</div>
@@ -7260,8 +7260,8 @@
                     }
                 }
 
-                const avatarDisplay = g.avatar_url
-                    ? `<img src="${API_URL}${g.avatar_url}" style="width:64px;height:64px;border-radius:16px;object-fit:cover;">`
+                const avatarDisplay = (g.icon_data || g.avatar_url)
+                    ? `<img src="${g.icon_data || (API_URL + g.avatar_url)}" style="width:64px;height:64px;border-radius:16px;object-fit:cover;">`
                     : `<div class="guild-card-avatar" style="width:64px;height:64px;font-size:36px;">${g.avatar_emoji}</div>`;
 
                 const stats = {

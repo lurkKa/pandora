@@ -12,6 +12,7 @@ Features:
 """
 
 import json
+import base64
 import asyncio
 import os
 import sys
@@ -747,6 +748,12 @@ def init_db():
         # Migration: add avatar_url to guilds
         try:
             cursor.execute("ALTER TABLE guilds ADD COLUMN avatar_url TEXT DEFAULT NULL")
+        except Exception:
+            pass  # column already exists
+
+        # Migration: add icon_data to guilds (base64 data URL, survives restarts)
+        try:
+            cursor.execute("ALTER TABLE guilds ADD COLUMN icon_data TEXT DEFAULT NULL")
         except Exception:
             pass  # column already exists
 
@@ -6341,7 +6348,7 @@ def guild_rankings(user: dict = Depends(require_auth)):
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT g.id, g.name, g.avatar_emoji, g.avatar_url, g.created_at
+            SELECT g.id, g.name, g.avatar_emoji, g.avatar_url, g.icon_data, g.created_at
             FROM guilds g
             WHERE g.disbanded_at IS NULL
         """)
@@ -6948,7 +6955,7 @@ def admin_guild_rankings(admin: dict = Depends(require_admin)):
     """Get guild rankings for admin panel with historical data."""
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT g.id, g.name, g.avatar_emoji, g.avatar_url, g.created_at FROM guilds g WHERE g.disbanded_at IS NULL")
+        cursor.execute("SELECT g.id, g.name, g.avatar_emoji, g.avatar_url, g.icon_data, g.created_at FROM guilds g WHERE g.disbanded_at IS NULL")
         guilds = []
         for row in cursor.fetchall():
             g = dict(row)
@@ -7269,16 +7276,27 @@ async def upload_guild_avatar(guild_id: int, file: UploadFile = File(...), user:
         if ext not in ("png", "jpg", "jpeg", "webp", "gif"):
             ext = "png"
 
+        # Also write to disk as a fallback
         filename = f"guild_{guild_id}.{ext}"
         file_path = Path("uploads") / filename
-        with open(file_path, "wb") as f:
-            f.write(contents)
+        try:
+            with open(file_path, "wb") as f:
+                f.write(contents)
+        except OSError:
+            pass  # disk write is optional, DB is the source of truth
+
+        # Store as base64 data URL in DB (survives restarts/redeploys)
+        mime = file.content_type or f"image/{ext}"
+        icon_data = f"data:{mime};base64,{base64.b64encode(contents).decode('ascii')}"
 
         avatar_url = f"/uploads/{filename}"
-        cursor.execute("UPDATE guilds SET avatar_url = ? WHERE id = ?", (avatar_url, guild_id))
+        cursor.execute(
+            "UPDATE guilds SET avatar_url = ?, icon_data = ? WHERE id = ?",
+            (avatar_url, icon_data, guild_id),
+        )
         conn.commit()
 
-    return {"avatar_url": avatar_url}
+    return {"avatar_url": avatar_url, "icon_data": icon_data}
 
 
 # ==================== GUILD: INVITE SYSTEM ====================
@@ -7347,7 +7365,7 @@ def get_my_invitations(user: dict = Depends(require_auth)):
         cursor = conn.cursor()
         cursor.execute("""
             SELECT gi.id, gi.guild_id, gi.from_user_id, gi.created_at,
-                   g.name as guild_name, g.avatar_emoji, g.avatar_url,
+                   g.name as guild_name, g.avatar_emoji, g.avatar_url, g.icon_data,
                    u.display_name as from_user_name
             FROM guild_invitations gi
             JOIN guilds g ON g.id = gi.guild_id AND g.disbanded_at IS NULL
