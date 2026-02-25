@@ -2401,7 +2401,7 @@ def get_public_profile(user_id: int, current_user: dict = Depends(require_auth))
         
         # Get user basic info
         cursor.execute("""
-            SELECT u.id, u.display_name, u.xp, u.level, u.created_at,
+            SELECT u.id, u.username, u.display_name, u.xp, u.level, u.created_at,
                    r.name_ru as rank_name, r.badge_emoji as rank_badge, r.color as rank_color
             FROM users u
             LEFT JOIN ranks r ON r.min_xp = (SELECT MAX(min_xp) FROM ranks WHERE min_xp <= u.xp)
@@ -2448,6 +2448,7 @@ def get_public_profile(user_id: int, current_user: dict = Depends(require_auth))
         "xp": user["xp"],
         "level": user["level"],
         "member_since": user["created_at"],
+        "alex_boost": user["username"] == "Alex",
         "rank": {
             "name": user["rank_name"],
             "badge": user["rank_badge"],
@@ -7031,7 +7032,7 @@ def get_guild_member_detail(guild_id: int, member_id: int, user: dict = Depends(
 
         # Basic info
         cursor.execute("""
-            SELECT u.id, u.display_name, u.xp, u.level, u.created_at, u.last_seen_at,
+            SELECT u.id, u.username, u.display_name, u.xp, u.level, u.created_at, u.last_seen_at,
                    COALESCE(s.total_quests, 0) as total_quests,
                    COALESCE(s.streak_days, 0) as streak_days,
                    COALESCE(s.best_streak, 0) as best_streak,
@@ -7046,6 +7047,8 @@ def get_guild_member_detail(guild_id: int, member_id: int, user: dict = Depends(
             raise HTTPException(404, "Пользователь не найден")
 
         detail = dict(row)
+        detail["alex_boost"] = detail.get("username") == "Alex"
+        detail.pop("username", None)  # Don't expose username
 
         # Rank
         cursor.execute(

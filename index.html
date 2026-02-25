@@ -3770,7 +3770,7 @@
             <div class="profile-modal-header">
                 <div class="profile-modal-avatar" id="public-profile-avatar">🧙</div>
                 <div class="profile-modal-info">
-                    <h2 id="public-profile-name">Loading...</h2>
+                    <h2 id="public-profile-name">Loading...</h2><span id="public-profile-boost"></span>
                     <div class="profile-modal-rank" id="public-profile-rank">🌱 Новичок</div>
                 </div>
             </div>
@@ -4497,10 +4497,12 @@
                 : 'Готово к проверке...';
             document.getElementById('quest-modal').classList.add('active');
             if (currentTask.category !== 'scratch') editor.focus();
+            setPageContext('tasks');
         }
 
         function closeModal() {
             document.getElementById('quest-modal').classList.remove('active');
+            setPageContext('general');
             // Reset paste permission when closing modal
             pasteAllowed = false;
             updatePasteButton();
@@ -5389,9 +5391,6 @@
                     const guildTag = user.guild_name
                         ? `<span class="guild-tag guild-tag-${user.guild_role === 'president' ? 'president' : user.guild_role === 'chairman' ? 'chairman' : 'member'}">${user.guild_role === 'president' ? '👑' : ''} [${user.guild_name}]</span>`
                         : '';
-                    const alexBoostBadge = user.alex_boost
-                        ? `<span style="display:inline-block;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a2e;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;margin-left:6px;vertical-align:middle;">⚡+15%</span>`
-                        : '';
                     const titleBadges = (user.active_titles || []).map(t =>
                         `<span style="display:inline-block;background:rgba(34,197,94,0.15);color:#22c55e;font-size:10px;font-weight:600;padding:1px 6px;border-radius:6px;margin-left:4px;vertical-align:middle;">✨ ${t.title_text}</span>`
                     ).join('');
@@ -5403,7 +5402,7 @@
                                 <span style="font-size:24px;">🧙</span>
                             </div>
                             <div class="leader-info">
-                                <div class="leader-name">${user.display_name}${guildTag}${alexBoostBadge}${titleBadges}</div>
+                                <div class="leader-name">${user.display_name}${guildTag}${titleBadges}</div>
                                 <div class="leader-rank">${user.rank_badge} ${user.rank_name}</div>
                             </div>
                             <div class="leader-xp">${user.xp.toLocaleString()} XP</div>
@@ -6380,6 +6379,12 @@
 
                 // Basic info
                 document.getElementById('public-profile-name').textContent = profile.display_name;
+                const boostEl = document.getElementById('public-profile-boost');
+                if (boostEl) {
+                    boostEl.innerHTML = profile.alex_boost
+                        ? '<span style="display:inline-block;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a2e;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;margin-left:6px;vertical-align:middle;">⚡+15%</span>'
+                        : '';
+                }
                 document.getElementById('public-profile-rank').innerHTML =
                     `${profile.rank?.badge || '🌱'} ${profile.rank?.name || 'Новичок'}`;
 
@@ -7466,7 +7471,7 @@
                             <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
                                 <div style="font-size:36px;">${roleEmojis[d.role] || '💻'}</div>
                                 <div>
-                                    <div style="font-size:18px;font-weight:700;color:var(--text-bright);">${d.display_name}</div>
+                                    <div style="font-size:18px;font-weight:700;color:var(--text-bright);">${d.display_name}${d.alex_boost ? ' <span style="display:inline-block;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a2e;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;margin-left:4px;vertical-align:middle;">⚡+15%</span>' : ''}</div>
                                     <div style="font-size:13px;color:var(--text-secondary);">${d.rank_badge || ''} ${d.rank_name || ''} · LV ${d.level}</div>
                                     <div style="font-size:12px;color:var(--text-muted);">
                                         <span class="online-dot ${isOnline ? 'online' : 'offline'}"></span>

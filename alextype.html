@@ -1378,6 +1378,21 @@
     levelEl.addEventListener("change", pickText);
     langEl.addEventListener("change", pickText);
 
+    // ===== HEARTBEAT: Track alextype time =====
+    (function startAlexTypeHeartbeat() {
+      const token = getAuthToken();
+      if (!token) return;
+      const sendBeat = () => {
+        fetch(`${API_URL}/api/heartbeat`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ context: 'alextype' })
+        }).catch(() => { });
+      };
+      sendBeat();
+      setInterval(sendBeat, 30000);
+    })();
+
     pickText();
   </script>
 </body>
