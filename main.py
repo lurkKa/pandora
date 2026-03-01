@@ -777,6 +777,25 @@ def init_db():
             )
         """)
 
+        # ========== COMPLAINTS ==========
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS complaints (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                reporter_id INTEGER NOT NULL,
+                target_user_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                suggested_xp_penalty INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'pending',
+                admin_xp_applied INTEGER DEFAULT 0,
+                admin_note TEXT DEFAULT '',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                resolved_at TIMESTAMP,
+                FOREIGN KEY (reporter_id) REFERENCES users(id),
+                FOREIGN KEY (target_user_id) REFERENCES users(id)
+            )
+        """)
+
         # Performance indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_xp ON users(xp DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)")
@@ -800,6 +819,8 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_member_titles_user ON guild_member_titles(to_user_id, expires_at)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_member_titles_guild ON guild_member_titles(from_guild_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_time_tracking_user_date ON time_tracking(user_id, date)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_complaints_status ON complaints(status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_complaints_target ON complaints(target_user_id)")
         
         conn.commit()
         
@@ -1025,6 +1046,36 @@ def compute_level(total_xp: int) -> int:
         level -= 1
     return max(1, level)
 
+def _get_most_active_student_id(cursor) -> int | None:
+    """
+    Compute the most active student over the last 7 days using weighted time score.
+    
+    Weights:  task_seconds * 3  +  alextype_seconds * 1.5  +  other_seconds * 1
+    (Tasks are most valuable, AlexType mid, idle/blue time cheapest)
+    """
+    try:
+        cursor.execute("""
+            SELECT tt.user_id,
+                   SUM(tt.task_seconds) * 3.0 +
+                   SUM(tt.alextype_seconds) * 1.5 +
+                   SUM(CASE WHEN tt.total_seconds - tt.task_seconds - tt.alextype_seconds > 0
+                        THEN tt.total_seconds - tt.task_seconds - tt.alextype_seconds ELSE 0 END) * 1.0
+                   AS weighted_score
+            FROM time_tracking tt
+            JOIN users u ON u.id = tt.user_id
+            WHERE u.role = 'student' AND tt.date >= date('now', '-7 days')
+            GROUP BY tt.user_id
+            ORDER BY weighted_score DESC
+            LIMIT 1
+        """)
+        row = cursor.fetchone()
+        if row and row["weighted_score"] and row["weighted_score"] > 0:
+            return row["user_id"]
+    except Exception:
+        pass
+    return None
+
+
 def apply_xp_change(cursor, user_id: int, delta_xp: int, reason: str, task_id: str = None) -> tuple[int, int]:
     """
     Apply an XP delta and keep `users.level` consistent.
@@ -1092,6 +1143,11 @@ def apply_xp_change(cursor, user_id: int, delta_xp: int, reason: str, task_id: s
                                     break
                     except Exception:
                         pass
+            # --- Most Active Student bonus (+5%) ---
+            if delta > 0:
+                most_active_id = _get_most_active_student_id(cursor)
+                if most_active_id == user_id:
+                    delta = int(delta * 1.05)
         except Exception:
             pass  # guild tables may not exist yet on first run
 
@@ -2365,6 +2421,9 @@ def get_leaderboard(limit: int = Query(20, le=100)):
                 "effect_value": t["effect_value"],
             })
 
+        # Get most active student
+        most_active_id = _get_most_active_student_id(cursor)
+
         leaders = []
         for i, row in enumerate(rows, 1):
             uid = row["id"]
@@ -2384,6 +2443,7 @@ def get_leaderboard(limit: int = Query(20, le=100)):
                 "guild_name": row["guild_name"],
                 "guild_role": row["guild_role"],
                 "alex_boost": is_alex,
+                "is_most_active": uid == most_active_id,
                 "active_titles": user_titles.get(uid, []),
             }
             leaders.append(entry)
@@ -2449,6 +2509,26 @@ def get_public_profile(user_id: int, current_user: dict = Depends(require_auth))
         """, (user_id,))
         position = cursor.fetchone()["position"]
         
+        # Get time tracking data (last 30 days)
+        cursor.execute("""
+            SELECT date, total_seconds, task_seconds, alextype_seconds
+            FROM time_tracking
+            WHERE user_id = ? AND date >= date('now', '-30 days')
+            ORDER BY date ASC
+        """, (user_id,))
+        time_daily = [dict(r) for r in cursor.fetchall()]
+
+        cursor.execute("""
+            SELECT COALESCE(SUM(total_seconds), 0) as total_seconds,
+                   COALESCE(SUM(task_seconds), 0) as task_seconds,
+                   COALESCE(SUM(alextype_seconds), 0) as alextype_seconds
+            FROM time_tracking WHERE user_id = ?
+        """, (user_id,))
+        time_totals = dict(cursor.fetchone())
+
+        # Check if most active
+        most_active_id = _get_most_active_student_id(cursor)
+
     return {
         "id": user["id"],
         "display_name": user["display_name"],
@@ -2456,6 +2536,7 @@ def get_public_profile(user_id: int, current_user: dict = Depends(require_auth))
         "level": user["level"],
         "member_since": user["created_at"],
         "alex_boost": user["username"] == "Alex",
+        "is_most_active": most_active_id == user_id,
         "rank": {
             "name": user["rank_name"],
             "badge": user["rank_badge"],
@@ -2468,7 +2549,11 @@ def get_public_profile(user_id: int, current_user: dict = Depends(require_auth))
         },
         "avatar_data": stats["avatar_data"] if stats else None,
         "achievements": achievements,
-        "leaderboard_position": position
+        "leaderboard_position": position,
+        "time_tracking": {
+            "totals": time_totals,
+            "daily": time_daily
+        }
     }
 
 # ==================== CAMPAIGN SYSTEM ====================
@@ -7444,6 +7529,190 @@ def decline_invitation(invite_id: int, user: dict = Depends(require_auth)):
         )
         conn.commit()
     return {"message": "Приглашение отклонено"}
+
+
+# ==================== MOST ACTIVE STUDENT ====================
+
+@app.get("/api/most-active-student")
+def get_most_active_student(user: dict = Depends(require_auth)):
+    """Get the current most active student (7-day weighted score)."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT tt.user_id,
+                   u.display_name,
+                   u.xp,
+                   u.level,
+                   r.name_ru as rank_name,
+                   r.badge_emoji as rank_badge,
+                   SUM(tt.task_seconds) * 3.0 +
+                   SUM(tt.alextype_seconds) * 1.5 +
+                   SUM(CASE WHEN tt.total_seconds - tt.task_seconds - tt.alextype_seconds > 0
+                        THEN tt.total_seconds - tt.task_seconds - tt.alextype_seconds ELSE 0 END) * 1.0
+                   AS weighted_score,
+                   SUM(tt.total_seconds) as total_time,
+                   SUM(tt.task_seconds) as task_time,
+                   SUM(tt.alextype_seconds) as alextype_time
+            FROM time_tracking tt
+            JOIN users u ON u.id = tt.user_id
+            LEFT JOIN ranks r ON r.min_xp = (SELECT MAX(min_xp) FROM ranks WHERE min_xp <= u.xp)
+            WHERE u.role = 'student' AND tt.date >= date('now', '-7 days')
+            GROUP BY tt.user_id
+            ORDER BY weighted_score DESC
+            LIMIT 1
+        """)
+        row = cursor.fetchone()
+        if not row or not row["weighted_score"] or row["weighted_score"] <= 0:
+            return {"most_active": None}
+
+        return {
+            "most_active": {
+                "user_id": row["user_id"],
+                "display_name": row["display_name"],
+                "xp": row["xp"],
+                "level": row["level"],
+                "rank_name": row["rank_name"],
+                "rank_badge": row["rank_badge"],
+                "weighted_score": round(row["weighted_score"], 1),
+                "total_time": row["total_time"],
+                "task_time": row["task_time"],
+                "alextype_time": row["alextype_time"],
+                "is_current_user": row["user_id"] == user["id"]
+            }
+        }
+
+
+# ==================== COMPLAINTS ====================
+
+class ComplaintRequest(BaseModel):
+    target_user_id: int
+    title: str
+    description: str
+    suggested_xp_penalty: int = 0
+
+class ComplaintResolveRequest(BaseModel):
+    status: str  # "accepted" or "rejected"
+    xp_to_apply: int = 0
+    admin_note: str = ""
+
+@app.post("/api/complaints")
+def submit_complaint(data: ComplaintRequest, user: dict = Depends(require_auth)):
+    """Submit a complaint about another player (rate limited: 3/hour)."""
+    # Validate
+    if not data.title or not data.title.strip():
+        raise HTTPException(400, "Укажите название проблемы")
+    if not data.description or not data.description.strip():
+        raise HTTPException(400, "Укажите описание проблемы")
+    if len(data.title) > 100:
+        raise HTTPException(400, "Название слишком длинное (макс. 100 символов)")
+    if len(data.description) > 1000:
+        raise HTTPException(400, "Описание слишком длинное (макс. 1000 символов)")
+    if data.target_user_id == user["id"]:
+        raise HTTPException(400, "Нельзя пожаловаться на себя")
+    if data.suggested_xp_penalty < 0 or data.suggested_xp_penalty > 500:
+        raise HTTPException(400, "Штраф XP: от 0 до 500")
+
+    # Detect threats
+    for field in (data.title, data.description):
+        threats = detect_threats(field)
+        if threats:
+            raise HTTPException(400, "Обнаружен подозрительный ввод")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        
+        # Check target exists
+        cursor.execute("SELECT id FROM users WHERE id = ?", (data.target_user_id,))
+        if not cursor.fetchone():
+            raise HTTPException(404, "Пользователь не найден")
+        
+        # Rate limit: max 3 complaints per hour
+        cursor.execute("""
+            SELECT COUNT(*) FROM complaints
+            WHERE reporter_id = ? AND created_at > datetime('now', '-1 hour')
+        """, (user["id"],))
+        if cursor.fetchone()[0] >= 3:
+            raise HTTPException(429, "Слишком много жалоб. Подождите час.")
+        
+        cursor.execute("""
+            INSERT INTO complaints (reporter_id, target_user_id, title, description, suggested_xp_penalty)
+            VALUES (?, ?, ?, ?, ?)
+        """, (user["id"], data.target_user_id, data.title.strip(), data.description.strip(), data.suggested_xp_penalty))
+        conn.commit()
+    
+    log_action(user["id"], user["username"], "complaint_submitted",
+               f"target={data.target_user_id} title={data.title[:50]}")
+    return {"message": "Жалоба отправлена. Администратор рассмотрит её."}
+
+@app.get("/api/admin/complaints")
+def admin_get_complaints(status: str = Query("pending"), admin: dict = Depends(require_admin)):
+    """Get complaints list (admin only)."""
+    valid_statuses = ("pending", "accepted", "rejected", "all")
+    if status not in valid_statuses:
+        status = "pending"
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        if status == "all":
+            cursor.execute("""
+                SELECT c.*,
+                       reporter.display_name as reporter_name,
+                       target.display_name as target_name,
+                       target.xp as target_xp
+                FROM complaints c
+                JOIN users reporter ON reporter.id = c.reporter_id
+                JOIN users target ON target.id = c.target_user_id
+                ORDER BY c.created_at DESC
+                LIMIT 100
+            """)
+        else:
+            cursor.execute("""
+                SELECT c.*,
+                       reporter.display_name as reporter_name,
+                       target.display_name as target_name,
+                       target.xp as target_xp
+                FROM complaints c
+                JOIN users reporter ON reporter.id = c.reporter_id
+                JOIN users target ON target.id = c.target_user_id
+                WHERE c.status = ?
+                ORDER BY c.created_at DESC
+                LIMIT 100
+            """, (status,))
+        complaints = [dict(r) for r in cursor.fetchall()]
+    return {"complaints": complaints}
+
+@app.post("/api/admin/complaints/{complaint_id}/resolve")
+def admin_resolve_complaint(complaint_id: int, data: ComplaintResolveRequest, admin: dict = Depends(require_admin)):
+    """Resolve a complaint — accept (with XP penalty) or reject."""
+    if data.status not in ("accepted", "rejected"):
+        raise HTTPException(400, "status must be 'accepted' or 'rejected'")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM complaints WHERE id = ?", (complaint_id,))
+        complaint = cursor.fetchone()
+        if not complaint:
+            raise HTTPException(404, "Жалоба не найдена")
+        if complaint["status"] != "pending":
+            raise HTTPException(400, "Жалоба уже рассмотрена")
+
+        xp_applied = 0
+        if data.status == "accepted" and data.xp_to_apply > 0:
+            xp_applied = min(data.xp_to_apply, 1000)  # Cap at 1000
+            reason = f"Жалоба #{complaint_id}: {data.admin_note or 'Штраф'}"
+            apply_xp_change(cursor, complaint["target_user_id"], -xp_applied, reason)
+
+        cursor.execute("""
+            UPDATE complaints
+            SET status = ?, admin_xp_applied = ?, admin_note = ?, resolved_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (data.status, xp_applied, data.admin_note, complaint_id))
+        conn.commit()
+
+    log_action(admin["id"], admin["username"], "complaint_resolved",
+               f"complaint={complaint_id} status={data.status} xp=-{xp_applied}")
+    status_text = "принята" if data.status == "accepted" else "отклонена"
+    return {"message": f"Жалоба {status_text}" + (f", снято {xp_applied} XP" if xp_applied else "")}
 
 
 # ==================== STARTUP ====================

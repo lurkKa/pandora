@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 # Anime Code Adventures LMS
 
 > **Version**: 3.0.0  
@@ -243,5 +241,4 @@ python3 main.py
 ## 📜 License
 
 MIT — свободное использование в образовательных целях.
->>>>>>> 8749480 (first commit)
 # pandora

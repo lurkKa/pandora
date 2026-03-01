@@ -863,6 +863,9 @@
                 <li class="nav-item" onclick="showSection('timetracking')" tabindex="0" role="button">
                     <span class="icon">⏱️</span> Время
                 </li>
+                <li class="nav-item" onclick="showSection('complaints')" tabindex="0" role="button">
+                    <span class="icon">⚠️</span> Жалобы
+                </li>
             </ul>
             <div class="admin-info">
                 <div class="admin-avatar">S</div>
@@ -1305,6 +1308,29 @@
                 </div>
 
                 <div id="tt-content">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+            <!-- Complaints Section -->
+            <section id="section-complaints" class="section">
+                <div class="page-header">
+                    <h2>⚠️ Жалобы на игроков</h2>
+                    <p>Рассмотрение жалоб от учеников</p>
+                </div>
+
+                <div style="display:flex;gap:8px;margin-bottom:20px;">
+                    <button class="btn btn-primary btn-small" id="complaints-btn-pending"
+                        onclick="loadComplaints('pending')" style="opacity:1;">Ожидающие</button>
+                    <button class="btn btn-small" id="complaints-btn-accepted" onclick="loadComplaints('accepted')"
+                        style="opacity:0.6;">Принятые</button>
+                    <button class="btn btn-small" id="complaints-btn-rejected" onclick="loadComplaints('rejected')"
+                        style="opacity:0.6;">Отклонённые</button>
+                    <button class="btn btn-small" id="complaints-btn-all" onclick="loadComplaints('all')"
+                        style="opacity:0.6;">Все</button>
+                </div>
+
+                <div id="complaints-content">
                     <!-- Populated by JS -->
                 </div>
             </section>
@@ -2100,6 +2126,82 @@
             if (name === 'homework') { loadHomeworkTasks(); loadHomeworkSets(); loadHomeworkStudents(); }
             if (name === 'guilds') { loadAdminGuilds(); loadGuildSettings(); }
             if (name === 'timetracking') loadTimeTracking();
+            if (name === 'complaints') loadComplaints('pending');
+        }
+
+        // ==================== COMPLAINTS ====================
+        let _complaintsStatus = 'pending';
+        async function loadComplaints(status = 'pending') {
+            _complaintsStatus = status;
+            ['pending', 'accepted', 'rejected', 'all'].forEach(s => {
+                const btn = document.getElementById(`complaints-btn-${s}`);
+                if (btn) btn.style.opacity = s === status ? '1' : '0.6';
+            });
+            const container = document.getElementById('complaints-content');
+            container.innerHTML = '<p style="color:var(--text-secondary)">Загрузка...</p>';
+            try {
+                const data = await api(`/api/admin/complaints?status=${status}`);
+                const complaints = data.complaints || [];
+                if (complaints.length === 0) {
+                    container.innerHTML = '<div class="card"><div style="padding:24px;text-align:center;color:var(--text-secondary)">Нет жалоб</div></div>';
+                    return;
+                }
+                container.innerHTML = complaints.map(c => {
+                    const isPending = c.status === 'pending';
+                    const statusBadge = c.status === 'accepted' ? '<span style="color:#22c55e;font-weight:600;">✅ Принята</span>'
+                        : c.status === 'rejected' ? '<span style="color:#f87171;font-weight:600;">❌ Отклонена</span>'
+                            : '<span style="color:#fbbf24;font-weight:600;">⏳ Ожидает</span>';
+                    const dt = c.created_at ? new Date(c.created_at).toLocaleString('ru') : '';
+                    return `<div class="card" style="margin-bottom:12px;">
+                        <div class="card-header" style="flex-wrap:wrap;">
+                            <h3 style="font-size:14px;">${statusBadge} ${c.title}</h3>
+                            <span style="font-size:12px;color:var(--text-secondary);">${dt}</span>
+                        </div>
+                        <div style="padding:16px 24px;">
+                            <div style="display:flex;gap:24px;margin-bottom:12px;font-size:13px;">
+                                <div><span style="color:var(--text-secondary)">От:</span> <strong>${c.reporter_name}</strong></div>
+                                <div><span style="color:var(--text-secondary)">На:</span> <strong>${c.target_name}</strong> (${c.target_xp} XP)</div>
+                                <div><span style="color:var(--text-secondary)">Предл. штраф:</span> <strong>${c.suggested_xp_penalty} XP</strong></div>
+                            </div>
+                            <div style="background:var(--bg-deep);border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;color:var(--text-primary);">
+                                ${c.description}
+                            </div>
+                            ${isPending ? `
+                                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+                                    <div class="form-group" style="margin-bottom:0;">
+                                        <label style="font-size:12px;">Штраф XP:</label>
+                                        <input type="number" id="complaint-xp-${c.id}" value="${c.suggested_xp_penalty}" min="0" max="1000"
+                                            style="width:100px;padding:8px;background:var(--bg-deep);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
+                                    </div>
+                                    <div class="form-group" style="margin-bottom:0;flex:1;">
+                                        <label style="font-size:12px;">Заметка:</label>
+                                        <input type="text" id="complaint-note-${c.id}" placeholder="Комментарий"
+                                            style="width:100%;padding:8px;background:var(--bg-deep);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
+                                    </div>
+                                    <button class="btn btn-success btn-small" onclick="resolveComplaint(${c.id}, 'accepted')">✅ Принять</button>
+                                    <button class="btn btn-danger btn-small" onclick="resolveComplaint(${c.id}, 'rejected')">❌ Отклонить</button>
+                                </div>
+                            ` : (c.admin_note ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">📝 ${c.admin_note}${c.admin_xp_applied ? ' (−' + c.admin_xp_applied + ' XP)' : ''}</div>` : '')}
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                container.innerHTML = `<p style="color:var(--danger)">Ошибка: ${e.message}</p>`;
+            }
+        }
+
+        async function resolveComplaint(id, status) {
+            const xp = parseInt(document.getElementById(`complaint-xp-${id}`)?.value) || 0;
+            const note = document.getElementById(`complaint-note-${id}`)?.value || '';
+            try {
+                const data = await api(`/api/admin/complaints/${id}/resolve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status, xp_to_apply: xp, admin_note: note })
+                });
+                alert(data.message || 'Готово');
+                loadComplaints(_complaintsStatus);
+            } catch (e) { alert('Ошибка: ' + e.message); }
         }
 
         // ==================== PASTE REQUESTS ====================

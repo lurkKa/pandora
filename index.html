@@ -3456,14 +3456,13 @@
             </div>
         </div>
 
-        <div style="padding:20px;">
+        <div class="profile-bottom-actions">
             <div class="form-group">
-                <label class="form-label">Изменить имя</label>
+                <label class="form-label">✏️ Изменить имя</label>
                 <input type="text" id="edit-display-name" class="form-input" placeholder="Новое имя" maxlength="50">
             </div>
-            <button class="btn btn-primary" onclick="saveProfile()" style="width:100%;">Сохранить</button>
-            <button class="btn" onclick="logout()"
-                style="width:100%; margin-top:12px; background:var(--danger); color:white;">🚪 Выйти</button>
+            <button class="profile-save-btn" onclick="saveProfile()">💾 Сохранить</button>
+            <button class="profile-logout-btn" onclick="logout()">🚪 Выйти из аккаунта</button>
         </div>
     </div>
 
@@ -3763,17 +3762,278 @@
             background: rgba(255, 255, 255, 0.1);
             color: var(--text-bright);
         }
+
+        /* ========== CHART TOOLTIP ========== */
+        #chart-tooltip {
+            position: fixed;
+            z-index: 9999;
+            background: rgba(15, 15, 30, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 10px;
+            padding: 10px 14px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+            font-size: 12px;
+            line-height: 1.6;
+            color: var(--text-bright);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            min-width: 160px;
+        }
+
+        #chart-tooltip.visible {
+            opacity: 1;
+        }
+
+        .tt-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .tt-date {
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: #a78bfa;
+        }
+
+        .tt-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+            vertical-align: middle;
+            margin-right: 4px;
+        }
+
+        /* ========== MOST ACTIVE BADGE ========== */
+        .most-active-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(245, 158, 11, 0.15));
+            color: #fbbf24;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(251, 191, 36, 0.3);
+            margin-left: 4px;
+            vertical-align: middle;
+            animation: pulseGlow 2s ease-in-out infinite;
+        }
+
+        @keyframes pulseGlow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 4px rgba(251, 191, 36, 0.2);
+            }
+
+            50% {
+                box-shadow: 0 0 12px rgba(251, 191, 36, 0.4);
+            }
+        }
+
+        .most-active-award {
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.12), rgba(245, 158, 11, 0.08));
+            border: 1px solid rgba(251, 191, 36, 0.25);
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin: 12px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .most-active-award .award-icon {
+            font-size: 28px;
+        }
+
+        .most-active-award .award-text {
+            font-size: 13px;
+            color: #fbbf24;
+            font-weight: 600;
+        }
+
+        .most-active-award .award-sub {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        /* ========== REPORT FORM ========== */
+        .report-form {
+            background: rgba(239, 68, 68, 0.06);
+            border: 1px solid rgba(239, 68, 68, 0.15);
+            border-radius: 12px;
+            padding: 14px;
+            margin-top: 12px;
+        }
+
+        .report-form h4 {
+            color: #f87171;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
+        .report-form input,
+        .report-form textarea {
+            width: 100%;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(0, 0, 0, 0.3);
+            color: var(--text-bright);
+            font-size: 13px;
+            font-family: inherit;
+            margin-bottom: 8px;
+            box-sizing: border-box;
+        }
+
+        .report-form textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .report-btn {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            width: 100%;
+            transition: all 0.2s;
+        }
+
+        .report-btn:hover {
+            background: rgba(239, 68, 68, 0.25);
+        }
+
+        /* ========== PROFILE POLISH ========== */
+        .profile-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            padding: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .profile-stats .stat-item {
+            background: rgba(139, 92, 246, 0.08);
+            backdrop-filter: blur(6px);
+            border: 1px solid rgba(139, 92, 246, 0.15);
+            border-radius: 12px;
+            padding: 12px 8px;
+            text-align: center;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+
+        .profile-stats .stat-item:hover {
+            border-color: rgba(139, 92, 246, 0.35);
+            transform: translateY(-2px);
+        }
+
+        .profile-stats .stat-item .value {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-bright);
+            text-shadow: 0 0 8px rgba(139, 92, 246, 0.3);
+        }
+
+        .profile-stats .stat-item .label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .profile-bottom-actions {
+            padding: 20px;
+        }
+
+        .profile-bottom-actions .form-group {
+            margin-bottom: 14px;
+        }
+
+        .profile-bottom-actions .form-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        .profile-bottom-actions .form-input {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 14px;
+            color: var(--text-bright);
+            width: 100%;
+            box-sizing: border-box;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .profile-bottom-actions .form-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+            outline: none;
+        }
+
+        .profile-save-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, var(--accent), #7c3aed);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .profile-save-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(139, 92, 246, 0.4);
+        }
+
+        .profile-logout-btn {
+            width: 100%;
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            color: #f87171;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .profile-logout-btn:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.4);
+        }
     </style>
     <div class="profile-modal-overlay" id="public-profile-modal" onclick="closePublicProfile(event)">
-        <div class="profile-modal" onclick="event.stopPropagation()">
+        <div class="profile-modal" onclick="event.stopPropagation()" style="max-height:85vh;overflow-y:auto;">
             <button class="profile-modal-close" onclick="closePublicProfile()">&times;</button>
             <div class="profile-modal-header">
                 <div class="profile-modal-avatar" id="public-profile-avatar">🧙</div>
                 <div class="profile-modal-info">
-                    <h2 id="public-profile-name">Loading...</h2><span id="public-profile-boost"></span>
+                    <h2 id="public-profile-name">Loading...</h2><span id="public-profile-boost"></span><span
+                        id="public-profile-most-active-badge"></span>
                     <div class="profile-modal-rank" id="public-profile-rank">🌱 Новичок</div>
                 </div>
             </div>
+            <div id="public-profile-most-active-award"></div>
             <div class="profile-modal-stats">
                 <div class="profile-modal-stat">
                     <div class="profile-modal-stat-value" id="public-profile-xp">0</div>
@@ -3788,10 +4048,12 @@
                     <div class="profile-modal-stat-label">Рейтинг</div>
                 </div>
             </div>
+            <div id="public-profile-time-chart" style="padding:0 16px;"></div>
             <div class="profile-modal-achievements" id="public-profile-achievements">
                 <h3>🏆 Достижения</h3>
                 <div id="public-profile-achievements-list">Загрузка...</div>
             </div>
+            <div id="public-profile-report" style="padding:0 16px 16px;"></div>
         </div>
     </div>
 
@@ -5402,7 +5664,7 @@
                                 <span style="font-size:24px;">🧙</span>
                             </div>
                             <div class="leader-info">
-                                <div class="leader-name">${user.display_name}${guildTag}${titleBadges}</div>
+                                <div class="leader-name">${user.display_name}${user.is_most_active ? '<span class="most-active-badge">🏅 MVP</span>' : ''}${guildTag}${titleBadges}</div>
                                 <div class="leader-rank">${user.rank_badge} ${user.rank_name}</div>
                             </div>
                             <div class="leader-xp">${user.xp.toLocaleString()} XP</div>
@@ -6353,12 +6615,84 @@
         })();
 
         // ==================== PUBLIC PROFILE ====================
+        // ==================== CHART TOOLTIP ====================
+        let _chartTooltip = null;
+        function ensureChartTooltip() {
+            if (!_chartTooltip) {
+                _chartTooltip = document.createElement('div');
+                _chartTooltip.id = 'chart-tooltip';
+                document.body.appendChild(_chartTooltip);
+            }
+            return _chartTooltip;
+        }
+        function showChartTip(e, d) {
+            const tt = ensureChartTooltip();
+            const taskS = d.task_seconds || 0;
+            const alexS = d.alextype_seconds || 0;
+            const otherS = Math.max(0, (d.total_seconds || 0) - taskS - alexS);
+            tt.innerHTML = `
+                <div class="tt-date">📅 ${d.date}</div>
+                <div class="tt-row"><span><span class="tt-dot" style="background:#22c55e;"></span>Задания</span><span>${fmtSec(taskS)}</span></div>
+                <div class="tt-row"><span><span class="tt-dot" style="background:#f59e0b;"></span>AlexType</span><span>${fmtSec(alexS)}</span></div>
+                <div class="tt-row"><span><span class="tt-dot" style="background:#6366f1;"></span>Прочее</span><span>${fmtSec(otherS)}</span></div>
+                <div class="tt-row" style="border-top:1px solid rgba(255,255,255,0.1);margin-top:4px;padding-top:4px;font-weight:700;">
+                    <span>Всего</span><span>${fmtSec(d.total_seconds || 0)}</span></div>`;
+            tt.classList.add('visible');
+            const rect = e.target.getBoundingClientRect();
+            tt.style.left = Math.min(window.innerWidth - 200, rect.left) + 'px';
+            tt.style.top = (rect.top - tt.offsetHeight - 8) + 'px';
+            if (parseInt(tt.style.top) < 0) tt.style.top = (rect.bottom + 8) + 'px';
+        }
+        function hideChartTip() {
+            const tt = ensureChartTooltip();
+            tt.classList.remove('visible');
+        }
+
+        function buildTimeChart(daily, chartH = 80) {
+            if (!daily || daily.length === 0) return '<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:8px;">Нет данных</div>';
+            const maxVal = Math.max(...daily.map(d => d.total_seconds || 0), 1);
+            const bw = Math.max(4, Math.min(16, Math.floor(380 / daily.length) - 2));
+            let bars = '';
+            for (let i = 0; i < daily.length; i++) {
+                const d = daily[i];
+                const totalH = Math.round(((d.total_seconds || 0) / maxVal) * chartH);
+                const taskH = Math.round(((d.task_seconds || 0) / maxVal) * chartH);
+                const alexH = Math.round(((d.alextype_seconds || 0) / maxVal) * chartH);
+                const otherH = Math.max(0, totalH - taskH - alexH);
+                const dateLabel = (d.date || '').slice(5);
+                bars += `<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${chartH + 18}px;"
+                    data-chart-idx="${i}" onmouseenter="showChartTip(event, _ppTimeDaily[${i}])" onmouseleave="hideChartTip()">
+                    <div style="display:flex;flex-direction:column;justify-content:flex-end;height:${chartH}px;cursor:pointer;">
+                        <div style="width:${bw}px;height:${otherH}px;background:#6366f1;border-radius:2px 2px 0 0;min-height:${totalH > 0 ? 1 : 0}px;"></div>
+                        <div style="width:${bw}px;height:${taskH}px;background:#22c55e;min-height:${taskH > 0 ? 1 : 0}px;"></div>
+                        <div style="width:${bw}px;height:${alexH}px;background:#f59e0b;border-radius:0 0 2px 2px;min-height:${alexH > 0 ? 1 : 0}px;"></div>
+                    </div>
+                    <div style="font-size:7px;color:var(--text-muted);margin-top:2px;">${dateLabel}</div>
+                </div>`;
+            }
+            let html = `<div style="display:flex;align-items:flex-end;gap:1px;overflow-x:auto;">${bars}</div>`;
+            html += `<div style="display:flex;gap:10px;margin-top:6px;font-size:10px;color:var(--text-muted);">
+                <span><span style="display:inline-block;width:8px;height:8px;background:#22c55e;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Задания</span>
+                <span><span style="display:inline-block;width:8px;height:8px;background:#f59e0b;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>AlexType</span>
+                <span><span style="display:inline-block;width:8px;height:8px;background:#6366f1;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Прочее</span>
+            </div>`;
+            return html;
+        }
+
+        let _ppTimeDaily = [];
+        let _ppUserId = null;
+
         async function openPublicProfile(userId) {
             if (!userId) return;
+            _ppUserId = userId;
 
             document.getElementById('public-profile-modal').classList.add('active');
             document.getElementById('public-profile-name').textContent = 'Загрузка...';
             document.getElementById('public-profile-achievements-list').innerHTML = 'Загрузка...';
+            document.getElementById('public-profile-time-chart').innerHTML = '';
+            document.getElementById('public-profile-report').innerHTML = '';
+            document.getElementById('public-profile-most-active-badge').innerHTML = '';
+            document.getElementById('public-profile-most-active-award').innerHTML = '';
 
             try {
                 const res = await fetch(`${API_URL}/api/user/${userId}/public`, {
@@ -6385,6 +6719,22 @@
                         ? '<span style="display:inline-block;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a2e;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;margin-left:6px;vertical-align:middle;">⚡+15%</span>'
                         : '';
                 }
+
+                // Most active badge
+                const maBadge = document.getElementById('public-profile-most-active-badge');
+                const maAward = document.getElementById('public-profile-most-active-award');
+                if (profile.is_most_active) {
+                    maBadge.innerHTML = '<span class="most-active-badge">🏅 +5% XP</span>';
+                    maAward.innerHTML = `<div class="most-active-award" style="margin:0 16px;">
+                        <div class="award-icon">🏅</div>
+                        <div><div class="award-text">Самый активный ученик</div>
+                        <div class="award-sub">+5% бонус ко всему XP за 7 дней</div></div>
+                    </div>`;
+                } else {
+                    maBadge.innerHTML = '';
+                    maAward.innerHTML = '';
+                }
+
                 document.getElementById('public-profile-rank').innerHTML =
                     `${profile.rank?.badge || '🌱'} ${profile.rank?.name || 'Новичок'}`;
 
@@ -6392,6 +6742,26 @@
                 document.getElementById('public-profile-xp').textContent = profile.xp.toLocaleString();
                 document.getElementById('public-profile-quests').textContent = profile.stats?.completed_tasks || 0;
                 document.getElementById('public-profile-position').textContent = '#' + profile.leaderboard_position;
+
+                // Time chart
+                const timeChart = document.getElementById('public-profile-time-chart');
+                if (profile.time_tracking && profile.time_tracking.daily && profile.time_tracking.daily.length > 0) {
+                    const tt = profile.time_tracking.totals || {};
+                    _ppTimeDaily = profile.time_tracking.daily;
+                    timeChart.innerHTML = `
+                        <div style="margin-top:12px;">
+                            <h4 style="font-size:13px;color:var(--text-bright);margin-bottom:8px;">⏱️ Время на платформе</h4>
+                            <div style="display:flex;gap:12px;margin-bottom:8px;font-size:12px;">
+                                <span style="color:#22c55e;font-weight:600;">📝 ${fmtSec(tt.task_seconds || 0)}</span>
+                                <span style="color:#f59e0b;font-weight:600;">⌨️ ${fmtSec(tt.alextype_seconds || 0)}</span>
+                                <span style="color:#6366f1;font-weight:600;">⏱ ${fmtSec(tt.total_seconds || 0)}</span>
+                            </div>
+                            ${buildTimeChart(_ppTimeDaily, 70)}
+                        </div>`;
+                } else {
+                    _ppTimeDaily = [];
+                    timeChart.innerHTML = '';
+                }
 
                 // Achievements
                 const achievementsEl = document.getElementById('public-profile-achievements-list');
@@ -6409,10 +6779,57 @@
                     achievementsEl.innerHTML = '<div style="color:var(--text-secondary);font-size:12px;">Пока нет достижений</div>';
                 }
 
+                // Report button (don't show for own profile)
+                const reportDiv = document.getElementById('public-profile-report');
+                if (currentUser && userId !== currentUser.id) {
+                    reportDiv.innerHTML = `
+                        <button onclick="toggleReportForm()" style="background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;padding:6px 0;display:flex;align-items:center;gap:4px;">
+                            🚩 Пожаловаться на игрока
+                        </button>
+                        <div id="report-form-container" style="display:none;">
+                            <div class="report-form">
+                                <h4>🚩 Жалоба на ${profile.display_name}</h4>
+                                <input type="text" id="report-title" placeholder="Название проблемы" maxlength="100">
+                                <textarea id="report-desc" placeholder="Описание проблемы..." maxlength="1000"></textarea>
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                                    <label style="font-size:11px;color:var(--text-secondary);white-space:nowrap;">Штраф XP:</label>
+                                    <input type="number" id="report-xp" min="0" max="500" value="0" style="width:80px;">
+                                </div>
+                                <button class="report-btn" onclick="submitComplaint(${userId})">Отправить жалобу</button>
+                            </div>
+                        </div>`;
+                } else {
+                    reportDiv.innerHTML = '';
+                }
+
             } catch (e) {
                 console.error('Failed to load public profile:', e);
                 document.getElementById('public-profile-name').textContent = 'Ошибка загрузки';
             }
+        }
+
+        function toggleReportForm() {
+            const container = document.getElementById('report-form-container');
+            if (container) container.style.display = container.style.display === 'none' ? 'block' : 'none';
+        }
+
+        async function submitComplaint(targetUserId) {
+            const title = document.getElementById('report-title')?.value?.trim();
+            const desc = document.getElementById('report-desc')?.value?.trim();
+            const xp = parseInt(document.getElementById('report-xp')?.value) || 0;
+            if (!title) { alert('Укажите название проблемы'); return; }
+            if (!desc) { alert('Укажите описание проблемы'); return; }
+            try {
+                const res = await fetch(`${API_URL}/api/complaints`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target_user_id: targetUserId, title, description: desc, suggested_xp_penalty: xp })
+                });
+                const data = await res.json();
+                if (!res.ok) { alert(data.detail || 'Ошибка'); return; }
+                alert(data.message || 'Жалоба отправлена');
+                document.getElementById('report-form-container').style.display = 'none';
+            } catch (e) { alert('Ошибка отправки'); }
         }
 
         function closePublicProfile(event) {
