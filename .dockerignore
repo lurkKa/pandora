@@ -1,0 +1,8 @@
+__pycache__
+*.pyc
+venv
+.git
+.env
+logs
+*.db-journal
+*.sqlite-journal
