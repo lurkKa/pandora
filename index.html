@@ -5654,8 +5654,10 @@
                         ? `<span class="guild-tag guild-tag-${user.guild_role === 'president' ? 'president' : user.guild_role === 'chairman' ? 'chairman' : 'member'}">${user.guild_role === 'president' ? '👑' : ''} [${user.guild_name}]</span>`
                         : '';
                     const titleBadges = (user.active_titles || []).map(t =>
-                        `<span style="display:inline-block;background:rgba(34,197,94,0.15);color:#22c55e;font-size:10px;font-weight:600;padding:1px 6px;border-radius:6px;margin-left:4px;vertical-align:middle;">✨ ${t.title_text}</span>`
+                        `<span style="display:inline-block;background:rgba(34,197,94,0.15);color:#22c55e;font-size:10px;font-weight:600;padding:1px 6px;border-radius:6px;vertical-align:middle;">✨ ${t.title_text}</span>`
                     ).join('');
+                    const mvpBadge = user.is_most_active ? '<span class="most-active-badge">🏅 MVP +5%</span>' : '';
+                    const allBadges = [mvpBadge, titleBadges].filter(b => b).join('');
                     const topClass = user.position === 1 ? 'leader-gold' : user.position === 2 ? 'leader-silver' : user.position === 3 ? 'leader-bronze' : '';
                     list.innerHTML += `
                         <div class="leader-item ${topClass}" onclick="openPublicProfile(${user.id})" style="cursor:pointer;">
@@ -5664,7 +5666,8 @@
                                 <span style="font-size:24px;">🧙</span>
                             </div>
                             <div class="leader-info">
-                                <div class="leader-name">${user.display_name}${user.is_most_active ? '<span class="most-active-badge">🏅 MVP</span>' : ''}${guildTag}${titleBadges}</div>
+                                <div class="leader-name">${user.display_name}${guildTag}</div>
+                                ${allBadges ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:2px;">${allBadges}</div>` : ''}
                                 <div class="leader-rank">${user.rank_badge} ${user.rank_name}</div>
                             </div>
                             <div class="leader-xp">${user.xp.toLocaleString()} XP</div>
