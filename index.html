@@ -3456,6 +3456,46 @@
             </div>
         </div>
 
+        <!-- Task History / Journal Section -->
+        <div style="padding:16px; border-bottom:1px solid rgba(255,255,255,0.05);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h4 style="color:var(--text-bright); margin:0;">📜 Журнал заданий</h4>
+                <button onclick="loadMyCompletions()"
+                    style="background:none; border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:4px 10px; color:var(--text-secondary); cursor:pointer; font-size:12px;">🔄
+                    Обновить</button>
+            </div>
+            <div id="my-completions-list" style="max-height:350px; overflow-y:auto; scrollbar-width:thin;">
+                <p style="color:var(--text-secondary); font-size:13px; text-align:center;">Нажмите «Обновить» для
+                    загрузки</p>
+            </div>
+        </div>
+
+        <!-- Password Change Section -->
+        <div style="padding:16px; border-bottom:1px solid rgba(255,255,255,0.05);">
+            <h4 style="margin-bottom:12px; color:var(--text-bright);">🔑 Смена пароля</h4>
+            <div class="form-group" style="margin-bottom:10px;">
+                <label class="form-label" style="font-size:12px; color:var(--text-secondary);">Текущий пароль</label>
+                <input type="password" id="pwd-current" class="form-input" placeholder="••••••••"
+                    style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px 12px; color:var(--text-bright); font-size:14px; width:100%; box-sizing:border-box;">
+            </div>
+            <div class="form-group" style="margin-bottom:10px;">
+                <label class="form-label" style="font-size:12px; color:var(--text-secondary);">Новый пароль</label>
+                <input type="password" id="pwd-new" class="form-input" placeholder="••••••••"
+                    style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px 12px; color:var(--text-bright); font-size:14px; width:100%; box-sizing:border-box;">
+            </div>
+            <div class="form-group" style="margin-bottom:10px;">
+                <label class="form-label" style="font-size:12px; color:var(--text-secondary);">Подтвердите
+                    пароль</label>
+                <input type="password" id="pwd-confirm" class="form-input" placeholder="••••••••"
+                    style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px 12px; color:var(--text-bright); font-size:14px; width:100%; box-sizing:border-box;">
+            </div>
+            <button class="btn btn-primary" onclick="changeMyPassword()"
+                style="width:100%; padding:10px; border-radius:10px; font-size:14px; font-weight:600; background:linear-gradient(135deg,#8b5cf6,#6366f1); border:none; color:#fff; cursor:pointer; transition:all 0.2s;">
+                🔐 Сменить пароль
+            </button>
+            <p id="pwd-change-msg" style="margin-top:8px; font-size:12px; text-align:center; display:none;"></p>
+        </div>
+
         <div class="profile-bottom-actions">
             <div class="form-group">
                 <label class="form-label">✏️ Изменить имя</label>
@@ -3463,6 +3503,46 @@
             </div>
             <button class="profile-save-btn" onclick="saveProfile()">💾 Сохранить</button>
             <button class="profile-logout-btn" onclick="logout()">🚪 Выйти из аккаунта</button>
+        </div>
+    </div>
+
+    <!-- Student Code Viewer Modal -->
+    <div id="my-code-modal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:10000; justify-content:center; align-items:center; padding:20px; box-sizing:border-box;">
+        <div
+            style="background:var(--bg-card, #1e1e2e); border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:28px; width:100%; max-width:700px; max-height:85vh; overflow-y:auto; color:#fff;">
+            <h3 id="my-code-title" style="margin:0 0 8px 0;">Задание</h3>
+            <div style="display:flex; gap:10px; align-items:center; margin-bottom:16px;">
+                <span id="my-code-category"
+                    style="background:rgba(139,92,246,0.2); color:#a78bfa; padding:3px 10px; border-radius:6px; font-size:12px;">python</span>
+                <span id="my-code-xp" style="color:rgba(255,255,255,0.5); font-size:13px;">XP: 0</span>
+                <span id="my-code-date" style="color:rgba(255,255,255,0.4); font-size:12px; margin-left:auto;"></span>
+            </div>
+            <div id="my-code-condition-wrap" style="display:none; margin-bottom:16px;">
+                <details open>
+                    <summary style="cursor:pointer; color:#a78bfa; font-weight:600; font-size:13px; margin-bottom:8px;">
+                        📋 Условие задачи</summary>
+                    <div id="my-code-description"
+                        style="color:rgba(255,255,255,0.6); font-size:13px; margin-bottom:8px; line-height:1.5;"></div>
+                    <div id="my-code-task"
+                        style="background:rgba(139,92,246,0.08); border:1px solid rgba(139,92,246,0.2); border-radius:8px; padding:12px; font-size:13px; color:#e0e0e0; line-height:1.5; white-space:pre-wrap;">
+                    </div>
+                </details>
+            </div>
+            <div id="my-code-feedback-wrap"
+                style="display:none; margin-bottom:12px; padding:10px; background:rgba(74,222,128,0.08); border:1px solid rgba(74,222,128,0.2); border-radius:8px;">
+                <div style="font-size:12px; color:#4ade80; font-weight:600; margin-bottom:4px;">💬 Фидбек</div>
+                <div id="my-code-feedback" style="font-size:13px; color:rgba(255,255,255,0.8); line-height:1.4;"></div>
+            </div>
+            <pre id="my-code-content"
+                style="background:#12121a; border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:14px; overflow:auto; max-height:300px; font-family:'Consolas','Monaco',monospace; font-size:13px; line-height:1.5; white-space:pre-wrap; word-wrap:break-word; color:#e0e0e0;"></pre>
+            <div style="margin-top:14px; display:flex; gap:10px; justify-content:flex-end;">
+                <a id="my-code-download"
+                    style="display:none; padding:8px 16px; background:rgba(139,92,246,0.2); border:1px solid rgba(139,92,246,0.3); border-radius:8px; color:#a78bfa; text-decoration:none; font-size:13px;"
+                    download>📥 Скачать файл</a>
+                <button onclick="closeMyCodeModal()"
+                    style="padding:8px 20px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:8px; color:#fff; cursor:pointer; font-size:13px;">Закрыть</button>
+            </div>
         </div>
     </div>
 
@@ -5878,6 +5958,7 @@
                 loadProfileWithAvatar();
                 loadAchievements();
                 loadProfileLeaderboard();
+                loadMyCompletions();
                 loadXPChart();
                 loadChatMessages();
                 startChatRefresh();
@@ -6106,6 +6187,159 @@
             } catch (e) {
                 console.error('Failed to save profile:', e);
                 alert(`Не удалось сохранить профиль: ${e.message || e}`);
+            }
+        }
+
+        // ==================== PASSWORD CHANGE ====================
+
+        // ==================== MY COMPLETIONS (TASK JOURNAL) ====================
+        let myCompletionsData = [];
+
+        async function loadMyCompletions() {
+            const container = document.getElementById('my-completions-list');
+            container.innerHTML = '<p style="color:var(--text-secondary); font-size:13px; text-align:center;">Загрузка...</p>';
+
+            try {
+                const res = await fetch(`${API_URL}/api/user/completions`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                myCompletionsData = data.completions || [];
+
+                if (myCompletionsData.length === 0) {
+                    container.innerHTML = '<p style="color:var(--text-secondary); font-size:13px; text-align:center;">Нет выполненных заданий</p>';
+                    return;
+                }
+
+                const icons = { python: '🐍', javascript: '⚡', frontend: '🎨', scratch: '🐱' };
+                container.innerHTML = myCompletionsData.map((c, i) => {
+                    const icon = icons[c.task_category] || '📜';
+                    const date = new Date(c.completed_at).toLocaleDateString('ru-RU');
+                    const invalid = c.is_valid === 0 ? 'opacity:0.5; text-decoration:line-through;' : '';
+                    return `
+                        <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid rgba(255,255,255,0.04); cursor:pointer; transition:background 0.2s; ${invalid}"
+                             onmouseover="this.style.background='rgba(139,92,246,0.08)'" onmouseout="this.style.background='transparent'"
+                             onclick="viewMyCode(${i})">
+                            <div style="font-size:18px; flex-shrink:0;">${icon}</div>
+                            <div style="flex:1; min-width:0;">
+                                <div style="font-size:13px; color:#e0e0e0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.task_title}</div>
+                                <div style="font-size:11px; color:rgba(255,255,255,0.4);">${date} · ${c.xp_earned || 0} XP</div>
+                            </div>
+                            <div style="font-size:14px; flex-shrink:0; color:rgba(255,255,255,0.3);">👁️</div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                container.innerHTML = `<p style="color:#f87171; font-size:13px; text-align:center;">Ошибка: ${e.message}</p>`;
+            }
+        }
+
+        function viewMyCode(index) {
+            const c = myCompletionsData[index];
+            if (!c) return;
+
+            document.getElementById('my-code-title').innerText = c.task_title;
+            document.getElementById('my-code-category').innerText = c.task_category;
+            document.getElementById('my-code-xp').innerText = `XP: ${c.xp_earned || 0}`;
+            document.getElementById('my-code-date').innerText = new Date(c.completed_at).toLocaleDateString('ru-RU');
+
+            // Task condition
+            const condWrap = document.getElementById('my-code-condition-wrap');
+            const descEl = document.getElementById('my-code-description');
+            const taskEl = document.getElementById('my-code-task');
+            if (c.task_condition || c.task_description) {
+                condWrap.style.display = 'block';
+                descEl.innerText = c.task_description || '';
+                descEl.style.display = c.task_description ? 'block' : 'none';
+                taskEl.innerText = c.task_condition || '';
+                taskEl.style.display = c.task_condition ? 'block' : 'none';
+            } else {
+                condWrap.style.display = 'none';
+            }
+
+            // Feedback
+            const fbWrap = document.getElementById('my-code-feedback-wrap');
+            if (c.feedback) {
+                fbWrap.style.display = 'block';
+                document.getElementById('my-code-feedback').innerText = c.feedback;
+            } else {
+                fbWrap.style.display = 'none';
+            }
+
+            // Code
+            const code = c.solution || c.submission_content || '(нет кода)';
+            document.getElementById('my-code-content').textContent = code;
+
+            // Download link
+            const dl = document.getElementById('my-code-download');
+            if (c.link && c.link.includes('/uploads/')) {
+                dl.href = API_URL + c.link;
+                dl.style.display = 'inline-block';
+            } else {
+                dl.style.display = 'none';
+            }
+
+            document.getElementById('my-code-modal').style.display = 'flex';
+        }
+
+        function closeMyCodeModal() {
+            document.getElementById('my-code-modal').style.display = 'none';
+        }
+
+        async function changeMyPassword() {
+            const current = document.getElementById('pwd-current').value;
+            const newPwd = document.getElementById('pwd-new').value;
+            const confirmPwd = document.getElementById('pwd-confirm').value;
+            const msgEl = document.getElementById('pwd-change-msg');
+
+            msgEl.style.display = 'none';
+
+            if (!current || !newPwd || !confirmPwd) {
+                msgEl.style.display = 'block';
+                msgEl.style.color = '#f87171';
+                msgEl.innerText = 'Заполните все поля';
+                return;
+            }
+            if (newPwd.length < 6) {
+                msgEl.style.display = 'block';
+                msgEl.style.color = '#f87171';
+                msgEl.innerText = 'Пароль минимум 6 символов';
+                return;
+            }
+            if (newPwd !== confirmPwd) {
+                msgEl.style.display = 'block';
+                msgEl.style.color = '#f87171';
+                msgEl.innerText = 'Пароли не совпадают';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/api/auth/change-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        current_password: current,
+                        new_password: newPwd
+                    })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err?.detail || `HTTP ${res.status}`);
+                }
+                msgEl.style.display = 'block';
+                msgEl.style.color = '#4ade80';
+                msgEl.innerText = '✅ Пароль успешно изменён!';
+                document.getElementById('pwd-current').value = '';
+                document.getElementById('pwd-new').value = '';
+                document.getElementById('pwd-confirm').value = '';
+            } catch (e) {
+                msgEl.style.display = 'block';
+                msgEl.style.color = '#f87171';
+                msgEl.innerText = `Ошибка: ${e.message || e}`;
             }
         }
 

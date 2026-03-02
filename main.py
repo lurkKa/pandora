@@ -949,6 +949,16 @@ def init_db():
             cursor.execute("ALTER TABLE users ADD COLUMN last_seen_at TIMESTAMP")
         except sqlite3.OperationalError:
             pass
+
+        # Admin phrase code (singleton row for secret phrase authentication)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS admin_phrase (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                phrase_hash TEXT NOT NULL,
+                phrase_type TEXT DEFAULT 'text',
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         
         conn.commit()
         
@@ -2151,6 +2161,108 @@ def reset_user_password(data: ResetPasswordRequest, admin: dict = Depends(requir
     
     log_security("PASSWORD_RESET", user=admin["username"], details=f"Reset user_id={data.user_id}")
     return {"message": "Password reset successfully"}
+
+# ==================== ADMIN PHRASE CODE ====================
+
+def _hash_phrase_bytes(raw: bytes) -> str:
+    """SHA-256 hash of raw bytes for phrase code comparison."""
+    return hashlib.sha256(raw).hexdigest()
+
+@app.get("/api/admin/phrase/status")
+def phrase_status(admin: dict = Depends(require_admin)):
+    """Check if a secret phrase code is configured."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT phrase_type FROM admin_phrase WHERE id = 1")
+        row = cursor.fetchone()
+    if row:
+        return {"has_phrase": True, "phrase_type": row["phrase_type"]}
+    return {"has_phrase": False, "phrase_type": None}
+
+@app.post("/api/admin/phrase/verify")
+async def phrase_verify(
+    phrase_text: str = Form(None),
+    phrase_file: UploadFile = File(None),
+    admin: dict = Depends(require_admin),
+):
+    """Verify a phrase code (text or file). Returns {valid: bool}."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT phrase_hash FROM admin_phrase WHERE id = 1")
+        row = cursor.fetchone()
+    if not row:
+        return {"valid": True}  # No phrase set — always valid
+
+    # Get raw bytes from either text or uploaded file
+    if phrase_file and phrase_file.filename:
+        raw = await phrase_file.read()
+    elif phrase_text is not None:
+        raw = phrase_text.encode("utf-8")
+    else:
+        raise HTTPException(status_code=400, detail="Provide phrase_text or phrase_file")
+
+    input_hash = _hash_phrase_bytes(raw)
+    return {"valid": input_hash == row["phrase_hash"]}
+
+@app.post("/api/admin/phrase/set")
+async def phrase_set(
+    new_phrase_text: str = Form(None),
+    new_phrase_file: UploadFile = File(None),
+    old_phrase_text: str = Form(None),
+    old_phrase_file: UploadFile = File(None),
+    admin: dict = Depends(require_admin),
+):
+    """Set or change the admin phrase code. If one exists, old phrase is required."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT phrase_hash FROM admin_phrase WHERE id = 1")
+        existing = cursor.fetchone()
+
+        # If phrase already exists, verify old phrase first
+        if existing:
+            if old_phrase_file and old_phrase_file.filename:
+                old_raw = await old_phrase_file.read()
+            elif old_phrase_text is not None:
+                old_raw = old_phrase_text.encode("utf-8")
+            else:
+                raise HTTPException(status_code=400, detail="Old phrase required to change")
+            if _hash_phrase_bytes(old_raw) != existing["phrase_hash"]:
+                raise HTTPException(status_code=403, detail="Old phrase is incorrect")
+
+        # Get new phrase bytes
+        phrase_type = "text"
+        if new_phrase_file and new_phrase_file.filename:
+            new_raw = await new_phrase_file.read()
+            # Determine type from content-type or extension
+            ct = (new_phrase_file.content_type or "").lower()
+            fname = (new_phrase_file.filename or "").lower()
+            if ct.startswith("image/") or fname.endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
+                phrase_type = "image"
+            elif ct.startswith("audio/") or fname.endswith((".mp3", ".wav", ".ogg", ".m4a")):
+                phrase_type = "audio"
+            else:
+                phrase_type = "file"
+        elif new_phrase_text is not None:
+            new_raw = new_phrase_text.encode("utf-8")
+            phrase_type = "text"
+        else:
+            raise HTTPException(status_code=400, detail="Provide new_phrase_text or new_phrase_file")
+
+        if len(new_raw) < 1:
+            raise HTTPException(status_code=400, detail="Phrase cannot be empty")
+        if len(new_raw) > 50 * 1024 * 1024:  # 50MB limit
+            raise HTTPException(status_code=413, detail="Phrase file too large (max 50MB)")
+
+        new_hash = _hash_phrase_bytes(new_raw)
+        cursor.execute(
+            "INSERT OR REPLACE INTO admin_phrase (id, phrase_hash, phrase_type, updated_at) VALUES (1, ?, ?, CURRENT_TIMESTAMP)",
+            (new_hash, phrase_type),
+        )
+        conn.commit()
+
+    action = "changed" if existing else "set"
+    log_security(f"PHRASE_{action.upper()}", user=admin["username"], details=f"type={phrase_type}")
+    return {"message": f"Phrase code {action} successfully", "phrase_type": phrase_type}
 
 @app.post("/api/admin/adjust-xp")
 def admin_adjust_xp(data: AdminXPAdjustRequest, admin: dict = Depends(require_admin)):
@@ -6012,6 +6124,37 @@ def get_user_completions(user_id: int, admin: dict = Depends(require_admin)):
             c["task_title"] = task.get("title", c["task_id"])
             c["task_category"] = task.get("category", "unknown")
             c["max_xp"] = task.get("xp", 0)
+            c["task_description"] = task.get("story", "")
+            c["task_condition"] = task.get("task", "")
+    
+    return {"completions": completions}
+
+@app.get("/api/user/completions")
+def get_my_completions(user: dict = Depends(require_auth)):
+    """Get current user's completed tasks with code/solution and task info."""
+    uid = int(user["id"])
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT c.id, c.task_id, c.completed_at, c.solution, c.xp_earned, c.is_valid,
+                   s.content as submission_content, s.link, s.feedback, s.score
+            FROM completed_tasks c
+            LEFT JOIN submissions s ON c.user_id = s.user_id AND c.task_id = s.task_id
+            WHERE c.user_id = ?
+            ORDER BY c.completed_at DESC
+        """, (uid,))
+        completions = [dict(row) for row in cursor.fetchall()]
+        
+        tasks_data = load_tasks()
+        tasks_map = {t["id"]: t for t in tasks_data.get("tasks", []) if t.get("id")}
+        
+        for c in completions:
+            task = tasks_map.get(c["task_id"], {})
+            c["task_title"] = task.get("title", c["task_id"])
+            c["task_category"] = task.get("category", "unknown")
+            c["max_xp"] = task.get("xp", 0)
+            c["task_description"] = task.get("story", "")
+            c["task_condition"] = task.get("task", "")
     
     return {"completions": completions}
 

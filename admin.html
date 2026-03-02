@@ -391,6 +391,14 @@
             padding: 20px;
         }
 
+        #phrase-page {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
         .login-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
@@ -812,6 +820,43 @@
         </div>
     </div>
 
+    <!-- PHRASE CODE VERIFICATION PAGE -->
+    <div id="phrase-page" style="display:none;">
+        <div class="login-card" style="max-width:440px;">
+            <h1>🔐 Secret Phrase Code</h1>
+            <p class="subtitle">Введите секретную фразу или загрузите файл-ключ</p>
+            <div class="error-msg" id="phrase-error"></div>
+            <div id="phrase-type-info"
+                style="font-size:12px; color:var(--text-secondary); margin-bottom:12px; text-align:center;"></div>
+            <div class="form-group">
+                <label for="phrase-text">Текстовая фраза</label>
+                <input type="password" id="phrase-text" placeholder="Введите секретную фразу...">
+            </div>
+            <div style="text-align:center; color:var(--text-secondary); font-size:13px; margin:8px 0;">или</div>
+            <div id="phrase-drop-zone"
+                style="border:2px dashed rgba(255,255,255,0.15); border-radius:12px; padding:20px; text-align:center; cursor:pointer; transition:all 0.3s; margin-bottom:16px;"
+                onclick="document.getElementById('phrase-file-input').click()"
+                ondragover="event.preventDefault(); this.style.borderColor='var(--accent)'; this.style.background='rgba(139,92,246,0.1)';"
+                ondragleave="this.style.borderColor='rgba(255,255,255,0.15)'; this.style.background='transparent';"
+                ondrop="event.preventDefault(); this.style.borderColor='rgba(255,255,255,0.15)'; this.style.background='transparent'; handlePhraseFileDrop(event.dataTransfer.files[0], 'verify');">
+                <div style="font-size:28px; margin-bottom:8px;">📁</div>
+                <div style="color:var(--text-secondary); font-size:13px;">Перетащите файл-ключ сюда<br>или нажмите для
+                    выбора</div>
+                <div id="phrase-file-name" style="margin-top:8px; font-size:12px; color:var(--accent-light);"></div>
+            </div>
+            <input type="file" id="phrase-file-input" style="display:none;"
+                onchange="handlePhraseFileSelect(this, 'verify')">
+            <button class="btn btn-primary" style="width: 100%;" onclick="verifyPhrase()">
+                🔓 Войти
+            </button>
+            <button class="btn"
+                style="width:100%; margin-top:8px; background:transparent; border:1px solid rgba(255,255,255,0.15); color:var(--text-secondary);"
+                onclick="cancelPhraseLogin()">
+                ← Назад
+            </button>
+        </div>
+    </div>
+
     <!-- ADMIN DASHBOARD -->
     <div id="dashboard" class="admin-container" style="display: none;">
         <!-- Sidebar -->
@@ -1057,6 +1102,55 @@
                         </p>
                         <p style="margin-top: 8px; font-size: 13px;">Если при старте создан bootstrap-админ, пароль
                             берите из server logs (строка `Bootstrap admin created`).</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🔐 Secret Phrase Code</h3>
+                    </div>
+                    <div style="padding: 24px;" id="phrase-settings-container">
+                        <div id="phrase-not-set" style="display:none;">
+                            <p style="color:var(--text-secondary); margin-bottom:16px; font-size:13px;">
+                                Фраза-код не установлена. Установите её для дополнительной защиты админ-панели.
+                                Можно использовать текст, картинку, аудио, любой файл.
+                            </p>
+                            <div class="form-group">
+                                <label>Текстовая фраза</label>
+                                <input type="password" id="new-phrase-text" placeholder="Введите секретную фразу...">
+                            </div>
+                            <div style="text-align:center; color:var(--text-secondary); font-size:12px; margin:6px 0;">
+                                или
+                                загрузите файл-ключ:</div>
+                            <div style="border:2px dashed rgba(255,255,255,0.12); border-radius:10px; padding:16px; text-align:center; cursor:pointer; margin-bottom:12px;"
+                                onclick="document.getElementById('new-phrase-file').click()">
+                                <div style="font-size:22px;">📁</div>
+                                <div style="font-size:12px; color:var(--text-secondary);">Нажмите для выбора файла</div>
+                                <div id="new-phrase-file-name"
+                                    style="font-size:11px; color:var(--accent-light); margin-top:4px;"></div>
+                            </div>
+                            <input type="file" id="new-phrase-file" style="display:none;"
+                                onchange="document.getElementById('new-phrase-file-name').innerText = this.files[0]?.name || ''">
+                            <button class="btn btn-primary" onclick="setPhraseCode(false)">🔐 Установить фразу</button>
+                        </div>
+
+                        <div id="phrase-is-set" style="display:none;">
+                            <p style="color:var(--success); margin-bottom:12px; font-size:13px;">
+                                ✅ Фраза-код установлена (<span id="phrase-type-display">text</span>)
+                            </p>
+                            <div class="form-group">
+                                <label>Старая фраза (текст или файл)</label>
+                                <input type="password" id="old-phrase-text" placeholder="Текущая фраза...">
+                                <input type="file" id="old-phrase-file" style="margin-top:6px; font-size:12px;">
+                            </div>
+                            <div class="form-group">
+                                <label>Новая фраза (текст или файл)</label>
+                                <input type="password" id="change-phrase-text" placeholder="Новая фраза...">
+                                <input type="file" id="change-phrase-file" style="margin-top:6px; font-size:12px;">
+                            </div>
+                            <button class="btn btn-primary" onclick="setPhraseCode(true)">🔄 Сменить фразу</button>
+                        </div>
+                        <p id="phrase-settings-msg" style="margin-top:10px; display:none;"></p>
                     </div>
                 </div>
             </section>
@@ -1501,6 +1595,18 @@
                 <span class="badge" id="code-modal-category">python</span>
                 <span style="color: var(--text-secondary);" id="code-modal-xp">XP: 50</span>
             </div>
+            <div id="code-modal-condition-wrap" style="display:none; margin-bottom:16px;">
+                <details open>
+                    <summary
+                        style="cursor:pointer; color:var(--accent-light); font-weight:600; font-size:13px; margin-bottom:8px;">
+                        📋 Условие задачи</summary>
+                    <div id="code-modal-description"
+                        style="color:var(--text-secondary); font-size:13px; margin-bottom:8px; line-height:1.5;"></div>
+                    <div id="code-modal-task"
+                        style="background:rgba(139,92,246,0.08); border:1px solid rgba(139,92,246,0.2); border-radius:8px; padding:12px; font-size:13px; color:var(--text-bright); line-height:1.5; white-space:pre-wrap;">
+                    </div>
+                </details>
+            </div>
             <pre id="code-content"
                 style="background: #1a1a25; border: 1px solid var(--border); border-radius: 8px; padding: 16px; overflow: auto; max-height: 400px; font-family: 'Consolas', 'Monaco', monospace; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word;"></pre>
             <div style="margin-top: 16px; display: flex; gap: 12px;">
@@ -1667,6 +1773,91 @@
         }
 
         // ==================== AUTH ====================
+        let _phraseVerifyFile = null; // temp storage for phrase file during login
+
+        function handlePhraseFileDrop(file, mode) {
+            if (!file) return;
+            if (mode === 'verify') {
+                _phraseVerifyFile = file;
+                document.getElementById('phrase-file-name').innerText = `📎 ${file.name}`;
+            }
+        }
+
+        function handlePhraseFileSelect(input, mode) {
+            const file = input.files[0];
+            if (!file) return;
+            if (mode === 'verify') {
+                _phraseVerifyFile = file;
+                document.getElementById('phrase-file-name').innerText = `📎 ${file.name}`;
+            }
+        }
+
+        function cancelPhraseLogin() {
+            document.getElementById('phrase-page').style.display = 'none';
+            document.getElementById('login-page').style.display = 'flex';
+            authToken = null;
+            localStorage.removeItem('admin_token');
+        }
+
+        async function showPhraseChallenge() {
+            document.getElementById('login-page').style.display = 'none';
+            document.getElementById('phrase-page').style.display = 'flex';
+            document.getElementById('phrase-error').style.display = 'none';
+            document.getElementById('phrase-text').value = '';
+            document.getElementById('phrase-file-name').innerText = '';
+            _phraseVerifyFile = null;
+
+            // Show phrase type hint
+            try {
+                const statusData = await api('/api/admin/phrase/status');
+                if (statusData.phrase_type) {
+                    const typeLabels = { text: 'текст', file: 'файл', image: 'картинка', audio: 'аудио' };
+                    document.getElementById('phrase-type-info').innerText = `Тип: ${typeLabels[statusData.phrase_type] || statusData.phrase_type}`;
+                }
+            } catch (e) { /* ignore */ }
+        }
+
+        async function verifyPhrase() {
+            const errorEl = document.getElementById('phrase-error');
+            const phraseText = document.getElementById('phrase-text').value;
+
+            if (!phraseText && !_phraseVerifyFile) {
+                errorEl.style.display = 'block';
+                errorEl.innerText = 'Введите фразу или выберите файл';
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                if (_phraseVerifyFile) {
+                    formData.append('phrase_file', _phraseVerifyFile);
+                } else {
+                    formData.append('phrase_text', phraseText);
+                }
+
+                const res = await fetch(`${API_URL}/api/admin/phrase/verify`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` },
+                    body: formData
+                });
+                const data = await res.json();
+
+                if (!res.ok || !data.valid) {
+                    errorEl.style.display = 'block';
+                    errorEl.innerText = 'Неверная фраза-код';
+                    return;
+                }
+
+                // Phrase verified — enter dashboard
+                document.getElementById('phrase-page').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'grid';
+                await loadDashboard();
+            } catch (e) {
+                errorEl.style.display = 'block';
+                errorEl.innerText = `Ошибка: ${e.message || e}`;
+            }
+        }
+
         async function login() {
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
@@ -1704,10 +1895,20 @@
 
                 authToken = data.token;
                 localStorage.setItem('admin_token', authToken);
+                document.getElementById('admin-name').innerText = data.user.display_name;
+
+                // Check if phrase code is required
+                try {
+                    const phraseStatus = await api('/api/admin/phrase/status');
+                    if (phraseStatus.has_phrase) {
+                        // Show phrase verification page
+                        await showPhraseChallenge();
+                        return;
+                    }
+                } catch (e) { /* If phrase check fails, proceed without it */ }
 
                 document.getElementById('login-page').style.display = 'none';
                 document.getElementById('dashboard').style.display = 'grid';
-                document.getElementById('admin-name').innerText = data.user.display_name;
 
                 await loadDashboard();
             } catch (e) {
@@ -1730,6 +1931,16 @@
                 }, AUTH_REQUEST_TIMEOUT_MS);
                 if (res.ok) {
                     if (user.role === 'admin') {
+                        // Check phrase code requirement
+                        try {
+                            const phraseStatus = await api('/api/admin/phrase/status');
+                            if (phraseStatus.has_phrase) {
+                                document.getElementById('admin-name').innerText = user.display_name;
+                                await showPhraseChallenge();
+                                return;
+                            }
+                        } catch (e) { /* proceed */ }
+
                         document.getElementById('login-page').style.display = 'none';
                         document.getElementById('dashboard').style.display = 'grid';
                         document.getElementById('admin-name').innerText = user.display_name;
@@ -2027,6 +2238,109 @@
             }
         }
 
+        // ==================== PHRASE CODE SETTINGS ====================
+        async function loadPhraseSettings() {
+            try {
+                const data = await api('/api/admin/phrase/status');
+                if (data.has_phrase) {
+                    document.getElementById('phrase-not-set').style.display = 'none';
+                    document.getElementById('phrase-is-set').style.display = 'block';
+                    document.getElementById('phrase-type-display').innerText = data.phrase_type || 'text';
+                } else {
+                    document.getElementById('phrase-not-set').style.display = 'block';
+                    document.getElementById('phrase-is-set').style.display = 'none';
+                }
+                document.getElementById('phrase-settings-msg').style.display = 'none';
+            } catch (e) {
+                console.error('Failed to load phrase settings:', e);
+            }
+        }
+
+        async function setPhraseCode(isChange) {
+            const msgEl = document.getElementById('phrase-settings-msg');
+            msgEl.style.display = 'none';
+
+            const formData = new FormData();
+
+            if (isChange) {
+                // Changing existing phrase — need old + new
+                const oldText = document.getElementById('old-phrase-text').value;
+                const oldFile = document.getElementById('old-phrase-file').files[0];
+                const newText = document.getElementById('change-phrase-text').value;
+                const newFile = document.getElementById('change-phrase-file').files[0];
+
+                if (oldFile) {
+                    formData.append('old_phrase_file', oldFile);
+                } else if (oldText) {
+                    formData.append('old_phrase_text', oldText);
+                } else {
+                    msgEl.style.display = 'block';
+                    msgEl.style.color = 'var(--danger)';
+                    msgEl.innerText = 'Введите старую фразу';
+                    return;
+                }
+                if (newFile) {
+                    formData.append('new_phrase_file', newFile);
+                } else if (newText) {
+                    formData.append('new_phrase_text', newText);
+                } else {
+                    msgEl.style.display = 'block';
+                    msgEl.style.color = 'var(--danger)';
+                    msgEl.innerText = 'Введите новую фразу';
+                    return;
+                }
+            } else {
+                // Setting new phrase for the first time
+                const newText = document.getElementById('new-phrase-text').value;
+                const newFile = document.getElementById('new-phrase-file').files[0];
+
+                if (newFile) {
+                    formData.append('new_phrase_file', newFile);
+                } else if (newText) {
+                    formData.append('new_phrase_text', newText);
+                } else {
+                    msgEl.style.display = 'block';
+                    msgEl.style.color = 'var(--danger)';
+                    msgEl.innerText = 'Введите фразу или выберите файл';
+                    return;
+                }
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/api/admin/phrase/set`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` },
+                    body: formData
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.detail || 'Error');
+                }
+                msgEl.style.display = 'block';
+                msgEl.style.color = 'var(--success)';
+                msgEl.innerText = `✅ ${data.message} (тип: ${data.phrase_type})`;
+
+                // Clear fields
+                ['new-phrase-text', 'old-phrase-text', 'change-phrase-text'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+                ['new-phrase-file', 'old-phrase-file', 'change-phrase-file'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+                const fnEl = document.getElementById('new-phrase-file-name');
+                if (fnEl) fnEl.innerText = '';
+
+                // Refresh settings view
+                await loadPhraseSettings();
+            } catch (e) {
+                msgEl.style.display = 'block';
+                msgEl.style.color = 'var(--danger)';
+                msgEl.innerText = `Ошибка: ${e.message || e}`;
+            }
+        }
+
         // ==================== EVENTS ====================
         async function loadEvents() {
             try {
@@ -2127,6 +2441,7 @@
             if (name === 'guilds') { loadAdminGuilds(); loadGuildSettings(); }
             if (name === 'timetracking') loadTimeTracking();
             if (name === 'complaints') loadComplaints('pending');
+            if (name === 'settings') loadPhraseSettings();
         }
 
         // ==================== COMPLAINTS ====================
@@ -2386,6 +2701,20 @@
             document.getElementById('code-modal-category').innerText = c.task_category;
             document.getElementById('code-modal-xp').innerText = `XP: ${c.xp_earned || 0}`;
 
+            // Show task condition
+            const condWrap = document.getElementById('code-modal-condition-wrap');
+            const descEl = document.getElementById('code-modal-description');
+            const taskEl = document.getElementById('code-modal-task');
+            if (c.task_condition || c.task_description) {
+                condWrap.style.display = 'block';
+                descEl.innerText = c.task_description || '';
+                descEl.style.display = c.task_description ? 'block' : 'none';
+                taskEl.innerText = c.task_condition || '';
+                taskEl.style.display = c.task_condition ? 'block' : 'none';
+            } else {
+                condWrap.style.display = 'none';
+            }
+
             const code = c.solution || c.submission_content || '(нет кода)';
             document.getElementById('code-content').textContent = code;
 
@@ -2412,6 +2741,9 @@
             document.getElementById('code-modal-title').innerText = sub.task_id;
             document.getElementById('code-modal-category').innerText = sub.category || 'unknown';
             document.getElementById('code-modal-xp').innerText = `Статус: ${sub.status}`;
+
+            // Hide condition for submissions (no enrichment)
+            document.getElementById('code-modal-condition-wrap').style.display = 'none';
 
             const code = sub.code || sub.content || '(нет кода)';
             document.getElementById('code-content').textContent = code;
