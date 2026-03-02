@@ -3464,7 +3464,7 @@
                     style="background:none; border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:4px 10px; color:var(--text-secondary); cursor:pointer; font-size:12px;">🔄
                     Обновить</button>
             </div>
-            <div id="my-completions-list" style="max-height:350px; overflow-y:auto; scrollbar-width:thin;">
+            <div id="my-completions-list" style="max-height:200px; overflow-y:auto; scrollbar-width:thin;">
                 <p style="color:var(--text-secondary); font-size:13px; text-align:center;">Нажмите «Обновить» для
                     загрузки</p>
             </div>
@@ -6471,6 +6471,10 @@
         // ==================== MY REWARDS & SUBMISSIONS ====================
         async function loadMyRewards() {
             const list = document.getElementById('my-rewards-list');
+            if (!authToken || !API_URL) {
+                list.innerHTML = '<div style="color:var(--text-secondary); font-size:13px; text-align:center;">Войдите для просмотра</div>';
+                return;
+            }
             try {
                 const res = await fetch(`${API_URL}/api/user/rewards`, {
                     headers: { 'Authorization': `Bearer ${authToken}` }

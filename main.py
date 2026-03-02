@@ -959,6 +959,35 @@ def init_db():
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # Exam mode tables
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS exam_state (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                is_active INTEGER DEFAULT 0,
+                started_at TIMESTAMP,
+                started_by INTEGER
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS exam_progress (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                task_id TEXT NOT NULL,
+                category TEXT,
+                tier TEXT,
+                task_index INTEGER DEFAULT 0,
+                started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                finished_at TIMESTAMP,
+                solution TEXT,
+                score INTEGER DEFAULT 0,
+                xp_earned INTEGER DEFAULT 0,
+                cheat_warnings INTEGER DEFAULT 0,
+                cheated INTEGER DEFAULT 0,
+                time_expired INTEGER DEFAULT 0,
+                UNIQUE(user_id, task_id)
+            )
+        """)
         
         conn.commit()
         
@@ -1949,6 +1978,18 @@ def serve_admin_slash():
 def serve_admin_html():
     """Serve admin UI when static-like path is used."""
     return FileResponse("admin.html")
+
+@app.get("/exam", include_in_schema=False)
+def serve_exam():
+    return FileResponse("exam.html")
+
+@app.get("/exam/", include_in_schema=False)
+def serve_exam_slash():
+    return FileResponse("exam.html")
+
+@app.get("/exam.html", include_in_schema=False)
+def serve_exam_html():
+    return FileResponse("exam.html")
 
 @app.get("/api/status")
 def status():
@@ -6125,7 +6166,7 @@ def get_user_completions(user_id: int, admin: dict = Depends(require_admin)):
             c["task_category"] = task.get("category", "unknown")
             c["max_xp"] = task.get("xp", 0)
             c["task_description"] = task.get("story", "")
-            c["task_condition"] = task.get("task", "")
+            c["task_condition"] = task.get("description", "")
     
     return {"completions": completions}
 
@@ -6154,7 +6195,7 @@ def get_my_completions(user: dict = Depends(require_auth)):
             c["task_category"] = task.get("category", "unknown")
             c["max_xp"] = task.get("xp", 0)
             c["task_description"] = task.get("story", "")
-            c["task_condition"] = task.get("task", "")
+            c["task_condition"] = task.get("description", "")
     
     return {"completions": completions}
 
@@ -7855,7 +7896,491 @@ def admin_resolve_complaint(complaint_id: int, data: ComplaintResolveRequest, ad
     log_action(admin["id"], admin["username"], "complaint_resolved",
                f"complaint={complaint_id} status={data.status} xp=-{xp_applied}")
     status_text = "принята" if data.status == "accepted" else "отклонена"
-    return {"message": f"Жалоба {status_text}" + (f", снято {xp_applied} XP" if xp_applied else "")}
+    return {"message": f"Жалоба {data.status}", "xp_applied": xp_applied}
+
+
+# ==================== EXAM MODE ====================
+
+_EXAM_TASKS_CACHE = {"data": None, "mtime": None}
+
+def load_exam_tasks() -> list:
+    """Load exam_tasks.json with mtime cache."""
+    p = Path("exam_tasks.json")
+    try:
+        mt = p.stat().st_mtime
+        if _EXAM_TASKS_CACHE["data"] is None or _EXAM_TASKS_CACHE["mtime"] != mt:
+            raw = json.loads(p.read_text(encoding="utf-8"))
+            _EXAM_TASKS_CACHE["data"] = raw.get("exam_tasks", [])
+            _EXAM_TASKS_CACHE["mtime"] = mt
+        return _EXAM_TASKS_CACHE["data"] or []
+    except Exception:
+        return []
+
+EXAM_TASKS_PER_SESSION = 5
+TIER_ORDER = ["D", "C", "B", "A"]
+TIER_TIME_EXTRA = 5  # extra minutes added to base time
+
+def _get_exam_state(cursor):
+    cursor.execute("SELECT * FROM exam_state WHERE id = 1")
+    row = cursor.fetchone()
+    if row:
+        return dict(row)
+    return {"id": 1, "is_active": 0, "started_at": None, "started_by": None}
+
+def _get_user_exam_progress(cursor, user_id):
+    cursor.execute("""
+        SELECT * FROM exam_progress
+        WHERE user_id = ?
+        ORDER BY task_index ASC
+    """, (user_id,))
+    return [dict(r) for r in cursor.fetchall()]
+
+def _determine_next_tier(progress):
+    """Progressive tier logic: solve 2 of current tier → upgrade; cheat/timeout → downgrade."""
+    if not progress:
+        return "D"
+    
+    current_tier = "D"
+    tier_idx = 0
+    consecutive_solved = 0
+    
+    for p in progress:
+        if p["cheated"] or p["time_expired"]:
+            # Downgrade
+            tier_idx = max(0, tier_idx - 1)
+            consecutive_solved = 0
+        elif p["finished_at"] and p["score"] > 0:
+            consecutive_solved += 1
+            if consecutive_solved >= 2 and tier_idx < len(TIER_ORDER) - 1:
+                tier_idx += 1
+                consecutive_solved = 0
+        else:
+            consecutive_solved = 0
+    
+    return TIER_ORDER[min(tier_idx, len(TIER_ORDER) - 1)]
+
+def _pick_exam_task(exam_tasks, progress, user_priorities, target_tier):
+    """Pick next exam task based on tier and user priorities, avoiding already-done tasks."""
+    done_ids = {p["task_id"] for p in progress}
+    
+    # Get user's priority categories (ordered)
+    priority_cats = []
+    if user_priorities:
+        for cat in ["python", "javascript", "frontend", "scratch"]:
+            prio = user_priorities.get(f"{cat}_priority", 5)
+            priority_cats.append((prio, cat))
+        priority_cats.sort(reverse=True)  # highest priority first
+        priority_cats = [c for _, c in priority_cats]
+    else:
+        priority_cats = ["python", "javascript", "frontend", "scratch"]
+    
+    # Try to find task in priority order
+    for cat in priority_cats:
+        candidates = [
+            t for t in exam_tasks
+            if t.get("tier") == target_tier
+            and t.get("category") == cat
+            and t.get("id") not in done_ids
+        ]
+        if candidates:
+            return candidates[0]
+    
+    # Fallback: any task of target tier
+    candidates = [
+        t for t in exam_tasks
+        if t.get("tier") == target_tier
+        and t.get("id") not in done_ids
+    ]
+    if candidates:
+        return candidates[0]
+    
+    # Fallback: any undone task
+    candidates = [t for t in exam_tasks if t.get("id") not in done_ids]
+    return candidates[0] if candidates else None
+
+def _get_user_priorities(cursor, user_id):
+    """Get user's category priorities from admin settings."""
+    cursor.execute("SELECT * FROM user_priorities WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    return dict(row) if row else None
+
+
+@app.get("/api/exam/status")
+def exam_status(user: dict = Depends(require_auth)):
+    """Get exam status and user's progress."""
+    uid = int(user["id"])
+    with get_db() as conn:
+        cursor = conn.cursor()
+        state = _get_exam_state(cursor)
+        progress = _get_user_exam_progress(cursor, uid)
+        
+        completed = [p for p in progress if p["finished_at"]]
+        total_xp = sum(p["xp_earned"] for p in completed)
+        total_cheats = sum(p["cheat_warnings"] for p in progress)
+        
+    return {
+        "is_active": bool(state["is_active"]),
+        "started_at": state["started_at"],
+        "tasks_completed": len(completed),
+        "tasks_total": EXAM_TASKS_PER_SESSION,
+        "total_xp": total_xp,
+        "total_cheats": total_cheats,
+        "finished": len(completed) >= EXAM_TASKS_PER_SESSION
+    }
+
+
+@app.get("/api/exam/current-task")
+def exam_current_task(user: dict = Depends(require_auth)):
+    """Get the current exam task for the user (1 at a time, progressive)."""
+    uid = int(user["id"])
+    with get_db() as conn:
+        cursor = conn.cursor()
+        state = _get_exam_state(cursor)
+        
+        if not state["is_active"]:
+            raise HTTPException(403, "Экзамен не активен")
+        
+        progress = _get_user_exam_progress(cursor, uid)
+        completed = [p for p in progress if p["finished_at"]]
+        
+        if len(completed) >= EXAM_TASKS_PER_SESSION:
+            return {"finished": True, "task": None, "task_index": EXAM_TASKS_PER_SESSION}
+        
+        # Check if there's an in-progress task (started but not finished)
+        in_progress = [p for p in progress if not p["finished_at"]]
+        if in_progress:
+            ip = in_progress[0]
+            exam_tasks = load_exam_tasks()
+            task = next((t for t in exam_tasks if t["id"] == ip["task_id"]), None)
+            if task:
+                time_limit = task.get("time_limit_minutes", 15) + TIER_TIME_EXTRA
+                elapsed = 0
+                if ip["started_at"]:
+                    from datetime import datetime
+                    try:
+                        started = datetime.fromisoformat(ip["started_at"])
+                        elapsed = (datetime.now() - started).total_seconds()
+                    except:
+                        pass
+                remaining = max(0, time_limit * 60 - elapsed)
+                return {
+                    "finished": False,
+                    "task": {
+                        "id": task["id"],
+                        "title": task.get("title", ""),
+                        "story": task.get("story", ""),
+                        "description": task.get("description", ""),
+                        "category": task.get("category", ""),
+                        "tier": task.get("tier", "D"),
+                        "xp": task.get("xp", 0),
+                        "initial_code": task.get("initial_code", ""),
+                        "time_limit_minutes": time_limit,
+                    },
+                    "task_index": len(completed) + 1,
+                    "remaining_seconds": int(remaining),
+                    "cheat_warnings": ip["cheat_warnings"]
+                }
+        
+        # Pick next task
+        next_tier = _determine_next_tier(progress)
+        exam_tasks = load_exam_tasks()
+        priorities = _get_user_priorities(cursor, uid)
+        task = _pick_exam_task(exam_tasks, progress, priorities, next_tier)
+        
+        if not task:
+            return {"finished": True, "task": None, "task_index": len(completed)}
+        
+        # Create progress entry
+        task_index = len(completed) + 1
+        cursor.execute("""
+            INSERT OR IGNORE INTO exam_progress (user_id, task_id, category, tier, task_index, started_at)
+            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        """, (uid, task["id"], task.get("category"), task.get("tier"), task_index))
+        conn.commit()
+        
+        time_limit = task.get("time_limit_minutes", 15) + TIER_TIME_EXTRA
+        return {
+            "finished": False,
+            "task": {
+                "id": task["id"],
+                "title": task.get("title", ""),
+                "story": task.get("story", ""),
+                "description": task.get("description", ""),
+                "category": task.get("category", ""),
+                "tier": task.get("tier", "D"),
+                "xp": task.get("xp", 0),
+                "initial_code": task.get("initial_code", ""),
+                "time_limit_minutes": time_limit,
+            },
+            "task_index": task_index,
+            "remaining_seconds": time_limit * 60,
+            "cheat_warnings": 0
+        }
+
+
+@app.post("/api/exam/submit")
+def exam_submit(data: dict, user: dict = Depends(require_auth)):
+    """Submit exam task solution."""
+    uid = int(user["id"])
+    task_id = data.get("task_id")
+    solution = data.get("solution", "")
+    
+    if not task_id:
+        raise HTTPException(400, "task_id required")
+    
+    with get_db() as conn:
+        cursor = conn.cursor()
+        state = _get_exam_state(cursor)
+        if not state["is_active"]:
+            raise HTTPException(403, "Экзамен не активен")
+        
+        cursor.execute("""
+            SELECT * FROM exam_progress WHERE user_id = ? AND task_id = ?
+        """, (uid, task_id))
+        prog = cursor.fetchone()
+        if not prog:
+            raise HTTPException(404, "Задание не начато")
+        if prog["finished_at"]:
+            raise HTTPException(400, "Задание уже сдано")
+        
+        # Check time
+        exam_tasks = load_exam_tasks()
+        task = next((t for t in exam_tasks if t["id"] == task_id), None)
+        time_limit = (task.get("time_limit_minutes", 15) + TIER_TIME_EXTRA) * 60 if task else 1200
+        
+        time_expired = 0
+        if prog["started_at"]:
+            from datetime import datetime
+            try:
+                started = datetime.fromisoformat(prog["started_at"])
+                elapsed = (datetime.now() - started).total_seconds()
+                if elapsed > time_limit + 10:  # 10sec grace
+                    time_expired = 1
+            except:
+                pass
+        
+        # Calculate score
+        score = 0
+        xp_earned = 0
+        if prog["cheated"]:
+            score = 0
+            xp_earned = 0
+        elif time_expired:
+            score = 0
+            xp_earned = 0
+        else:
+            # Run check_logic if available
+            if task and task.get("check_logic", {}).get("engine") == "manual":
+                score = 7  # manual review tasks get a base score
+                xp_earned = int(task.get("xp", 0) * 0.7)
+            else:
+                # For auto-checked tasks, give full score (actual check happens on frontend)
+                score = 10
+                xp_earned = task.get("xp", 0) if task else 0
+        
+        cursor.execute("""
+            UPDATE exam_progress
+            SET finished_at = CURRENT_TIMESTAMP, solution = ?, score = ?,
+                xp_earned = ?, time_expired = ?
+            WHERE user_id = ? AND task_id = ?
+        """, (solution, score, xp_earned, time_expired, uid, task_id))
+        conn.commit()
+        
+    return {
+        "score": score,
+        "xp_earned": xp_earned,
+        "time_expired": bool(time_expired),
+        "cheated": bool(prog["cheated"])
+    }
+
+
+@app.post("/api/exam/cheat-warning")
+def exam_cheat_warning(data: dict, user: dict = Depends(require_auth)):
+    """Register a cheat warning. First = warning, second+ = auto-0."""
+    uid = int(user["id"])
+    task_id = data.get("task_id")
+    event_type = data.get("event_type", "unknown")
+    
+    if not task_id:
+        raise HTTPException(400, "task_id required")
+    
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM exam_progress WHERE user_id = ? AND task_id = ? AND finished_at IS NULL
+        """, (uid, task_id))
+        prog = cursor.fetchone()
+        if not prog:
+            raise HTTPException(404, "Нет активного задания")
+        
+        warnings = prog["cheat_warnings"] + 1
+        cheated = 1 if warnings >= 2 else 0
+        
+        cursor.execute("""
+            UPDATE exam_progress SET cheat_warnings = ?, cheated = ? WHERE id = ?
+        """, (warnings, cheated, prog["id"]))
+        
+        # If cheated, auto-finish with 0
+        if cheated:
+            cursor.execute("""
+                UPDATE exam_progress
+                SET finished_at = CURRENT_TIMESTAMP, score = 0, xp_earned = 0, cheated = 1
+                WHERE id = ?
+            """, (prog["id"],))
+        
+        conn.commit()
+        
+        log_security(f"EXAM_CHEAT_{event_type.upper()}", user=user.get("username", "?"),
+                      details=f"task={task_id} warnings={warnings} cheated={cheated}")
+    
+    return {
+        "warnings": warnings,
+        "cheated": bool(cheated),
+        "message": "⚠️ Предупреждение! Следующее нарушение = 0 баллов." if not cheated
+                   else "❌ Нарушение зафиксировано. Задание оценено в 0 баллов."
+    }
+
+
+@app.get("/api/exam/leaderboard")
+def exam_leaderboard(user: dict = Depends(require_auth)):
+    """Exam leaderboard — no guilds, just scores."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT u.id, u.display_name,
+                   COALESCE(SUM(ep.xp_earned), 0) as exam_xp,
+                   COUNT(CASE WHEN ep.finished_at IS NOT NULL THEN 1 END) as tasks_done,
+                   COUNT(CASE WHEN ep.cheated = 1 THEN 1 END) as cheats
+            FROM users u
+            LEFT JOIN exam_progress ep ON u.id = ep.user_id
+            WHERE u.role != 'admin'
+            GROUP BY u.id
+            HAVING exam_xp > 0 OR tasks_done > 0
+            ORDER BY exam_xp DESC, tasks_done DESC
+        """)
+        rows = [dict(r) for r in cursor.fetchall()]
+    
+    leaderboard = []
+    for i, r in enumerate(rows):
+        leaderboard.append({
+            "rank": i + 1,
+            "name": r["display_name"],
+            "exam_xp": r["exam_xp"],
+            "tasks_done": r["tasks_done"],
+            "cheats": r["cheats"]
+        })
+    return {"leaderboard": leaderboard}
+
+
+@app.get("/api/exam/journal")
+def exam_journal(user: dict = Depends(require_auth)):
+    """Return user's completed REGULAR tasks as hints (story + description only, no code)."""
+    uid = int(user["id"])
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT task_id FROM completed_tasks WHERE user_id = ? AND is_valid = 1
+            ORDER BY completed_at DESC
+        """, (uid,))
+        completed_ids = [r["task_id"] for r in cursor.fetchall()]
+    
+    tasks_data = load_tasks()
+    tasks_map = {t["id"]: t for t in tasks_data.get("tasks", []) if t.get("id")}
+    
+    journal = []
+    for tid in completed_ids:
+        task = tasks_map.get(tid, {})
+        if task:
+            journal.append({
+                "id": tid,
+                "title": task.get("title", tid),
+                "category": task.get("category", ""),
+                "story": task.get("story", ""),
+                "description": task.get("description", ""),
+                "tier": task.get("tier", "")
+            })
+    
+    return {"journal": journal}
+
+
+# ==================== ADMIN EXAM CONTROLS ====================
+
+@app.post("/api/admin/exam/activate")
+def admin_exam_activate(data: dict, admin: dict = Depends(require_admin)):
+    """Activate or deactivate exam mode."""
+    activate = bool(data.get("activate", False))
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM exam_state WHERE id = 1")
+        if cursor.fetchone():
+            cursor.execute("UPDATE exam_state SET is_active = ? WHERE id = 1",
+                           (1 if activate else 0,))
+        else:
+            cursor.execute("INSERT INTO exam_state (id, is_active) VALUES (1, ?)",
+                           (1 if activate else 0,))
+        conn.commit()
+    
+    action = "activated" if activate else "deactivated"
+    log_security(f"EXAM_{action.upper()}", user=admin["username"])
+    return {"message": f"Экзамен {'активирован' if activate else 'деактивирован'}",
+            "is_active": activate}
+
+
+@app.post("/api/admin/exam/start")
+def admin_exam_start(admin: dict = Depends(require_admin)):
+    """Start the exam — set timestamp and clear previous progress."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        # Clear old progress
+        cursor.execute("DELETE FROM exam_progress")
+        # Set state
+        cursor.execute("SELECT id FROM exam_state WHERE id = 1")
+        if cursor.fetchone():
+            cursor.execute("""
+                UPDATE exam_state SET is_active = 1, started_at = CURRENT_TIMESTAMP,
+                started_by = ? WHERE id = 1
+            """, (int(admin["id"]),))
+        else:
+            cursor.execute("""
+                INSERT INTO exam_state (id, is_active, started_at, started_by)
+                VALUES (1, 1, CURRENT_TIMESTAMP, ?)
+            """, (int(admin["id"]),))
+        conn.commit()
+    
+    log_security("EXAM_STARTED", user=admin["username"])
+    return {"message": "🚀 Экзамен запущен!", "started_at": datetime.now().isoformat()}
+
+
+@app.get("/api/admin/exam/results")
+def admin_exam_results(admin: dict = Depends(require_admin)):
+    """Get all exam results for all students."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        state = _get_exam_state(cursor)
+        
+        cursor.execute("""
+            SELECT u.id as user_id, u.display_name, u.username,
+                   COUNT(CASE WHEN ep.finished_at IS NOT NULL THEN 1 END) as tasks_done,
+                   COALESCE(SUM(ep.xp_earned), 0) as total_xp,
+                   COUNT(CASE WHEN ep.cheated = 1 THEN 1 END) as cheats,
+                   COUNT(CASE WHEN ep.time_expired = 1 THEN 1 END) as timeouts,
+                   GROUP_CONCAT(ep.tier || ':' || ep.score, ', ') as details
+            FROM users u
+            LEFT JOIN exam_progress ep ON u.id = ep.user_id
+            WHERE u.role != 'admin'
+            GROUP BY u.id
+            ORDER BY total_xp DESC
+        """)
+        results = [dict(r) for r in cursor.fetchall()]
+    
+    return {
+        "is_active": bool(state["is_active"]),
+        "started_at": state["started_at"],
+        "results": results
+    }
+
+
+# ==================== END EXAM MODE ====================
 
 
 # ==================== STARTUP ====================

@@ -911,6 +911,9 @@
                 <li class="nav-item" onclick="showSection('complaints')" tabindex="0" role="button">
                     <span class="icon">⚠️</span> Жалобы
                 </li>
+                <li class="nav-item" onclick="showSection('exam')" tabindex="0" role="button">
+                    <span class="icon">📝</span> Экзамены
+                </li>
             </ul>
             <div class="admin-info">
                 <div class="admin-avatar">S</div>
@@ -1426,6 +1429,44 @@
 
                 <div id="complaints-content">
                     <!-- Populated by JS -->
+                </div>
+            </section>
+
+            <!-- Exam Section -->
+            <section id="section-exam" class="section">
+                <div class="page-header">
+                    <h2>📝 Экзамены</h2>
+                    <p>Управление экзаменационным режимом</p>
+                </div>
+
+                <div class="card" style="margin-bottom:20px;">
+                    <div class="card-header">Статус экзамена</div>
+                    <div class="card-body">
+                        <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px;">
+                            <div id="exam-status-badge"
+                                style="padding:8px 16px; border-radius:8px; font-weight:700; font-size:14px; background:rgba(239,68,68,0.15); color:#f87171;">
+                                ⏸️ Неактивен</div>
+                            <div id="exam-started-at" style="color:var(--text-secondary); font-size:13px;"></div>
+                        </div>
+                        <div style="display:flex; gap:10px;">
+                            <button class="btn btn-success" id="exam-activate-btn" onclick="toggleExam()">🟢
+                                Активировать</button>
+                            <button class="btn btn-primary" onclick="startExam()">🚀 Старт экзамена</button>
+                            <a href="/exam" target="_blank" class="btn btn-small"
+                                style="text-decoration:none; padding:8px 16px;">👁️ Открыть страницу экзамена</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">Результаты студентов</div>
+                    <div class="card-body" id="exam-results-content">
+                        <div style="color:var(--text-secondary); text-align:center;">Нажмите «Обновить» для загрузки
+                        </div>
+                    </div>
+                    <div style="padding:12px; border-top:1px solid rgba(255,255,255,0.05);">
+                        <button class="btn btn-small" onclick="loadExamResults()">🔄 Обновить результаты</button>
+                    </div>
                 </div>
             </section>
 
@@ -2441,6 +2482,7 @@
             if (name === 'guilds') { loadAdminGuilds(); loadGuildSettings(); }
             if (name === 'timetracking') loadTimeTracking();
             if (name === 'complaints') loadComplaints('pending');
+            if (name === 'exam') loadExamStatus();
             if (name === 'settings') loadPhraseSettings();
         }
 
@@ -2509,14 +2551,98 @@
             const xp = parseInt(document.getElementById(`complaint-xp-${id}`)?.value) || 0;
             const note = document.getElementById(`complaint-note-${id}`)?.value || '';
             try {
-                const data = await api(`/api/admin/complaints/${id}/resolve`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status, xp_to_apply: xp, admin_note: note })
+                const data = await api(`/api/admin/complaints/${id}/resolve`, 'POST', {
+                    status, xp_to_apply: xp, admin_note: note
                 });
                 alert(data.message || 'Готово');
                 loadComplaints(_complaintsStatus);
             } catch (e) { alert('Ошибка: ' + e.message); }
+        }
+
+        // ==================== EXAM ADMIN ====================
+        let _examActive = false;
+
+        async function loadExamStatus() {
+            try {
+                const data = await api('/api/admin/exam/results');
+                _examActive = data.is_active;
+                const badge = document.getElementById('exam-status-badge');
+                const btn = document.getElementById('exam-activate-btn');
+                const startedEl = document.getElementById('exam-started-at');
+
+                if (data.is_active) {
+                    badge.style.background = 'rgba(34,197,94,0.15)';
+                    badge.style.color = '#4ade80';
+                    badge.innerText = '▶️ Активен';
+                    btn.innerText = '🔴 Деактивировать';
+                    btn.className = 'btn btn-danger';
+                } else {
+                    badge.style.background = 'rgba(239,68,68,0.15)';
+                    badge.style.color = '#f87171';
+                    badge.innerText = '⏸️ Неактивен';
+                    btn.innerText = '🟢 Активировать';
+                    btn.className = 'btn btn-success';
+                }
+
+                if (data.started_at) {
+                    startedEl.innerText = 'Запущен: ' + new Date(data.started_at).toLocaleString('ru-RU');
+                }
+
+                // Render results
+                renderExamResults(data.results || []);
+            } catch (e) {
+                console.error('Failed to load exam status:', e);
+            }
+        }
+
+        async function toggleExam() {
+            try {
+                const data = await api('/api/admin/exam/activate', 'POST', { activate: !_examActive });
+                alert(data.message);
+                loadExamStatus();
+            } catch (e) { alert('Ошибка: ' + e.message); }
+        }
+
+        async function startExam() {
+            if (!confirm('🚀 Запустить экзамен? Это очистит весь прогресс и начнёт новую сессию.')) return;
+            try {
+                const data = await api('/api/admin/exam/start', 'POST');
+                alert(data.message);
+                loadExamStatus();
+            } catch (e) { alert('Ошибка: ' + e.message); }
+        }
+
+        async function loadExamResults() {
+            try {
+                const data = await api('/api/admin/exam/results');
+                renderExamResults(data.results || []);
+            } catch (e) { alert('Ошибка: ' + e.message); }
+        }
+
+        function renderExamResults(results) {
+            const container = document.getElementById('exam-results-content');
+            if (!results.length) {
+                container.innerHTML = '<div style="color:var(--text-secondary); text-align:center;">Нет результатов</div>';
+                return;
+            }
+            container.innerHTML = `
+                <table class="data-table" style="width:100%;">
+                    <thead><tr>
+                        <th>#</th><th>Студент</th><th>Решено</th><th>XP</th><th>Читы</th><th>Таймауты</th><th>Детали</th>
+                    </tr></thead>
+                    <tbody>${results.map((r, i) => `
+                        <tr>
+                            <td>${i + 1}</td>
+                            <td><strong>${r.display_name}</strong><br><small style="color:var(--text-secondary);">@${r.username}</small></td>
+                            <td>${r.tasks_done}/5</td>
+                            <td style="color:#fbbf24; font-weight:600;">${r.total_xp}</td>
+                            <td>${r.cheats > 0 ? '<span style="color:#f87171;">⚠️ ' + r.cheats + '</span>' : '✅ 0'}</td>
+                            <td>${r.timeouts > 0 ? '⏰ ' + r.timeouts : '0'}</td>
+                            <td style="font-size:11px; color:var(--text-secondary);">${r.details || '—'}</td>
+                        </tr>
+                    `).join('')}</tbody>
+                </table>
+            `;
         }
 
         // ==================== PASTE REQUESTS ====================
