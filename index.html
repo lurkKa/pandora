@@ -8147,7 +8147,7 @@
                                 </div>
                             </div>
                             <div style="text-align:center; margin:12px 0;">
-                                <button class="btn btn-run" onclick="this.closest('.modal-overlay').remove(); showGuildStats(${guildId})" style="font-size:13px; padding:8px 20px;">📊 Подробная статистика</button>
+                                <button onclick="this.closest('.modal-overlay').remove(); showGuildStats(${guildId})" style="font-size:14px; padding:10px 28px; border:none; border-radius:10px; cursor:pointer; font-weight:700; background:linear-gradient(135deg,#ffd700,#ffaa00,#ff8c00); color:#1a1a2e; box-shadow:0 0 16px rgba(255,215,0,0.4), 0 4px 12px rgba(0,0,0,0.3); text-shadow:0 1px 1px rgba(255,255,255,0.3); transition:all 0.3s;" onmouseover="this.style.boxShadow='0 0 24px rgba(255,215,0,0.6), 0 6px 16px rgba(0,0,0,0.4)'; this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='0 0 16px rgba(255,215,0,0.4), 0 4px 12px rgba(0,0,0,0.3)'; this.style.transform='translateY(0)'">📊 Подробная статистика</button>
                             </div>
                             <div class="guild-section-title">👥 Участники (${(g.members || []).length})</div>
                             ${membersHtml || '<div style="color:var(--text-secondary);text-align:center;font-size:14px;">Нет данных</div>'}
@@ -8180,12 +8180,12 @@
             overlay.style.zIndex = '300';
             overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
             overlay.innerHTML = `
-                <div class="guild-create-dialog" style="max-width:680px;">
-                    <div class="guild-create-header">
+                <div class="guild-create-dialog" style="max-width:680px; max-height:90vh; display:flex; flex-direction:column;">
+                    <div class="guild-create-header" style="flex-shrink:0;">
                         <h2>📊 Статистика гильдии</h2>
                         <button class="guild-close-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
                     </div>
-                    <div class="guild-create-body" style="padding:24px; text-align:center;">
+                    <div class="guild-create-body" style="padding:24px; text-align:center; overflow-y:auto; flex:1;">
                         <div style="color:var(--text-secondary);font-size:14px;">Загрузка...</div>
                     </div>
                 </div>`;
