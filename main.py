@@ -988,8 +988,40 @@ def init_db():
                 UNIQUE(user_id, task_id)
             )
         """)
+
+        # Guild achievement tables
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS guild_achievements (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                name_ru TEXT NOT NULL,
+                description TEXT NOT NULL,
+                icon TEXT NOT NULL,
+                condition_type TEXT NOT NULL,
+                condition_value INTEGER NOT NULL,
+                xp_bonus INTEGER DEFAULT 0,
+                rarity TEXT DEFAULT 'common',
+                frame_tier TEXT
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS guild_unlocked_achievements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                guild_id INTEGER NOT NULL,
+                achievement_id TEXT NOT NULL,
+                unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(guild_id, achievement_id)
+            )
+        """)
         
         conn.commit()
+        
+        # Sync guild achievements (tables now exist)
+        try:
+            sync_guild_achievements(cursor)
+            conn.commit()
+        except Exception as e:
+            log_error("Guild achievement sync failed", e)
         
         # Populate / sync ranks (always update to latest progression)
         _sync_ranks(cursor)
@@ -1197,12 +1229,27 @@ def apply_xp_change(cursor, user_id: int, delta_xp: int, reason: str, task_id: s
 
     new_xp = max(0, int(row["xp"] or 0) + delta)
     new_level = compute_level(new_xp)
+    old_level = compute_level(int(row["xp"] or 0))
 
     cursor.execute("UPDATE users SET xp = ?, level = ? WHERE id = ?", (new_xp, new_level, user_id))
     cursor.execute(
         "INSERT INTO xp_log (user_id, xp_change, reason, task_id) VALUES (?, ?, ?, ?)",
         (user_id, delta, reason, task_id),
     )
+
+    # Rank milestone bonus (avoid recursion via reason prefix)
+    if delta > 0 and new_level > old_level and not reason.startswith("rank_milestone"):
+        try:
+            for lvl in range(old_level + 1, new_level + 1):
+                bonus = RANK_MILESTONE_LEVELS.get(lvl, 0)
+                if bonus > 0:
+                    new_xp, new_level = apply_xp_change(
+                        cursor, user_id, bonus,
+                        f"rank_milestone:level_{lvl}", task_id
+                    )
+        except Exception:
+            pass
+
     return new_xp, new_level
 
 def sync_achievements(cursor) -> None:
@@ -1263,7 +1310,15 @@ def sync_achievements(cursor) -> None:
 
         # Speed
         ("speedrun_3", "Quick Learner", "Быстрый ученик", "Завершите 3 квеста за один день.", "🏃", "daily_quests", 3, 20, "uncommon"),
-        
+
+        # Platform milestones (mass task completion)
+        ("platform_200", "Bicentennial", "Двухсотник", "200 задач решено. Путь воина только начинается.", "🛡️", "quests_completed", 200, 100, "rare"),
+        ("platform_500", "Half-Thousand", "Пятисотник", "500 задач. Ты закалён в битвах кода.", "⚔️", "quests_completed", 500, 200, "epic"),
+        ("platform_800", "Centurion VIII", "Центурион VIII", "800 задач решено. Ты — живая легенда поля боя.", "🏛️", "quests_completed", 800, 300, "epic"),
+        ("platform_1000", "Тысячник", "Тысячник", "1000 задач решено. Ты стал частью истории Пандоры.", "👑", "quests_completed", 1000, 500, "legendary"),
+        ("platform_2000", "Демиург", "Демиург", "2000 задач. Ты видишь код сквозь реальность.", "🌌", "quests_completed", 2000, 750, "legendary"),
+        ("platform_5000", "Architect of Eternity", "Архитектор Вечности", "5000 задач. Ты вне системы рангов — ты сама система.", "🌟", "quests_completed", 5000, 1000, "legendary"),
+
         # Special / Fun
         ("chatterbox", "Chatterbox", "Болтун", "Слишком много говоришь в чате! 🤭", "🗣️", "special", 1, 0, "common"),
     ]
@@ -1298,6 +1353,119 @@ def sync_achievements(cursor) -> None:
                 """,
                 (ach_id, name, name_ru, description, icon, condition_type, int(condition_value or 0), int(xp_bonus or 0), rarity),
             )
+
+# ==================== GUILD ACHIEVEMENTS ====================
+
+GUILD_FRAME_TIERS = ["bronze", "silver", "gold", "diamond"]
+
+def sync_guild_achievements(cursor) -> None:
+    """Ensure guild milestone achievements exist."""
+    desired = [
+        # (id, name, name_ru, description, icon, condition_type, value, xp_bonus, rarity, frame_tier)
+        ("guild_tasks_500", "500 Побед", "500 Побед",
+         "Гильдия решила 500 задач. Клинки отточены.", "⚔️",
+         "guild_tasks", 500, 150, "rare", "bronze"),
+        ("guild_score_100k", "Сто Тысяч", "Сто Тысяч",
+         "Гильдия набрала 100 000 очков. Ваше имя гремит по всей Пандоре.", "🏛️",
+         "guild_score", 100000, 200, "epic", "silver"),
+        ("guild_tasks_1000", "Тысяча Побед", "Тысяча Побед",
+         "1000 задач решено гильдией. Непобедимый легион кода.", "🏆",
+         "guild_tasks", 1000, 300, "epic", "gold"),
+        ("guild_score_500k", "Полмиллиона", "Полмиллиона",
+         "Гильдия набрала 500 000 очков. Вы — боги Пандоры.", "💎",
+         "guild_score", 500000, 500, "legendary", "diamond"),
+    ]
+    for (ach_id, name, name_ru, desc, icon, ctype, cval, xp, rarity, frame) in desired:
+        cursor.execute("SELECT id FROM guild_achievements WHERE id = ?", (ach_id,))
+        if cursor.fetchone():
+            cursor.execute("""
+                UPDATE guild_achievements
+                SET name=?, name_ru=?, description=?, icon=?, condition_type=?,
+                    condition_value=?, xp_bonus=?, rarity=?, frame_tier=?
+                WHERE id=?
+            """, (name, name_ru, desc, icon, ctype, cval, xp, rarity, frame, ach_id))
+        else:
+            cursor.execute("""
+                INSERT INTO guild_achievements
+                (id, name, name_ru, description, icon, condition_type, condition_value, xp_bonus, rarity, frame_tier)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (ach_id, name, name_ru, desc, icon, ctype, cval, xp, rarity, frame))
+
+
+def check_guild_achievements(cursor, guild_id: int) -> list:
+    """Check and unlock guild achievements. Awards XP to all guild members. Returns newly unlocked."""
+    stats = _guild_ranking_score(cursor, guild_id)
+    unlocked_new = []
+
+    # Get achievements guild hasn't unlocked yet
+    cursor.execute("""
+        SELECT ga.* FROM guild_achievements ga
+        WHERE ga.id NOT IN (
+            SELECT achievement_id FROM guild_unlocked_achievements WHERE guild_id = ?
+        )
+    """, (guild_id,))
+    available = cursor.fetchall()
+
+    for ach in available:
+        earned = False
+        if ach["condition_type"] == "guild_tasks" and stats["total_tasks"] >= ach["condition_value"]:
+            earned = True
+        elif ach["condition_type"] == "guild_score" and stats["score"] >= ach["condition_value"]:
+            earned = True
+
+        if earned:
+            try:
+                cursor.execute(
+                    "INSERT OR IGNORE INTO guild_unlocked_achievements (guild_id, achievement_id) VALUES (?, ?)",
+                    (guild_id, ach["id"]),
+                )
+                # Award XP to all guild members
+                if ach["xp_bonus"] > 0:
+                    cursor.execute(
+                        "SELECT user_id FROM guild_members WHERE guild_id = ?",
+                        (guild_id,),
+                    )
+                    for member in cursor.fetchall():
+                        apply_xp_change(
+                            cursor, member["user_id"], ach["xp_bonus"],
+                            f"guild_achievement:{ach['id']}"
+                        )
+                unlocked_new.append({
+                    "id": ach["id"],
+                    "name_ru": ach["name_ru"],
+                    "icon": ach["icon"],
+                    "frame_tier": ach["frame_tier"],
+                    "xp_bonus": ach["xp_bonus"],
+                })
+            except Exception:
+                pass
+    return unlocked_new
+
+
+def _get_guild_frame_tier(cursor, guild_id: int):
+    """Return the highest frame tier a guild has earned, or None."""
+    cursor.execute("""
+        SELECT ga.frame_tier FROM guild_achievements ga
+        JOIN guild_unlocked_achievements gua ON gua.achievement_id = ga.id
+        WHERE gua.guild_id = ? AND ga.frame_tier IS NOT NULL
+    """, (guild_id,))
+    tiers = [r["frame_tier"] for r in cursor.fetchall()]
+    if not tiers:
+        return None
+    for t in reversed(GUILD_FRAME_TIERS):
+        if t in tiers:
+            return t
+    return tiers[0]
+
+
+# Rank milestone levels that earn bonus XP
+RANK_MILESTONE_LEVELS = {
+    5: 500, 10: 500, 15: 500, 20: 500, 25: 500,
+    30: 500, 40: 500, 50: 750, 60: 750, 70: 750,
+    80: 750, 90: 750, 100: 1000, 142: 1000, 200: 1000,
+    250: 1000, 317: 1000, 400: 1000, 500: 1000,
+    591: 1000, 700: 1000, 800: 1000, 900: 1000, 1000: 1000,
+}
 
 def create_jwt_token(user_id: int, username: str, role: str) -> tuple[str, int]:
     """Create JWT token with expiration. Returns (token, expires_at_epoch)."""
@@ -1464,6 +1632,20 @@ def process_task_completion(
     
     # Check for new achievements (may award XP bonuses)
     new_achievements = check_achievements(cursor, user_id, task_id, new_xp, new_total, new_streak)
+
+    # Check guild achievements if user is in a guild
+    try:
+        cursor.execute(
+            "SELECT gm.guild_id FROM guild_members gm "
+            "JOIN guilds g ON g.id = gm.guild_id "
+            "WHERE gm.user_id = ? AND g.disbanded_at IS NULL",
+            (user_id,),
+        )
+        gm_row = cursor.fetchone()
+        if gm_row:
+            check_guild_achievements(cursor, gm_row["guild_id"])
+    except Exception:
+        pass
 
     # Re-read in case achievements changed XP/level.
     cursor.execute("SELECT xp, level FROM users WHERE id = ?", (user_id,))
@@ -6555,6 +6737,7 @@ def list_guilds(user: dict = Depends(require_auth)):
             g = dict(row)
             stats = _guild_ranking_score(cursor, g["id"])
             g.update(stats)
+            g["frame_tier"] = _get_guild_frame_tier(cursor, g["id"])
             guilds.append(g)
     return {"guilds": guilds}
 
@@ -6626,6 +6809,7 @@ def guild_rankings(user: dict = Depends(require_auth)):
             g = dict(row)
             stats = _guild_ranking_score(cursor, g["id"])
             g.update(stats)
+            g["frame_tier"] = _get_guild_frame_tier(cursor, g["id"])
             guilds.append(g)
         guilds.sort(key=lambda x: x["score"], reverse=True)
         for i, g in enumerate(guilds):
@@ -6686,6 +6870,7 @@ def get_guild(guild_id: int, user: dict = Depends(require_auth)):
         guild = dict(row)
         stats = _guild_ranking_score(cursor, guild_id)
         guild.update(stats)
+        guild["frame_tier"] = _get_guild_frame_tier(cursor, guild_id)
 
         cursor.execute("""
             SELECT gm.user_id, gm.role, gm.custom_role_name, gm.joined_at,
@@ -7230,6 +7415,7 @@ def admin_guild_rankings(admin: dict = Depends(require_admin)):
             g = dict(row)
             stats = _guild_ranking_score(cursor, g["id"])
             g.update(stats)
+            g["frame_tier"] = _get_guild_frame_tier(cursor, g["id"])
             guilds.append(g)
         guilds.sort(key=lambda x: x["score"], reverse=True)
         for i, g in enumerate(guilds):
@@ -7715,6 +7901,49 @@ def decline_invitation(invite_id: int, user: dict = Depends(require_auth)):
     return {"message": "Приглашение отклонено"}
 
 
+# ==================== GUILD ACHIEVEMENTS API ====================
+
+@app.get("/api/guild-achievements")
+def get_guild_achievements(user: dict = Depends(require_auth)):
+    """Get guild achievements for the user's guild."""
+    uid = int(user["id"])
+    with get_db() as conn:
+        cursor = conn.cursor()
+        # Find user's guild
+        cursor.execute("""
+            SELECT gm.guild_id FROM guild_members gm
+            JOIN guilds g ON g.id = gm.guild_id
+            WHERE gm.user_id = ? AND g.disbanded_at IS NULL
+        """, (uid,))
+        gm = cursor.fetchone()
+        if not gm:
+            return {"guild_id": None, "achievements": [], "frame_tier": None}
+
+        guild_id = gm["guild_id"]
+
+        # All guild achievements with unlock status
+        cursor.execute("SELECT * FROM guild_achievements ORDER BY condition_value")
+        all_achs = [dict(r) for r in cursor.fetchall()]
+
+        cursor.execute(
+            "SELECT achievement_id, unlocked_at FROM guild_unlocked_achievements WHERE guild_id = ?",
+            (guild_id,),
+        )
+        unlocked_map = {r["achievement_id"]: r["unlocked_at"] for r in cursor.fetchall()}
+
+        for a in all_achs:
+            a["unlocked"] = a["id"] in unlocked_map
+            a["unlocked_at"] = unlocked_map.get(a["id"])
+
+        frame_tier = _get_guild_frame_tier(cursor, guild_id)
+
+    return {
+        "guild_id": guild_id,
+        "achievements": all_achs,
+        "frame_tier": frame_tier,
+    }
+
+
 # ==================== MOST ACTIVE STUDENT ====================
 
 @app.get("/api/most-active-student")
@@ -8031,7 +8260,13 @@ def exam_status(user: dict = Depends(require_auth)):
 
 @app.get("/api/exam/current-task")
 def exam_current_task(user: dict = Depends(require_auth)):
-    """Get the current exam task for the user (1 at a time, progressive)."""
+    """Get the current exam task for the user (1 at a time, progressive).
+    
+    Returns task in one of three states:
+    - finished=True: all tasks done
+    - started=True: task in progress (timer running)
+    - started=False: task preview (user must call POST /api/exam/start-task to begin)
+    """
     uid = int(user["id"])
     with get_db() as conn:
         cursor = conn.cursor()
@@ -8065,6 +8300,7 @@ def exam_current_task(user: dict = Depends(require_auth)):
                 remaining = max(0, time_limit * 60 - elapsed)
                 return {
                     "finished": False,
+                    "started": True,
                     "task": {
                         "id": task["id"],
                         "title": task.get("title", ""),
@@ -8081,7 +8317,7 @@ def exam_current_task(user: dict = Depends(require_auth)):
                     "cheat_warnings": ip["cheat_warnings"]
                 }
         
-        # Pick next task
+        # Pick next task (preview only — do NOT create progress entry)
         next_tier = _determine_next_tier(progress)
         exam_tasks = load_exam_tasks()
         priorities = _get_user_priorities(cursor, uid)
@@ -8090,17 +8326,67 @@ def exam_current_task(user: dict = Depends(require_auth)):
         if not task:
             return {"finished": True, "task": None, "task_index": len(completed)}
         
-        # Create progress entry
+        time_limit = task.get("time_limit_minutes", 15) + TIER_TIME_EXTRA
+        return {
+            "finished": False,
+            "started": False,
+            "task": {
+                "id": task["id"],
+                "title": task.get("title", ""),
+                "story": task.get("story", ""),
+                "description": task.get("description", ""),
+                "category": task.get("category", ""),
+                "tier": task.get("tier", "D"),
+                "xp": task.get("xp", 0),
+                "initial_code": task.get("initial_code", ""),
+                "time_limit_minutes": time_limit,
+            },
+            "task_index": len(completed) + 1,
+            "remaining_seconds": time_limit * 60,
+            "cheat_warnings": 0
+        }
+
+
+@app.post("/api/exam/start-task")
+def exam_start_task(data: dict, user: dict = Depends(require_auth)):
+    """User explicitly starts their current exam task — creates progress entry and begins timer."""
+    uid = int(user["id"])
+    task_id = data.get("task_id")
+    if not task_id:
+        raise HTTPException(400, "task_id required")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        state = _get_exam_state(cursor)
+        if not state["is_active"]:
+            raise HTTPException(403, "Экзамен не активен")
+
+        progress = _get_user_exam_progress(cursor, uid)
+        completed = [p for p in progress if p["finished_at"]]
+        if len(completed) >= EXAM_TASKS_PER_SESSION:
+            raise HTTPException(400, "Все задания уже выполнены")
+
+        # Check not already started
+        in_progress = [p for p in progress if not p["finished_at"]]
+        if in_progress:
+            raise HTTPException(400, "У вас уже есть активное задание")
+
+        # Verify task exists
+        exam_tasks = load_exam_tasks()
+        task = next((t for t in exam_tasks if t["id"] == task_id), None)
+        if not task:
+            raise HTTPException(404, "Задание не найдено")
+
         task_index = len(completed) + 1
         cursor.execute("""
             INSERT OR IGNORE INTO exam_progress (user_id, task_id, category, tier, task_index, started_at)
             VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        """, (uid, task["id"], task.get("category"), task.get("tier"), task_index))
+        """, (uid, task_id, task.get("category"), task.get("tier"), task_index))
         conn.commit()
-        
+
         time_limit = task.get("time_limit_minutes", 15) + TIER_TIME_EXTRA
         return {
-            "finished": False,
+            "started": True,
             "task": {
                 "id": task["id"],
                 "title": task.get("title", ""),

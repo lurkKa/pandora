@@ -2689,6 +2689,78 @@
             justify-content: center;
             font-size: 32px;
             flex-shrink: 0;
+            transition: box-shadow 0.4s, border-color 0.4s;
+        }
+
+        /* Guild Frame Tiers */
+        .guild-frame-bronze {
+            border: 2.5px solid #cd7f32;
+            box-shadow: 0 0 8px rgba(205, 127, 50, 0.4), inset 0 0 4px rgba(205, 127, 50, 0.15);
+        }
+
+        .guild-frame-silver {
+            border: 2.5px solid #c0c0c0;
+            box-shadow: 0 0 12px rgba(192, 192, 192, 0.5), inset 0 0 6px rgba(192, 192, 192, 0.15);
+            animation: guild-frame-shimmer 3s ease-in-out infinite;
+        }
+
+        .guild-frame-gold {
+            border: 3px solid #ffd700;
+            box-shadow: 0 0 16px rgba(255, 215, 0, 0.5), 0 0 32px rgba(255, 215, 0, 0.15);
+            animation: guild-frame-glow 2s ease-in-out infinite;
+        }
+
+        .guild-frame-diamond {
+            border: 3px solid transparent;
+            background-clip: padding-box;
+            box-shadow: 0 0 20px rgba(185, 242, 255, 0.5), 0 0 40px rgba(139, 92, 246, 0.2);
+            animation: guild-frame-prism 3s linear infinite;
+        }
+
+        @keyframes guild-frame-shimmer {
+
+            0%,
+            100% {
+                box-shadow: 0 0 12px rgba(192, 192, 192, 0.5), inset 0 0 6px rgba(192, 192, 192, 0.15);
+            }
+
+            50% {
+                box-shadow: 0 0 20px rgba(192, 192, 192, 0.7), inset 0 0 10px rgba(192, 192, 192, 0.25);
+            }
+        }
+
+        @keyframes guild-frame-glow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 16px rgba(255, 215, 0, 0.5), 0 0 32px rgba(255, 215, 0, 0.15);
+            }
+
+            50% {
+                box-shadow: 0 0 24px rgba(255, 215, 0, 0.7), 0 0 48px rgba(255, 215, 0, 0.25);
+            }
+        }
+
+        @keyframes guild-frame-prism {
+            0% {
+                border-color: #b9f2ff;
+                box-shadow: 0 0 20px rgba(185, 242, 255, 0.5), 0 0 40px rgba(139, 92, 246, 0.2);
+            }
+
+            33% {
+                border-color: #c084fc;
+                box-shadow: 0 0 20px rgba(192, 132, 252, 0.5), 0 0 40px rgba(251, 191, 36, 0.2);
+            }
+
+            66% {
+                border-color: #fbbf24;
+                box-shadow: 0 0 20px rgba(251, 191, 36, 0.5), 0 0 40px rgba(185, 242, 255, 0.2);
+            }
+
+            100% {
+                border-color: #b9f2ff;
+                box-shadow: 0 0 20px rgba(185, 242, 255, 0.5), 0 0 40px rgba(139, 92, 246, 0.2);
+            }
         }
 
         .guild-card-name {
@@ -3654,10 +3726,27 @@
                 <h2 id="achievements-title">🏆 Достижения</h2>
                 <button class="btn-close" onclick="closeAchievementsModal()">✕ Close</button>
             </div>
+            <div style="display:flex; gap:6px; padding:0 20px 8px; border-bottom:1px solid rgba(255,255,255,0.06);">
+                <button class="btn" id="ach-tab-personal" onclick="switchAchTab('personal')"
+                    style="font-size:13px; padding:6px 16px; border-radius:8px; background:var(--accent); color:#fff; border:none; cursor:pointer;">🎖️
+                    Личные</button>
+                <button class="btn" id="ach-tab-guild" onclick="switchAchTab('guild')"
+                    style="font-size:13px; padding:6px 16px; border-radius:8px; background:rgba(255,255,255,0.06); color:var(--text-secondary); border:none; cursor:pointer;">⚔️
+                    Гильдейские</button>
+            </div>
             <div class="modal-body">
-                <div id="achievements-gallery" class="achievement-cards" role="list">
-                    <div style="color:var(--text-secondary); font-size:13px; text-align:center;">
-                        Загрузка...
+                <div id="ach-personal-tab">
+                    <div id="achievements-gallery" class="achievement-cards" role="list">
+                        <div style="color:var(--text-secondary); font-size:13px; text-align:center;">
+                            Загрузка...
+                        </div>
+                    </div>
+                </div>
+                <div id="ach-guild-tab" style="display:none;">
+                    <div id="guild-achievements-gallery">
+                        <div style="color:var(--text-secondary); font-size:13px; text-align:center;">
+                            Загрузка...
+                        </div>
                     </div>
                 </div>
             </div>
@@ -6432,6 +6521,93 @@
             document.getElementById('achievements-modal').classList.remove('active');
         }
 
+        // ==================== GUILD ACHIEVEMENTS TAB ====================
+        let guildAchievementData = null;
+
+        function switchAchTab(tab) {
+            const personalTab = document.getElementById('ach-personal-tab');
+            const guildTab = document.getElementById('ach-guild-tab');
+            const btnPersonal = document.getElementById('ach-tab-personal');
+            const btnGuild = document.getElementById('ach-tab-guild');
+
+            if (tab === 'personal') {
+                personalTab.style.display = 'block';
+                guildTab.style.display = 'none';
+                btnPersonal.style.background = 'var(--accent)';
+                btnPersonal.style.color = '#fff';
+                btnGuild.style.background = 'rgba(255,255,255,0.06)';
+                btnGuild.style.color = 'var(--text-secondary)';
+            } else {
+                personalTab.style.display = 'none';
+                guildTab.style.display = 'block';
+                btnGuild.style.background = 'var(--accent)';
+                btnGuild.style.color = '#fff';
+                btnPersonal.style.background = 'rgba(255,255,255,0.06)';
+                btnPersonal.style.color = 'var(--text-secondary)';
+                if (!guildAchievementData) loadGuildAchievements();
+            }
+        }
+
+        async function loadGuildAchievements() {
+            const container = document.getElementById('guild-achievements-gallery');
+            try {
+                const res = await fetch(`${API_URL}/api/guild-achievements`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                guildAchievementData = await res.json();
+                renderGuildAchievementsGallery();
+            } catch (e) {
+                container.innerHTML = '<div style="color:var(--text-secondary); font-size:13px; text-align:center;">Не удалось загрузить</div>';
+            }
+        }
+
+        function renderGuildAchievementsGallery() {
+            const container = document.getElementById('guild-achievements-gallery');
+            if (!guildAchievementData) return;
+
+            if (!guildAchievementData.guild_id) {
+                container.innerHTML = '<div style="color:var(--text-secondary); font-size:13px; text-align:center; padding:30px;">Вы не состоите в гильдии</div>';
+                return;
+            }
+
+            const frameTier = guildAchievementData.frame_tier;
+            const frameLabel = { bronze: '🥉 Бронзовая', silver: '🥈 Серебряная', gold: '🥇 Золотая', diamond: '💎 Бриллиантовая' };
+            const frameColors = { bronze: '#cd7f32', silver: '#c0c0c0', gold: '#ffd700', diamond: '#b9f2ff' };
+
+            let html = '';
+            if (frameTier) {
+                html += `<div style="text-align:center; padding:12px 0; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.06);">
+                    <div style="font-size:14px; color:${frameColors[frameTier] || '#888'}; font-weight:600;">
+                        Рамка эмблемы: ${frameLabel[frameTier] || frameTier}
+                    </div>
+                    <div style="font-size:11px; color:var(--text-secondary);">Видна во всех рейтингах и чатах</div>
+                </div>`;
+            }
+
+            html += (guildAchievementData.achievements || []).map(a => {
+                const unlocked = a.unlocked;
+                const date = a.unlocked_at ? new Date(a.unlocked_at).toLocaleString('ru-RU') : null;
+                const ftLabel = a.frame_tier ? (frameLabel[a.frame_tier] || a.frame_tier) + ' рамка' : '';
+                return `
+                    <article class="achievement-card ${unlocked ? 'unlocked' : 'locked'} ${a.rarity}" role="listitem">
+                        <div class="achievement-icon" aria-hidden="true">${a.icon}</div>
+                        <div class="achievement-body">
+                            <div class="achievement-title">${a.name_ru || a.name}</div>
+                            <div class="achievement-desc">${a.description || ''}</div>
+                            <div class="achievement-meta">
+                                <span>${unlocked ? (date ? 'Получено: ' + date : 'Получено') : 'Не получено'}</span>
+                                ${a.xp_bonus > 0 ? `<span class="achievement-bonus">+${a.xp_bonus} XP каждому</span>` : '<span></span>'}
+                            </div>
+                            ${ftLabel ? `<div style="font-size:11px; color:${frameColors[a.frame_tier] || '#888'}; margin-top:4px;">🖼️ ${ftLabel}</div>` : ''}
+                        </div>
+                    </article>
+                `;
+            }).join('');
+
+            container.innerHTML = html;
+        }
+
         function showAchievementNotification(achievement) {
             const notif = document.getElementById('ach-notification');
             const nameEl = document.getElementById('ach-notif-name');
@@ -7517,9 +7693,10 @@
             const bonusHtml = bonusPct ? `<span style="color:var(--success); font-size:12px; margin-left:8px; font-weight:600;">${bonusPct} XP</span>` : '';
 
             // Guild avatar display
+            const frameCls = guild.frame_tier ? `guild-frame-${guild.frame_tier}` : '';
             const avatarDisplay = (guild.icon_data || guild.avatar_url)
-                ? `<img src="${guild.icon_data || (API_URL + guild.avatar_url)}" style="width:56px;height:56px;border-radius:14px;object-fit:cover;cursor:${isPresident ? 'pointer' : 'default'};" ${isPresident ? `onclick="uploadGuildAvatar(${guild.id})" title="Изменить фото"` : ''}>`
-                : `<div class="guild-card-avatar" ${isPresident ? `onclick="uploadGuildAvatar(${guild.id})" style="cursor:pointer;" title="Загрузить фото"` : ''}>${guild.avatar_emoji}</div>`;
+                ? `<img src="${guild.icon_data || (API_URL + guild.avatar_url)}" class="${frameCls}" style="width:56px;height:56px;border-radius:14px;object-fit:cover;cursor:${isPresident ? 'pointer' : 'default'};" ${isPresident ? `onclick="uploadGuildAvatar(${guild.id})" title="Изменить фото"` : ''}>`
+                : `<div class="guild-card-avatar ${frameCls}" ${isPresident ? `onclick="uploadGuildAvatar(${guild.id})" style="cursor:pointer;" title="Загрузить фото"` : ''}>${guild.avatar_emoji}</div>`;
             const uploadHint = isPresident ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;text-align:center;">📷 Фото</div>` : '';
 
             let titlesHtml = '';
@@ -7918,9 +8095,10 @@
                     }
                 }
 
+                const frameCls = g.frame_tier ? `guild-frame-${g.frame_tier}` : '';
                 const avatarDisplay = (g.icon_data || g.avatar_url)
-                    ? `<img src="${g.icon_data || (API_URL + g.avatar_url)}" style="width:64px;height:64px;border-radius:16px;object-fit:cover;">`
-                    : `<div class="guild-card-avatar" style="width:64px;height:64px;font-size:36px;">${g.avatar_emoji}</div>`;
+                    ? `<img src="${g.icon_data || (API_URL + g.avatar_url)}" class="${frameCls}" style="width:64px;height:64px;border-radius:16px;object-fit:cover;">`
+                    : `<div class="guild-card-avatar ${frameCls}" style="width:64px;height:64px;font-size:36px;">${g.avatar_emoji}</div>`;
 
                 const stats = {
                     members: g.member_count || (g.members || []).length,

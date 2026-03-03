@@ -459,6 +459,51 @@
             padding: 40px;
         }
 
+        /* Task locked / ready-to-start */
+        .task-locked-overlay {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+            text-align: center;
+            gap: 16px;
+            margin-top: 8px;
+        }
+
+        .task-locked-overlay.active {
+            display: flex;
+        }
+
+        .btn-start-task {
+            background: linear-gradient(135deg, var(--accent), #6d28d9);
+            color: #fff;
+            padding: 16px 48px;
+            font-size: 18px;
+            font-weight: 700;
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 24px rgba(139, 92, 246, 0.3);
+        }
+
+        .btn-start-task:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(139, 92, 246, 0.5);
+        }
+
+        .btn-start-task:active {
+            transform: scale(0.97);
+        }
+
+        .locked-hint {
+            color: var(--text-dim);
+            font-size: 13px;
+            max-width: 400px;
+            line-height: 1.5;
+        }
+
         /* Journal Detail Modal */
         .journal-modal {
             display: none;
@@ -538,11 +583,19 @@
                 </div>
                 <div class="task-story" id="task-story"></div>
                 <div class="task-description" id="task-desc"></div>
-                <div class="code-editor-wrap">
+                <div class="code-editor-wrap" id="editor-wrap">
                     <label>💻 Твоё решение:</label>
                     <textarea id="code-editor" spellcheck="false"></textarea>
                 </div>
-                <div class="submit-row">
+                <div class="task-locked-overlay" id="task-locked-overlay">
+                    <div style="font-size:48px;">🔒</div>
+                    <div style="font-size:16px; font-weight:600;">Задание готово</div>
+                    <div class="locked-hint">Прочитай описание задачи. Когда будешь готов — нажми кнопку. Таймер
+                        начнётся после нажатия.</div>
+                    <button class="btn-start-task" id="btn-start-task" onclick="startExamTask()">🚀 Начать
+                        задание</button>
+                </div>
+                <div class="submit-row" id="submit-row">
                     <button class="btn btn-submit" id="submit-btn" onclick="submitSolution()">✅ Отправить
                         решение</button>
                     <span id="submit-msg" style="font-size:13px; color:var(--text-dim);"></span>
@@ -687,13 +740,55 @@
                 document.getElementById('task-xp').innerText = `${currentTask.xp} XP`;
                 document.getElementById('task-story').innerText = currentTask.story;
                 document.getElementById('task-desc').innerText = currentTask.description;
-                document.getElementById('code-editor').value = currentTask.initial_code || '';
-                document.getElementById('submit-btn').disabled = false;
                 document.getElementById('submit-msg').innerText = '';
 
-                startTimer();
+                if (data.started) {
+                    // Task already in progress (e.g. page refresh)
+                    showTaskActive();
+                    document.getElementById('code-editor').value = currentTask.initial_code || '';
+                    startTimer();
+                } else {
+                    // Task preview — locked, waiting for user to start
+                    showTaskLocked();
+                }
             } catch (e) {
                 console.error('Failed to load task:', e);
+            }
+        }
+
+        function showTaskLocked() {
+            document.getElementById('editor-wrap').style.display = 'none';
+            document.getElementById('submit-row').style.display = 'none';
+            document.getElementById('task-locked-overlay').classList.add('active');
+            document.getElementById('timer').innerText = '--:--';
+            document.getElementById('timer').className = 'timer';
+            document.getElementById('btn-start-task').disabled = false;
+        }
+
+        function showTaskActive() {
+            document.getElementById('editor-wrap').style.display = 'block';
+            document.getElementById('submit-row').style.display = 'flex';
+            document.getElementById('task-locked-overlay').classList.remove('active');
+            document.getElementById('submit-btn').disabled = false;
+        }
+
+        async function startExamTask() {
+            if (!currentTask) return;
+            const btn = document.getElementById('btn-start-task');
+            btn.disabled = true;
+            btn.innerText = '⏳ Запуск...';
+            try {
+                const data = await api('/api/exam/start-task', 'POST', { task_id: currentTask.id });
+                remainingSeconds = data.remaining_seconds || 0;
+                cheatWarnings = data.cheat_warnings || 0;
+                document.getElementById('code-editor').value = currentTask.initial_code || '';
+                showTaskActive();
+                startTimer();
+            } catch (e) {
+                btn.disabled = false;
+                btn.innerText = '🚀 Начать задание';
+                console.error('Start task failed:', e);
+                alert('Ошибка: ' + e.message);
             }
         }
 
