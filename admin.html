@@ -909,7 +909,7 @@
                     <span class="icon">⏱️</span> Время
                 </li>
                 <li class="nav-item" onclick="showSection('complaints')" tabindex="0" role="button">
-                    <span class="icon">⚠️</span> Жалобы
+                    <span class="icon">⚠️</span> Репорты
                 </li>
                 <li class="nav-item" onclick="showSection('exam')" tabindex="0" role="button">
                     <span class="icon">📝</span> Экзамены
@@ -1412,8 +1412,8 @@
             <!-- Complaints Section -->
             <section id="section-complaints" class="section">
                 <div class="page-header">
-                    <h2>⚠️ Жалобы на игроков</h2>
-                    <p>Рассмотрение жалоб от учеников</p>
+                    <h2>⚠️ Репорты на игроков</h2>
+                    <p>Рассмотрение репортов от учеников</p>
                 </div>
 
                 <div style="display:flex;gap:8px;margin-bottom:20px;">
@@ -2500,33 +2500,45 @@
                 const data = await api(`/api/admin/complaints?status=${status}`);
                 const complaints = data.complaints || [];
                 if (complaints.length === 0) {
-                    container.innerHTML = '<div class="card"><div style="padding:24px;text-align:center;color:var(--text-secondary)">Нет жалоб</div></div>';
+                    container.innerHTML = '<div class="card"><div style="padding:24px;text-align:center;color:var(--text-secondary)">Нет репортов</div></div>';
                     return;
                 }
                 container.innerHTML = complaints.map(c => {
                     const isPending = c.status === 'pending';
-                    const statusBadge = c.status === 'accepted' ? '<span style="color:#22c55e;font-weight:600;">✅ Принята</span>'
-                        : c.status === 'rejected' ? '<span style="color:#f87171;font-weight:600;">❌ Отклонена</span>'
+                    const statusBadge = c.status === 'accepted' ? '<span style="color:#22c55e;font-weight:600;">✅ Принят</span>'
+                        : c.status === 'rejected' ? '<span style="color:#f87171;font-weight:600;">❌ Отклонён</span>'
                             : '<span style="color:#fbbf24;font-weight:600;">⏳ Ожидает</span>';
                     const dt = c.created_at ? new Date(c.created_at).toLocaleString('ru') : '';
+                    const rtype = c.report_type || 'player';
+                    const typeIcons = { player: '👤 Игрок', bug: '🐛 Баг', other: '💬 Другое' };
+                    const typeBadge = `<span style="font-size:11px; padding:2px 8px; background:rgba(255,255,255,0.08); border-radius:6px; color:var(--text-secondary);">${typeIcons[rtype] || rtype}</span>`;
+                    const isBug = rtype === 'bug';
+                    const xpLabel = isBug ? 'Баунти XP:' : 'Штраф XP:';
+                    const targetInfo = c.target_name
+                        ? `<div><span style="color:var(--text-secondary)">На:</span> <strong>${c.target_name}</strong> (${c.target_xp || 0} XP)</div>`
+                        : '';
+                    const screenshotEl = c.screenshot_data
+                        ? `<div style="margin-top:8px;"><img src="${c.screenshot_data}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);cursor:pointer;" onclick="window.open(this.src)"></div>`
+                        : '';
                     return `<div class="card" style="margin-bottom:12px;">
                         <div class="card-header" style="flex-wrap:wrap;">
-                            <h3 style="font-size:14px;">${statusBadge} ${c.title}</h3>
+                            <h3 style="font-size:14px;">${statusBadge} ${typeBadge} ${c.title}</h3>
                             <span style="font-size:12px;color:var(--text-secondary);">${dt}</span>
                         </div>
                         <div style="padding:16px 24px;">
                             <div style="display:flex;gap:24px;margin-bottom:12px;font-size:13px;">
                                 <div><span style="color:var(--text-secondary)">От:</span> <strong>${c.reporter_name}</strong></div>
-                                <div><span style="color:var(--text-secondary)">На:</span> <strong>${c.target_name}</strong> (${c.target_xp} XP)</div>
-                                <div><span style="color:var(--text-secondary)">Предл. штраф:</span> <strong>${c.suggested_xp_penalty} XP</strong></div>
+                                ${targetInfo}
+                                <div><span style="color:var(--text-secondary)">${isBug ? 'Запрос баунти:' : 'Предл. штраф:'}</span> <strong>${c.suggested_xp_penalty} XP</strong></div>
                             </div>
                             <div style="background:var(--bg-deep);border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;color:var(--text-primary);">
                                 ${c.description}
+                                ${screenshotEl}
                             </div>
                             ${isPending ? `
                                 <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
                                     <div class="form-group" style="margin-bottom:0;">
-                                        <label style="font-size:12px;">Штраф XP:</label>
+                                        <label style="font-size:12px;">${xpLabel}</label>
                                         <input type="number" id="complaint-xp-${c.id}" value="${c.suggested_xp_penalty}" min="0" max="1000"
                                             style="width:100px;padding:8px;background:var(--bg-deep);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
                                     </div>
@@ -2538,7 +2550,7 @@
                                     <button class="btn btn-success btn-small" onclick="resolveComplaint(${c.id}, 'accepted')">✅ Принять</button>
                                     <button class="btn btn-danger btn-small" onclick="resolveComplaint(${c.id}, 'rejected')">❌ Отклонить</button>
                                 </div>
-                            ` : (c.admin_note ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">📝 ${c.admin_note}${c.admin_xp_applied ? ' (−' + c.admin_xp_applied + ' XP)' : ''}</div>` : '')}
+                            ` : (c.admin_note ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">📝 ${c.admin_note}${c.admin_xp_applied ? ' (' + (isBug ? '+' : '−') + c.admin_xp_applied + ' XP)' : ''}</div>` : '')}
                         </div>
                     </div>`;
                 }).join('');

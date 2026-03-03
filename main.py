@@ -782,17 +782,18 @@ def init_db():
             CREATE TABLE IF NOT EXISTS complaints (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 reporter_id INTEGER NOT NULL,
-                target_user_id INTEGER NOT NULL,
+                target_user_id INTEGER,
+                report_type TEXT DEFAULT 'player',
                 title TEXT NOT NULL,
                 description TEXT NOT NULL,
                 suggested_xp_penalty INTEGER DEFAULT 0,
+                screenshot_data TEXT,
                 status TEXT DEFAULT 'pending',
                 admin_xp_applied INTEGER DEFAULT 0,
                 admin_note TEXT DEFAULT '',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 resolved_at TIMESTAMP,
-                FOREIGN KEY (reporter_id) REFERENCES users(id),
-                FOREIGN KEY (target_user_id) REFERENCES users(id)
+                FOREIGN KEY (reporter_id) REFERENCES users(id)
             )
         """)
 
@@ -917,6 +918,16 @@ def init_db():
             cursor.execute("ALTER TABLE completed_tasks ADD COLUMN is_valid INTEGER DEFAULT 1")
         except sqlite3.OperationalError:
             pass
+
+        # Complaints table v2: report_type and screenshot support
+        for col_stmt in [
+            "ALTER TABLE complaints ADD COLUMN report_type TEXT DEFAULT 'player'",
+            "ALTER TABLE complaints ADD COLUMN screenshot_data TEXT",
+        ]:
+            try:
+                cursor.execute(col_stmt)
+            except sqlite3.OperationalError:
+                pass
 
         for stmt in [
             "ALTER TABLE completed_tasks ADD COLUMN code_simhash TEXT",
@@ -8175,13 +8186,15 @@ def get_most_active_student(user: dict = Depends(require_auth)):
         }
 
 
-# ==================== COMPLAINTS ====================
+# ==================== REPORTS (COMPLAINTS) ====================
 
 class ComplaintRequest(BaseModel):
-    target_user_id: int
+    report_type: str = "player"  # player, bug, other
+    target_user_id: int = 0
     title: str
     description: str
     suggested_xp_penalty: int = 0
+    screenshot_data: str = ""
 
 class ComplaintResolveRequest(BaseModel):
     status: str  # "accepted" or "rejected"
@@ -8190,22 +8203,41 @@ class ComplaintResolveRequest(BaseModel):
 
 @app.post("/api/complaints")
 def submit_complaint(data: ComplaintRequest, user: dict = Depends(require_auth)):
-    """Submit a complaint about another player (rate limited: 3/hour)."""
-    # Validate
+    """Submit a report: player complaint, bug report, or other."""
+    # Validate type
+    if data.report_type not in ("player", "bug", "other"):
+        raise HTTPException(400, "Неверный тип репорта")
     if not data.title or not data.title.strip():
-        raise HTTPException(400, "Укажите название проблемы")
+        raise HTTPException(400, "Укажите название")
     if not data.description or not data.description.strip():
-        raise HTTPException(400, "Укажите описание проблемы")
+        raise HTTPException(400, "Укажите описание")
     if len(data.title) > 100:
-        raise HTTPException(400, "Название слишком длинное (макс. 100 символов)")
-    if len(data.description) > 1000:
-        raise HTTPException(400, "Описание слишком длинное (макс. 1000 символов)")
-    if data.target_user_id == user["id"]:
-        raise HTTPException(400, "Нельзя пожаловаться на себя")
-    if data.suggested_xp_penalty < 0 or data.suggested_xp_penalty > 500:
-        raise HTTPException(400, "Штраф XP: от 0 до 500")
+        raise HTTPException(400, "Название слишком длинное (макс. 100)")
+    if len(data.description) > 2000:
+        raise HTTPException(400, "Описание слишком длинное (макс. 2000)")
 
-    # Detect threats
+    # Player reports need a target
+    if data.report_type == "player":
+        if not data.target_user_id or data.target_user_id <= 0:
+            raise HTTPException(400, "Укажите пользователя")
+        if data.target_user_id == user["id"]:
+            raise HTTPException(400, "Нельзя пожаловаться на себя")
+        if data.suggested_xp_penalty < 0 or data.suggested_xp_penalty > 500:
+            raise HTTPException(400, "Штраф XP: от 0 до 500")
+
+    # Bug reports: XP bounty request (0-500)
+    if data.report_type == "bug":
+        if data.suggested_xp_penalty < 0 or data.suggested_xp_penalty > 500:
+            data.suggested_xp_penalty = 0
+
+    # Screenshot size limit: 300KB base64
+    screenshot = data.screenshot_data.strip() if data.screenshot_data else ""
+    if screenshot and len(screenshot) > 400000:
+        raise HTTPException(400, "Скриншот слишком большой (макс. 300KB)")
+    if screenshot and not screenshot.startswith("data:image"):
+        screenshot = ""
+
+    # Security
     for field in (data.title, data.description):
         threats = detect_threats(field)
         if threats:
@@ -8213,70 +8245,63 @@ def submit_complaint(data: ComplaintRequest, user: dict = Depends(require_auth))
 
     with get_db() as conn:
         cursor = conn.cursor()
-        
-        # Check target exists
-        cursor.execute("SELECT id FROM users WHERE id = ?", (data.target_user_id,))
-        if not cursor.fetchone():
-            raise HTTPException(404, "Пользователь не найден")
-        
-        # Rate limit: max 3 complaints per hour
+
+        # Check target exists for player reports
+        target_id = None
+        if data.report_type == "player" and data.target_user_id:
+            cursor.execute("SELECT id FROM users WHERE id = ?", (data.target_user_id,))
+            if not cursor.fetchone():
+                raise HTTPException(404, "Пользователь не найден")
+            target_id = data.target_user_id
+
+        # Rate limit: max 3 reports per hour
         cursor.execute("""
             SELECT COUNT(*) FROM complaints
             WHERE reporter_id = ? AND created_at > datetime('now', '-1 hour')
         """, (user["id"],))
         if cursor.fetchone()[0] >= 3:
-            raise HTTPException(429, "Слишком много жалоб. Подождите час.")
-        
+            raise HTTPException(429, "Слишком много репортов. Подождите час.")
+
         cursor.execute("""
-            INSERT INTO complaints (reporter_id, target_user_id, title, description, suggested_xp_penalty)
-            VALUES (?, ?, ?, ?, ?)
-        """, (user["id"], data.target_user_id, data.title.strip(), data.description.strip(), data.suggested_xp_penalty))
+            INSERT INTO complaints (reporter_id, target_user_id, report_type, title, description, suggested_xp_penalty, screenshot_data)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (user["id"], target_id, data.report_type, data.title.strip(),
+              data.description.strip(), data.suggested_xp_penalty, screenshot or None))
         conn.commit()
-    
-    log_action(user["id"], user["username"], "complaint_submitted",
-               f"target={data.target_user_id} title={data.title[:50]}")
-    return {"message": "Жалоба отправлена. Администратор рассмотрит её."}
+
+    type_labels = {"player": "Жалоба", "bug": "Баг-репорт", "other": "Обращение"}
+    log_action(user["id"], user["username"], "report_submitted",
+               f"type={data.report_type} title={data.title[:50]}")
+    return {"message": f"{type_labels.get(data.report_type, 'Репорт')} отправлен. Администратор рассмотрит."}
 
 @app.get("/api/admin/complaints")
 def admin_get_complaints(status: str = Query("pending"), admin: dict = Depends(require_admin)):
-    """Get complaints list (admin only)."""
+    """Get reports list (admin only)."""
     valid_statuses = ("pending", "accepted", "rejected", "all")
     if status not in valid_statuses:
         status = "pending"
 
     with get_db() as conn:
         cursor = conn.cursor()
+        base_query = """
+            SELECT c.*,
+                   reporter.display_name as reporter_name,
+                   target.display_name as target_name,
+                   target.xp as target_xp
+            FROM complaints c
+            JOIN users reporter ON reporter.id = c.reporter_id
+            LEFT JOIN users target ON target.id = c.target_user_id
+        """
         if status == "all":
-            cursor.execute("""
-                SELECT c.*,
-                       reporter.display_name as reporter_name,
-                       target.display_name as target_name,
-                       target.xp as target_xp
-                FROM complaints c
-                JOIN users reporter ON reporter.id = c.reporter_id
-                JOIN users target ON target.id = c.target_user_id
-                ORDER BY c.created_at DESC
-                LIMIT 100
-            """)
+            cursor.execute(base_query + " ORDER BY c.created_at DESC LIMIT 100")
         else:
-            cursor.execute("""
-                SELECT c.*,
-                       reporter.display_name as reporter_name,
-                       target.display_name as target_name,
-                       target.xp as target_xp
-                FROM complaints c
-                JOIN users reporter ON reporter.id = c.reporter_id
-                JOIN users target ON target.id = c.target_user_id
-                WHERE c.status = ?
-                ORDER BY c.created_at DESC
-                LIMIT 100
-            """, (status,))
+            cursor.execute(base_query + " WHERE c.status = ? ORDER BY c.created_at DESC LIMIT 100", (status,))
         complaints = [dict(r) for r in cursor.fetchall()]
     return {"complaints": complaints}
 
 @app.post("/api/admin/complaints/{complaint_id}/resolve")
 def admin_resolve_complaint(complaint_id: int, data: ComplaintResolveRequest, admin: dict = Depends(require_admin)):
-    """Resolve a complaint — accept (with XP penalty) or reject."""
+    """Resolve a report — accept (with XP change) or reject. Bug reports: +XP to reporter. Player reports: -XP to target."""
     if data.status not in ("accepted", "rejected"):
         raise HTTPException(400, "status must be 'accepted' or 'rejected'")
 
@@ -8285,15 +8310,24 @@ def admin_resolve_complaint(complaint_id: int, data: ComplaintResolveRequest, ad
         cursor.execute("SELECT * FROM complaints WHERE id = ?", (complaint_id,))
         complaint = cursor.fetchone()
         if not complaint:
-            raise HTTPException(404, "Жалоба не найдена")
+            raise HTTPException(404, "Репорт не найден")
         if complaint["status"] != "pending":
-            raise HTTPException(400, "Жалоба уже рассмотрена")
+            raise HTTPException(400, "Репорт уже рассмотрен")
 
+        report_type = complaint.get("report_type", "player")
         xp_applied = 0
+
         if data.status == "accepted" and data.xp_to_apply > 0:
-            xp_applied = min(data.xp_to_apply, 1000)  # Cap at 1000
-            reason = f"Жалоба #{complaint_id}: {data.admin_note or 'Штраф'}"
-            apply_xp_change(cursor, complaint["target_user_id"], -xp_applied, reason)
+            xp_applied = min(data.xp_to_apply, 1000)
+
+            if report_type == "bug":
+                # Bug bounty: reward XP to the reporter
+                reason = f"Баг-баунти #{complaint_id}: {data.admin_note or 'Награда за баг'}"
+                apply_xp_change(cursor, complaint["reporter_id"], xp_applied, reason)
+            elif complaint.get("target_user_id"):
+                # Player report: penalty XP from target
+                reason = f"Репорт #{complaint_id}: {data.admin_note or 'Штраф'}"
+                apply_xp_change(cursor, complaint["target_user_id"], -xp_applied, reason)
 
         cursor.execute("""
             UPDATE complaints
@@ -8302,10 +8336,10 @@ def admin_resolve_complaint(complaint_id: int, data: ComplaintResolveRequest, ad
         """, (data.status, xp_applied, data.admin_note, complaint_id))
         conn.commit()
 
-    log_action(admin["id"], admin["username"], "complaint_resolved",
-               f"complaint={complaint_id} status={data.status} xp=-{xp_applied}")
-    status_text = "принята" if data.status == "accepted" else "отклонена"
-    return {"message": f"Жалоба {data.status}", "xp_applied": xp_applied}
+    xp_sign = "+" if report_type == "bug" else "-"
+    log_action(admin["id"], admin["username"], "report_resolved",
+               details=f"report={complaint_id} type={report_type} status={data.status} xp={xp_sign}{xp_applied}")
+    return {"message": f"Репорт {data.status}", "xp_applied": xp_applied}
 
 
 # ==================== EXAM MODE ====================
@@ -8876,3 +8910,4 @@ if __name__ == "__main__":
     print("\n" + "═"*60 + "\n")
     
     uvicorn.run(app, host="0.0.0.0", port=8000)
+ 

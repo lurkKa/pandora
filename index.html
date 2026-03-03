@@ -2487,6 +2487,14 @@
         </div>
     </div>
 
+    <!-- Floating Report Button -->
+    <button id="fab-report" onclick="openReportModal()" title="📨 Отправить репорт"
+        style="display:none; position:fixed; bottom:24px; right:24px; z-index:200; width:52px; height:52px; border-radius:50%; border:none; cursor:pointer; background:linear-gradient(135deg,#ffd700,#ffaa00); color:#1a1a2e; font-size:22px; box-shadow:0 4px 16px rgba(255,215,0,0.4), 0 2px 6px rgba(0,0,0,0.3); transition:all 0.3s;"
+        onmouseover="this.style.transform='scale(1.1)'; this.style.boxShadow='0 6px 24px rgba(255,215,0,0.6)'"
+        onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 16px rgba(255,215,0,0.4), 0 2px 6px rgba(0,0,0,0.3)'">
+        📨
+    </button>
+
     <!-- Leaderboard Sidebar -->
     <div class="leaderboard-sidebar" id="leaderboard-panel">
         <div class="leaderboard-resize-handle" id="leaderboard-resize"></div>
@@ -4421,6 +4429,8 @@
         function enterApp() {
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('app').style.display = 'flex';
+            const fabReport = document.getElementById('fab-report');
+            if (fabReport) fabReport.style.display = 'flex';
             document.getElementById('player-name').innerText = currentUser.display_name;
             updateXPDisplay();
             loadProfile(); // also updates avatar + rank
@@ -7200,21 +7210,9 @@
                 const reportDiv = document.getElementById('public-profile-report');
                 if (currentUser && userId !== currentUser.id) {
                     reportDiv.innerHTML = `
-                        <button onclick="toggleReportForm()" style="background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;padding:6px 0;display:flex;align-items:center;gap:4px;">
-                            🚩 Пожаловаться на игрока
-                        </button>
-                        <div id="report-form-container" style="display:none;">
-                            <div class="report-form">
-                                <h4>🚩 Жалоба на ${profile.display_name}</h4>
-                                <input type="text" id="report-title" placeholder="Название проблемы" maxlength="100">
-                                <textarea id="report-desc" placeholder="Описание проблемы..." maxlength="1000"></textarea>
-                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                                    <label style="font-size:11px;color:var(--text-secondary);white-space:nowrap;">Штраф XP:</label>
-                                    <input type="number" id="report-xp" min="0" max="500" value="0" style="width:80px;">
-                                </div>
-                                <button class="report-btn" onclick="submitComplaint(${userId})">Отправить жалобу</button>
-                            </div>
-                        </div>`;
+                        <button onclick="openReportModal('player', ${userId}, '${(profile.display_name || '').replace(/'/g, "\\'")}')" style="background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;padding:6px 0;display:flex;align-items:center;gap:4px;">
+                            🚩 Репорт на игрока
+                        </button>`;
                 } else {
                     reportDiv.innerHTML = '';
                 }
@@ -7225,27 +7223,217 @@
             }
         }
 
-        function toggleReportForm() {
-            const container = document.getElementById('report-form-container');
-            if (container) container.style.display = container.style.display === 'none' ? 'block' : 'none';
+        // ==================== STANDALONE REPORT MODAL ====================
+        let _reportScreenshotData = '';
+
+        function openReportModal(type = '', targetId = 0, targetName = '') {
+            // Remove any existing report modal
+            document.querySelectorAll('.report-modal-overlay').forEach(el => el.remove());
+
+            _reportScreenshotData = '';
+
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay active report-modal-overlay';
+            overlay.style.zIndex = '400';
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+            const typeChecked = {
+                player: type === 'player' ? 'checked' : '',
+                bug: type === 'bug' ? 'checked' : '',
+                other: type === 'other' ? 'checked' : '',
+            };
+            if (!type) typeChecked.player = 'checked';
+
+            overlay.innerHTML = `
+                <div class="guild-create-dialog" style="max-width:520px; max-height:90vh; display:flex; flex-direction:column;">
+                    <div class="guild-create-header" style="flex-shrink:0;">
+                        <h2>📨 Новый репорт</h2>
+                        <button class="guild-close-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+                    </div>
+                    <div class="guild-create-body" style="padding:20px; overflow-y:auto; flex:1;">
+                        <!-- Type selector -->
+                        <div style="margin-bottom:16px;">
+                            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">Тип репорта</div>
+                            <div style="display:flex; gap:6px;" id="report-type-selector">
+                                <label style="flex:1; cursor:pointer;">
+                                    <input type="radio" name="report-type" value="player" ${typeChecked.player} onchange="reportTypeChanged()" style="display:none;">
+                                    <div class="report-type-btn" data-type="player" style="text-align:center; padding:12px 8px; border-radius:10px; background:rgba(255,255,255,0.04); border:2px solid transparent; transition:all 0.2s;">
+                                        <div style="font-size:20px;">👤</div>
+                                        <div style="font-size:11px; margin-top:4px; color:var(--text-secondary);">На игрока</div>
+                                    </div>
+                                </label>
+                                <label style="flex:1; cursor:pointer;">
+                                    <input type="radio" name="report-type" value="bug" ${typeChecked.bug} onchange="reportTypeChanged()" style="display:none;">
+                                    <div class="report-type-btn" data-type="bug" style="text-align:center; padding:12px 8px; border-radius:10px; background:rgba(255,255,255,0.04); border:2px solid transparent; transition:all 0.2s;">
+                                        <div style="font-size:20px;">🐛</div>
+                                        <div style="font-size:11px; margin-top:4px; color:var(--text-secondary);">Баг</div>
+                                    </div>
+                                </label>
+                                <label style="flex:1; cursor:pointer;">
+                                    <input type="radio" name="report-type" value="other" ${typeChecked.other} onchange="reportTypeChanged()" style="display:none;">
+                                    <div class="report-type-btn" data-type="other" style="text-align:center; padding:12px 8px; border-radius:10px; background:rgba(255,255,255,0.04); border:2px solid transparent; transition:all 0.2s;">
+                                        <div style="font-size:20px;">💬</div>
+                                        <div style="font-size:11px; margin-top:4px; color:var(--text-secondary);">Другое</div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Player target (only for player reports) -->
+                        <div id="report-target-section" style="${type === 'player' ? '' : 'display:none;'} margin-bottom:12px;">
+                            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:4px;">На кого жалоба</div>
+                            ${targetId ? `<div style="padding:8px 12px; background:rgba(255,255,255,0.06); border-radius:8px; font-size:13px; color:var(--text-bright);">👤 ${targetName} <span style="color:var(--text-secondary); font-size:11px;">(ID: ${targetId})</span></div>
+                                <input type="hidden" id="report-target-id" value="${targetId}">` :
+                    `<input type="number" id="report-target-id" placeholder="ID пользователя" min="1" style="width:100%; padding:8px 12px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:8px; color:var(--text-bright); font-size:13px;">`}
+                        </div>
+
+                        <!-- Title -->
+                        <div style="margin-bottom:12px;">
+                            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:4px;">Название</div>
+                            <input type="text" id="report-title" placeholder="Кратко опишите проблему" maxlength="100"
+                                style="width:100%; padding:8px 12px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:8px; color:var(--text-bright); font-size:13px;">
+                        </div>
+
+                        <!-- Description -->
+                        <div style="margin-bottom:12px;">
+                            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:4px;">Описание</div>
+                            <textarea id="report-desc" placeholder="Подробно опишите ситуацию..." maxlength="2000" rows="4"
+                                style="width:100%; padding:8px 12px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:8px; color:var(--text-bright); font-size:13px; resize:vertical;"></textarea>
+                        </div>
+
+                        <!-- XP section -->
+                        <div id="report-xp-section" style="margin-bottom:12px;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <div style="font-size:12px; color:var(--text-secondary); white-space:nowrap;" id="report-xp-label">
+                                    ${type === 'bug' ? '💰 Запрос XP баунти:' : '⚔️ Предложить штраф XP:'}
+                                </div>
+                                <input type="number" id="report-xp" min="0" max="500" value="0"
+                                    style="width:80px; padding:6px 10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:8px; color:var(--text-bright); font-size:13px;">
+                                <span style="font-size:11px; color:var(--text-secondary);">макс. 500</span>
+                            </div>
+                        </div>
+
+                        <!-- Screenshot upload -->
+                        <div style="margin-bottom:16px;">
+                            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:6px;">📷 Скриншот (необязательно, макс. 300KB)</div>
+                            <div style="display:flex; gap:8px; align-items:center;">
+                                <label style="cursor:pointer; padding:8px 16px; background:rgba(255,255,255,0.06); border:1px dashed rgba(255,255,255,0.15); border-radius:8px; font-size:12px; color:var(--text-secondary); transition:all 0.2s;"
+                                    onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.15)'">
+                                    📎 Выбрать файл
+                                    <input type="file" accept="image/*" onchange="handleReportScreenshot(event)" style="display:none;">
+                                </label>
+                                <span id="report-file-name" style="font-size:11px; color:var(--text-secondary);"></span>
+                            </div>
+                            <div id="report-screenshot-preview" style="margin-top:8px;"></div>
+                        </div>
+
+                        <!-- Submit -->
+                        <button onclick="submitReport()" style="width:100%; padding:12px; border:none; border-radius:10px; cursor:pointer; font-weight:700; font-size:14px; background:linear-gradient(135deg,#ffd700,#ffaa00,#ff8c00); color:#1a1a2e; box-shadow:0 0 12px rgba(255,215,0,0.3); transition:all 0.3s;"
+                            onmouseover="this.style.boxShadow='0 0 20px rgba(255,215,0,0.5)'; this.style.transform='translateY(-1px)'"
+                            onmouseout="this.style.boxShadow='0 0 12px rgba(255,215,0,0.3)'; this.style.transform='translateY(0)'">
+                            📨 Отправить репорт
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            reportTypeChanged();
         }
 
-        async function submitComplaint(targetUserId) {
+        function reportTypeChanged() {
+            const type = document.querySelector('input[name="report-type"]:checked')?.value || 'player';
+            const targetSection = document.getElementById('report-target-section');
+            const xpLabel = document.getElementById('report-xp-label');
+
+            // Toggle target section
+            if (targetSection) targetSection.style.display = type === 'player' ? '' : 'none';
+
+            // Update XP label
+            if (xpLabel) {
+                if (type === 'bug') xpLabel.textContent = '💰 Запрос XP баунти:';
+                else if (type === 'player') xpLabel.textContent = '⚔️ Предложить штраф XP:';
+                else xpLabel.textContent = '💬 XP (необязательно):';
+            }
+
+            // Style active type button
+            document.querySelectorAll('.report-type-btn').forEach(btn => {
+                btn.style.border = '2px solid transparent';
+                btn.style.background = 'rgba(255,255,255,0.04)';
+            });
+            const activeBtn = document.querySelector(`.report-type-btn[data-type="${type}"]`);
+            if (activeBtn) {
+                activeBtn.style.border = '2px solid var(--accent)';
+                activeBtn.style.background = 'rgba(139,92,246,0.15)';
+            }
+        }
+
+        function handleReportScreenshot(event) {
+            const file = event.target.files[0];
+            const nameEl = document.getElementById('report-file-name');
+            const previewEl = document.getElementById('report-screenshot-preview');
+            if (!file) return;
+
+            // Check size (300KB)
+            if (file.size > 300 * 1024) {
+                alert('Файл слишком большой. Максимум 300KB.');
+                event.target.value = '';
+                return;
+            }
+
+            if (!file.type.startsWith('image/')) {
+                alert('Можно загружать только изображения.');
+                event.target.value = '';
+                return;
+            }
+
+            nameEl.textContent = `${file.name} (${Math.round(file.size / 1024)}KB)`;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                _reportScreenshotData = e.target.result;
+                previewEl.innerHTML = `
+                    <div style="position:relative; display:inline-block;">
+                        <img src="${e.target.result}" style="max-width:100%; max-height:200px; border-radius:8px; border:1px solid rgba(255,255,255,0.1);">
+                        <button onclick="clearReportScreenshot()" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.7);border:none;color:#fff;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:12px;">✕</button>
+                    </div>`;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearReportScreenshot() {
+            _reportScreenshotData = '';
+            document.getElementById('report-file-name').textContent = '';
+            document.getElementById('report-screenshot-preview').innerHTML = '';
+        }
+
+        async function submitReport() {
+            const type = document.querySelector('input[name="report-type"]:checked')?.value || 'player';
             const title = document.getElementById('report-title')?.value?.trim();
             const desc = document.getElementById('report-desc')?.value?.trim();
             const xp = parseInt(document.getElementById('report-xp')?.value) || 0;
-            if (!title) { alert('Укажите название проблемы'); return; }
-            if (!desc) { alert('Укажите описание проблемы'); return; }
+            const targetId = parseInt(document.getElementById('report-target-id')?.value) || 0;
+
+            if (!title) { alert('Укажите название'); return; }
+            if (!desc) { alert('Укажите описание'); return; }
+            if (type === 'player' && !targetId) { alert('Укажите ID игрока'); return; }
+
             try {
                 const res = await fetch(`${API_URL}/api/complaints`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ target_user_id: targetUserId, title, description: desc, suggested_xp_penalty: xp })
+                    body: JSON.stringify({
+                        report_type: type,
+                        target_user_id: targetId,
+                        title,
+                        description: desc,
+                        suggested_xp_penalty: xp,
+                        screenshot_data: _reportScreenshotData
+                    })
                 });
                 const data = await res.json();
                 if (!res.ok) { alert(data.detail || 'Ошибка'); return; }
-                alert(data.message || 'Жалоба отправлена');
-                document.getElementById('report-form-container').style.display = 'none';
+                alert(data.message || 'Репорт отправлен');
+                document.querySelector('.report-modal-overlay')?.remove();
             } catch (e) { alert('Ошибка отправки'); }
         }
 
