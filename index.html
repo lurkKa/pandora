@@ -8146,6 +8146,9 @@
                                     </div>
                                 </div>
                             </div>
+                            <div style="text-align:center; margin:12px 0;">
+                                <button class="btn btn-run" onclick="this.closest('.modal-overlay').remove(); showGuildStats(${guild_id})" style="font-size:13px; padding:8px 20px;">📊 Подробная статистика</button>
+                            </div>
                             <div class="guild-section-title">👥 Участники (${(g.members || []).length})</div>
                             ${membersHtml || '<div style="color:var(--text-secondary);text-align:center;font-size:14px;">Нет данных</div>'}
                         </div>
@@ -8167,6 +8170,203 @@
                 }
             } catch (e) {
                 console.error('Failed to load guild detail:', e);
+            }
+        }
+
+        // ==================== GUILD: STATISTICS PANEL ====================
+        async function showGuildStats(guildId) {
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay active';
+            overlay.style.zIndex = '300';
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+            overlay.innerHTML = `
+                <div class="guild-create-dialog" style="max-width:680px;">
+                    <div class="guild-create-header">
+                        <h2>📊 Статистика гильдии</h2>
+                        <button class="guild-close-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+                    </div>
+                    <div class="guild-create-body" style="padding:24px; text-align:center;">
+                        <div style="color:var(--text-secondary);font-size:14px;">Загрузка...</div>
+                    </div>
+                </div>`;
+            document.body.appendChild(overlay);
+
+            try {
+                const res = await fetch(`${API_URL}/api/guilds/${guildId}/stats`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const d = await res.json();
+
+                const catIcons = { python: '🐍', javascript: '⚡', frontend: '🎨', scratch: '🐱' };
+
+                // Activity chart (last 30 days as bar chart)
+                const maxTasks = Math.max(1, ...d.daily_activity.map(a => a.tasks));
+                const chartBars = d.daily_activity.map(a => {
+                    const hPct = Math.max(4, (a.tasks / maxTasks) * 100);
+                    const dayLabel = a.date.slice(5); // MM-DD
+                    return `<div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;" title="${a.date}: ${a.tasks} задач">
+                        <div style="width:100%;max-width:16px;height:80px;display:flex;align-items:flex-end;">
+                            <div style="width:100%;height:${hPct}%;background:linear-gradient(180deg,var(--accent),rgba(139,92,246,0.4));border-radius:3px 3px 0 0;transition:height 0.3s;"></div>
+                        </div>
+                        <div style="font-size:8px;color:var(--text-secondary);margin-top:2px;transform:rotate(-45deg);white-space:nowrap;">${dayLabel}</div>
+                    </div>`;
+                }).join('');
+
+                // Category bars
+                const maxCat = Math.max(1, ...d.category_breakdown.map(c => c.count));
+                const catBars = d.category_breakdown.map(c => {
+                    const pct = Math.round((c.count / maxCat) * 100);
+                    const icon = catIcons[c.category] || '📜';
+                    return `<div style="margin-bottom:8px;">
+                        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-bright);margin-bottom:3px;">
+                            <span>${icon} ${c.category}</span><span>${c.count}</span>
+                        </div>
+                        <div style="height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">
+                            <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--accent),#4facfe);border-radius:3px;transition:width 0.3s;"></div>
+                        </div>
+                    </div>`;
+                }).join('');
+
+                // Top contributors
+                const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
+                const topHtml = d.top_contributors.map((c, i) => `
+                    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+                        <span style="font-size:16px;">${medals[i] || ''}</span>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:13px;color:var(--text-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.display_name}</div>
+                        </div>
+                        <div style="text-align:right;font-size:12px;">
+                            <div style="color:var(--text-bright);">${c.tasks_done} задач</div>
+                            <div style="color:var(--text-secondary);font-size:11px;">${c.xp_earned.toLocaleString()} XP</div>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Members table
+                const membersTable = d.members_summary.map(m => `
+                    <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+                        <td style="padding:6px 8px;font-size:12px;color:var(--text-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;">${m.display_name}</td>
+                        <td style="padding:6px 8px;font-size:12px;color:var(--text-secondary);text-align:center;">LV ${m.level}</td>
+                        <td style="padding:6px 8px;font-size:12px;color:var(--text-bright);text-align:right;">${m.xp.toLocaleString()}</td>
+                        <td style="padding:6px 8px;font-size:12px;color:var(--text-secondary);text-align:center;">${m.tasks_done}</td>
+                        <td style="padding:6px 8px;font-size:12px;color:${m.tasks_week > 0 ? 'var(--success)' : 'var(--text-secondary)'};text-align:center;">${m.tasks_week}</td>
+                    </tr>
+                `).join('');
+
+                const body = overlay.querySelector('.guild-create-body');
+                body.innerHTML = `
+                    <div style="text-align:left;">
+                        <!-- Overview cards -->
+                        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:20px;">
+                            <div style="background:rgba(139,92,246,0.12); border:1px solid rgba(139,92,246,0.2); border-radius:12px; padding:14px; text-align:center;">
+                                <div style="font-size:22px; font-weight:700; color:var(--accent-soft);">${d.overview.sum_xp.toLocaleString()}</div>
+                                <div style="font-size:11px; color:var(--text-secondary);">Общий XP</div>
+                            </div>
+                            <div style="background:rgba(79,172,254,0.12); border:1px solid rgba(79,172,254,0.2); border-radius:12px; padding:14px; text-align:center;">
+                                <div style="font-size:22px; font-weight:700; color:#4facfe;">${d.overview.total_tasks}</div>
+                                <div style="font-size:11px; color:var(--text-secondary);">Всего задач</div>
+                            </div>
+                            <div style="background:rgba(74,222,128,0.12); border:1px solid rgba(74,222,128,0.2); border-radius:12px; padding:14px; text-align:center;">
+                                <div style="font-size:22px; font-weight:700; color:var(--success);">${d.overview.avg_level}</div>
+                                <div style="font-size:11px; color:var(--text-secondary);">Средний уровень</div>
+                            </div>
+                        </div>
+
+                        <!-- Period stats -->
+                        <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; margin-bottom:20px;">
+                            <div style="background:rgba(255,255,255,0.04); border-radius:12px; padding:14px;">
+                                <div style="font-size:13px; font-weight:600; color:var(--text-bright); margin-bottom:10px;">📋 Задачи по периодам</div>
+                                <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-secondary); padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.04);">
+                                    <span>Сегодня</span><span style="color:var(--text-bright); font-weight:600;">${d.period.tasks_today}</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-secondary); padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.04);">
+                                    <span>За неделю</span><span style="color:var(--text-bright); font-weight:600;">${d.period.tasks_week}</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-secondary); padding:4px 0;">
+                                    <span>За месяц</span><span style="color:var(--text-bright); font-weight:600;">${d.period.tasks_month}</span>
+                                </div>
+                            </div>
+                            <div style="background:rgba(255,255,255,0.04); border-radius:12px; padding:14px;">
+                                <div style="font-size:13px; font-weight:600; color:var(--text-bright); margin-bottom:10px;">⚡ XP по периодам</div>
+                                <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-secondary); padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.04);">
+                                    <span>Сегодня</span><span style="color:var(--accent-soft); font-weight:600;">+${d.period.xp_today.toLocaleString()}</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-secondary); padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.04);">
+                                    <span>За неделю</span><span style="color:var(--accent-soft); font-weight:600;">+${d.period.xp_week.toLocaleString()}</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-secondary); padding:4px 0;">
+                                    <span>За месяц</span><span style="color:var(--accent-soft); font-weight:600;">+${d.period.xp_month.toLocaleString()}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Averages row -->
+                        <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-bottom:20px;">
+                            <div style="background:rgba(255,255,255,0.03); border-radius:10px; padding:10px; text-align:center;">
+                                <div style="font-size:16px; font-weight:700; color:var(--text-bright);">${d.overview.avg_xp.toLocaleString()}</div>
+                                <div style="font-size:10px; color:var(--text-secondary);">Cредний XP</div>
+                            </div>
+                            <div style="background:rgba(255,255,255,0.03); border-radius:10px; padding:10px; text-align:center;">
+                                <div style="font-size:16px; font-weight:700; color:var(--text-bright);">${d.overview.max_level}</div>
+                                <div style="font-size:10px; color:var(--text-secondary);">Макс. уровень</div>
+                            </div>
+                            <div style="background:rgba(255,255,255,0.03); border-radius:10px; padding:10px; text-align:center;">
+                                <div style="font-size:16px; font-weight:700; color:var(--text-bright);">${d.streaks.avg_streak}</div>
+                                <div style="font-size:10px; color:var(--text-secondary);">Ср. серия дн.</div>
+                            </div>
+                            <div style="background:rgba(255,255,255,0.03); border-radius:10px; padding:10px; text-align:center;">
+                                <div style="font-size:16px; font-weight:700; color:var(--success);">${d.streaks.best_streak} 🔥</div>
+                                <div style="font-size:10px; color:var(--text-secondary);">Лучшая серия</div>
+                            </div>
+                        </div>
+
+                        ${d.daily_activity.length > 0 ? `
+                        <!-- Activity chart -->
+                        <div style="background:rgba(255,255,255,0.03); border-radius:12px; padding:14px; margin-bottom:20px;">
+                            <div style="font-size:13px; font-weight:600; color:var(--text-bright); margin-bottom:10px;">📈 Активность (30 дней)</div>
+                            <div style="display:flex; gap:2px; align-items:flex-end; height:110px; overflow-x:auto;">
+                                ${chartBars}
+                            </div>
+                        </div>` : ''}
+
+                        ${d.category_breakdown.length > 0 ? `
+                        <!-- Category breakdown -->
+                        <div style="background:rgba(255,255,255,0.03); border-radius:12px; padding:14px; margin-bottom:20px;">
+                            <div style="font-size:13px; font-weight:600; color:var(--text-bright); margin-bottom:10px;">📂 По категориям</div>
+                            ${catBars}
+                        </div>` : ''}
+
+                        ${d.top_contributors.length > 0 ? `
+                        <!-- Top contributors -->
+                        <div style="background:rgba(255,255,255,0.03); border-radius:12px; padding:14px; margin-bottom:20px;">
+                            <div style="font-size:13px; font-weight:600; color:var(--text-bright); margin-bottom:10px;">🏅 Топ участники</div>
+                            ${topHtml}
+                        </div>` : ''}
+
+                        <!-- Members table -->
+                        <div style="background:rgba(255,255,255,0.03); border-radius:12px; padding:14px;">
+                            <div style="font-size:13px; font-weight:600; color:var(--text-bright); margin-bottom:10px;">👥 Все участники (${d.members})</div>
+                            <div style="overflow-x:auto;">
+                                <table style="width:100%; border-collapse:collapse;">
+                                    <thead>
+                                        <tr style="border-bottom:2px solid rgba(255,255,255,0.08);">
+                                            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text-secondary);">Имя</th>
+                                            <th style="text-align:center;padding:6px 8px;font-size:11px;color:var(--text-secondary);">Ур.</th>
+                                            <th style="text-align:right;padding:6px 8px;font-size:11px;color:var(--text-secondary);">XP</th>
+                                            <th style="text-align:center;padding:6px 8px;font-size:11px;color:var(--text-secondary);">Всего</th>
+                                            <th style="text-align:center;padding:6px 8px;font-size:11px;color:var(--text-secondary);">Неделя</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${membersTable}</tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } catch (e) {
+                const body = overlay.querySelector('.guild-create-body');
+                body.innerHTML = `<div style="color:var(--danger);font-size:14px;text-align:center;padding:30px;">Ошибка загрузки: ${e.message}</div>`;
             }
         }
 

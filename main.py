@@ -7944,6 +7944,186 @@ def get_guild_achievements(user: dict = Depends(require_auth)):
     }
 
 
+# ==================== GUILD STATISTICS ====================
+
+@app.get("/api/guilds/{guild_id}/stats")
+def get_guild_stats(guild_id: int, user: dict = Depends(require_auth)):
+    """Detailed guild statistics: activity, XP, tasks by period, top contributors, category breakdown."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        # Verify guild exists & not disbanded
+        cursor.execute("SELECT id, name, created_at FROM guilds WHERE id = ? AND disbanded_at IS NULL", (guild_id,))
+        guild = cursor.fetchone()
+        if not guild:
+            raise HTTPException(404, "Гильдия не найдена")
+
+        # Get member user_ids
+        cursor.execute("SELECT user_id FROM guild_members WHERE guild_id = ?", (guild_id,))
+        member_ids = [r["user_id"] for r in cursor.fetchall()]
+        if not member_ids:
+            return {"guild_id": guild_id, "name": guild["name"], "members": 0, "error": "Нет участников"}
+
+        placeholders = ",".join("?" * len(member_ids))
+
+        # ── Overview ──
+        cursor.execute(f"""
+            SELECT COUNT(*) as total_tasks,
+                   COALESCE(SUM(xp_earned), 0) as total_xp_earned
+            FROM completed_tasks
+            WHERE user_id IN ({placeholders}) AND is_valid != 0
+        """, member_ids)
+        overview = cursor.fetchone()
+        total_tasks = overview["total_tasks"]
+        total_xp_earned = overview["total_xp_earned"]
+
+        # Members' current XP totals
+        cursor.execute(f"""
+            SELECT COALESCE(SUM(xp), 0) as sum_xp,
+                   COALESCE(AVG(xp), 0) as avg_xp,
+                   COALESCE(AVG(level), 0) as avg_level,
+                   MAX(level) as max_level
+            FROM users WHERE id IN ({placeholders})
+        """, member_ids)
+        user_agg = cursor.fetchone()
+
+        # ── Tasks by period ──
+        cursor.execute(f"""
+            SELECT COUNT(*) FROM completed_tasks
+            WHERE user_id IN ({placeholders}) AND is_valid != 0
+              AND DATE(completed_at) = DATE('now')
+        """, member_ids)
+        tasks_today = cursor.fetchone()[0]
+
+        cursor.execute(f"""
+            SELECT COUNT(*) FROM completed_tasks
+            WHERE user_id IN ({placeholders}) AND is_valid != 0
+              AND completed_at >= DATE('now', '-7 days')
+        """, member_ids)
+        tasks_week = cursor.fetchone()[0]
+
+        cursor.execute(f"""
+            SELECT COUNT(*) FROM completed_tasks
+            WHERE user_id IN ({placeholders}) AND is_valid != 0
+              AND completed_at >= DATE('now', '-30 days')
+        """, member_ids)
+        tasks_month = cursor.fetchone()[0]
+
+        # ── XP by period ──
+        cursor.execute(f"""
+            SELECT COALESCE(SUM(xp_change), 0) FROM xp_log
+            WHERE user_id IN ({placeholders}) AND xp_change > 0
+              AND DATE(logged_at) = DATE('now')
+        """, member_ids)
+        xp_today = cursor.fetchone()[0]
+
+        cursor.execute(f"""
+            SELECT COALESCE(SUM(xp_change), 0) FROM xp_log
+            WHERE user_id IN ({placeholders}) AND xp_change > 0
+              AND logged_at >= DATE('now', '-7 days')
+        """, member_ids)
+        xp_week = cursor.fetchone()[0]
+
+        cursor.execute(f"""
+            SELECT COALESCE(SUM(xp_change), 0) FROM xp_log
+            WHERE user_id IN ({placeholders}) AND xp_change > 0
+              AND logged_at >= DATE('now', '-30 days')
+        """, member_ids)
+        xp_month = cursor.fetchone()[0]
+
+        # ── Daily activity (last 30 days) ──
+        cursor.execute(f"""
+            SELECT DATE(completed_at) as day, COUNT(*) as cnt
+            FROM completed_tasks
+            WHERE user_id IN ({placeholders}) AND is_valid != 0
+              AND completed_at >= DATE('now', '-30 days')
+            GROUP BY DATE(completed_at)
+            ORDER BY day
+        """, member_ids)
+        daily_activity = [{"date": r["day"], "tasks": r["cnt"]} for r in cursor.fetchall()]
+
+        # ── Tasks by category ──
+        tasks_data = load_tasks()
+        tasks_map = {t.get("id"): t for t in tasks_data.get("tasks", []) if t.get("id")}
+
+        cursor.execute(f"""
+            SELECT task_id FROM completed_tasks
+            WHERE user_id IN ({placeholders}) AND is_valid != 0
+        """, member_ids)
+        completed_ids = [r["task_id"] for r in cursor.fetchall()]
+        from collections import Counter as _Counter
+        cat_counts = _Counter()
+        for tid in completed_ids:
+            t = tasks_map.get(tid)
+            if t:
+                cat_counts[t.get("category", "other")] += 1
+        category_breakdown = [{"category": k, "count": v} for k, v in cat_counts.most_common()]
+
+        # ── Top contributors (by tasks) ──
+        cursor.execute(f"""
+            SELECT ct.user_id, u.display_name,
+                   COUNT(*) as tasks_done,
+                   COALESCE(SUM(ct.xp_earned), 0) as xp_earned
+            FROM completed_tasks ct
+            JOIN users u ON u.id = ct.user_id
+            WHERE ct.user_id IN ({placeholders}) AND ct.is_valid != 0
+            GROUP BY ct.user_id
+            ORDER BY tasks_done DESC
+            LIMIT 5
+        """, member_ids)
+        top_contributors = [dict(r) for r in cursor.fetchall()]
+
+        # ── Average streaks ──
+        cursor.execute(f"""
+            SELECT COALESCE(AVG(streak_days), 0) as avg_streak,
+                   COALESCE(MAX(best_streak), 0) as best_streak
+            FROM user_stats WHERE user_id IN ({placeholders})
+        """, member_ids)
+        streak_row = cursor.fetchone()
+
+        # ── Per-member summary ──
+        cursor.execute(f"""
+            SELECT u.id, u.display_name, u.xp, u.level,
+                   (SELECT COUNT(*) FROM completed_tasks WHERE user_id = u.id AND is_valid != 0) as tasks_done,
+                   (SELECT COUNT(*) FROM completed_tasks WHERE user_id = u.id AND is_valid != 0
+                    AND completed_at >= DATE('now', '-7 days')) as tasks_week
+            FROM users u
+            WHERE u.id IN ({placeholders})
+            ORDER BY u.xp DESC
+        """, member_ids)
+        members_summary = [dict(r) for r in cursor.fetchall()]
+
+    return {
+        "guild_id": guild_id,
+        "name": guild["name"],
+        "members": len(member_ids),
+        "overview": {
+            "total_tasks": total_tasks,
+            "total_xp_earned": total_xp_earned,
+            "sum_xp": user_agg["sum_xp"],
+            "avg_xp": round(user_agg["avg_xp"]),
+            "avg_level": round(float(user_agg["avg_level"]), 1),
+            "max_level": user_agg["max_level"],
+        },
+        "period": {
+            "tasks_today": tasks_today,
+            "tasks_week": tasks_week,
+            "tasks_month": tasks_month,
+            "xp_today": xp_today,
+            "xp_week": xp_week,
+            "xp_month": xp_month,
+        },
+        "daily_activity": daily_activity,
+        "category_breakdown": category_breakdown,
+        "top_contributors": top_contributors,
+        "streaks": {
+            "avg_streak": round(float(streak_row["avg_streak"]), 1),
+            "best_streak": streak_row["best_streak"],
+        },
+        "members_summary": members_summary,
+    }
+
+
 # ==================== MOST ACTIVE STUDENT ====================
 
 @app.get("/api/most-active-student")
