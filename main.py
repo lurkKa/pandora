@@ -8275,12 +8275,27 @@ def submit_complaint(data: ComplaintRequest, user: dict = Depends(require_auth))
             if cursor.fetchone()[0] >= 3:
                 raise HTTPException(429, "Слишком много репортов. Подождите час.")
 
+            # For bug/other reports with no target, temporarily disable FK checks
+            # because deployed DB may have FK constraint on target_user_id
+            _fk_off = target_id is None
+            if _fk_off:
+                try:
+                    conn.execute("PRAGMA foreign_keys = OFF")
+                except Exception:
+                    pass
+
             cursor.execute("""
                 INSERT INTO complaints (reporter_id, target_user_id, report_type, title, description, suggested_xp_penalty, screenshot_data)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (user["id"], target_id or 0, data.report_type, data.title.strip(),
                   data.description.strip(), data.suggested_xp_penalty, screenshot or None))
             conn.commit()
+
+            if _fk_off:
+                try:
+                    conn.execute("PRAGMA foreign_keys = ON")
+                except Exception:
+                    pass
     except HTTPException:
         raise
     except Exception as e:
