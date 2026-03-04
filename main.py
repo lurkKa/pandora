@@ -8278,7 +8278,7 @@ def submit_complaint(data: ComplaintRequest, user: dict = Depends(require_auth))
             cursor.execute("""
                 INSERT INTO complaints (reporter_id, target_user_id, report_type, title, description, suggested_xp_penalty, screenshot_data)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (user["id"], target_id, data.report_type, data.title.strip(),
+            """, (user["id"], target_id or 0, data.report_type, data.title.strip(),
                   data.description.strip(), data.suggested_xp_penalty, screenshot or None))
             conn.commit()
     except HTTPException:
