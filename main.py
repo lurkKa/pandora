@@ -926,8 +926,10 @@ def init_db():
         ]:
             try:
                 cursor.execute(col_stmt)
-            except sqlite3.OperationalError:
-                pass
+            except sqlite3.OperationalError as _col_err:
+                _col_msg = str(_col_err).lower()
+                if "duplicate" not in _col_msg and "already" not in _col_msg:
+                    logger.warning("Migration column add failed: %s — %s", col_stmt, _col_err)
 
         for stmt in [
             "ALTER TABLE completed_tasks ADD COLUMN code_simhash TEXT",
@@ -8243,34 +8245,50 @@ def submit_complaint(data: ComplaintRequest, user: dict = Depends(require_auth))
         if threats:
             raise HTTPException(400, "Обнаружен подозрительный ввод")
 
-    with get_db() as conn:
-        cursor = conn.cursor()
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
 
-        # Check target exists for player reports
-        target_id = None
-        if data.report_type == "player" and data.target_user_id:
-            cursor.execute("SELECT id FROM users WHERE id = ?", (data.target_user_id,))
-            if not cursor.fetchone():
-                raise HTTPException(404, "Пользователь не найден")
-            target_id = data.target_user_id
+            # Ensure report columns exist (self-heal if migration was missed)
+            for _col_stmt in [
+                "ALTER TABLE complaints ADD COLUMN report_type TEXT DEFAULT 'player'",
+                "ALTER TABLE complaints ADD COLUMN screenshot_data TEXT",
+            ]:
+                try:
+                    cursor.execute(_col_stmt)
+                except sqlite3.OperationalError:
+                    pass
 
-        # Rate limit: max 3 reports per hour
-        cursor.execute("""
-            SELECT COUNT(*) FROM complaints
-            WHERE reporter_id = ? AND created_at > datetime('now', '-1 hour')
-        """, (user["id"],))
-        if cursor.fetchone()[0] >= 3:
-            raise HTTPException(429, "Слишком много репортов. Подождите час.")
+            # Check target exists for player reports
+            target_id = None
+            if data.report_type == "player" and data.target_user_id:
+                cursor.execute("SELECT id FROM users WHERE id = ?", (data.target_user_id,))
+                if not cursor.fetchone():
+                    raise HTTPException(404, "Пользователь не найден")
+                target_id = data.target_user_id
 
-        cursor.execute("""
-            INSERT INTO complaints (reporter_id, target_user_id, report_type, title, description, suggested_xp_penalty, screenshot_data)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (user["id"], target_id, data.report_type, data.title.strip(),
-              data.description.strip(), data.suggested_xp_penalty, screenshot or None))
-        conn.commit()
+            # Rate limit: max 3 reports per hour
+            cursor.execute("""
+                SELECT COUNT(*) FROM complaints
+                WHERE reporter_id = ? AND created_at > datetime('now', '-1 hour')
+            """, (user["id"],))
+            if cursor.fetchone()[0] >= 3:
+                raise HTTPException(429, "Слишком много репортов. Подождите час.")
+
+            cursor.execute("""
+                INSERT INTO complaints (reporter_id, target_user_id, report_type, title, description, suggested_xp_penalty, screenshot_data)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (user["id"], target_id, data.report_type, data.title.strip(),
+                  data.description.strip(), data.suggested_xp_penalty, screenshot or None))
+            conn.commit()
+    except HTTPException:
+        raise
+    except Exception as e:
+        log_error("submit_complaint", e)
+        raise HTTPException(500, f"Ошибка сохранения репорта: {type(e).__name__}")
 
     type_labels = {"player": "Жалоба", "bug": "Баг-репорт", "other": "Обращение"}
-    log_action(user["id"], user["username"], "report_submitted",
+    log_action(user["id"], user.get("username", "?"), "report_submitted",
                f"type={data.report_type} title={data.title[:50]}")
     return {"message": f"{type_labels.get(data.report_type, 'Репорт')} отправлен. Администратор рассмотрит."}
 
@@ -8308,9 +8326,10 @@ def admin_resolve_complaint(complaint_id: int, data: ComplaintResolveRequest, ad
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM complaints WHERE id = ?", (complaint_id,))
-        complaint = cursor.fetchone()
-        if not complaint:
+        row = cursor.fetchone()
+        if not row:
             raise HTTPException(404, "Репорт не найден")
+        complaint = dict(row)
         if complaint["status"] != "pending":
             raise HTTPException(400, "Репорт уже рассмотрен")
 
@@ -8337,7 +8356,7 @@ def admin_resolve_complaint(complaint_id: int, data: ComplaintResolveRequest, ad
         conn.commit()
 
     xp_sign = "+" if report_type == "bug" else "-"
-    log_action(admin["id"], admin["username"], "report_resolved",
+    log_action(admin["id"], admin.get("username", "admin"), "report_resolved",
                details=f"report={complaint_id} type={report_type} status={data.status} xp={xp_sign}{xp_applied}")
     return {"message": f"Репорт {data.status}", "xp_applied": xp_applied}
 
