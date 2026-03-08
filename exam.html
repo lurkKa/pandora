@@ -744,9 +744,98 @@
         let antiCheatHiddenAt = 0;
         let antiCheatLastReportAt = 0;
         let antiCheatBlurTimer = null;
+        let antiCheatWatchdogTimer = null;
+        let antiCheatAwayStartedAt = 0;
+        let antiCheatAwaySources = {};
+        let antiCheatAwaitRefocus = false;
         const EXAM_SCRATCH_MAX_MB = 10;
-        const ANTI_CHEAT_MIN_HIDDEN_MS = 450;
+        const ANTI_CHEAT_MIN_HIDDEN_MS = 550;
         const ANTI_CHEAT_COOLDOWN_MS = 4000;
+        const ANTI_CHEAT_WATCHDOG_MS = 250;
+
+        function stopAntiCheatWatchdog() {
+            if (!antiCheatWatchdogTimer) return;
+            clearInterval(antiCheatWatchdogTimer);
+            antiCheatWatchdogTimer = null;
+        }
+
+        function resetAntiCheatRuntime(keepCooldown = false) {
+            antiCheatHiddenAt = 0;
+            antiCheatAwayStartedAt = 0;
+            antiCheatAwaySources = {};
+            antiCheatAwaitRefocus = false;
+            if (!keepCooldown) antiCheatLastReportAt = 0;
+            if (antiCheatBlurTimer) {
+                clearTimeout(antiCheatBlurTimer);
+                antiCheatBlurTimer = null;
+            }
+        }
+
+        function noteAwaySource(source) {
+            if (!source) return;
+            antiCheatAwaySources[source] = true;
+        }
+
+        function resolveAwayEventType() {
+            if (antiCheatAwaySources.visibility || antiCheatAwaySources.watchdog_hidden || antiCheatAwaySources.hidden) {
+                return 'tab_switch';
+            }
+            return 'visibility';
+        }
+
+        function flushAwayTracking() {
+            if (!antiCheatAwayStartedAt) return;
+            const awayDuration = Date.now() - antiCheatAwayStartedAt;
+            const eventType = resolveAwayEventType();
+
+            antiCheatAwayStartedAt = 0;
+            antiCheatAwaySources = {};
+            if (antiCheatBlurTimer) {
+                clearTimeout(antiCheatBlurTimer);
+                antiCheatBlurTimer = null;
+            }
+
+            if (!isAntiCheatActive() || isScratchTask()) return;
+            if (awayDuration < ANTI_CHEAT_MIN_HIDDEN_MS) return;
+            antiCheatAwaitRefocus = true;
+            reportCheat(eventType);
+        }
+
+        function beginAwayTracking(source) {
+            if (!isAntiCheatActive() || isScratchTask()) return;
+            if (antiCheatAwaitRefocus) return;
+            noteAwaySource(source);
+            if (!antiCheatAwayStartedAt) antiCheatAwayStartedAt = Date.now();
+            if (antiCheatBlurTimer) return;
+            antiCheatBlurTimer = setTimeout(() => {
+                antiCheatBlurTimer = null;
+                flushAwayTracking();
+            }, ANTI_CHEAT_MIN_HIDDEN_MS + 60);
+        }
+
+        function endAwayTracking(source) {
+            noteAwaySource(source);
+            flushAwayTracking();
+        }
+
+        function ensureAntiCheatWatchdog() {
+            if (!isAntiCheatActive() || isScratchTask()) return;
+            if (antiCheatWatchdogTimer) return;
+            antiCheatWatchdogTimer = setInterval(() => {
+                if (!isAntiCheatActive() || isScratchTask()) {
+                    stopAntiCheatWatchdog();
+                    return;
+                }
+                const hidden = document.hidden || document.visibilityState === 'hidden';
+                const outOfFocus = hidden || !document.hasFocus();
+                if (outOfFocus) {
+                    beginAwayTracking(hidden ? 'watchdog_hidden' : 'watchdog_blur');
+                } else {
+                    antiCheatAwaitRefocus = false;
+                    endAwayTracking('watchdog_focus');
+                }
+            }, ANTI_CHEAT_WATCHDOG_MS);
+        }
 
         // ==================== LOGIN ====================
         async function examLogin() {
@@ -933,6 +1022,8 @@
 
         function showTaskLocked() {
             taskStarted = false;
+            stopAntiCheatWatchdog();
+            resetAntiCheatRuntime(true);
             document.getElementById('editor-wrap').style.display = 'none';
             document.getElementById('submit-row').style.display = 'none';
             setScratchTaskUiVisible(isScratchTask());
@@ -944,12 +1035,8 @@
 
         function showTaskActive() {
             taskStarted = true;
-            antiCheatHiddenAt = 0;
-            antiCheatLastReportAt = 0;
-            if (antiCheatBlurTimer) {
-                clearTimeout(antiCheatBlurTimer);
-                antiCheatBlurTimer = null;
-            }
+            resetAntiCheatRuntime();
+            ensureAntiCheatWatchdog();
             document.getElementById('editor-wrap').style.display = isScratchTask() ? 'none' : 'block';
             setScratchTaskUiVisible(isScratchTask());
             document.getElementById('submit-row').style.display = 'flex';
@@ -1022,6 +1109,8 @@
         function applySubmitResult(result, msg) {
             if (timerInterval) clearInterval(timerInterval);
             taskStarted = false;
+            stopAntiCheatWatchdog();
+            resetAntiCheatRuntime(true);
             if (result && result.status === 'pending_review') {
                 msg.innerText = '📨 Отправлено на ревью Sensei. Оценка появится после проверки.';
                 msg.style.color = 'var(--warning)';
@@ -1102,50 +1191,56 @@
                 if (!isAntiCheatActive()) return;
                 if (document.hidden) {
                     antiCheatHiddenAt = Date.now();
-                    return;
+                    beginAwayTracking('visibility');
+                } else {
+                    antiCheatHiddenAt = 0;
+                    antiCheatAwaitRefocus = false;
+                    endAwayTracking('visible');
                 }
-                if (!antiCheatHiddenAt) return;
-                const hiddenMs = Date.now() - antiCheatHiddenAt;
-                antiCheatHiddenAt = 0;
-                if (isScratchTask()) return;
-                if (hiddenMs < ANTI_CHEAT_MIN_HIDDEN_MS) return;
-                reportCheat('tab_switch');
             });
 
-            // Fallback: some browsers/OS combos do not reliably emit tab-switch shortcuts.
-            // If page stays hidden after blur for a short grace period, treat it as a switch.
             window.addEventListener('blur', () => {
                 if (!isAntiCheatActive() || isScratchTask()) return;
                 if (!antiCheatHiddenAt) antiCheatHiddenAt = Date.now();
-                if (antiCheatBlurTimer) clearTimeout(antiCheatBlurTimer);
-                antiCheatBlurTimer = setTimeout(() => {
-                    antiCheatBlurTimer = null;
-                    if (!isAntiCheatActive() || isScratchTask()) return;
-                    if (document.hidden || document.visibilityState === 'hidden') {
-                        const hiddenMs = Date.now() - (antiCheatHiddenAt || Date.now());
-                        if (hiddenMs >= ANTI_CHEAT_MIN_HIDDEN_MS) {
-                            reportCheat('visibility');
-                        }
-                    }
-                }, ANTI_CHEAT_MIN_HIDDEN_MS + 120);
+                beginAwayTracking('blur');
             });
 
             window.addEventListener('focus', () => {
-                if (antiCheatBlurTimer) {
-                    clearTimeout(antiCheatBlurTimer);
-                    antiCheatBlurTimer = null;
-                }
+                antiCheatHiddenAt = 0;
+                antiCheatAwaitRefocus = false;
+                endAwayTracking('focus');
             });
 
             // Keyboard shortcuts
             document.addEventListener('keydown', (e) => {
                 if (!isAntiCheatActive()) return;
                 if (isScratchTask()) return;
-                if ((e.ctrlKey || e.metaKey) && e.key === 'Tab') {
-                    reportCheat('ctrl_tab');
+                const key = String(e.key || '');
+                const keyLower = key.toLowerCase();
+                const modifierOnly = key === 'Control' || key === 'Shift' || key === 'Alt' || key === 'Meta';
+                const hasControlLikeModifier = e.ctrlKey || e.metaKey || e.altKey;
+                const isAllowedCopyPaste =
+                    !e.altKey &&
+                    (e.ctrlKey || e.metaKey) &&
+                    (keyLower === 'c' || keyLower === 'v');
+
+                if (key === 'F12') {
+                    e.preventDefault();
+                    reportCheat('shortcut');
+                    return;
                 }
-                if (e.altKey && e.key === 'Tab') {
-                    reportCheat('alt_tab');
+
+                if (hasControlLikeModifier && !modifierOnly && !isAllowedCopyPaste) {
+                    e.preventDefault();
+                    if ((e.ctrlKey || e.metaKey) && key === 'Tab') {
+                        reportCheat('ctrl_tab');
+                        return;
+                    }
+                    if (e.altKey && key === 'Tab') {
+                        reportCheat('alt_tab');
+                        return;
+                    }
+                    reportCheat('shortcut');
                 }
             });
 
@@ -1287,6 +1382,8 @@
         // ==================== FINISH SCREEN ====================
         function showFinishScreen(status) {
             taskStarted = false;
+            stopAntiCheatWatchdog();
+            resetAntiCheatRuntime(true);
             document.getElementById('exam-screen').style.display = 'none';
             document.getElementById('finish-screen').style.display = 'flex';
             document.getElementById('finish-xp').innerText = `${status.total_xp} XP`;
