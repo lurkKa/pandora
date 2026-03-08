@@ -356,6 +356,23 @@ def init_db():
                 UNIQUE(user_id, task_id)
             )
         """)
+
+        # Per-task semantic solution methods (for multi-solution XP progression)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS task_solution_methods (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                task_id TEXT NOT NULL,
+                method_index INTEGER NOT NULL,
+                method_simhash TEXT,
+                code_language TEXT,
+                solution TEXT,
+                xp_earned INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                UNIQUE(user_id, task_id, method_index)
+            )
+        """)
         
         # Submissions (manual review, integrity review, Scratch artifacts)
         cursor.execute("""
@@ -803,6 +820,8 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_stats_user ON user_stats(user_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_completed_tasks_user ON completed_tasks(user_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_completed_tasks_valid ON completed_tasks(user_id, is_valid)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_solution_methods_user_task ON task_solution_methods(user_id, task_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_solution_methods_simhash ON task_solution_methods(task_id, method_simhash)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_submissions_user_task_status ON submissions(user_id, task_id, status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_task_attempts_user_task_time ON task_attempts(user_id, task_id, created_at DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_chat_messages_time ON chat_messages(created_at DESC)")
@@ -1514,6 +1533,65 @@ def _token_hash(token: str) -> str:
     """Hash raw bearer tokens before storing in DB (prevents token reuse if DB leaks)."""
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
+try:
+    METHOD_XP_STEP = float(os.getenv("PANDORA_METHOD_XP_STEP", "0.10"))
+except (TypeError, ValueError):
+    METHOD_XP_STEP = 0.10
+METHOD_XP_STEP = max(0.0, min(1.0, METHOD_XP_STEP))
+
+try:
+    METHOD_SIMHASH_DISTANCE_THRESHOLD = int(os.getenv("PANDORA_METHOD_SIMHASH_DISTANCE", "8"))
+except (TypeError, ValueError):
+    METHOD_SIMHASH_DISTANCE_THRESHOLD = 8
+METHOD_SIMHASH_DISTANCE_THRESHOLD = max(0, min(64, METHOD_SIMHASH_DISTANCE_THRESHOLD))
+
+
+def _solution_method_simhash(solution: str, code_simhash: str, code_language: Optional[str]) -> str:
+    provided = str(code_simhash or "").strip().lower()
+    if provided:
+        return provided
+    source = (solution or "").strip()
+    if not source:
+        return ""
+    try:
+        return code_simhash_hex(source, code_language or "")
+    except Exception:
+        return ""
+
+
+def _ensure_legacy_method_seeded(cursor, user_id: int, task_id: str, completion_row, code_language: Optional[str]) -> None:
+    """Backfill method #1 for old completion rows that predate task_solution_methods."""
+    if not completion_row:
+        return
+    cursor.execute(
+        "SELECT COUNT(*) as cnt FROM task_solution_methods WHERE user_id = ? AND task_id = ?",
+        (user_id, task_id),
+    )
+    if int(cursor.fetchone()["cnt"] or 0) > 0:
+        return
+
+    legacy_solution = completion_row["solution"] if "solution" in completion_row.keys() else None
+    legacy_simhash = _solution_method_simhash(
+        legacy_solution,
+        completion_row["code_simhash"] if "code_simhash" in completion_row.keys() else None,
+        code_language,
+    )
+    if not legacy_simhash:
+        return
+
+    legacy_xp = int(completion_row["xp_earned"] or 0)
+    try:
+        cursor.execute(
+            """
+            INSERT INTO task_solution_methods (user_id, task_id, method_index, method_simhash, code_language, solution, xp_earned)
+            VALUES (?, ?, 1, ?, ?, ?, ?)
+            """,
+            (user_id, task_id, legacy_simhash, code_language, legacy_solution, legacy_xp),
+        )
+    except sqlite3.IntegrityError:
+        pass
+
+
 def process_task_completion(
     cursor,
     user_id: int,
@@ -1522,39 +1600,106 @@ def process_task_completion(
     solution: str = None,
     code_simhash: str = None,
     is_retry: bool = False,
+    code_language: str = None,
+    allow_multiple_methods: bool = True,
 ) -> dict:
     """
-    Centralized logic to award XP, update level, handling streaks and events.
-    On retry: if new XP > previous XP, awards delta only.
-    Returns dict with update details.
+    Centralized logic to award XP/level updates on task completion.
+    Supports multiple semantic solution methods per task:
+    - first solution unlocks the task
+    - each new semantic method earns extra XP (+10% per method by default)
+    - repeated same method does not award XP
     """
-    # 1. Mark as completed (or handle retry)
-    retry_delta = 0
-    try:
+    del is_retry  # legacy flag; semantic method logic now decides repeat handling.
+
+    task_base_xp = max(0, int(base_xp or 0))
+    candidate_simhash = _solution_method_simhash(solution, code_simhash, code_language)
+
+    cursor.execute(
+        """
+        SELECT id, xp_earned, solution, code_simhash
+        FROM completed_tasks
+        WHERE user_id = ? AND task_id = ?
+        """,
+        (user_id, task_id),
+    )
+    completion_row = cursor.fetchone()
+    is_first_completion = completion_row is None
+
+    if not is_first_completion and not allow_multiple_methods:
+        return {"status": "already_completed", "xp_earned": 0}
+
+    if is_first_completion:
         cursor.execute(
-            "INSERT INTO completed_tasks (user_id, task_id, solution, xp_earned, code_simhash) VALUES (?, ?, ?, ?, ?)",
-            (user_id, task_id, solution, base_xp, code_simhash)
+            """
+            INSERT INTO completed_tasks (user_id, task_id, solution, xp_earned, code_simhash)
+            VALUES (?, ?, ?, 0, ?)
+            """,
+            (user_id, task_id, solution, candidate_simhash),
         )
-    except sqlite3.IntegrityError:
-        if not is_retry:
-            return {"status": "already_completed", "xp_earned": 0}
-        # Retry: check if improvement
         cursor.execute(
-            "SELECT xp_earned FROM completed_tasks WHERE user_id = ? AND task_id = ? AND is_valid != 0",
+            """
+            SELECT id, xp_earned, solution, code_simhash
+            FROM completed_tasks
+            WHERE user_id = ? AND task_id = ?
+            """,
             (user_id, task_id),
         )
-        prev_row = cursor.fetchone()
-        prev_xp = int(prev_row["xp_earned"] or 0) if prev_row else 0
-        # base_xp here is pre-bonus; we'll calculate final_xp below and compare there
-        # For now, store it for comparison after bonus calculation
-        retry_delta = -1  # sentinel: will be recalculated after bonuses
+        completion_row = cursor.fetchone()
+    else:
+        _ensure_legacy_method_seeded(cursor, user_id, task_id, completion_row, code_language)
 
-    # 3. Calculate Bonuses
+    cursor.execute(
+        """
+        SELECT method_index, method_simhash
+        FROM task_solution_methods
+        WHERE user_id = ? AND task_id = ?
+        ORDER BY method_index ASC
+        """,
+        (user_id, task_id),
+    )
+    existing_methods = [dict(r) for r in cursor.fetchall()]
+    existing_count = len(existing_methods)
+
+    if is_first_completion:
+        method_index = 1
+    else:
+        matched_method_index = None
+        if candidate_simhash:
+            for row in existing_methods:
+                simhash = str(row.get("method_simhash") or "").strip().lower()
+                if not simhash:
+                    continue
+                if _hamming_distance_hex(candidate_simhash, simhash) <= METHOD_SIMHASH_DISTANCE_THRESHOLD:
+                    matched_method_index = int(row.get("method_index") or 1)
+                    break
+
+        if matched_method_index is not None:
+            cursor.execute("SELECT xp, level FROM users WHERE id = ?", (user_id,))
+            user_row = cursor.fetchone() or {"xp": 0, "level": 1}
+            return {
+                "status": "same_method",
+                "xp_earned": 0,
+                "new_xp": int(user_row["xp"] or 0),
+                "new_level": int(user_row["level"] or 1),
+                "method_new": False,
+                "method_index": matched_method_index,
+                "methods_count": max(existing_count, matched_method_index),
+                "method_multiplier": round(1.0 + METHOD_XP_STEP * max(0, matched_method_index - 1), 4),
+                "new_achievements": [],
+            }
+
+        method_index = existing_count + 1
+
+    methods_count = method_index
+    method_multiplier = 1.0 + METHOD_XP_STEP * max(0, method_index - 1)
+
+    # Calculate event/streak multipliers
     bonus_multiplier = 1.0
     cursor.execute("SELECT * FROM events WHERE is_active = 1")
     events = cursor.fetchall()
     
-    # XP Multipliers
+    # Event XP multipliers
     for event in events:
         if event["bonus_type"] == "xp_multiplier":
             bonus_multiplier *= event["bonus_value"]
@@ -1577,50 +1722,36 @@ def process_task_completion(
     failed_attempts = cursor.fetchone()["cnt"]
     attempt_penalty = min(failed_attempts * 0.05, 0.50)  # Max 50% penalty
     
-    final_xp = int(base_xp * bonus_multiplier * (1.0 - attempt_penalty))
+    final_xp = int(task_base_xp * method_multiplier * bonus_multiplier * (1.0 - attempt_penalty))
     final_xp = max(1, final_xp)  # Minimum 1 XP
 
-    # Handle retry: only award delta if improved
-    if retry_delta == -1:
-        # Recalculate with actual prev_xp
-        cursor.execute(
-            "SELECT xp_earned FROM completed_tasks WHERE user_id = ? AND task_id = ? AND is_valid != 0",
-            (user_id, task_id),
-        )
-        prev_row = cursor.fetchone()
-        prev_xp = int(prev_row["xp_earned"] or 0) if prev_row else 0
-        if final_xp <= prev_xp:
-            # No improvement — return without XP change
-            return {
-                "status": "retry_no_improvement",
-                "xp_earned": 0,
-                "prev_xp_earned": prev_xp,
-                "new_xp_earned": final_xp,
-                "bonus_applied": bonus_multiplier > 1.0,
-                "new_xp": int(cursor.execute("SELECT xp FROM users WHERE id = ?", (user_id,)).fetchone()["xp"]),
-                "new_level": int(cursor.execute("SELECT level FROM users WHERE id = ?", (user_id,)).fetchone()["level"]),
-            }
-        # Improved! Award only the delta
-        retry_delta = final_xp - prev_xp
-        final_xp = retry_delta  # award only the delta
-        # Update the stored xp_earned to the new higher value
-        cursor.execute(
-            "UPDATE completed_tasks SET xp_earned = ?, solution = ?, code_simhash = ?, completed_at = CURRENT_TIMESTAMP WHERE user_id = ? AND task_id = ?",
-            (prev_xp + retry_delta, solution, code_simhash, user_id, task_id),
-        )
-    
-    # 4. Apply XP (keeps level consistent) + audit log
-    reason = "task_retry_improvement" if retry_delta > 0 else "task_completed"
+    # Apply XP (keeps level consistent) + audit log
+    reason = "task_completed" if is_first_completion else "task_method_completed"
     new_xp, new_level = apply_xp_change(cursor, user_id, final_xp, reason, task_id)
-    
-    # Update xp_earned in completed_tasks with final (bonus-adjusted) value (first completion only)
-    if retry_delta == 0:
+
+    previous_task_xp = int(completion_row["xp_earned"] or 0) if completion_row else 0
+    task_total_xp = final_xp if is_first_completion else (previous_task_xp + final_xp)
+    cursor.execute(
+        """
+        UPDATE completed_tasks
+        SET xp_earned = ?, solution = ?, code_simhash = ?, completed_at = CURRENT_TIMESTAMP
+        WHERE user_id = ? AND task_id = ?
+        """,
+        (task_total_xp, solution, candidate_simhash, user_id, task_id),
+    )
+
+    try:
         cursor.execute(
-            "UPDATE completed_tasks SET xp_earned = ? WHERE user_id = ? AND task_id = ?",
-            (final_xp, user_id, task_id)
+            """
+            INSERT INTO task_solution_methods (user_id, task_id, method_index, method_simhash, code_language, solution, xp_earned)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (user_id, task_id, method_index, candidate_simhash, code_language, solution, final_xp),
         )
-    
-    # 5. Update Streak & Stats
+    except sqlite3.IntegrityError:
+        pass
+
+    # Update streak + stats (task count only increments on first completion)
     today = datetime.now().date().isoformat()
     cursor.execute(
         "INSERT OR IGNORE INTO user_stats (user_id, last_active) VALUES (?, ?)",
@@ -1632,17 +1763,19 @@ def process_task_completion(
     )
     stats = cursor.fetchone()
     
-    new_streak = stats["streak_days"]
-    if stats["last_active"] != today:
-        yesterday = (datetime.now().date() - __import__('datetime').timedelta(days=1)).isoformat()
-        if stats["last_active"] == yesterday:
-            new_streak += 1
+    prev_streak = int(stats["streak_days"] or 0)
+    last_active = stats["last_active"]
+    if last_active == today:
+        new_streak = max(1, prev_streak)
+    else:
+        yesterday = (datetime.now().date() - timedelta(days=1)).isoformat()
+        if last_active == yesterday:
+            new_streak = max(1, prev_streak + 1)
         else:
             new_streak = 1
-    
-    # Increment total quests
-    new_total = (stats["total_quests"] or 0) + 1
-    best_streak = max(stats["best_streak"] or 0, new_streak)
+
+    new_total = int(stats["total_quests"] or 0) + (1 if is_first_completion else 0)
+    best_streak = max(int(stats["best_streak"] or 0), new_streak)
     
     cursor.execute("""
         UPDATE user_stats 
@@ -1685,7 +1818,13 @@ def process_task_completion(
         "bonus_applied": bonus_multiplier > 1.0,
         "failed_attempts": failed_attempts,
         "attempt_penalty": round(attempt_penalty * 100),  # as percentage
-        "new_achievements": new_achievements
+        "new_achievements": new_achievements,
+        "method_new": True,
+        "method_index": method_index,
+        "methods_count": methods_count,
+        "method_multiplier": round(method_multiplier, 4),
+        "is_first_completion": is_first_completion,
+        "task_total_xp": task_total_xp,
     }
 
 def check_achievements(cursor, user_id: int, task_id: str, total_xp: int, total_quests: int, streak_days: int) -> List[dict]:
@@ -3448,6 +3587,7 @@ def delete_user(user_id: int, admin: dict = Depends(require_admin)):
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+        cursor.execute("DELETE FROM task_solution_methods WHERE user_id = ?", (user_id,))
         cursor.execute("DELETE FROM completed_tasks WHERE user_id = ?", (user_id,))
         cursor.execute("DELETE FROM submissions WHERE user_id = ?", (user_id,))
         cursor.execute("DELETE FROM users WHERE id = ? AND role != 'admin'", (user_id,))
@@ -3598,7 +3738,7 @@ def review_submission(
 
         cursor.execute(
             """
-            SELECT id, user_id, task_id, status, COALESCE(code, content) as solution, code_simhash
+            SELECT id, user_id, task_id, category, code_language, status, COALESCE(code, content) as solution, code_simhash
             FROM submissions
             WHERE id = ?
             """,
@@ -3630,7 +3770,17 @@ def review_submission(
             max_xp = int(task.get("xp", 0)) if task else 0
             base_xp = int(max_xp * score / 10)
 
-            res = process_task_completion(cursor, sub["user_id"], sub["task_id"], base_xp, sub["solution"], sub["code_simhash"])
+            allow_multiple_methods = (sub["category"] or "").lower() != "scratch"
+            res = process_task_completion(
+                cursor,
+                sub["user_id"],
+                sub["task_id"],
+                base_xp,
+                sub["solution"],
+                sub["code_simhash"],
+                code_language=sub["code_language"],
+                allow_multiple_methods=allow_multiple_methods,
+            )
             if res["status"] == "success":
                 xp_awarded = int(res.get("xp_earned") or 0)
                 log_security(
@@ -3975,6 +4125,25 @@ DEFAULT_UNLOCK_REQUIREMENTS = {"C": 3, "B": 3, "A": 3, "S": 3}  # 3:1 ratio by d
 def _completed_task_ids(cursor, user_id: int) -> set:
     cursor.execute("SELECT task_id FROM completed_tasks WHERE user_id = ? AND is_valid != 0", (user_id,))
     return {row["task_id"] for row in cursor.fetchall()}
+
+def _methods_count_by_task(cursor, user_id: int, completed_ids: Optional[set] = None) -> dict:
+    cursor.execute(
+        """
+        SELECT m.task_id, COUNT(*) as cnt
+        FROM task_solution_methods m
+        JOIN completed_tasks c
+          ON c.user_id = m.user_id
+         AND c.task_id = m.task_id
+        WHERE m.user_id = ? AND COALESCE(c.is_valid, 1) != 0
+        GROUP BY m.task_id
+        """,
+        (user_id,),
+    )
+    out = {str(row["task_id"]): int(row["cnt"] or 0) for row in cursor.fetchall()}
+    if completed_ids:
+        for tid in completed_ids:
+            out.setdefault(str(tid), 1)
+    return out
 
 def _counts_by_category_and_tier(tasks_by_id: dict, completed_ids: set) -> dict:
     counts: dict = {}
@@ -4419,6 +4588,7 @@ def get_roadmap(user: dict = Depends(require_auth)):
     with get_db() as conn:
         cursor = conn.cursor()
         completed_ids = _completed_task_ids(cursor, user["id"])
+        method_counts = _methods_count_by_task(cursor, user["id"], completed_ids)
         
         # Get pending review task IDs
         cursor.execute(
@@ -4453,6 +4623,7 @@ def get_roadmap(user: dict = Depends(require_auth)):
         pt["completed"] = pt["id"] in completed_ids
         pt["locked"] = not unlocked and not pt["completed"]
         pt["pending_review"] = pt["id"] in pending_ids
+        pt["methods_count"] = int(method_counts.get(pt["id"], 0))
         pt["unlock"] = unlock_info
         tasks.append(pt)
 
@@ -5694,20 +5865,35 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
             }
 
         # Tier D/C auto-award
-        result = process_task_completion(cursor, user["id"], data.task_id, task_xp, code, simhash_hex, is_retry=is_retry)
+        result = process_task_completion(
+            cursor,
+            user["id"],
+            data.task_id,
+            task_xp,
+            code,
+            simhash_hex,
+            is_retry=is_retry,
+            code_language=code_language,
+            allow_multiple_methods=True,
+        )
         if result["status"] == "already_completed":
             conn.commit()
             return {"status": "already_completed"}
-        if result["status"] == "retry_no_improvement":
+        if result["status"] == "same_method":
             conn.commit()
             return {
-                "status": "retry_no_improvement",
+                "status": "same_method",
+                "attempt_id": attempt_id,
                 "verification": verification,
-                "prev_xp": result.get("prev_xp_earned", 0),
-                "message": f"Задача решена, но XP не улучшился (текущий: {result.get('prev_xp_earned', 0)})",
+                "xp": result.get("new_xp", 0),
+                "level": result.get("new_level", 1),
+                "methods_count": int(result.get("methods_count") or 1),
+                "method_index": int(result.get("method_index") or 1),
+                "method_multiplier": float(result.get("method_multiplier") or 1.0),
+                "message": "Этот способ уже засчитан. Попробуй семантически другой подход для доп. XP.",
             }
 
-        proposed_bonus = propose_comment_bonus(task_xp, code, code_language)
+        proposed_bonus = propose_comment_bonus(task_xp, code, code_language) if result.get("is_first_completion") else 0
         if proposed_bonus > 0:
             cursor.execute(
                 """
@@ -5744,7 +5930,15 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
             "level": result["new_level"],
             "xp_earned": result["xp_earned"],
             "bonus_applied": result["bonus_applied"],
+            "failed_attempts": result.get("failed_attempts", 0),
+            "attempt_penalty": result.get("attempt_penalty", 0),
             "comment_bonus_proposed": proposed_bonus,
+            "is_first_completion": bool(result.get("is_first_completion")),
+            "method_new": bool(result.get("method_new", True)),
+            "method_index": int(result.get("method_index") or 1),
+            "methods_count": int(result.get("methods_count") or 1),
+            "method_multiplier": float(result.get("method_multiplier") or 1.0),
+            "task_total_xp": int(result.get("task_total_xp") or result.get("xp_earned") or 0),
             "new_achievements": result.get("new_achievements") or [],
             "is_retry": is_retry,
         }

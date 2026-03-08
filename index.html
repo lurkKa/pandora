@@ -185,7 +185,7 @@
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            padding: 24px;
+            padding: 24px 24px 40px 24px;
         }
 
         .login-card {
@@ -490,10 +490,11 @@
             background: var(--bg-surface);
             border: 1px solid rgba(255, 255, 255, 0.05);
             border-radius: var(--radius-md);
-            padding: 24px;
+            padding: 24px 24px 40px 24px;
             cursor: pointer;
             transition: all 0.3s;
             position: relative;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
             gap: 16px;
@@ -506,7 +507,7 @@
         }
 
         .quest-card.completed {
-            opacity: 0.5;
+            opacity: 1;
         }
 
         .quest-card.locked {
@@ -520,15 +521,104 @@
             box-shadow: none;
         }
 
-        .quest-card.completed::before {
-            content: '✓';
+        .quest-card-content {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            transition: filter 0.25s ease, opacity 0.25s ease;
+        }
+
+        .quest-card.completed .quest-card-content {
+            filter: blur(1.4px);
+            opacity: 0.66;
+        }
+
+        .quest-card[data-methods="2"].completed .quest-card-content {
+            filter: blur(1.25px);
+            opacity: 0.7;
+        }
+
+        .quest-card[data-methods="3"].completed .quest-card-content {
+            filter: blur(1.1px);
+            opacity: 0.73;
+        }
+
+        .quest-card[data-methods="4"].completed .quest-card-content,
+        .quest-card[data-methods="5"].completed .quest-card-content,
+        .quest-card[data-methods="6"].completed .quest-card-content,
+        .quest-card[data-methods="7"].completed .quest-card-content,
+        .quest-card[data-methods="8"].completed .quest-card-content,
+        .quest-card[data-methods="9"].completed .quest-card-content {
+            filter: blur(0.95px);
+            opacity: 0.78;
+        }
+
+        .quest-card[data-methods] {
+            --method-accent: #4ade80;
+            --method-bg: rgba(74, 222, 128, 0.18);
+        }
+
+        .quest-card[data-methods="2"] {
+            --method-accent: #fbbf24;
+            --method-bg: rgba(251, 191, 36, 0.2);
+        }
+
+        .quest-card[data-methods="3"] {
+            --method-accent: #60a5fa;
+            --method-bg: rgba(96, 165, 250, 0.2);
+        }
+
+        .quest-card[data-methods="4"] {
+            --method-accent: #a78bfa;
+            --method-bg: rgba(167, 139, 250, 0.22);
+        }
+
+        .quest-card[data-methods="5"],
+        .quest-card[data-methods="6"],
+        .quest-card[data-methods="7"],
+        .quest-card[data-methods="8"],
+        .quest-card[data-methods="9"] {
+            --method-accent: #f472b6;
+            --method-bg: rgba(244, 114, 182, 0.22);
+        }
+
+        .quest-methods {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 48px;
-            color: var(--success);
-            z-index: 2;
+            left: 12px;
+            bottom: 12px;
+            z-index: 4;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(3, 8, 19, 0.8);
+            box-shadow: 0 8px 20px rgba(2, 6, 23, 0.45);
+            pointer-events: none;
+        }
+
+        .quest-method-check {
+            width: 14px;
+            height: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            background: var(--method-bg);
+            color: var(--method-accent);
+            font-size: 10px;
+            font-weight: 800;
+            line-height: 1;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+        }
+
+        .quest-method-overflow,
+        .quest-method-total {
+            color: var(--method-accent);
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1;
         }
 
         .quest-card.pending {
@@ -1060,7 +1150,7 @@
             }
 
             .quest-card {
-                padding: 16px;
+                padding: 16px 16px 34px 16px;
             }
 
             .quest-card:hover {
@@ -1297,7 +1387,7 @@
             }
 
             .quest-card {
-                padding: 14px;
+                padding: 14px 14px 30px 14px;
             }
 
             .quest-title {
@@ -1422,7 +1512,7 @@
             }
 
             .quest-card {
-                padding: 12px;
+                padding: 12px 12px 28px 12px;
             }
 
             #quest-modal .modal-content {
@@ -4608,6 +4698,21 @@
             window.open('/alextype', '_blank', 'noopener,noreferrer');
         }
 
+        function buildMethodBadges(methodsCount) {
+            const safeCount = Math.max(0, Number(methodsCount || 0));
+            if (!safeCount) return '';
+            const visibleChecks = Math.min(safeCount, 4);
+            let html = '';
+            for (let i = 0; i < visibleChecks; i += 1) {
+                html += `<span class="quest-method-check" aria-hidden="true">✓</span>`;
+            }
+            if (safeCount > visibleChecks) {
+                html += `<span class="quest-method-overflow">+${safeCount - visibleChecks}</span>`;
+            }
+            html += `<span class="quest-method-total">${safeCount}</span>`;
+            return html;
+        }
+
         function renderQuests() {
             const grid = document.getElementById('quest-grid');
             let filtered = tasks;
@@ -4674,22 +4779,33 @@
                 const isCompleted = task.completed || completedIds.has(task.id);
                 const isLocked = Boolean(task.locked) && !isCompleted;
                 const isPending = Boolean(task.pending_review) && !isCompleted;
+                const rawMethodsCount = Number(task.methods_count || 0);
+                const methodsCount = isCompleted ? Math.max(1, rawMethodsCount) : Math.max(0, rawMethodsCount);
+                const methodsVisual = Math.min(9, methodsCount);
+                const methodsAttr = methodsCount > 0 ? ` data-methods="${methodsVisual}" data-method-count="${methodsCount}"` : '';
+                const methodsBadge = methodsCount > 0
+                    ? `<div class="quest-methods" aria-label="Способов решения: ${methodsCount}">${buildMethodBadges(methodsCount)}</div>`
+                    : '';
                 const hw = homeworkByTask[task.id];
                 const isHomework = Boolean(hw);
                 const hwDeadline = hw ? `Дедлайн: ${new Date(hw.deadline_at).toLocaleString()}` : '';
                 return `
                     <article class="quest-card ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${isPending ? 'pending' : ''} ${isHomework ? 'homework' : ''}" 
+                             ${methodsAttr}
                              role="listitem" 
                              tabindex="0"
                              onclick="openQuest('${task.id}')"
                              onkeydown="if(event.key==='Enter') openQuest('${task.id}')">
                         <div class="tier-indicator tier-${task.tier}">${task.tier}-Rank</div>
                         ${isLocked ? `<div class="quest-lock" aria-hidden="true">🔒</div>` : ``}
-                        <div class="quest-icon">${icons[task.category] || '📜'}</div>
-                        <h3 class="quest-title">${task.title}</h3>
-                        <p class="quest-story">${task.story}</p>
-                        ${isHomework ? `<div style="font-size:12px;color:#fca5a5;font-weight:700;">📌 ДЗ • ${hwDeadline}</div>` : ``}
-                        <div class="quest-reward">⭐ ${task.xp} XP${isPending ? ' (на проверке)' : ''}</div>
+                        <div class="quest-card-content">
+                            <div class="quest-icon">${icons[task.category] || '📜'}</div>
+                            <h3 class="quest-title">${task.title}</h3>
+                            <p class="quest-story">${task.story}</p>
+                            ${isHomework ? `<div style="font-size:12px;color:#fca5a5;font-weight:700;">📌 ДЗ • ${hwDeadline}</div>` : ``}
+                            <div class="quest-reward">⭐ ${task.xp} XP${isPending ? ' (на проверке)' : ''}</div>
+                        </div>
+                        ${methodsBadge}
                     </article>
                 `;
             }).join('');
@@ -5631,23 +5747,64 @@
                     return;
                 }
 
+                if (data.status === 'same_method') {
+                    const methodsCount = Math.max(1, Number(data.methods_count || 1));
+                    const methodIndex = Math.max(1, Number(data.method_index || methodsCount));
+                    const roadmapTask = tasks.find(t => t.id === currentTask.id);
+                    if (roadmapTask) {
+                        roadmapTask.completed = true;
+                        roadmapTask.methods_count = Math.max(Number(roadmapTask.methods_count || 0), methodsCount);
+                    }
+                    if (currentTask) {
+                        currentTask.completed = true;
+                        currentTask.methods_count = Math.max(Number(currentTask.methods_count || 0), methodsCount);
+                    }
+                    renderQuests();
+                    output.innerText =
+                        renderVerificationText(data.verification) +
+                        `\n\n♻️ Способ #${methodIndex} уже засчитан.` +
+                        `\n🧠 Попробуй другой алгоритм для нового XP.` +
+                        `\n✅ Засчитано способов: ${methodsCount}`;
+                    if (currentTask.category === 'frontend') setFrontendPreviewStatus('PASSED');
+                    return;
+                }
+
                 if (data.status === 'completed') {
                     // Update user state from server-truth
                     if (typeof data.xp === 'number') currentUser.xp = data.xp;
                     if (typeof data.level === 'number') currentUser.level = data.level;
                     currentUser.completed_tasks = currentUser.completed_tasks || [];
                     if (!currentUser.completed_tasks.includes(currentTask.id)) currentUser.completed_tasks.push(currentTask.id);
+                    const methodsCount = Math.max(1, Number(data.methods_count || 1));
+                    const methodIndex = Math.max(1, Number(data.method_index || methodsCount));
+                    const methodMultiplier = Number(data.method_multiplier || 1);
+                    const methodBonusPct = Math.max(0, Math.round((methodMultiplier - 1) * 100));
+                    const roadmapTask = tasks.find(t => t.id === currentTask.id);
+                    if (roadmapTask) {
+                        roadmapTask.completed = true;
+                        roadmapTask.methods_count = Math.max(Number(roadmapTask.methods_count || 0), methodsCount);
+                    }
+                    if (currentTask) {
+                        currentTask.completed = true;
+                        currentTask.methods_count = Math.max(Number(currentTask.methods_count || 0), methodsCount);
+                    }
 
                     updateXPDisplay();
+                    renderQuests();
 
                     output.innerText =
                         renderVerificationText(data.verification) +
-                        `\n\n🎉 КВЕСТ ВЫПОЛНЕН! +${data.xp_earned || 0} XP`;
+                        `\n\n🎉 СПОСОБ #${methodIndex} ЗАСЧИТАН! +${data.xp_earned || 0} XP`;
 
                     // Show penalty info if any
                     if (data.attempt_penalty && data.attempt_penalty > 0) {
                         output.innerText += `\n⚠️ Штраф за ${data.failed_attempts} неудачных попыток: -${data.attempt_penalty}%`;
                     }
+
+                    if (methodBonusPct > 0) {
+                        output.innerText += `\n🚀 Бонус за новый способ: +${methodBonusPct}% XP`;
+                    }
+                    output.innerText += `\n✅ Всего засчитано способов: ${methodsCount}`;
 
                     if (data.comment_bonus_proposed && data.comment_bonus_proposed > 0) {
                         output.innerText += `\n💬 Бонус за комментарии: +${data.comment_bonus_proposed} XP (ожидает одобрения)`;
