@@ -1015,6 +1015,11 @@
         function applySubmitResult(result, msg) {
             if (timerInterval) clearInterval(timerInterval);
             taskStarted = false;
+            if (result && result.status === 'pending_review') {
+                msg.innerText = '📨 Отправлено на ревью Sensei. Оценка появится после проверки.';
+                msg.style.color = 'var(--warning)';
+                return;
+            }
             if (result.cheated) {
                 msg.innerText = '❌ Чит зафиксирован: 0 XP';
                 msg.style.color = 'var(--danger)';

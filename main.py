@@ -1020,12 +1020,16 @@ def init_db():
                 cheat_warnings INTEGER DEFAULT 0,
                 cheated INTEGER DEFAULT 0,
                 time_expired INTEGER DEFAULT 0,
+                review_pending INTEGER DEFAULT 0,
+                review_submission_id INTEGER,
                 UNIQUE(user_id, task_id)
             )
         """)
         for stmt in [
             "ALTER TABLE exam_progress ADD COLUMN submission_link TEXT",
             "ALTER TABLE exam_progress ADD COLUMN submission_filename TEXT",
+            "ALTER TABLE exam_progress ADD COLUMN review_pending INTEGER DEFAULT 0",
+            "ALTER TABLE exam_progress ADD COLUMN review_submission_id INTEGER",
         ]:
             try:
                 cursor.execute(stmt)
@@ -3733,13 +3737,16 @@ def review_submission(
     score = int(data.score) if data.score is not None else (10 if data.status == "approved" else 0)
     if score < 0 or score > 10:
         raise HTTPException(status_code=400, detail="Score must be in range 0..10")
+    if data.status == "rejected":
+        score = 0
 
     with get_db() as conn:
         cursor = conn.cursor()
 
         cursor.execute(
             """
-            SELECT id, user_id, task_id, category, code_language, status, COALESCE(code, content) as solution, code_simhash
+            SELECT id, user_id, task_id, category, code_language, status, review_reason,
+                   COALESCE(code, content) as solution, code_simhash
             FROM submissions
             WHERE id = ?
             """,
@@ -3751,13 +3758,23 @@ def review_submission(
         if sub["status"] != "pending":
             raise HTTPException(status_code=409, detail="Submission is already reviewed")
 
+        review_meta = {}
+        if sub["review_reason"]:
+            try:
+                parsed = json.loads(sub["review_reason"])
+                if isinstance(parsed, dict):
+                    review_meta = parsed
+            except Exception:
+                review_meta = {}
+        review_reason_value = sub["review_reason"] or data.feedback
+
         cursor.execute(
             """
             UPDATE submissions
             SET status = ?, feedback = ?, score = ?, reviewed_at = CURRENT_TIMESTAMP, reviewer_id = ?, review_reason = ?
             WHERE id = ? AND status = 'pending'
             """,
-            (data.status, data.feedback, score, admin["id"], data.feedback, submission_id),
+            (data.status, data.feedback, score, admin["id"], review_reason_value, submission_id),
         )
         if cursor.rowcount == 0:
             raise HTTPException(status_code=409, detail="Submission is already reviewed")
@@ -3765,7 +3782,48 @@ def review_submission(
         xp_awarded = 0
         target_user_id = sub["user_id"]
         target_task_id = sub["task_id"]
-        if data.status == "approved":
+        exam_row = None
+        is_exam_scratch_submission = False
+        if (sub["category"] or "").lower() == "scratch":
+            meta_context = str(review_meta.get("context") or "").strip().lower()
+            is_exam_scratch_submission = meta_context == "exam_scratch"
+            if is_exam_scratch_submission:
+                cursor.execute(
+                    """
+                    SELECT * FROM exam_progress
+                    WHERE user_id = ? AND task_id = ?
+                    ORDER BY id DESC
+                    LIMIT 1
+                    """,
+                    (sub["user_id"], sub["task_id"]),
+                )
+                exam_row = cursor.fetchone()
+
+        if is_exam_scratch_submission:
+            exam_tasks = load_exam_tasks()
+            exam_task = next((t for t in exam_tasks if t.get("id") == sub["task_id"]), None)
+            task_max_xp = int((exam_task or {}).get("xp", 0) or 0)
+            final_score = score if data.status == "approved" else 0
+            xp_awarded = int(task_max_xp * final_score / 10)
+            if exam_row:
+                cursor.execute(
+                    """
+                    UPDATE exam_progress
+                    SET score = ?,
+                        xp_earned = ?,
+                        review_pending = 0,
+                        finished_at = COALESCE(finished_at, CURRENT_TIMESTAMP),
+                        review_submission_id = COALESCE(review_submission_id, ?)
+                    WHERE id = ?
+                    """,
+                    (final_score, xp_awarded, submission_id, exam_row["id"]),
+                )
+            log_security(
+                "EXAM_SCRATCH_REVIEWED",
+                user=admin["username"],
+                details=f"submission_id={submission_id}, task={sub['task_id']}, score={final_score}, xp={xp_awarded}",
+            )
+        elif data.status == "approved":
             data_json = load_tasks()
             task = next((t for t in data_json.get("tasks", []) if t["id"] == sub["task_id"]), None)
             max_xp = int(task.get("xp", 0)) if task else 0
@@ -8643,16 +8701,18 @@ def _determine_next_tier(progress):
     if not progress:
         return "D"
     
-    current_tier = "D"
     tier_idx = 0
     consecutive_solved = 0
     
     for p in progress:
-        if p["cheated"] or p["time_expired"]:
+        if int(p.get("review_pending") or 0) == 1:
+            # Pending manual review should not change adaptive tier routing yet.
+            continue
+        if int(p.get("cheated") or 0) == 1 or int(p.get("time_expired") or 0) == 1:
             # Downgrade
             tier_idx = max(0, tier_idx - 1)
             consecutive_solved = 0
-        elif p["finished_at"] and p["score"] > 0:
+        elif p.get("finished_at") and int(p.get("score") or 0) > 0:
             consecutive_solved += 1
             if consecutive_solved >= 2 and tier_idx < len(TIER_ORDER) - 1:
                 tier_idx += 1
@@ -8943,7 +9003,8 @@ def exam_submit(data: dict, user: dict = Depends(require_auth)):
         cursor.execute("""
             UPDATE exam_progress
             SET finished_at = CURRENT_TIMESTAMP, solution = ?, score = ?,
-                xp_earned = ?, time_expired = ?
+                xp_earned = ?, time_expired = ?,
+                review_pending = 0, review_submission_id = NULL
             WHERE user_id = ? AND task_id = ?
         """, (solution, score, xp_earned, time_expired, uid, task_id))
         conn.commit()
@@ -8964,7 +9025,7 @@ def exam_submit_scratch(
     file: UploadFile = File(None),
     user: dict = Depends(require_auth),
 ):
-    """Submit exam Scratch task with optional .sb3 upload/link."""
+    """Submit exam Scratch task for manual admin review."""
     uid = int(user["id"])
     clean_solution = (solution or "").strip()
     submission_link = (link or "").strip() or None
@@ -9036,35 +9097,105 @@ def exam_submit_scratch(
             raise HTTPException(400, "Это не Scratch-задание")
 
         time_expired = _compute_exam_time_expired(prog["started_at"], task)
-        score, xp_earned = _compute_exam_score(task, prog, time_expired)
+        cheated = int(prog["cheated"] or 0)
+        if cheated or time_expired:
+            # Violations/timeouts are finalized immediately with 0.
+            cursor.execute(
+                """
+                UPDATE exam_progress
+                SET finished_at = CURRENT_TIMESTAMP,
+                    solution = ?,
+                    submission_link = ?,
+                    submission_filename = ?,
+                    score = 0,
+                    xp_earned = 0,
+                    time_expired = ?,
+                    review_pending = 0,
+                    review_submission_id = NULL
+                WHERE user_id = ? AND task_id = ?
+                """,
+                (
+                    clean_solution,
+                    submission_link,
+                    submission_filename,
+                    time_expired,
+                    uid,
+                    task_id,
+                ),
+            )
+            conn.commit()
+            return {
+                "score": 0,
+                "xp_earned": 0,
+                "time_expired": bool(time_expired),
+                "cheated": bool(cheated),
+                "submission_link": submission_link,
+            }
 
-        cursor.execute("""
+        review_meta = {
+            "context": "exam_scratch",
+            "exam": {
+                "task_id": task_id,
+                "task_title": task.get("title", task_id),
+                "tier": task.get("tier") or "D",
+                "story": task.get("story", ""),
+                "description": task.get("description", ""),
+                "task_xp": int(task.get("xp", 0) or 0),
+                "user_id": uid,
+            },
+        }
+        cursor.execute(
+            """
+            INSERT INTO submissions (user_id, task_id, category, tier, content, link, status, feedback, review_reason)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                uid,
+                task_id,
+                "scratch",
+                task.get("tier") or "D",
+                clean_solution or None,
+                submission_link,
+                "pending",
+                "Exam Scratch: waiting for manual review",
+                json.dumps(review_meta, ensure_ascii=False),
+            ),
+        )
+        submission_id = int(cursor.lastrowid or 0)
+        cursor.execute(
+            """
             UPDATE exam_progress
             SET finished_at = CURRENT_TIMESTAMP,
                 solution = ?,
                 submission_link = ?,
                 submission_filename = ?,
-                score = ?,
-                xp_earned = ?,
-                time_expired = ?
+                score = 0,
+                xp_earned = 0,
+                time_expired = ?,
+                review_pending = 1,
+                review_submission_id = ?
             WHERE user_id = ? AND task_id = ?
-        """, (
-            clean_solution,
-            submission_link,
-            submission_filename,
-            score,
-            xp_earned,
-            time_expired,
-            uid,
-            task_id,
-        ))
+            """,
+            (
+                clean_solution,
+                submission_link,
+                submission_filename,
+                time_expired,
+                submission_id,
+                uid,
+                task_id,
+            ),
+        )
         conn.commit()
 
     return {
-        "score": score,
-        "xp_earned": xp_earned,
-        "time_expired": bool(time_expired),
-        "cheated": bool(prog["cheated"]),
+        "status": "pending_review",
+        "message": "Scratch-решение отправлено на проверку Sensei.",
+        "score": 0,
+        "xp_earned": 0,
+        "time_expired": False,
+        "cheated": False,
+        "submission_id": submission_id,
         "submission_link": submission_link,
     }
 
@@ -9121,7 +9252,8 @@ def exam_cheat_warning(data: dict, user: dict = Depends(require_auth)):
         if cheated:
             cursor.execute("""
                 UPDATE exam_progress
-                SET finished_at = CURRENT_TIMESTAMP, score = 0, xp_earned = 0, cheated = 1
+                SET finished_at = CURRENT_TIMESTAMP, score = 0, xp_earned = 0, cheated = 1,
+                    review_pending = 0, review_submission_id = NULL
                 WHERE id = ?
             """, (prog["id"],))
         

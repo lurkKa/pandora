@@ -1801,6 +1801,25 @@
         const REQUEST_TIMEOUT_MS = 45000;
         const AUTH_REQUEST_TIMEOUT_MS = 60000;
 
+        function parseJsonSafe(value) {
+            if (!value || typeof value !== 'string') return null;
+            try {
+                const parsed = JSON.parse(value);
+                return parsed && typeof parsed === 'object' ? parsed : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function getExamSubmissionMeta(submission) {
+            const meta = parseJsonSafe(submission && submission.review_reason);
+            if (!meta) return null;
+            const exam = meta.exam && typeof meta.exam === 'object' ? meta.exam : null;
+            if (String(meta.context || '').toLowerCase() !== 'exam_scratch') return null;
+            if (!exam) return null;
+            return exam;
+        }
+
         async function fetchJsonWithTimeout(url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -2110,27 +2129,34 @@
             data.submissions.forEach(sub => {
                 const statusClass = sub.status === 'pending' ? 'badge-pending' :
                     sub.status === 'approved' ? 'badge-approved' : 'badge-rejected';
+                const examMeta = getExamSubmissionMeta(sub);
                 const task = tasksMap[sub.task_id] || {};
-                const taskName = task.title || sub.task_id;
-                const maxXP = task.xp || 0;
+                const taskName = task.title || examMeta?.task_title || sub.task_id;
+                const maxXP = Number(task.xp || examMeta?.task_xp || 0);
                 const dupeCount = Number(sub.pending_duplicates || 0);
                 const downloadLink = sub.link && sub.link.includes('/uploads/')
                     ? `<a href="${API_URL}${sub.link}" download class="btn btn-small" style="margin-left:4px;">📥</a>`
                     : '';
                 const scoreInfo = sub.score !== null ? ` (${sub.score}/10)` : '';
+                const examBadge = examMeta
+                    ? `<span style="font-size:10px; color:#80b7ff; margin-left:6px;">EXAM</span>`
+                    : '';
                 const dupeInfo = dupeCount > 0
                     ? `<div style="font-size:11px; color: var(--warning); margin-top: 2px;">+${dupeCount} дубль(ей) скрыт</div>`
+                    : '';
+                const statusHint = examMeta
+                    ? `<div style="font-size:11px; color: var(--text-secondary); margin-top: 2px;">Manual exam review • ${maxXP} XP max</div>`
                     : '';
 
                 tbody.innerHTML += `
                     <tr>
                         <td>${sub.display_name}</td>
-                        <td title="${sub.task_id}">${taskName}${dupeInfo}</td>
+                        <td title="${sub.task_id}">${taskName}${examBadge}${dupeInfo}</td>
                         <td>
                             ${sub.link ? `<a href="${sub.link.startsWith('http') ? sub.link : API_URL + sub.link}" target="_blank" style="color: var(--accent-light);">🔗</a>` : '-'}
                             ${downloadLink}
                         </td>
-                        <td><span class="badge ${statusClass}">${sub.status}${scoreInfo}</span></td>
+                        <td><span class="badge ${statusClass}">${sub.status}${scoreInfo}</span>${statusHint}</td>
                         <td>
                             <button class="btn btn-small" onclick="viewSubmissionCode(${sub.id})" title="Смотреть код">👁️</button>
                             ${sub.status === 'pending' ? `
@@ -3072,22 +3098,31 @@
 
         /* Fill date gaps so chart shows continuous lines, not just sparse dots */
         function fillDateGaps(timeline) {
-            if (!timeline || timeline.length < 2) return timeline || [];
+            if (!timeline || timeline.length === 0) return [];
+            if (timeline.length < 2) {
+                return timeline.map(p => ({ x: p.date, y: Number(p.xp || 0) }));
+            }
             const filled = [];
             const sorted = [...timeline].sort((a, b) => a.date.localeCompare(b.date));
-            let cur = new Date(sorted[0].date);
-            const end = new Date(sorted[sorted.length - 1].date);
+            const parseUtcDay = (dateStr) => {
+                const [y, m, d] = String(dateStr || '').split('-').map(Number);
+                if (!y || !m || !d) return null;
+                return Date.UTC(y, m - 1, d);
+            };
+            let curTs = parseUtcDay(sorted[0].date);
+            const endTs = parseUtcDay(sorted[sorted.length - 1].date);
+            if (curTs === null || endTs === null) return sorted.map(p => ({ x: p.date, y: Number(p.xp || 0) }));
             let idx = 0;
             let lastXP = 0;
 
-            while (cur <= end) {
-                const dateStr = cur.toISOString().slice(0, 10);
+            while (curTs <= endTs) {
+                const dateStr = new Date(curTs).toISOString().slice(0, 10);
                 if (idx < sorted.length && sorted[idx].date === dateStr) {
                     lastXP = sorted[idx].xp;
                     idx++;
                 }
                 filled.push({ x: dateStr, y: lastXP });
-                cur.setDate(cur.getDate() + 1);
+                curTs += 24 * 60 * 60 * 1000;
             }
             return filled;
         }
@@ -3106,9 +3141,11 @@
                     borderColor: colors[i % colors.length],
                     backgroundColor: colors[i % colors.length] + '22',
                     fill: true,
-                    tension: 0.35,
-                    pointRadius: filled.length > 30 ? 0 : 3,
-                    pointHoverRadius: 5,
+                    tension: 0.18,
+                    cubicInterpolationMode: 'monotone',
+                    pointRadius: filled.length > 160 ? 1.8 : 2.8,
+                    pointHoverRadius: 6,
+                    pointHitRadius: 12,
                     borderWidth: 2.5
                 };
             });
@@ -3284,10 +3321,15 @@
             const sub = currentSubmissions.find(s => Number(s.id) === Number(submissionId));
             if (!sub) return;
 
+            const examMeta = getExamSubmissionMeta(sub);
             const task = reviewTasksMap[sub.task_id] || {};
-            const taskName = task.title || sub.task_id;
-            const maxXP = Number(task.xp || 0);
+            const taskName = task.title || examMeta?.task_title || sub.task_id;
+            const maxXP = Number(task.xp || examMeta?.task_xp || 0);
             const taskDesc = [
+                examMeta ? 'Экзамен: Scratch-задание (ручная проверка)' : '',
+                examMeta?.tier ? `Tier: ${examMeta.tier}` : '',
+                examMeta?.description || '',
+                examMeta?.story ? `Сюжет: ${examMeta.story}` : '',
                 task.description || '',
                 task.story ? `Сюжет: ${task.story}` : '',
                 Array.isArray(task.prerequisites) && task.prerequisites.length > 0
