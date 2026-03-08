@@ -8721,7 +8721,16 @@ def _compute_exam_time_expired(started_at: str, task: dict) -> int:
 
 def _compute_exam_score(task: dict, progress_row: dict, time_expired: int) -> tuple[int, int]:
     """Compute score + XP for an exam submission."""
-    if (progress_row or {}).get("cheated"):
+    cheated = 0
+    if progress_row is not None:
+        try:
+            cheated = int(progress_row["cheated"] or 0)
+        except Exception:
+            try:
+                cheated = int((progress_row or {}).get("cheated") or 0)
+            except Exception:
+                cheated = 0
+    if cheated:
         return 0, 0
     if time_expired:
         return 0, 0
