@@ -5215,9 +5215,9 @@ def verify_javascript_sync(code: str, cases: list[dict]) -> tuple[dict, int]:
             if "javascript" not in _LOCAL_FALLBACK_WARNED:
                 logger.warning("Docker runner unavailable; falling back to local JS harness")
                 _LOCAL_FALLBACK_WARNED.add("javascript")
-            cmd = ["node", "--permission", f"--allow-fs-read={RUNNERS_DIR}", str(JS_HARNESS)]
+            cmd = ["node", "--max-old-space-size=256", "--permission", f"--allow-fs-read={RUNNERS_DIR}", str(JS_HARNESS)]
     else:
-        cmd = ["node", "--permission", f"--allow-fs-read={RUNNERS_DIR}", str(JS_HARNESS)]
+        cmd = ["node", "--max-old-space-size=256", "--permission", f"--allow-fs-read={RUNNERS_DIR}", str(JS_HARNESS)]
 
     result, runtime_ms, _stderr = _run_harness_subprocess(cmd, payload, _effective_timeout_for_cmd(cmd))
 
@@ -5232,7 +5232,7 @@ def verify_javascript_sync(code: str, cases: list[dict]) -> tuple[dict, int]:
         if "javascript-timeout-fallback" not in _LOCAL_FALLBACK_WARNED:
             logger.warning("Docker JS runner timed out; switching to local harness fallback")
             _LOCAL_FALLBACK_WARNED.add("javascript-timeout-fallback")
-        local_cmd = ["node", "--permission", f"--allow-fs-read={RUNNERS_DIR}", str(JS_HARNESS)]
+        local_cmd = ["node", "--max-old-space-size=256", "--permission", f"--allow-fs-read={RUNNERS_DIR}", str(JS_HARNESS)]
         result, runtime_ms, _stderr = _run_harness_subprocess(local_cmd, payload, _effective_timeout_for_cmd(local_cmd))
     return result, runtime_ms
 
@@ -8971,20 +8971,20 @@ def exam_start_task(data: dict, user: dict = Depends(require_auth)):
 
 @app.post("/api/exam/submit")
 def exam_submit(data: dict, user: dict = Depends(require_auth)):
-    """Submit exam task solution."""
+    """Submit exam task solution with server-side code verification."""
     uid = int(user["id"])
     task_id = data.get("task_id")
     solution = data.get("solution", "")
-    
+
     if not task_id:
         raise HTTPException(400, "task_id required")
-    
+
     with get_db() as conn:
         cursor = conn.cursor()
         state = _get_exam_state(cursor)
         if not state["is_active"]:
             raise HTTPException(403, "Экзамен не активен")
-        
+
         cursor.execute("""
             SELECT * FROM exam_progress WHERE user_id = ? AND task_id = ?
         """, (uid, task_id))
@@ -8993,13 +8993,55 @@ def exam_submit(data: dict, user: dict = Depends(require_auth)):
             raise HTTPException(404, "Задание не начато")
         if prog["finished_at"]:
             raise HTTPException(400, "Задание уже сдано")
-        
-        # Check time
+
+        # Load task definition and check time/cheat status
         exam_tasks = load_exam_tasks()
         task = next((t for t in exam_tasks if t["id"] == task_id), None)
         time_expired = _compute_exam_time_expired(prog["started_at"], task)
-        score, xp_earned = _compute_exam_score(task, prog, time_expired)
-        
+        cheated = 0
+        try:
+            cheated = int(prog["cheated"] or 0)
+        except Exception:
+            cheated = 0
+
+        verification = None
+        runtime_ms = 0
+
+        if cheated or time_expired:
+            # Cheat / timeout → immediate zero
+            score, xp_earned = 0, 0
+        else:
+            engine = ((task or {}).get("check_logic") or {}).get("engine", "").lower()
+
+            if engine in ("pyodide", "python", "javascript", "js", "iframe", "frontend"):
+                # ── Run actual code verification (same pipeline as /api/tasks/attempt) ──
+                verification, runtime_ms = verify_task(task, solution)
+                passed = bool(verification.get("passed"))
+
+                # Apply the same safety-gate logic as regular tasks
+                logic = task.get("check_logic") or {}
+                v_cases = verification.get("cases") if isinstance(verification, dict) else []
+                visible_cases = logic.get("cases") if isinstance(logic.get("cases"), list) else []
+                hidden_cases = logic.get("hidden_cases") if isinstance(logic.get("hidden_cases"), list) else []
+                expected_case_count = len(visible_cases + hidden_cases)
+                has_cases = isinstance(v_cases, list) and len(v_cases) > 0
+                valid_case_payload = has_cases and all(isinstance(c, dict) for c in v_cases)
+                case_count_matches = valid_case_payload and len(v_cases) == expected_case_count
+                all_cases_passed = valid_case_payload and all(bool(c.get("passed")) for c in v_cases)
+
+                if engine in ("python", "pyodide", "javascript", "js"):
+                    passed = bool(passed and all_cases_passed and case_count_matches)
+
+                if passed:
+                    score, xp_earned = 10, int((task or {}).get("xp", 0))
+                else:
+                    score, xp_earned = 0, 0
+            elif engine == "manual":
+                # Manual-review tasks (e.g. scratch) — partial credit
+                score, xp_earned = _compute_exam_score(task, prog, time_expired)
+            else:
+                score, xp_earned = 0, 0
+
         cursor.execute("""
             UPDATE exam_progress
             SET finished_at = CURRENT_TIMESTAMP, solution = ?, score = ?,
@@ -9008,13 +9050,16 @@ def exam_submit(data: dict, user: dict = Depends(require_auth)):
             WHERE user_id = ? AND task_id = ?
         """, (solution, score, xp_earned, time_expired, uid, task_id))
         conn.commit()
-        
-    return {
+
+    resp = {
         "score": score,
         "xp_earned": xp_earned,
         "time_expired": bool(time_expired),
-        "cheated": bool(prog["cheated"])
+        "cheated": bool(cheated),
     }
+    if verification is not None:
+        resp["verification"] = verification
+    return resp
 
 
 @app.post("/api/exam/submit-scratch")

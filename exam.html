@@ -645,15 +645,20 @@
                 <div class="task-story" id="task-story"></div>
                 <div class="task-description" id="task-desc"></div>
                 <div class="scratch-exam-wrap" id="scratch-exam-wrap">
-                    <label style="display:block; margin-bottom:8px; color:var(--text-dim); font-size:13px;">🐱 Scratch Artifact</label>
+                    <label style="display:block; margin-bottom:8px; color:var(--text-dim); font-size:13px;">🐱 Scratch
+                        Artifact</label>
                     <div class="scratch-actions">
-                        <button type="button" class="btn btn-scratch" onclick="openScratchMitTab()">🌐 Открыть Scratch Web (MIT)</button>
-                        <button type="button" class="btn btn-scratch" onclick="triggerExamScratchFilePicker()">📁 Выбрать .sb3</button>
+                        <button type="button" class="btn btn-scratch" onclick="openScratchMitTab()">🌐 Открыть Scratch
+                            Web (MIT)</button>
+                        <button type="button" class="btn btn-scratch" onclick="triggerExamScratchFilePicker()">📁
+                            Выбрать .sb3</button>
                     </div>
-                    <input type="file" id="exam-scratch-file" accept=".sb3" style="display:none;" onchange="handleExamScratchFileSelected(this)">
+                    <input type="file" id="exam-scratch-file" accept=".sb3" style="display:none;"
+                        onchange="handleExamScratchFileSelected(this)">
                     <div class="scratch-file-name" id="exam-scratch-file-name"></div>
                     <div class="locked-hint" style="max-width:none; margin-top:8px;">
-                        В Scratch-заданиях можно открыть вкладку <code>scratch.mit.edu</code>, скачать старый <code>.sb3</code> из журнала и загрузить файл сюда.
+                        В Scratch-заданиях можно открыть вкладку <code>scratch.mit.edu</code>, скачать старый
+                        <code>.sb3</code> из журнала и загрузить файл сюда.
                     </div>
                 </div>
                 <div class="code-editor-wrap" id="editor-wrap">
@@ -725,7 +730,8 @@
                 <pre id="jm-solution" class="jm-solution"></pre>
             </div>
             <div id="jm-file-wrap" style="display:none; margin-bottom:8px;">
-                <a id="jm-file-link" class="btn btn-scratch" href="#" target="_blank" rel="noopener noreferrer" download>⬇️ Скачать .sb3 файл</a>
+                <a id="jm-file-link" class="btn btn-scratch" href="#" target="_blank" rel="noopener noreferrer"
+                    download>⬇️ Скачать .sb3 файл</a>
             </div>
             <button class="btn" style="margin-top:16px; background:rgba(255,255,255,0.1); color:#fff;"
                 onclick="document.getElementById('journal-modal').classList.remove('active')">Закрыть</button>
@@ -1138,6 +1144,29 @@
             }
             if (result.time_expired) {
                 msg.innerText = '⏰ Время вышло: 0 XP';
+                msg.style.color = 'var(--danger)';
+                return;
+            }
+            // Verification failed — show error details
+            if (result.verification && !result.verification.passed) {
+                const v = result.verification;
+                let errText = '❌ Тесты не пройдены.';
+                if (v.exec_error && v.exec_error.message) {
+                    errText += ' ' + v.exec_error.message;
+                } else if (v.cases && v.cases.length > 0) {
+                    const failed = v.cases.filter(c => !c.passed);
+                    if (failed.length > 0) {
+                        const f = failed[0];
+                        errText += ` ${f.label}: ожидалось ${JSON.stringify(f.expected)}, получено ${JSON.stringify(f.actual)}`;
+                        if (f.error) errText += ` (${f.error})`;
+                    }
+                }
+                msg.innerText = errText;
+                msg.style.color = 'var(--danger)';
+                return;
+            }
+            if (result.score === 0 && result.xp_earned === 0) {
+                msg.innerText = '❌ Решение не прошло проверку: 0 XP';
                 msg.style.color = 'var(--danger)';
                 return;
             }

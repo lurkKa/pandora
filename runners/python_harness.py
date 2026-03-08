@@ -31,10 +31,25 @@ from __future__ import annotations
 import io
 import json
 import random
+import resource
 import signal
 import sys
 import traceback
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
+
+# ── Resource limits (protection when running without Docker) ──
+# Memory: 256 MB virtual address space
+_MEM_LIMIT_BYTES = 256 * 1024 * 1024
+try:
+    resource.setrlimit(resource.RLIMIT_AS, (_MEM_LIMIT_BYTES, _MEM_LIMIT_BYTES))
+except (ValueError, OSError):
+    pass  # Not supported on this platform
+
+# CPU time: soft 8s, hard 10s (SIGKILL fallback for infinite loops)
+try:
+    resource.setrlimit(resource.RLIMIT_CPU, (8, 10))
+except (ValueError, OSError):
+    pass
 from typing import Any
 
 
