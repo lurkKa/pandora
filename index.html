@@ -621,21 +621,58 @@
             --method-bg: rgba(74, 222, 128, 0.18);
         }
 
+        /* Method 2: Gold — escalating card glow */
         .quest-card[data-methods="2"] {
             --method-accent: #fbbf24;
             --method-bg: rgba(251, 191, 36, 0.2);
         }
 
+        .quest-card.completed[data-methods="2"] {
+            border-color: rgba(251, 191, 36, 0.4);
+            box-shadow: 0 0 24px rgba(251, 191, 36, 0.12), inset 0 1px 0 rgba(251, 191, 36, 0.15);
+        }
+
+        .quest-card.completed[data-methods="2"] .quest-complete-badge {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            border-color: rgba(253, 230, 138, 0.5);
+            box-shadow: 0 0 14px rgba(245, 158, 11, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Method 3: Blue sapphire */
         .quest-card[data-methods="3"] {
             --method-accent: #60a5fa;
             --method-bg: rgba(96, 165, 250, 0.2);
         }
 
+        .quest-card.completed[data-methods="3"] {
+            border-color: rgba(96, 165, 250, 0.4);
+            box-shadow: 0 0 28px rgba(96, 165, 250, 0.14), inset 0 1px 0 rgba(96, 165, 250, 0.15);
+        }
+
+        .quest-card.completed[data-methods="3"] .quest-complete-badge {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            border-color: rgba(147, 197, 253, 0.5);
+            box-shadow: 0 0 16px rgba(59, 130, 246, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Method 4: Royal purple */
         .quest-card[data-methods="4"] {
             --method-accent: #a78bfa;
             --method-bg: rgba(167, 139, 250, 0.22);
         }
 
+        .quest-card.completed[data-methods="4"] {
+            border-color: rgba(167, 139, 250, 0.45);
+            box-shadow: 0 0 32px rgba(139, 92, 246, 0.18), inset 0 1px 0 rgba(167, 139, 250, 0.2);
+        }
+
+        .quest-card.completed[data-methods="4"] .quest-complete-badge {
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            border-color: rgba(196, 181, 253, 0.5);
+            box-shadow: 0 0 18px rgba(139, 92, 246, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Method 5+: Radiant pink — legendary */
         .quest-card[data-methods="5"],
         .quest-card[data-methods="6"],
         .quest-card[data-methods="7"],
@@ -643,6 +680,25 @@
         .quest-card[data-methods="9"] {
             --method-accent: #f472b6;
             --method-bg: rgba(244, 114, 182, 0.22);
+        }
+
+        .quest-card.completed[data-methods="5"],
+        .quest-card.completed[data-methods="6"],
+        .quest-card.completed[data-methods="7"],
+        .quest-card.completed[data-methods="8"],
+        .quest-card.completed[data-methods="9"] {
+            border-color: rgba(244, 114, 182, 0.5);
+            box-shadow: 0 0 36px rgba(244, 114, 182, 0.2), 0 0 60px rgba(244, 114, 182, 0.06), inset 0 1px 0 rgba(244, 114, 182, 0.2);
+        }
+
+        .quest-card.completed[data-methods="5"] .quest-complete-badge,
+        .quest-card.completed[data-methods="6"] .quest-complete-badge,
+        .quest-card.completed[data-methods="7"] .quest-complete-badge,
+        .quest-card.completed[data-methods="8"] .quest-complete-badge,
+        .quest-card.completed[data-methods="9"] .quest-complete-badge {
+            background: linear-gradient(135deg, #ec4899, #db2777);
+            border-color: rgba(251, 207, 232, 0.5);
+            box-shadow: 0 0 20px rgba(236, 72, 153, 0.6), 0 2px 8px rgba(0, 0, 0, 0.3);
         }
 
         .quest-methods {
