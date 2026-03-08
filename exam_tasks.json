@@ -13,11 +13,42 @@
       "check_logic": {
         "engine": "pyodide",
         "cases": [
-          {"code": "hero_power('Артур', 5)", "expected": "Герой Артур — уровень 5"},
-          {"code": "hero_power('Зефир', 1)", "expected": "Герой Зефир — уровень 1"}
+          {
+            "code": "hero_power('Артур', 5)",
+            "expected": "Герой Артур — уровень 5"
+          },
+          {
+            "code": "hero_power('Зефир', 1)",
+            "expected": "Герой Зефир — уровень 1"
+          }
         ],
         "hidden_cases": [
-          {"code": "hero_power('Тест', 99)", "expected": "Герой Тест — уровень 99"}
+          {
+            "code": "hero_power('Тест', 99)",
+            "expected": "Герой Тест — уровень 99"
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "Python: text sequence type (EN)",
+            "url": "https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str"
+          },
+          {
+            "title": "Python: dictionaries (EN)",
+            "url": "https://docs.python.org/3/tutorial/datastructures.html#dictionaries"
+          },
+          {
+            "title": "Python: tutorial (EN)",
+            "url": "https://docs.python.org/3/tutorial/index.html"
+          }
+        ],
+        "videos": [
+          {
+            "title": "Python: основы (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=rfscVS0vtbw"
+          }
         ]
       }
     },
@@ -34,12 +65,42 @@
       "check_logic": {
         "engine": "pyodide",
         "cases": [
-          {"code": "check_access(10)", "expected": "Доступ разрешён"},
-          {"code": "check_access(5)", "expected": "Доступ запрещён"}
+          {
+            "code": "check_access(10)",
+            "expected": "Доступ разрешён"
+          },
+          {
+            "code": "check_access(5)",
+            "expected": "Доступ запрещён"
+          }
         ],
         "hidden_cases": [
-          {"code": "check_access(0)", "expected": "Доступ запрещён"},
-          {"code": "check_access(100)", "expected": "Доступ разрешён"}
+          {
+            "code": "check_access(0)",
+            "expected": "Доступ запрещён"
+          },
+          {
+            "code": "check_access(100)",
+            "expected": "Доступ разрешён"
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "Python: control flow (EN)",
+            "url": "https://docs.python.org/3/tutorial/controlflow.html"
+          },
+          {
+            "title": "Python: tutorial (EN)",
+            "url": "https://docs.python.org/3/tutorial/index.html"
+          }
+        ],
+        "videos": [
+          {
+            "title": "Python: основы (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=rfscVS0vtbw"
+          }
         ]
       }
     },
@@ -56,11 +117,46 @@
       "check_logic": {
         "engine": "pyodide",
         "cases": [
-          {"code": "total_power([10, 20, 30])", "expected": 60},
-          {"code": "total_power([5])", "expected": 5}
+          {
+            "code": "total_power([10, 20, 30])",
+            "expected": 60
+          },
+          {
+            "code": "total_power([5])",
+            "expected": 5
+          }
         ],
         "hidden_cases": [
-          {"code": "total_power([])", "expected": 0}
+          {
+            "code": "total_power([])",
+            "expected": 0
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "Python: text sequence type (EN)",
+            "url": "https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str"
+          },
+          {
+            "title": "Python: lists (EN)",
+            "url": "https://docs.python.org/3/tutorial/introduction.html#lists"
+          },
+          {
+            "title": "Python: control flow (EN)",
+            "url": "https://docs.python.org/3/tutorial/controlflow.html"
+          },
+          {
+            "title": "Python: tutorial (EN)",
+            "url": "https://docs.python.org/3/tutorial/index.html"
+          }
+        ],
+        "videos": [
+          {
+            "title": "Python: основы (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=rfscVS0vtbw"
+          }
         ]
       }
     },
@@ -77,11 +173,47 @@
       "check_logic": {
         "engine": "pyodide",
         "cases": [
-          {"code": "filter_strong([10, 25, 5, 30], 15)", "expected": [25, 30]},
-          {"code": "filter_strong([1, 2, 3], 5)", "expected": []}
+          {
+            "code": "filter_strong([10, 25, 5, 30], 15)",
+            "expected": [
+              25,
+              30
+            ]
+          },
+          {
+            "code": "filter_strong([1, 2, 3], 5)",
+            "expected": []
+          }
         ],
         "hidden_cases": [
-          {"code": "filter_strong([100], 100)", "expected": [100]}
+          {
+            "code": "filter_strong([100], 100)",
+            "expected": [
+              100
+            ]
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "Python: lists (EN)",
+            "url": "https://docs.python.org/3/tutorial/introduction.html#lists"
+          },
+          {
+            "title": "Python: control flow (EN)",
+            "url": "https://docs.python.org/3/tutorial/controlflow.html"
+          },
+          {
+            "title": "Python: tutorial (EN)",
+            "url": "https://docs.python.org/3/tutorial/index.html"
+          }
+        ],
+        "videos": [
+          {
+            "title": "Python: основы (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=rfscVS0vtbw"
+          }
         ]
       }
     },
@@ -98,11 +230,55 @@
       "check_logic": {
         "engine": "pyodide",
         "cases": [
-          {"code": "count_items(['меч', 'щит', 'меч'])", "expected": {"меч": 2, "щит": 1}},
-          {"code": "count_items([])", "expected": {}}
+          {
+            "code": "count_items(['меч', 'щит', 'меч'])",
+            "expected": {
+              "меч": 2,
+              "щит": 1
+            }
+          },
+          {
+            "code": "count_items([])",
+            "expected": {}
+          }
         ],
         "hidden_cases": [
-          {"code": "count_items(['зелье', 'зелье', 'зелье'])", "expected": {"зелье": 3}}
+          {
+            "code": "count_items(['зелье', 'зелье', 'зелье'])",
+            "expected": {
+              "зелье": 3
+            }
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "Python: text sequence type (EN)",
+            "url": "https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str"
+          },
+          {
+            "title": "Python: dictionaries (EN)",
+            "url": "https://docs.python.org/3/tutorial/datastructures.html#dictionaries"
+          },
+          {
+            "title": "Python: lists (EN)",
+            "url": "https://docs.python.org/3/tutorial/introduction.html#lists"
+          },
+          {
+            "title": "Python: control flow (EN)",
+            "url": "https://docs.python.org/3/tutorial/controlflow.html"
+          },
+          {
+            "title": "Python: tutorial (EN)",
+            "url": "https://docs.python.org/3/tutorial/index.html"
+          }
+        ],
+        "videos": [
+          {
+            "title": "Python: основы (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=rfscVS0vtbw"
+          }
         ]
       }
     },
@@ -119,11 +295,38 @@
       "check_logic": {
         "engine": "pyodide",
         "cases": [
-          {"code": "encode_message('hello')", "expected": "OLLEH"},
-          {"code": "encode_message('Abc')", "expected": "CBA"}
+          {
+            "code": "encode_message('hello')",
+            "expected": "OLLEH"
+          },
+          {
+            "code": "encode_message('Abc')",
+            "expected": "CBA"
+          }
         ],
         "hidden_cases": [
-          {"code": "encode_message('')", "expected": ""}
+          {
+            "code": "encode_message('')",
+            "expected": ""
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "Python: text sequence type (EN)",
+            "url": "https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str"
+          },
+          {
+            "title": "Python: tutorial (EN)",
+            "url": "https://docs.python.org/3/tutorial/index.html"
+          }
+        ],
+        "videos": [
+          {
+            "title": "Python: основы (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=rfscVS0vtbw"
+          }
         ]
       }
     },
@@ -140,11 +343,52 @@
       "check_logic": {
         "engine": "pyodide",
         "cases": [
-          {"code": "rank_heroes([{'name': 'А', 'power': 10}, {'name': 'Б', 'power': 30}, {'name': 'В', 'power': 20}])", "expected": ["Б", "В", "А"]},
-          {"code": "rank_heroes([])", "expected": []}
+          {
+            "code": "rank_heroes([{'name': 'А', 'power': 10}, {'name': 'Б', 'power': 30}, {'name': 'В', 'power': 20}])",
+            "expected": [
+              "Б",
+              "В",
+              "А"
+            ]
+          },
+          {
+            "code": "rank_heroes([])",
+            "expected": []
+          }
         ],
         "hidden_cases": [
-          {"code": "rank_heroes([{'name': 'X', 'power': 5}])", "expected": ["X"]}
+          {
+            "code": "rank_heroes([{'name': 'X', 'power': 5}])",
+            "expected": [
+              "X"
+            ]
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "Python: text sequence type (EN)",
+            "url": "https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str"
+          },
+          {
+            "title": "Python: dictionaries (EN)",
+            "url": "https://docs.python.org/3/tutorial/datastructures.html#dictionaries"
+          },
+          {
+            "title": "Python: lists (EN)",
+            "url": "https://docs.python.org/3/tutorial/introduction.html#lists"
+          },
+          {
+            "title": "Python: tutorial (EN)",
+            "url": "https://docs.python.org/3/tutorial/index.html"
+          }
+        ],
+        "videos": [
+          {
+            "title": "Python: основы (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=rfscVS0vtbw"
+          }
         ]
       }
     },
@@ -161,11 +405,67 @@
       "check_logic": {
         "engine": "pyodide",
         "cases": [
-          {"code": "spell_matrix(2)", "expected": [[1,2],[2,4]]},
-          {"code": "spell_matrix(3)", "expected": [[1,2,3],[2,4,6],[3,6,9]]}
+          {
+            "code": "spell_matrix(2)",
+            "expected": [
+              [
+                1,
+                2
+              ],
+              [
+                2,
+                4
+              ]
+            ]
+          },
+          {
+            "code": "spell_matrix(3)",
+            "expected": [
+              [
+                1,
+                2,
+                3
+              ],
+              [
+                2,
+                4,
+                6
+              ],
+              [
+                3,
+                6,
+                9
+              ]
+            ]
+          }
         ],
         "hidden_cases": [
-          {"code": "spell_matrix(1)", "expected": [[1]]}
+          {
+            "code": "spell_matrix(1)",
+            "expected": [
+              [
+                1
+              ]
+            ]
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "Python: lists (EN)",
+            "url": "https://docs.python.org/3/tutorial/introduction.html#lists"
+          },
+          {
+            "title": "Python: tutorial (EN)",
+            "url": "https://docs.python.org/3/tutorial/index.html"
+          }
+        ],
+        "videos": [
+          {
+            "title": "Python: основы (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=rfscVS0vtbw"
+          }
         ]
       }
     },
@@ -182,12 +482,42 @@
       "check_logic": {
         "engine": "pyodide",
         "cases": [
-          {"code": "i = Inventory(); i.add('меч', 3); i.add('щит'); i.total()", "expected": 4},
-          {"code": "i = Inventory(); i.add('меч', 3); i.add('щит', 2); i.most_common()", "expected": "меч"}
+          {
+            "code": "i = Inventory(); i.add('меч', 3); i.add('щит'); i.total()",
+            "expected": 4
+          },
+          {
+            "code": "i = Inventory(); i.add('меч', 3); i.add('щит', 2); i.most_common()",
+            "expected": "меч"
+          }
         ],
         "hidden_cases": [
-          {"code": "i = Inventory(); i.add('x', 2); i.remove('x', 5); i.total()", "expected": 0},
-          {"code": "i = Inventory(); i.most_common()", "expected": null}
+          {
+            "code": "i = Inventory(); i.add('x', 2); i.remove('x', 5); i.total()",
+            "expected": 0
+          },
+          {
+            "code": "i = Inventory(); i.most_common()",
+            "expected": null
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "Python: classes (EN)",
+            "url": "https://docs.python.org/3/tutorial/classes.html"
+          },
+          {
+            "title": "Python: tutorial (EN)",
+            "url": "https://docs.python.org/3/tutorial/index.html"
+          }
+        ],
+        "videos": [
+          {
+            "title": "Python: основы (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=rfscVS0vtbw"
+          }
         ]
       }
     },
@@ -204,15 +534,41 @@
       "check_logic": {
         "engine": "pyodide",
         "cases": [
-          {"code": "min_path_sum([[1,3,1],[1,5,1],[4,2,1]])", "expected": 7},
-          {"code": "min_path_sum([[1,2],[3,4]])", "expected": 7}
+          {
+            "code": "min_path_sum([[1,3,1],[1,5,1],[4,2,1]])",
+            "expected": 7
+          },
+          {
+            "code": "min_path_sum([[1,2],[3,4]])",
+            "expected": 7
+          }
         ],
         "hidden_cases": [
-          {"code": "min_path_sum([[5]])", "expected": 5}
+          {
+            "code": "min_path_sum([[5]])",
+            "expected": 5
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "Python: lists (EN)",
+            "url": "https://docs.python.org/3/tutorial/introduction.html#lists"
+          },
+          {
+            "title": "Python: tutorial (EN)",
+            "url": "https://docs.python.org/3/tutorial/index.html"
+          }
+        ],
+        "videos": [
+          {
+            "title": "Python: основы (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=rfscVS0vtbw"
+          }
         ]
       }
     },
-
     {
       "id": "exam_js_01_var",
       "category": "javascript",
@@ -226,11 +582,42 @@
       "check_logic": {
         "engine": "javascript",
         "cases": [
-          {"code": "greetHero('Артур')", "expected": "Привет, Артур!"},
-          {"code": "greetHero('Маг')", "expected": "Привет, Маг!"}
+          {
+            "code": "greetHero('Артур')",
+            "expected": "Привет, Артур!"
+          },
+          {
+            "code": "greetHero('Маг')",
+            "expected": "Привет, Маг!"
+          }
         ],
         "hidden_cases": [
-          {"code": "greetHero('')", "expected": "Привет, !"}
+          {
+            "code": "greetHero('')",
+            "expected": "Привет, !"
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "MDN: String (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/String"
+          },
+          {
+            "title": "MDN: объекты (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide/Working_with_objects"
+          },
+          {
+            "title": "MDN: руководство по JavaScript (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide"
+          }
+        ],
+        "videos": [
+          {
+            "title": "JavaScript: основы (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=PkZNo7MFNFg"
+          }
         ]
       }
     },
@@ -247,13 +634,46 @@
       "check_logic": {
         "engine": "javascript",
         "cases": [
-          {"code": "damageType(5)", "expected": "слабый"},
-          {"code": "damageType(25)", "expected": "средний"},
-          {"code": "damageType(50)", "expected": "критический"}
+          {
+            "code": "damageType(5)",
+            "expected": "слабый"
+          },
+          {
+            "code": "damageType(25)",
+            "expected": "средний"
+          },
+          {
+            "code": "damageType(50)",
+            "expected": "критический"
+          }
         ],
         "hidden_cases": [
-          {"code": "damageType(0)", "expected": "слабый"},
-          {"code": "damageType(10)", "expected": "средний"}
+          {
+            "code": "damageType(0)",
+            "expected": "слабый"
+          },
+          {
+            "code": "damageType(10)",
+            "expected": "средний"
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "MDN: объекты (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide/Working_with_objects"
+          },
+          {
+            "title": "MDN: руководство по JavaScript (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide"
+          }
+        ],
+        "videos": [
+          {
+            "title": "JavaScript: основы (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=PkZNo7MFNFg"
+          }
         ]
       }
     },
@@ -270,11 +690,42 @@
       "check_logic": {
         "engine": "javascript",
         "cases": [
-          {"code": "sumArray([1, 2, 3])", "expected": 6},
-          {"code": "sumArray([10])", "expected": 10}
+          {
+            "code": "sumArray([1, 2, 3])",
+            "expected": 6
+          },
+          {
+            "code": "sumArray([10])",
+            "expected": 10
+          }
         ],
         "hidden_cases": [
-          {"code": "sumArray([])", "expected": 0}
+          {
+            "code": "sumArray([])",
+            "expected": 0
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "MDN: Array (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Array"
+          },
+          {
+            "title": "MDN: объекты (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide/Working_with_objects"
+          },
+          {
+            "title": "MDN: руководство по JavaScript (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide"
+          }
+        ],
+        "videos": [
+          {
+            "title": "JavaScript: основы (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=PkZNo7MFNFg"
+          }
         ]
       }
     },
@@ -291,11 +742,49 @@
       "check_logic": {
         "engine": "javascript",
         "cases": [
-          {"code": "uniqueItems([1, 2, 2, 3, 1])", "expected": [1, 2, 3]},
-          {"code": "uniqueItems(['a', 'b', 'a'])", "expected": ["a", "b"]}
+          {
+            "code": "uniqueItems([1, 2, 2, 3, 1])",
+            "expected": [
+              1,
+              2,
+              3
+            ]
+          },
+          {
+            "code": "uniqueItems(['a', 'b', 'a'])",
+            "expected": [
+              "a",
+              "b"
+            ]
+          }
         ],
         "hidden_cases": [
-          {"code": "uniqueItems([])", "expected": []}
+          {
+            "code": "uniqueItems([])",
+            "expected": []
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "MDN: Array (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Array"
+          },
+          {
+            "title": "MDN: объекты (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide/Working_with_objects"
+          },
+          {
+            "title": "MDN: руководство по JavaScript (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide"
+          }
+        ],
+        "videos": [
+          {
+            "title": "JavaScript: основы (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=PkZNo7MFNFg"
+          }
         ]
       }
     },
@@ -312,11 +801,54 @@
       "check_logic": {
         "engine": "javascript",
         "cases": [
-          {"code": "partyStats([{name:'A',hp:100},{name:'B',hp:50}])", "expected": {"count": 2, "totalHp": 150, "avgHp": 75}},
-          {"code": "partyStats([{name:'X',hp:33}])", "expected": {"count": 1, "totalHp": 33, "avgHp": 33}}
+          {
+            "code": "partyStats([{name:'A',hp:100},{name:'B',hp:50}])",
+            "expected": {
+              "count": 2,
+              "totalHp": 150,
+              "avgHp": 75
+            }
+          },
+          {
+            "code": "partyStats([{name:'X',hp:33}])",
+            "expected": {
+              "count": 1,
+              "totalHp": 33,
+              "avgHp": 33
+            }
+          }
         ],
         "hidden_cases": [
-          {"code": "partyStats([])", "expected": {"count": 0, "totalHp": 0, "avgHp": 0}}
+          {
+            "code": "partyStats([])",
+            "expected": {
+              "count": 0,
+              "totalHp": 0,
+              "avgHp": 0
+            }
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "MDN: Array (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Array"
+          },
+          {
+            "title": "MDN: объекты (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide/Working_with_objects"
+          },
+          {
+            "title": "MDN: руководство по JavaScript (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide"
+          }
+        ],
+        "videos": [
+          {
+            "title": "JavaScript: основы (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=PkZNo7MFNFg"
+          }
         ]
       }
     },
@@ -333,11 +865,45 @@
       "check_logic": {
         "engine": "javascript",
         "cases": [
-          {"code": "filterByLevel([{name:'A',level:3},{name:'B',level:7},{name:'C',level:5}], 5)", "expected": ["B", "C"]},
-          {"code": "filterByLevel([{name:'X',level:1}], 10)", "expected": []}
+          {
+            "code": "filterByLevel([{name:'A',level:3},{name:'B',level:7},{name:'C',level:5}], 5)",
+            "expected": [
+              "B",
+              "C"
+            ]
+          },
+          {
+            "code": "filterByLevel([{name:'X',level:1}], 10)",
+            "expected": []
+          }
         ],
         "hidden_cases": [
-          {"code": "filterByLevel([], 1)", "expected": []}
+          {
+            "code": "filterByLevel([], 1)",
+            "expected": []
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "MDN: Array (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Array"
+          },
+          {
+            "title": "MDN: объекты (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide/Working_with_objects"
+          },
+          {
+            "title": "MDN: руководство по JavaScript (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide"
+          }
+        ],
+        "videos": [
+          {
+            "title": "JavaScript: основы (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=PkZNo7MFNFg"
+          }
         ]
       }
     },
@@ -354,10 +920,79 @@
       "check_logic": {
         "engine": "javascript",
         "cases": [
-          {"code": "leaderboard([{name:'A',score:10},{name:'B',score:30},{name:'C',score:20}])", "expected": [{"rank":1,"name":"B","score":30},{"rank":2,"name":"C","score":20},{"rank":3,"name":"A","score":10}]}
+          {
+            "code": "leaderboard([{name:'A',score:20},{name:'B',score:40},{name:'C',score:30}])",
+            "expected": [
+              {
+                "rank": 1,
+                "name": "B",
+                "score": 40
+              },
+              {
+                "rank": 2,
+                "name": "C",
+                "score": 30
+              },
+              {
+                "rank": 3,
+                "name": "A",
+                "score": 20
+              }
+            ]
+          },
+          {
+            "code": "leaderboard([])",
+            "expected": []
+          },
+          {
+            "code": "leaderboard([{name:'Solo',score:5}])",
+            "expected": [
+              {
+                "rank": 1,
+                "name": "Solo",
+                "score": 5
+              }
+            ]
+          }
         ],
         "hidden_cases": [
-          {"code": "leaderboard([])", "expected": []}
+          {
+            "code": "leaderboard([{name:'X',score:2},{name:'Y',score:9}])",
+            "expected": [
+              {
+                "rank": 1,
+                "name": "Y",
+                "score": 9
+              },
+              {
+                "rank": 2,
+                "name": "X",
+                "score": 2
+              }
+            ]
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "MDN: Array (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Array"
+          },
+          {
+            "title": "MDN: объекты (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide/Working_with_objects"
+          },
+          {
+            "title": "MDN: руководство по JavaScript (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide"
+          }
+        ],
+        "videos": [
+          {
+            "title": "JavaScript: основы (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=PkZNo7MFNFg"
+          }
         ]
       }
     },
@@ -374,11 +1009,46 @@
       "check_logic": {
         "engine": "javascript",
         "cases": [
-          {"code": "const gen = createIdGenerator('hero'); [gen(), gen(), gen()]", "expected": ["hero_1", "hero_2", "hero_3"]},
-          {"code": "const g = createIdGenerator('item'); g(); g()", "expected": "item_2"}
+          {
+            "code": "const gen = createIdGenerator('hero'); [gen(), gen(), gen()]",
+            "expected": [
+              "hero_1",
+              "hero_2",
+              "hero_3"
+            ]
+          },
+          {
+            "code": "const g = createIdGenerator('item'); g(); g()",
+            "expected": "item_2"
+          }
         ],
         "hidden_cases": [
-          {"code": "const g1 = createIdGenerator('a'); const g2 = createIdGenerator('b'); [g1(), g2(), g1()]", "expected": ["a_1", "b_1", "a_2"]}
+          {
+            "code": "const g1 = createIdGenerator('a'); const g2 = createIdGenerator('b'); [g1(), g2(), g1()]",
+            "expected": [
+              "a_1",
+              "b_1",
+              "a_2"
+            ]
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "MDN: объекты (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide/Working_with_objects"
+          },
+          {
+            "title": "MDN: руководство по JavaScript (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide"
+          }
+        ],
+        "videos": [
+          {
+            "title": "JavaScript: основы (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=PkZNo7MFNFg"
+          }
         ]
       }
     },
@@ -395,12 +1065,53 @@
       "check_logic": {
         "engine": "javascript",
         "cases": [
-          {"code": "const q = new TaskQueue(); q.add('a'); q.add('b'); q.process()", "expected": "a"},
-          {"code": "const q = new TaskQueue(); q.add('x'); q.add('y'); q.processAll()", "expected": ["x", "y"]}
+          {
+            "code": "const q = new TaskQueue(); q.add('a'); q.add('b'); q.process()",
+            "expected": "a"
+          },
+          {
+            "code": "const q = new TaskQueue(); q.add('x'); q.add('y'); q.processAll()",
+            "expected": [
+              "x",
+              "y"
+            ]
+          }
         ],
         "hidden_cases": [
-          {"code": "const q = new TaskQueue(); q.process()", "expected": null},
-          {"code": "const q = new TaskQueue(); q.add('a'); q.processAll(); q.size()", "expected": 0}
+          {
+            "code": "const q = new TaskQueue(); q.process()",
+            "expected": null
+          },
+          {
+            "code": "const q = new TaskQueue(); q.add('a'); q.processAll(); q.size()",
+            "expected": 0
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "MDN: String (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/String"
+          },
+          {
+            "title": "MDN: Array (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Array"
+          },
+          {
+            "title": "MDN: объекты (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide/Working_with_objects"
+          },
+          {
+            "title": "MDN: руководство по JavaScript (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide"
+          }
+        ],
+        "videos": [
+          {
+            "title": "JavaScript: основы (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=PkZNo7MFNFg"
+          }
         ]
       }
     },
@@ -417,14 +1128,94 @@
       "check_logic": {
         "engine": "javascript",
         "cases": [
-          {"code": "groupBy([{type:'a',v:1},{type:'b',v:2},{type:'a',v:3}], 'type')", "expected": {"a":[{"type":"a","v":1},{"type":"a","v":3}],"b":[{"type":"b","v":2}]}}
+          {
+            "code": "groupBy([{type:'fire',name:'A'},{type:'ice',name:'B'},{type:'fire',name:'C'}], 'type')",
+            "expected": {
+              "fire": [
+                {
+                  "type": "fire",
+                  "name": "A"
+                },
+                {
+                  "type": "fire",
+                  "name": "C"
+                }
+              ],
+              "ice": [
+                {
+                  "type": "ice",
+                  "name": "B"
+                }
+              ]
+            }
+          },
+          {
+            "code": "groupBy([], 'type')",
+            "expected": {}
+          },
+          {
+            "code": "groupBy([{team:'red',id:1},{team:'red',id:2}], 'team')",
+            "expected": {
+              "red": [
+                {
+                  "team": "red",
+                  "id": 1
+                },
+                {
+                  "team": "red",
+                  "id": 2
+                }
+              ]
+            }
+          }
         ],
         "hidden_cases": [
-          {"code": "groupBy([], 'x')", "expected": {}}
+          {
+            "code": "groupBy([{kind:'x',v:1},{kind:'y',v:2},{kind:'x',v:3}], 'kind')",
+            "expected": {
+              "x": [
+                {
+                  "kind": "x",
+                  "v": 1
+                },
+                {
+                  "kind": "x",
+                  "v": 3
+                }
+              ],
+              "y": [
+                {
+                  "kind": "y",
+                  "v": 2
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "MDN: Array (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Array"
+          },
+          {
+            "title": "MDN: объекты (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide/Working_with_objects"
+          },
+          {
+            "title": "MDN: руководство по JavaScript (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide"
+          }
+        ],
+        "videos": [
+          {
+            "title": "JavaScript: основы (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=PkZNo7MFNFg"
+          }
         ]
       }
     },
-
     {
       "id": "exam_fe_01_html",
       "category": "frontend",
@@ -438,9 +1229,46 @@
       "check_logic": {
         "engine": "iframe",
         "cases": [
-          {"code": ".hero-card", "expected": "exists"},
-          {"code": ".hero-card h2", "expected": "exists"},
-          {"code": ".hero-card p", "expected": "exists"}
+          {
+            "type": "selector_exists",
+            "expected": ".hero-card"
+          },
+          {
+            "type": "content_regex",
+            "expected": "<h2\\b"
+          },
+          {
+            "type": "content_regex",
+            "expected": "<p\\b"
+          }
+        ],
+        "hidden_cases": [
+          {
+            "type": "content_contain",
+            "expected": "hero-card"
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "MDN: HTML основы (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/HTML_basics"
+          },
+          {
+            "title": "MDN: CSS основы (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/CSS_basics"
+          }
+        ],
+        "videos": [
+          {
+            "title": "HTML: полный курс (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=pQN-pnXPaVg"
+          },
+          {
+            "title": "CSS: crash course (Traversy Media, EN)",
+            "url": "https://www.youtube.com/watch?v=yfoY53QXEnI"
+          }
         ]
       }
     },
@@ -457,10 +1285,54 @@
       "check_logic": {
         "engine": "iframe",
         "cases": [
-          {"code": ".action-btn", "expected": "exists"},
-          {"code": ".action-btn:background-color", "expected": "#8b5cf6"},
-          {"code": ".action-btn:color", "expected": "white"},
-          {"code": ".action-btn:border-radius", "expected": "8px"}
+          {
+            "type": "selector_exists",
+            "expected": ".action-btn"
+          },
+          {
+            "type": "content_regex",
+            "expected": "\\.action-btn\\s*\\{[^}]*background(?:-color)?\\s*:\\s*#8b5cf6"
+          },
+          {
+            "type": "content_regex",
+            "expected": "\\.action-btn\\s*\\{[^}]*color\\s*:\\s*(white|#fff|#ffffff)"
+          },
+          {
+            "type": "content_regex",
+            "expected": "\\.action-btn\\s*\\{[^}]*border-radius\\s*:\\s*8px"
+          }
+        ],
+        "hidden_cases": [
+          {
+            "type": "content_regex",
+            "expected": "\\.action-btn\\s*\\{[^}]*padding\\s*:\\s*10px\\s+20px"
+          },
+          {
+            "type": "content_regex",
+            "expected": "\\.action-btn\\s*\\{[^}]*border\\s*:\\s*(none|0)"
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "MDN: HTML основы (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/HTML_basics"
+          },
+          {
+            "title": "MDN: CSS основы (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/CSS_basics"
+          }
+        ],
+        "videos": [
+          {
+            "title": "HTML: полный курс (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=pQN-pnXPaVg"
+          },
+          {
+            "title": "CSS: crash course (Traversy Media, EN)",
+            "url": "https://www.youtube.com/watch?v=yfoY53QXEnI"
+          }
         ]
       }
     },
@@ -477,8 +1349,46 @@
       "check_logic": {
         "engine": "iframe",
         "cases": [
-          {"code": ".skills", "expected": "exists"},
-          {"code": ".skills li:min-count", "expected": 3}
+          {
+            "type": "selector_exists",
+            "expected": ".skills"
+          },
+          {
+            "type": "content_regex",
+            "expected": "<li\\b"
+          },
+          {
+            "type": "content_regex",
+            "expected": "<li\\b.*?<li\\b.*?<li\\b"
+          }
+        ],
+        "hidden_cases": [
+          {
+            "type": "content_regex",
+            "expected": "<ul[^>]*class\\s*=\\s*[\"\\'][^\"\\']*\\bskills\\b[^\"\\']*[\"\\']"
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "MDN: HTML основы (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/HTML_basics"
+          },
+          {
+            "title": "MDN: CSS основы (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/CSS_basics"
+          }
+        ],
+        "videos": [
+          {
+            "title": "HTML: полный курс (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=pQN-pnXPaVg"
+          },
+          {
+            "title": "CSS: crash course (Traversy Media, EN)",
+            "url": "https://www.youtube.com/watch?v=yfoY53QXEnI"
+          }
         ]
       }
     },
@@ -495,9 +1405,62 @@
       "check_logic": {
         "engine": "iframe",
         "cases": [
-          {"code": ".navbar", "expected": "exists"},
-          {"code": ".navbar:display", "expected": "flex"},
-          {"code": ".navbar a:min-count", "expected": 3}
+          {
+            "type": "selector_exists",
+            "expected": ".navbar"
+          },
+          {
+            "type": "css_property",
+            "expected": {
+              "selector": ".navbar",
+              "property": "display",
+              "value": "flex"
+            }
+          },
+          {
+            "type": "content_regex",
+            "expected": "<a\\b.*?<a\\b.*?<a\\b"
+          }
+        ],
+        "hidden_cases": [
+          {
+            "type": "content_regex",
+            "expected": "\\.navbar\\s*\\{[^}]*justify-content\\s*:\\s*space-between"
+          },
+          {
+            "type": "content_regex",
+            "expected": "\\.navbar\\s*\\{[^}]*align-items\\s*:\\s*center"
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "MDN: семантика HTML (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Glossary/Semantics"
+          },
+          {
+            "title": "MDN: Flexbox (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/CSS/CSS_layout/Flexbox"
+          },
+          {
+            "title": "MDN: HTML основы (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/HTML_basics"
+          },
+          {
+            "title": "MDN: CSS основы (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/CSS_basics"
+          }
+        ],
+        "videos": [
+          {
+            "title": "HTML: полный курс (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=pQN-pnXPaVg"
+          },
+          {
+            "title": "CSS: crash course (Traversy Media, EN)",
+            "url": "https://www.youtube.com/watch?v=yfoY53QXEnI"
+          }
         ]
       }
     },
@@ -514,12 +1477,62 @@
       "check_logic": {
         "engine": "iframe",
         "cases": [
-          {"code": ".reg-form", "expected": "exists"},
-          {"code": ".reg-form input[type='text']", "expected": "exists"},
-          {"code": ".reg-form input[type='email']", "expected": "exists"},
-          {"code": ".reg-form input[type='password']", "expected": "exists"},
-          {"code": ".reg-form button[type='submit']", "expected": "exists"},
-          {"code": ".reg-form label:min-count", "expected": 3}
+          {
+            "type": "selector_exists",
+            "expected": ".reg-form"
+          },
+          {
+            "type": "content_regex",
+            "expected": "<input[^>]*type\\s*=\\s*[\"\\']text[\"\\']"
+          },
+          {
+            "type": "content_regex",
+            "expected": "<input[^>]*type\\s*=\\s*[\"\\']email[\"\\']"
+          },
+          {
+            "type": "content_regex",
+            "expected": "<input[^>]*type\\s*=\\s*[\"\\']password[\"\\']"
+          },
+          {
+            "type": "content_regex",
+            "expected": "<button[^>]*type\\s*=\\s*[\"\\']submit[\"\\']"
+          },
+          {
+            "type": "content_regex",
+            "expected": "<label\\b.*?<label\\b.*?<label\\b"
+          }
+        ],
+        "hidden_cases": [
+          {
+            "type": "content_regex",
+            "expected": "<form[^>]*class\\s*=\\s*[\"\\'][^\"\\']*\\breg-form\\b[^\"\\']*[\"\\']"
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "MDN: формы в HTML (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Forms/Your_first_form"
+          },
+          {
+            "title": "MDN: HTML основы (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/HTML_basics"
+          },
+          {
+            "title": "MDN: CSS основы (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/CSS_basics"
+          }
+        ],
+        "videos": [
+          {
+            "title": "HTML: полный курс (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=pQN-pnXPaVg"
+          },
+          {
+            "title": "CSS: crash course (Traversy Media, EN)",
+            "url": "https://www.youtube.com/watch?v=yfoY53QXEnI"
+          }
         ]
       }
     },
@@ -536,9 +1549,58 @@
       "check_logic": {
         "engine": "iframe",
         "cases": [
-          {"code": ".item-grid", "expected": "exists"},
-          {"code": ".item-grid:display", "expected": "grid"},
-          {"code": ".item-grid .item:min-count", "expected": 4}
+          {
+            "type": "selector_exists",
+            "expected": ".item-grid"
+          },
+          {
+            "type": "css_property",
+            "expected": {
+              "selector": ".item-grid",
+              "property": "display",
+              "value": "grid"
+            }
+          },
+          {
+            "type": "content_regex",
+            "expected": "class\\s*=\\s*[\"\\'][^\"\\']*\\bitem\\b[^\"\\']*[\"\\'].*class\\s*=\\s*[\"\\'][^\"\\']*\\bitem\\b[^\"\\']*[\"\\'].*class\\s*=\\s*[\"\\'][^\"\\']*\\bitem\\b[^\"\\']*[\"\\'].*class\\s*=\\s*[\"\\'][^\"\\']*\\bitem\\b[^\"\\']*[\"\\']"
+          }
+        ],
+        "hidden_cases": [
+          {
+            "type": "content_regex",
+            "expected": "\\.item-grid\\s*\\{[^}]*grid-template-columns\\s*:\\s*repeat\\s*\\(\\s*2\\s*,\\s*1fr\\s*\\)"
+          },
+          {
+            "type": "content_regex",
+            "expected": "\\.item-grid\\s*\\{[^}]*gap\\s*:\\s*16px"
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "MDN: CSS Grid (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/CSS/CSS_layout/Grids"
+          },
+          {
+            "title": "MDN: HTML основы (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/HTML_basics"
+          },
+          {
+            "title": "MDN: CSS основы (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/CSS_basics"
+          }
+        ],
+        "videos": [
+          {
+            "title": "HTML: полный курс (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=pQN-pnXPaVg"
+          },
+          {
+            "title": "CSS: crash course (Traversy Media, EN)",
+            "url": "https://www.youtube.com/watch?v=yfoY53QXEnI"
+          }
         ]
       }
     },
@@ -555,11 +1617,70 @@
       "check_logic": {
         "engine": "iframe",
         "cases": [
-          {"code": "header", "expected": "exists"},
-          {"code": "main", "expected": "exists"},
-          {"code": ".sidebar", "expected": "exists"},
-          {"code": ".content", "expected": "exists"},
-          {"code": "footer", "expected": "exists"}
+          {
+            "type": "selector_exists",
+            "expected": "header"
+          },
+          {
+            "type": "selector_exists",
+            "expected": "main"
+          },
+          {
+            "type": "selector_exists",
+            "expected": ".sidebar"
+          },
+          {
+            "type": "selector_exists",
+            "expected": ".content"
+          },
+          {
+            "type": "selector_exists",
+            "expected": "footer"
+          },
+          {
+            "type": "content_regex",
+            "expected": "@media\\s*\\(\\s*max-width\\s*:\\s*768px\\s*\\)"
+          }
+        ],
+        "hidden_cases": [
+          {
+            "type": "content_regex",
+            "expected": "main\\s*\\{[^}]*display\\s*:\\s*flex"
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "MDN: семантика HTML (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Glossary/Semantics"
+          },
+          {
+            "title": "MDN: адаптивный дизайн (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/CSS/CSS_layout/Responsive_Design"
+          },
+          {
+            "title": "MDN: Flexbox (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/CSS/CSS_layout/Flexbox"
+          },
+          {
+            "title": "MDN: HTML основы (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/HTML_basics"
+          },
+          {
+            "title": "MDN: CSS основы (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/CSS_basics"
+          }
+        ],
+        "videos": [
+          {
+            "title": "HTML: полный курс (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=pQN-pnXPaVg"
+          },
+          {
+            "title": "CSS: crash course (Traversy Media, EN)",
+            "url": "https://www.youtube.com/watch?v=yfoY53QXEnI"
+          }
         ]
       }
     },
@@ -576,7 +1697,58 @@
       "check_logic": {
         "engine": "iframe",
         "cases": [
-          {"code": ".magic-btn", "expected": "exists"}
+          {
+            "type": "selector_exists",
+            "expected": ".magic-btn"
+          },
+          {
+            "type": "content_regex",
+            "expected": "\\.magic-btn\\s*\\{[^}]*transition\\s*:\\s*[^;]*0\\.3s"
+          },
+          {
+            "type": "content_regex",
+            "expected": "\\.magic-btn:hover\\s*\\{[^}]*transform\\s*:\\s*scale\\s*\\(\\s*1\\.1\\s*\\)"
+          },
+          {
+            "type": "content_regex",
+            "expected": "@keyframes\\s+pulse"
+          }
+        ],
+        "hidden_cases": [
+          {
+            "type": "content_regex",
+            "expected": "\\.magic-btn:hover\\s*\\{[^}]*background(?:-color)?\\s*:"
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "MDN: CSS анимации (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Web/CSS/CSS_animations/Using_CSS_animations"
+          },
+          {
+            "title": "MDN: формы в HTML (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Forms/Your_first_form"
+          },
+          {
+            "title": "MDN: HTML основы (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/HTML_basics"
+          },
+          {
+            "title": "MDN: CSS основы (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/CSS_basics"
+          }
+        ],
+        "videos": [
+          {
+            "title": "HTML: полный курс (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=pQN-pnXPaVg"
+          },
+          {
+            "title": "CSS: crash course (Traversy Media, EN)",
+            "url": "https://www.youtube.com/watch?v=yfoY53QXEnI"
+          }
         ]
       }
     },
@@ -593,12 +1765,74 @@
       "check_logic": {
         "engine": "iframe",
         "cases": [
-          {"code": "header nav", "expected": "exists"},
-          {"code": "header nav a:min-count", "expected": 3},
-          {"code": "main article", "expected": "exists"},
-          {"code": "main article h1", "expected": "exists"},
-          {"code": "aside section", "expected": "exists"},
-          {"code": "footer", "expected": "exists"}
+          {
+            "type": "selector_exists",
+            "expected": "header"
+          },
+          {
+            "type": "selector_exists",
+            "expected": "nav"
+          },
+          {
+            "type": "content_regex",
+            "expected": "<a\\b.*?<a\\b.*?<a\\b"
+          },
+          {
+            "type": "selector_exists",
+            "expected": "main"
+          },
+          {
+            "type": "selector_exists",
+            "expected": "article"
+          },
+          {
+            "type": "selector_exists",
+            "expected": "h1"
+          },
+          {
+            "type": "selector_exists",
+            "expected": "aside"
+          },
+          {
+            "type": "selector_exists",
+            "expected": "section"
+          },
+          {
+            "type": "selector_exists",
+            "expected": "footer"
+          }
+        ],
+        "hidden_cases": [
+          {
+            "type": "content_regex",
+            "expected": "footer"
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "MDN: семантика HTML (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Glossary/Semantics"
+          },
+          {
+            "title": "MDN: HTML основы (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/HTML_basics"
+          },
+          {
+            "title": "MDN: CSS основы (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/CSS_basics"
+          }
+        ],
+        "videos": [
+          {
+            "title": "HTML: полный курс (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=pQN-pnXPaVg"
+          },
+          {
+            "title": "CSS: crash course (Traversy Media, EN)",
+            "url": "https://www.youtube.com/watch?v=yfoY53QXEnI"
+          }
         ]
       }
     },
@@ -615,15 +1849,77 @@
       "check_logic": {
         "engine": "iframe",
         "cases": [
-          {"code": ".dashboard", "expected": "exists"},
-          {"code": ".dashboard:display", "expected": "grid"},
-          {"code": ".stat-card:min-count", "expected": 6},
-          {"code": ".stat-card h3", "expected": "exists"},
-          {"code": ".stat-card .value", "expected": "exists"}
+          {
+            "type": "selector_exists",
+            "expected": ".dashboard"
+          },
+          {
+            "type": "css_property",
+            "expected": {
+              "selector": ".dashboard",
+              "property": "display",
+              "value": "grid"
+            }
+          },
+          {
+            "type": "content_regex",
+            "expected": "class\\s*=\\s*[\"\\'][^\"\\']*\\bstat-card\\b[^\"\\']*[\"\\'].*class\\s*=\\s*[\"\\'][^\"\\']*\\bstat-card\\b[^\"\\']*[\"\\'].*class\\s*=\\s*[\"\\'][^\"\\']*\\bstat-card\\b[^\"\\']*[\"\\']"
+          },
+          {
+            "type": "selector_exists",
+            "expected": ".stat-card"
+          },
+          {
+            "type": "selector_exists",
+            "expected": "h3"
+          },
+          {
+            "type": "selector_exists",
+            "expected": ".value"
+          },
+          {
+            "type": "content_regex",
+            "expected": "@media\\s*\\(\\s*max-width\\s*:\\s*768px\\s*\\)"
+          }
+        ],
+        "hidden_cases": [
+          {
+            "type": "content_regex",
+            "expected": "\\.dashboard\\s*\\{[^}]*grid-template-columns\\s*:\\s*repeat\\s*\\(\\s*3\\s*,"
+          }
+        ]
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "MDN: адаптивный дизайн (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/CSS/CSS_layout/Responsive_Design"
+          },
+          {
+            "title": "MDN: CSS Grid (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/CSS/CSS_layout/Grids"
+          },
+          {
+            "title": "MDN: HTML основы (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/HTML_basics"
+          },
+          {
+            "title": "MDN: CSS основы (RU)",
+            "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/CSS_basics"
+          }
+        ],
+        "videos": [
+          {
+            "title": "HTML: полный курс (freeCodeCamp, EN)",
+            "url": "https://www.youtube.com/watch?v=pQN-pnXPaVg"
+          },
+          {
+            "title": "CSS: crash course (Traversy Media, EN)",
+            "url": "https://www.youtube.com/watch?v=yfoY53QXEnI"
+          }
         ]
       }
     },
-
     {
       "id": "exam_sc_01_move",
       "category": "scratch",
@@ -634,7 +1930,56 @@
       "story": "Заставь персонажа двигаться.",
       "description": "Создай проект, где спрайт при нажатии зелёного флага перемещается на 100 шагов вправо.",
       "initial_code": "",
-      "check_logic": {"engine": "manual", "cases": []}
+      "check_logic": {
+        "engine": "manual",
+        "cases": []
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "Scratch Wiki: Motion Blocks",
+            "url": "https://en.scratch-wiki.info/wiki/Motion_Blocks"
+          },
+          {
+            "title": "Scratch: идеи и туториалы",
+            "url": "https://scratch.mit.edu/ideas"
+          },
+          {
+            "title": "Scratch Wiki: блоки",
+            "url": "https://en.scratch-wiki.info/wiki/Blocks"
+          }
+        ],
+        "videos": [
+          {
+            "title": "Scratch Team: видео",
+            "url": "https://www.youtube.com/@ScratchTeam/videos"
+          }
+        ]
+      },
+      "manual_criteria": [
+        "Движение спрайтов соответствует условию: координаты, направление и границы работают предсказуемо.",
+        "Итоговый сценарий можно проверить по шагам; у проекта нет критических багов, мешающих демонстрации.",
+        "Названия переменных и сообщений достаточно понятны, чтобы быстро проверить решение вручную.",
+        "Решение демонстрирует самостоятельную сборку логики, а не имитацию результата только в одном частном случае."
+      ],
+      "review_rubric": [
+        {
+          "criterion": "Соответствие условию",
+          "points": 4
+        },
+        {
+          "criterion": "Корректность механики",
+          "points": 3
+        },
+        {
+          "criterion": "Полнота реализации",
+          "points": 2
+        },
+        {
+          "criterion": "Аккуратность проекта",
+          "points": 1
+        }
+      ]
     },
     {
       "id": "exam_sc_02_event",
@@ -646,7 +1991,56 @@
       "story": "Настрой управление персонажем.",
       "description": "Создай проект, где спрайт двигается по 4 направлениям при нажатии стрелок (вверх/вниз/влево/вправо).",
       "initial_code": "",
-      "check_logic": {"engine": "manual", "cases": []}
+      "check_logic": {
+        "engine": "manual",
+        "cases": []
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "Scratch Wiki: Motion Blocks",
+            "url": "https://en.scratch-wiki.info/wiki/Motion_Blocks"
+          },
+          {
+            "title": "Scratch: идеи и туториалы",
+            "url": "https://scratch.mit.edu/ideas"
+          },
+          {
+            "title": "Scratch Wiki: блоки",
+            "url": "https://en.scratch-wiki.info/wiki/Blocks"
+          }
+        ],
+        "videos": [
+          {
+            "title": "Scratch Team: видео",
+            "url": "https://www.youtube.com/@ScratchTeam/videos"
+          }
+        ]
+      },
+      "manual_criteria": [
+        "Движение спрайтов соответствует условию: координаты, направление и границы работают предсказуемо.",
+        "Итоговый сценарий можно проверить по шагам; у проекта нет критических багов, мешающих демонстрации.",
+        "Названия переменных и сообщений достаточно понятны, чтобы быстро проверить решение вручную.",
+        "Решение демонстрирует самостоятельную сборку логики, а не имитацию результата только в одном частном случае."
+      ],
+      "review_rubric": [
+        {
+          "criterion": "Соответствие условию",
+          "points": 4
+        },
+        {
+          "criterion": "Корректность механики",
+          "points": 3
+        },
+        {
+          "criterion": "Полнота реализации",
+          "points": 2
+        },
+        {
+          "criterion": "Аккуратность проекта",
+          "points": 1
+        }
+      ]
     },
     {
       "id": "exam_sc_03_loop",
@@ -658,7 +2052,61 @@
       "story": "Создай анимацию повторяющегося действия.",
       "description": "Создай проект, где спрайт бесконечно ходит от одного края сцены к другому, отскакивая при касании края.",
       "initial_code": "",
-      "check_logic": {"engine": "manual", "cases": []}
+      "check_logic": {
+        "engine": "manual",
+        "cases": []
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "Scratch Wiki: Control Blocks",
+            "url": "https://en.scratch-wiki.info/wiki/Control_Blocks"
+          },
+          {
+            "title": "Scratch Wiki: Looks Blocks",
+            "url": "https://en.scratch-wiki.info/wiki/Looks_Blocks"
+          },
+          {
+            "title": "Scratch: идеи и туториалы",
+            "url": "https://scratch.mit.edu/ideas"
+          },
+          {
+            "title": "Scratch Wiki: блоки",
+            "url": "https://en.scratch-wiki.info/wiki/Blocks"
+          }
+        ],
+        "videos": [
+          {
+            "title": "Scratch Team: видео",
+            "url": "https://www.youtube.com/@ScratchTeam/videos"
+          }
+        ]
+      },
+      "manual_criteria": [
+        "Циклы, условия, таймеры или клоны используются по назначению и не создают зависаний.",
+        "Внешний вид, сообщения или звуки помогают понять состояние проекта и не конфликтуют с логикой.",
+        "Итоговый сценарий можно проверить по шагам; у проекта нет критических багов, мешающих демонстрации.",
+        "Названия переменных и сообщений достаточно понятны, чтобы быстро проверить решение вручную.",
+        "Решение демонстрирует самостоятельную сборку логики, а не имитацию результата только в одном частном случае."
+      ],
+      "review_rubric": [
+        {
+          "criterion": "Соответствие условию",
+          "points": 4
+        },
+        {
+          "criterion": "Корректность механики",
+          "points": 3
+        },
+        {
+          "criterion": "Полнота реализации",
+          "points": 2
+        },
+        {
+          "criterion": "Аккуратность проекта",
+          "points": 1
+        }
+      ]
     },
     {
       "id": "exam_sc_04_variable",
@@ -670,7 +2118,65 @@
       "story": "Создай систему подсчёта очков.",
       "description": "Создай переменную 'Счёт'. При клике на спрайт — счёт +1. При достижении 10 — показать сообщение 'Победа!' на 2 секунды.",
       "initial_code": "",
-      "check_logic": {"engine": "manual", "cases": []}
+      "check_logic": {
+        "engine": "manual",
+        "cases": []
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "Scratch Wiki: Variables Blocks",
+            "url": "https://en.scratch-wiki.info/wiki/Variables_Blocks"
+          },
+          {
+            "title": "Scratch Wiki: Events Blocks",
+            "url": "https://en.scratch-wiki.info/wiki/Events_Blocks"
+          },
+          {
+            "title": "Scratch Wiki: Looks Blocks",
+            "url": "https://en.scratch-wiki.info/wiki/Looks_Blocks"
+          },
+          {
+            "title": "Scratch: идеи и туториалы",
+            "url": "https://scratch.mit.edu/ideas"
+          },
+          {
+            "title": "Scratch Wiki: блоки",
+            "url": "https://en.scratch-wiki.info/wiki/Blocks"
+          }
+        ],
+        "videos": [
+          {
+            "title": "Scratch Team: видео",
+            "url": "https://www.youtube.com/@ScratchTeam/videos"
+          }
+        ]
+      },
+      "manual_criteria": [
+        "Проект запускается через корректное событие и воспроизводит основной сценарий без ручной донастройки.",
+        "Переменные или счётчики обновляются корректно и отражают реальное состояние проекта.",
+        "Внешний вид, сообщения или звуки помогают понять состояние проекта и не конфликтуют с логикой.",
+        "Итоговый сценарий можно проверить по шагам; у проекта нет критических багов, мешающих демонстрации.",
+        "Решение демонстрирует самостоятельную сборку логики, а не имитацию результата только в одном частном случае."
+      ],
+      "review_rubric": [
+        {
+          "criterion": "Соответствие условию",
+          "points": 4
+        },
+        {
+          "criterion": "Корректность механики",
+          "points": 3
+        },
+        {
+          "criterion": "Полнота реализации",
+          "points": 2
+        },
+        {
+          "criterion": "Аккуратность проекта",
+          "points": 1
+        }
+      ]
     },
     {
       "id": "exam_sc_05_condition",
@@ -682,7 +2188,56 @@
       "story": "Спрайт определяет, на каком фоне стоит.",
       "description": "Создай 3 цветные зоны на фоне. Спрайт при перемещении определяет, какого цвета фон под ним, и говорит название цвета.",
       "initial_code": "",
-      "check_logic": {"engine": "manual", "cases": []}
+      "check_logic": {
+        "engine": "manual",
+        "cases": []
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "Scratch Wiki: Looks Blocks",
+            "url": "https://en.scratch-wiki.info/wiki/Looks_Blocks"
+          },
+          {
+            "title": "Scratch: идеи и туториалы",
+            "url": "https://scratch.mit.edu/ideas"
+          },
+          {
+            "title": "Scratch Wiki: блоки",
+            "url": "https://en.scratch-wiki.info/wiki/Blocks"
+          }
+        ],
+        "videos": [
+          {
+            "title": "Scratch Team: видео",
+            "url": "https://www.youtube.com/@ScratchTeam/videos"
+          }
+        ]
+      },
+      "manual_criteria": [
+        "Внешний вид, сообщения или звуки помогают понять состояние проекта и не конфликтуют с логикой.",
+        "Итоговый сценарий можно проверить по шагам; у проекта нет критических багов, мешающих демонстрации.",
+        "Названия переменных и сообщений достаточно понятны, чтобы быстро проверить решение вручную.",
+        "Решение демонстрирует самостоятельную сборку логики, а не имитацию результата только в одном частном случае."
+      ],
+      "review_rubric": [
+        {
+          "criterion": "Соответствие условию",
+          "points": 4
+        },
+        {
+          "criterion": "Корректность механики",
+          "points": 3
+        },
+        {
+          "criterion": "Полнота реализации",
+          "points": 2
+        },
+        {
+          "criterion": "Аккуратность проекта",
+          "points": 1
+        }
+      ]
     },
     {
       "id": "exam_sc_06_clone",
@@ -694,7 +2249,61 @@
       "story": "Создай эффект падающих объектов.",
       "description": "Создай спрайт, который каждые 0.5 секунд создаёт клон. Клон появляется в случайной позиции сверху и плавно падает вниз, удаляясь при касании края.",
       "initial_code": "",
-      "check_logic": {"engine": "manual", "cases": []}
+      "check_logic": {
+        "engine": "manual",
+        "cases": []
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "Scratch Wiki: Control Blocks",
+            "url": "https://en.scratch-wiki.info/wiki/Control_Blocks"
+          },
+          {
+            "title": "Scratch Wiki: Motion Blocks",
+            "url": "https://en.scratch-wiki.info/wiki/Motion_Blocks"
+          },
+          {
+            "title": "Scratch: идеи и туториалы",
+            "url": "https://scratch.mit.edu/ideas"
+          },
+          {
+            "title": "Scratch Wiki: блоки",
+            "url": "https://en.scratch-wiki.info/wiki/Blocks"
+          }
+        ],
+        "videos": [
+          {
+            "title": "Scratch Team: видео",
+            "url": "https://www.youtube.com/@ScratchTeam/videos"
+          }
+        ]
+      },
+      "manual_criteria": [
+        "Движение спрайтов соответствует условию: координаты, направление и границы работают предсказуемо.",
+        "Циклы, условия, таймеры или клоны используются по назначению и не создают зависаний.",
+        "Итоговый сценарий можно проверить по шагам; у проекта нет критических багов, мешающих демонстрации.",
+        "Названия переменных и сообщений достаточно понятны, чтобы быстро проверить решение вручную.",
+        "Решение демонстрирует самостоятельную сборку логики, а не имитацию результата только в одном частном случае."
+      ],
+      "review_rubric": [
+        {
+          "criterion": "Соответствие условию",
+          "points": 4
+        },
+        {
+          "criterion": "Корректность механики",
+          "points": 3
+        },
+        {
+          "criterion": "Полнота реализации",
+          "points": 2
+        },
+        {
+          "criterion": "Аккуратность проекта",
+          "points": 1
+        }
+      ]
     },
     {
       "id": "exam_sc_07_game",
@@ -706,7 +2315,61 @@
       "story": "Создай простую аркадную игру.",
       "description": "Создай игру: объект случайно появляется, игрок управляет «ловцом» (стрелки). При касании — очки +1, объект перемещается. Таймер 30 сек, после — конец игры.",
       "initial_code": "",
-      "check_logic": {"engine": "manual", "cases": []}
+      "check_logic": {
+        "engine": "manual",
+        "cases": []
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "Scratch Wiki: Variables Blocks",
+            "url": "https://en.scratch-wiki.info/wiki/Variables_Blocks"
+          },
+          {
+            "title": "Scratch Wiki: Control Blocks",
+            "url": "https://en.scratch-wiki.info/wiki/Control_Blocks"
+          },
+          {
+            "title": "Scratch: идеи и туториалы",
+            "url": "https://scratch.mit.edu/ideas"
+          },
+          {
+            "title": "Scratch Wiki: блоки",
+            "url": "https://en.scratch-wiki.info/wiki/Blocks"
+          }
+        ],
+        "videos": [
+          {
+            "title": "Scratch Team: видео",
+            "url": "https://www.youtube.com/@ScratchTeam/videos"
+          }
+        ]
+      },
+      "manual_criteria": [
+        "Циклы, условия, таймеры или клоны используются по назначению и не создают зависаний.",
+        "Переменные или счётчики обновляются корректно и отражают реальное состояние проекта.",
+        "Итоговый сценарий можно проверить по шагам; у проекта нет критических багов, мешающих демонстрации.",
+        "Названия переменных и сообщений достаточно понятны, чтобы быстро проверить решение вручную.",
+        "Решение демонстрирует самостоятельную сборку логики, а не имитацию результата только в одном частном случае."
+      ],
+      "review_rubric": [
+        {
+          "criterion": "Соответствие условию",
+          "points": 4
+        },
+        {
+          "criterion": "Корректность механики",
+          "points": 3
+        },
+        {
+          "criterion": "Полнота реализации",
+          "points": 2
+        },
+        {
+          "criterion": "Аккуратность проекта",
+          "points": 1
+        }
+      ]
     },
     {
       "id": "exam_sc_08_list",
@@ -718,7 +2381,65 @@
       "story": "Реализуй таблицу лучших результатов.",
       "description": "Создай переменную 'Счёт' и список 'Рекорды'. После каждой игры — добавить счёт в список. Показать топ-3 рекорда на экране.",
       "initial_code": "",
-      "check_logic": {"engine": "manual", "cases": []}
+      "check_logic": {
+        "engine": "manual",
+        "cases": []
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "Scratch Wiki: Operators Blocks",
+            "url": "https://en.scratch-wiki.info/wiki/Operators_Blocks"
+          },
+          {
+            "title": "Scratch Wiki: Variables Blocks",
+            "url": "https://en.scratch-wiki.info/wiki/Variables_Blocks"
+          },
+          {
+            "title": "Scratch Wiki: Looks Blocks",
+            "url": "https://en.scratch-wiki.info/wiki/Looks_Blocks"
+          },
+          {
+            "title": "Scratch: идеи и туториалы",
+            "url": "https://scratch.mit.edu/ideas"
+          },
+          {
+            "title": "Scratch Wiki: блоки",
+            "url": "https://en.scratch-wiki.info/wiki/Blocks"
+          }
+        ],
+        "videos": [
+          {
+            "title": "Scratch Team: видео",
+            "url": "https://www.youtube.com/@ScratchTeam/videos"
+          }
+        ]
+      },
+      "manual_criteria": [
+        "Переменные или счётчики обновляются корректно и отражают реальное состояние проекта.",
+        "Внешний вид, сообщения или звуки помогают понять состояние проекта и не конфликтуют с логикой.",
+        "Списки данных отображают или сохраняют нужные значения без лишних дублей и потерь.",
+        "Итоговый сценарий можно проверить по шагам; у проекта нет критических багов, мешающих демонстрации.",
+        "Решение демонстрирует самостоятельную сборку логики, а не имитацию результата только в одном частном случае."
+      ],
+      "review_rubric": [
+        {
+          "criterion": "Соответствие условию",
+          "points": 4
+        },
+        {
+          "criterion": "Корректность механики",
+          "points": 3
+        },
+        {
+          "criterion": "Полнота реализации",
+          "points": 2
+        },
+        {
+          "criterion": "Аккуратность проекта",
+          "points": 1
+        }
+      ]
     },
     {
       "id": "exam_sc_09_broadcast",
@@ -730,7 +2451,61 @@
       "story": "Создай проект с несколькими сценами.",
       "description": "Создай проект с 3 сценами (фонами): меню, игра, финал. Используй сообщения (broadcast) для переключения. Каждая сцена содержит свои спрайты и логику.",
       "initial_code": "",
-      "check_logic": {"engine": "manual", "cases": []}
+      "check_logic": {
+        "engine": "manual",
+        "cases": []
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "Scratch Wiki: Events Blocks",
+            "url": "https://en.scratch-wiki.info/wiki/Events_Blocks"
+          },
+          {
+            "title": "Scratch Wiki: Looks Blocks",
+            "url": "https://en.scratch-wiki.info/wiki/Looks_Blocks"
+          },
+          {
+            "title": "Scratch: идеи и туториалы",
+            "url": "https://scratch.mit.edu/ideas"
+          },
+          {
+            "title": "Scratch Wiki: блоки",
+            "url": "https://en.scratch-wiki.info/wiki/Blocks"
+          }
+        ],
+        "videos": [
+          {
+            "title": "Scratch Team: видео",
+            "url": "https://www.youtube.com/@ScratchTeam/videos"
+          }
+        ]
+      },
+      "manual_criteria": [
+        "Проект запускается через корректное событие и воспроизводит основной сценарий без ручной донастройки.",
+        "Внешний вид, сообщения или звуки помогают понять состояние проекта и не конфликтуют с логикой.",
+        "Итоговый сценарий можно проверить по шагам; у проекта нет критических багов, мешающих демонстрации.",
+        "Названия переменных и сообщений достаточно понятны, чтобы быстро проверить решение вручную.",
+        "Решение демонстрирует самостоятельную сборку логики, а не имитацию результата только в одном частном случае."
+      ],
+      "review_rubric": [
+        {
+          "criterion": "Соответствие условию",
+          "points": 4
+        },
+        {
+          "criterion": "Корректность механики",
+          "points": 3
+        },
+        {
+          "criterion": "Полнота реализации",
+          "points": 2
+        },
+        {
+          "criterion": "Аккуратность проекта",
+          "points": 1
+        }
+      ]
     },
     {
       "id": "exam_sc_10_full",
@@ -742,7 +2517,61 @@
       "story": "Создай законченную игру с полным геймплеем.",
       "description": "Создай полноценную игру: меню старта, игровой процесс (управление, враги/препятствия, счёт), система жизней (3), экран завершения с рекордом. Минимум 3 спрайта.",
       "initial_code": "",
-      "check_logic": {"engine": "manual", "cases": []}
+      "check_logic": {
+        "engine": "manual",
+        "cases": []
+      },
+      "resources": {
+        "docs": [
+          {
+            "title": "Scratch Wiki: Operators Blocks",
+            "url": "https://en.scratch-wiki.info/wiki/Operators_Blocks"
+          },
+          {
+            "title": "Scratch Wiki: Variables Blocks",
+            "url": "https://en.scratch-wiki.info/wiki/Variables_Blocks"
+          },
+          {
+            "title": "Scratch: идеи и туториалы",
+            "url": "https://scratch.mit.edu/ideas"
+          },
+          {
+            "title": "Scratch Wiki: блоки",
+            "url": "https://en.scratch-wiki.info/wiki/Blocks"
+          }
+        ],
+        "videos": [
+          {
+            "title": "Scratch Team: видео",
+            "url": "https://www.youtube.com/@ScratchTeam/videos"
+          }
+        ]
+      },
+      "manual_criteria": [
+        "Переменные или счётчики обновляются корректно и отражают реальное состояние проекта.",
+        "Списки данных отображают или сохраняют нужные значения без лишних дублей и потерь.",
+        "Итоговый сценарий можно проверить по шагам; у проекта нет критических багов, мешающих демонстрации.",
+        "Названия переменных и сообщений достаточно понятны, чтобы быстро проверить решение вручную.",
+        "Решение демонстрирует самостоятельную сборку логики, а не имитацию результата только в одном частном случае."
+      ],
+      "review_rubric": [
+        {
+          "criterion": "Соответствие условию",
+          "points": 4
+        },
+        {
+          "criterion": "Корректность механики",
+          "points": 3
+        },
+        {
+          "criterion": "Полнота реализации",
+          "points": 2
+        },
+        {
+          "criterion": "Аккуратность проекта",
+          "points": 1
+        }
+      ]
     }
   ]
 }

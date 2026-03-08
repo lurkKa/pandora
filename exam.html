@@ -1261,11 +1261,15 @@
             // Strict policy: leaving viewport with pointer is treated as cheating.
             document.addEventListener('mouseleave', (e) => {
                 if (!isAntiCheatActive() || isScratchTask()) return;
+                // Grace period for OS language switcher overlays (Win+Space, etc.)
+                if (lastLangSwitchAt && (Date.now() - lastLangSwitchAt) < 1500) return;
                 if (!e.relatedTarget) reportCheat('tab_switch');
             });
             window.addEventListener('mouseout', (e) => {
                 if (!isAntiCheatActive() || isScratchTask()) return;
                 if (e.relatedTarget) return;
+                // Grace period for OS language switcher overlays (Win+Space, etc.)
+                if (lastLangSwitchAt && (Date.now() - lastLangSwitchAt) < 1500) return;
                 reportCheat('tab_switch');
             });
 

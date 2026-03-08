@@ -1,0 +1,748 @@
+{
+  "exam_tasks": [
+    {
+      "id": "exam_py_01_var",
+      "category": "python",
+      "tier": "D",
+      "xp": 20,
+      "time_limit_minutes": 8,
+      "title": "Сила героя",
+      "story": "Гильдия проверяет базовые навыки переменных.",
+      "description": "Создай функцию `hero_power(name, level)`, которая возвращает строку вида `'Герой {name} — уровень {level}'`.",
+      "initial_code": "def hero_power(name, level):\n    # Верни строку: 'Герой {name} — уровень {level}'\n    pass",
+      "check_logic": {
+        "engine": "pyodide",
+        "cases": [
+          {"code": "hero_power('Артур', 5)", "expected": "Герой Артур — уровень 5"},
+          {"code": "hero_power('Зефир', 1)", "expected": "Герой Зефир — уровень 1"}
+        ],
+        "hidden_cases": [
+          {"code": "hero_power('Тест', 99)", "expected": "Герой Тест — уровень 99"}
+        ]
+      }
+    },
+    {
+      "id": "exam_py_02_cond",
+      "category": "python",
+      "tier": "D",
+      "xp": 25,
+      "time_limit_minutes": 8,
+      "title": "Проверка доступа",
+      "story": "Страж ворот проверяет уровень доступа.",
+      "description": "Создай функцию `check_access(level)`: если `level >= 10` — верни `'Доступ разрешён'`, иначе `'Доступ запрещён'`.",
+      "initial_code": "def check_access(level):\n    # level >= 10 -> 'Доступ разрешён', иначе 'Доступ запрещён'\n    pass",
+      "check_logic": {
+        "engine": "pyodide",
+        "cases": [
+          {"code": "check_access(10)", "expected": "Доступ разрешён"},
+          {"code": "check_access(5)", "expected": "Доступ запрещён"}
+        ],
+        "hidden_cases": [
+          {"code": "check_access(0)", "expected": "Доступ запрещён"},
+          {"code": "check_access(100)", "expected": "Доступ разрешён"}
+        ]
+      }
+    },
+    {
+      "id": "exam_py_03_loop",
+      "category": "python",
+      "tier": "D",
+      "xp": 25,
+      "time_limit_minutes": 8,
+      "title": "Сумма сил",
+      "story": "Подсчёт общей силы отряда.",
+      "description": "Создай функцию `total_power(powers)`, принимающую список чисел и возвращающую их сумму.",
+      "initial_code": "def total_power(powers):\n    # Верни сумму всех элементов списка\n    pass",
+      "check_logic": {
+        "engine": "pyodide",
+        "cases": [
+          {"code": "total_power([10, 20, 30])", "expected": 60},
+          {"code": "total_power([5])", "expected": 5}
+        ],
+        "hidden_cases": [
+          {"code": "total_power([])", "expected": 0}
+        ]
+      }
+    },
+    {
+      "id": "exam_py_04_list_filter",
+      "category": "python",
+      "tier": "C",
+      "xp": 50,
+      "time_limit_minutes": 12,
+      "title": "Отбор воинов",
+      "story": "Командир отбирает сильнейших в отряд.",
+      "description": "Создай функцию `filter_strong(warriors, min_power)`, которая принимает список чисел и порог, возвращает список тех, что >= порог.",
+      "initial_code": "def filter_strong(warriors, min_power):\n    # Верни список элементов >= min_power\n    pass",
+      "check_logic": {
+        "engine": "pyodide",
+        "cases": [
+          {"code": "filter_strong([10, 25, 5, 30], 15)", "expected": [25, 30]},
+          {"code": "filter_strong([1, 2, 3], 5)", "expected": []}
+        ],
+        "hidden_cases": [
+          {"code": "filter_strong([100], 100)", "expected": [100]}
+        ]
+      }
+    },
+    {
+      "id": "exam_py_05_dict",
+      "category": "python",
+      "tier": "C",
+      "xp": 50,
+      "time_limit_minutes": 12,
+      "title": "Инвентарь героя",
+      "story": "Подсчёт предметов в рюкзаке.",
+      "description": "Создай функцию `count_items(items)`, принимающую список строк и возвращающую словарь с подсчётом каждого элемента.",
+      "initial_code": "def count_items(items):\n    # Верни словарь: {item: количество}\n    pass",
+      "check_logic": {
+        "engine": "pyodide",
+        "cases": [
+          {"code": "count_items(['меч', 'щит', 'меч'])", "expected": {"меч": 2, "щит": 1}},
+          {"code": "count_items([])", "expected": {}}
+        ],
+        "hidden_cases": [
+          {"code": "count_items(['зелье', 'зелье', 'зелье'])", "expected": {"зелье": 3}}
+        ]
+      }
+    },
+    {
+      "id": "exam_py_06_str",
+      "category": "python",
+      "tier": "C",
+      "xp": 45,
+      "time_limit_minutes": 12,
+      "title": "Шифр гильдии",
+      "story": "Зашифруй послание реверсом строки.",
+      "description": "Создай функцию `encode_message(text)`, возвращающую строку задом наперёд в верхнем регистре.",
+      "initial_code": "def encode_message(text):\n    # Верни text задом наперёд в UPPER CASE\n    pass",
+      "check_logic": {
+        "engine": "pyodide",
+        "cases": [
+          {"code": "encode_message('hello')", "expected": "OLLEH"},
+          {"code": "encode_message('Abc')", "expected": "CBA"}
+        ],
+        "hidden_cases": [
+          {"code": "encode_message('')", "expected": ""}
+        ]
+      }
+    },
+    {
+      "id": "exam_py_07_nested",
+      "category": "python",
+      "tier": "B",
+      "xp": 100,
+      "time_limit_minutes": 18,
+      "title": "Ранжирование героев",
+      "story": "Составь рейтинг героев по силе.",
+      "description": "Создай функцию `rank_heroes(heroes)`, принимающую список словарей `[{\"name\": str, \"power\": int}]` и возвращающую список имён, отсортированных по убыванию power.",
+      "initial_code": "def rank_heroes(heroes):\n    # Верни список имён, отсортированных по power (убывание)\n    pass",
+      "check_logic": {
+        "engine": "pyodide",
+        "cases": [
+          {"code": "rank_heroes([{'name': 'А', 'power': 10}, {'name': 'Б', 'power': 30}, {'name': 'В', 'power': 20}])", "expected": ["Б", "В", "А"]},
+          {"code": "rank_heroes([])", "expected": []}
+        ],
+        "hidden_cases": [
+          {"code": "rank_heroes([{'name': 'X', 'power': 5}])", "expected": ["X"]}
+        ]
+      }
+    },
+    {
+      "id": "exam_py_08_comprehension",
+      "category": "python",
+      "tier": "B",
+      "xp": 110,
+      "time_limit_minutes": 18,
+      "title": "Матрица заклинаний",
+      "story": "Трансформация данных заклинаний.",
+      "description": "Создай функцию `spell_matrix(n)`, возвращающую список списков: `[[i*j for j in range(1, n+1)] for i in range(1, n+1)]`.",
+      "initial_code": "def spell_matrix(n):\n    # Верни матрицу n×n, где элемент [i][j] = (i+1)*(j+1)\n    pass",
+      "check_logic": {
+        "engine": "pyodide",
+        "cases": [
+          {"code": "spell_matrix(2)", "expected": [[1,2],[2,4]]},
+          {"code": "spell_matrix(3)", "expected": [[1,2,3],[2,4,6],[3,6,9]]}
+        ],
+        "hidden_cases": [
+          {"code": "spell_matrix(1)", "expected": [[1]]}
+        ]
+      }
+    },
+    {
+      "id": "exam_py_09_class",
+      "category": "python",
+      "tier": "A",
+      "xp": 180,
+      "time_limit_minutes": 25,
+      "title": "Система инвентаря",
+      "story": "Создай полноценную систему управления инвентарём.",
+      "description": "Создай класс `Inventory` с методами: `add(item, qty=1)` — добавить предмет, `remove(item, qty=1)` — удалить (не ниже 0, удалять ключ если 0), `total()` — общее кол-во предметов, `most_common()` — имя предмета с наибольшим кол-вом (или None если пусто).",
+      "initial_code": "class Inventory:\n    def __init__(self):\n        pass\n    \n    def add(self, item, qty=1):\n        pass\n    \n    def remove(self, item, qty=1):\n        pass\n    \n    def total(self):\n        pass\n    \n    def most_common(self):\n        pass",
+      "check_logic": {
+        "engine": "pyodide",
+        "cases": [
+          {"code": "i = Inventory(); i.add('меч', 3); i.add('щит'); i.total()", "expected": 4},
+          {"code": "i = Inventory(); i.add('меч', 3); i.add('щит', 2); i.most_common()", "expected": "меч"}
+        ],
+        "hidden_cases": [
+          {"code": "i = Inventory(); i.add('x', 2); i.remove('x', 5); i.total()", "expected": 0},
+          {"code": "i = Inventory(); i.most_common()", "expected": null}
+        ]
+      }
+    },
+    {
+      "id": "exam_py_10_algo",
+      "category": "python",
+      "tier": "A",
+      "xp": 200,
+      "time_limit_minutes": 25,
+      "title": "Оптимальный маршрут",
+      "story": "Найди кратчайший путь через подземелье.",
+      "description": "Создай функцию `min_path_sum(grid)`, принимающую двумерный список чисел (grid[row][col]). Найди минимальную сумму пути от верхнего-левого до нижнего-правого угла, двигаясь только вправо или вниз.",
+      "initial_code": "def min_path_sum(grid):\n    # Найди минимальную сумму пути (вправо/вниз)\n    pass",
+      "check_logic": {
+        "engine": "pyodide",
+        "cases": [
+          {"code": "min_path_sum([[1,3,1],[1,5,1],[4,2,1]])", "expected": 7},
+          {"code": "min_path_sum([[1,2],[3,4]])", "expected": 7}
+        ],
+        "hidden_cases": [
+          {"code": "min_path_sum([[5]])", "expected": 5}
+        ]
+      }
+    },
+
+    {
+      "id": "exam_js_01_var",
+      "category": "javascript",
+      "tier": "D",
+      "xp": 20,
+      "time_limit_minutes": 8,
+      "title": "Приветствие героя",
+      "story": "Гильдия проверяет базовые навыки.",
+      "description": "Создай функцию `greetHero(name)`, возвращающую строку `'Привет, {name}!'`.",
+      "initial_code": "function greetHero(name) {\n  // Верни 'Привет, {name}!'\n}",
+      "check_logic": {
+        "engine": "javascript",
+        "cases": [
+          {"code": "greetHero('Артур')", "expected": "Привет, Артур!"},
+          {"code": "greetHero('Маг')", "expected": "Привет, Маг!"}
+        ],
+        "hidden_cases": [
+          {"code": "greetHero('')", "expected": "Привет, !"}
+        ]
+      }
+    },
+    {
+      "id": "exam_js_02_cond",
+      "category": "javascript",
+      "tier": "D",
+      "xp": 25,
+      "time_limit_minutes": 8,
+      "title": "Тип урона",
+      "story": "Определи тип атаки по силе удара.",
+      "description": "Создай функцию `damageType(dmg)`: dmg < 10 → `'слабый'`, 10-49 → `'средний'`, >= 50 → `'критический'`.",
+      "initial_code": "function damageType(dmg) {\n  // < 10 -> 'слабый', 10-49 -> 'средний', >= 50 -> 'критический'\n}",
+      "check_logic": {
+        "engine": "javascript",
+        "cases": [
+          {"code": "damageType(5)", "expected": "слабый"},
+          {"code": "damageType(25)", "expected": "средний"},
+          {"code": "damageType(50)", "expected": "критический"}
+        ],
+        "hidden_cases": [
+          {"code": "damageType(0)", "expected": "слабый"},
+          {"code": "damageType(10)", "expected": "средний"}
+        ]
+      }
+    },
+    {
+      "id": "exam_js_03_loop",
+      "category": "javascript",
+      "tier": "D",
+      "xp": 25,
+      "time_limit_minutes": 8,
+      "title": "Сумма массива",
+      "story": "Подсчитай общий запас ресурсов.",
+      "description": "Создай функцию `sumArray(arr)`, возвращающую сумму всех элементов массива чисел.",
+      "initial_code": "function sumArray(arr) {\n  // Верни сумму элементов\n}",
+      "check_logic": {
+        "engine": "javascript",
+        "cases": [
+          {"code": "sumArray([1, 2, 3])", "expected": 6},
+          {"code": "sumArray([10])", "expected": 10}
+        ],
+        "hidden_cases": [
+          {"code": "sumArray([])", "expected": 0}
+        ]
+      }
+    },
+    {
+      "id": "exam_js_04_array",
+      "category": "javascript",
+      "tier": "C",
+      "xp": 50,
+      "time_limit_minutes": 12,
+      "title": "Уникальные предметы",
+      "story": "Убери дубликаты из списка лута.",
+      "description": "Создай функцию `uniqueItems(arr)`, возвращающую массив без дубликатов, сохраняя порядок.",
+      "initial_code": "function uniqueItems(arr) {\n  // Верни массив без дубликатов\n}",
+      "check_logic": {
+        "engine": "javascript",
+        "cases": [
+          {"code": "uniqueItems([1, 2, 2, 3, 1])", "expected": [1, 2, 3]},
+          {"code": "uniqueItems(['a', 'b', 'a'])", "expected": ["a", "b"]}
+        ],
+        "hidden_cases": [
+          {"code": "uniqueItems([])", "expected": []}
+        ]
+      }
+    },
+    {
+      "id": "exam_js_05_obj",
+      "category": "javascript",
+      "tier": "C",
+      "xp": 50,
+      "time_limit_minutes": 12,
+      "title": "Статистика отряда",
+      "story": "Собери статистику по отряду.",
+      "description": "Создай функцию `partyStats(members)`, принимающую массив объектов `[{name, hp}]` и возвращающую объект `{count, totalHp, avgHp}` (avgHp округлить вниз).",
+      "initial_code": "function partyStats(members) {\n  // Верни {count, totalHp, avgHp}\n}",
+      "check_logic": {
+        "engine": "javascript",
+        "cases": [
+          {"code": "partyStats([{name:'A',hp:100},{name:'B',hp:50}])", "expected": {"count": 2, "totalHp": 150, "avgHp": 75}},
+          {"code": "partyStats([{name:'X',hp:33}])", "expected": {"count": 1, "totalHp": 33, "avgHp": 33}}
+        ],
+        "hidden_cases": [
+          {"code": "partyStats([])", "expected": {"count": 0, "totalHp": 0, "avgHp": 0}}
+        ]
+      }
+    },
+    {
+      "id": "exam_js_06_func",
+      "category": "javascript",
+      "tier": "C",
+      "xp": 45,
+      "time_limit_minutes": 12,
+      "title": "Фильтр по уровню",
+      "story": "Отбери героев нужного уровня.",
+      "description": "Создай функцию `filterByLevel(heroes, minLvl)`, принимающую массив `[{name, level}]` и возвращающую массив имён героев с level >= minLvl.",
+      "initial_code": "function filterByLevel(heroes, minLvl) {\n  // Верни массив имён героев с level >= minLvl\n}",
+      "check_logic": {
+        "engine": "javascript",
+        "cases": [
+          {"code": "filterByLevel([{name:'A',level:3},{name:'B',level:7},{name:'C',level:5}], 5)", "expected": ["B", "C"]},
+          {"code": "filterByLevel([{name:'X',level:1}], 10)", "expected": []}
+        ],
+        "hidden_cases": [
+          {"code": "filterByLevel([], 1)", "expected": []}
+        ]
+      }
+    },
+    {
+      "id": "exam_js_07_sort",
+      "category": "javascript",
+      "tier": "B",
+      "xp": 100,
+      "time_limit_minutes": 18,
+      "title": "Таблица лидеров",
+      "story": "Составь рейтинг по очкам с группировкой.",
+      "description": "Создай функцию `leaderboard(players)`, принимающую `[{name, score}]`. Верни массив объектов `{rank, name, score}`, отсортированных по score убывание. Rank начинается с 1.",
+      "initial_code": "function leaderboard(players) {\n  // Отсортируй по score desc, добавь rank\n}",
+      "check_logic": {
+        "engine": "javascript",
+        "cases": [
+          {"code": "leaderboard([{name:'A',score:10},{name:'B',score:30},{name:'C',score:20}])", "expected": [{"rank":1,"name":"B","score":30},{"rank":2,"name":"C","score":20},{"rank":3,"name":"A","score":10}]}
+        ],
+        "hidden_cases": [
+          {"code": "leaderboard([])", "expected": []}
+        ]
+      }
+    },
+    {
+      "id": "exam_js_08_closure",
+      "category": "javascript",
+      "tier": "B",
+      "xp": 110,
+      "time_limit_minutes": 18,
+      "title": "Генератор ID",
+      "story": "Создай генератор уникальных идентификаторов.",
+      "description": "Создай функцию `createIdGenerator(prefix)`, возвращающую функцию-генератор. Каждый вызов генератора возвращает `'{prefix}_1'`, `'{prefix}_2'` и т.д.",
+      "initial_code": "function createIdGenerator(prefix) {\n  // Верни функцию, которая каждый раз возвращает prefix_N\n}",
+      "check_logic": {
+        "engine": "javascript",
+        "cases": [
+          {"code": "const gen = createIdGenerator('hero'); [gen(), gen(), gen()]", "expected": ["hero_1", "hero_2", "hero_3"]},
+          {"code": "const g = createIdGenerator('item'); g(); g()", "expected": "item_2"}
+        ],
+        "hidden_cases": [
+          {"code": "const g1 = createIdGenerator('a'); const g2 = createIdGenerator('b'); [g1(), g2(), g1()]", "expected": ["a_1", "b_1", "a_2"]}
+        ]
+      }
+    },
+    {
+      "id": "exam_js_09_async",
+      "category": "javascript",
+      "tier": "A",
+      "xp": 180,
+      "time_limit_minutes": 25,
+      "title": "Обработка очереди",
+      "story": "Реализуй систему обработки задач.",
+      "description": "Создай класс `TaskQueue` с методами: `add(task)` — добавить строку в очередь, `process()` — удалить и вернуть первый элемент (или null), `size()` — текущий размер, `processAll()` — вернуть массив всех задач в порядке добавления и очистить очередь.",
+      "initial_code": "class TaskQueue {\n  constructor() {}\n  add(task) {}\n  process() {}\n  size() {}\n  processAll() {}\n}",
+      "check_logic": {
+        "engine": "javascript",
+        "cases": [
+          {"code": "const q = new TaskQueue(); q.add('a'); q.add('b'); q.process()", "expected": "a"},
+          {"code": "const q = new TaskQueue(); q.add('x'); q.add('y'); q.processAll()", "expected": ["x", "y"]}
+        ],
+        "hidden_cases": [
+          {"code": "const q = new TaskQueue(); q.process()", "expected": null},
+          {"code": "const q = new TaskQueue(); q.add('a'); q.processAll(); q.size()", "expected": 0}
+        ]
+      }
+    },
+    {
+      "id": "exam_js_10_transform",
+      "category": "javascript",
+      "tier": "A",
+      "xp": 200,
+      "time_limit_minutes": 25,
+      "title": "Трансформатор данных",
+      "story": "Преобразуй сложную структуру данных.",
+      "description": "Создай функцию `groupBy(arr, key)`, принимающую массив объектов и имя ключа. Верни объект, где ключи — значения поля key, а значения — массивы объектов с этим значением.",
+      "initial_code": "function groupBy(arr, key) {\n  // Сгруппируй массив объектов по значению key\n}",
+      "check_logic": {
+        "engine": "javascript",
+        "cases": [
+          {"code": "groupBy([{type:'a',v:1},{type:'b',v:2},{type:'a',v:3}], 'type')", "expected": {"a":[{"type":"a","v":1},{"type":"a","v":3}],"b":[{"type":"b","v":2}]}}
+        ],
+        "hidden_cases": [
+          {"code": "groupBy([], 'x')", "expected": {}}
+        ]
+      }
+    },
+
+    {
+      "id": "exam_fe_01_html",
+      "category": "frontend",
+      "tier": "D",
+      "xp": 20,
+      "time_limit_minutes": 8,
+      "title": "Карточка героя",
+      "story": "Создай HTML-карточку персонажа.",
+      "description": "Создай HTML с `<div class=\"hero-card\">`, внутри `<h2>` с именем героя и `<p>` с описанием.",
+      "initial_code": "<!-- Создай карточку героя -->\n<div class=\"hero-card\">\n  <!-- h2 и p здесь -->\n</div>",
+      "check_logic": {
+        "engine": "iframe",
+        "cases": [
+          {"code": ".hero-card", "expected": "exists"},
+          {"code": ".hero-card h2", "expected": "exists"},
+          {"code": ".hero-card p", "expected": "exists"}
+        ]
+      }
+    },
+    {
+      "id": "exam_fe_02_css",
+      "category": "frontend",
+      "tier": "D",
+      "xp": 25,
+      "time_limit_minutes": 8,
+      "title": "Стилизация кнопки",
+      "story": "Оформи кнопку действия для интерфейса.",
+      "description": "Создай `<button class=\"action-btn\">Атака</button>` и CSS: фон `#8b5cf6`, цвет текста белый, padding `10px 20px`, border-radius `8px`, без border.",
+      "initial_code": "<button class=\"action-btn\">Атака</button>\n<style>\n  .action-btn {\n    /* Твои стили */\n  }\n</style>",
+      "check_logic": {
+        "engine": "iframe",
+        "cases": [
+          {"code": ".action-btn", "expected": "exists"},
+          {"code": ".action-btn:background-color", "expected": "#8b5cf6"},
+          {"code": ".action-btn:color", "expected": "white"},
+          {"code": ".action-btn:border-radius", "expected": "8px"}
+        ]
+      }
+    },
+    {
+      "id": "exam_fe_03_list",
+      "category": "frontend",
+      "tier": "D",
+      "xp": 25,
+      "time_limit_minutes": 8,
+      "title": "Список навыков",
+      "story": "Отобрази список навыков героя.",
+      "description": "Создай `<ul class=\"skills\">` с минимум 3 элементами `<li>`. Каждый `<li>` должен содержать текст навыка.",
+      "initial_code": "<!-- Создай список навыков -->\n<ul class=\"skills\">\n  <!-- Минимум 3 li -->\n</ul>",
+      "check_logic": {
+        "engine": "iframe",
+        "cases": [
+          {"code": ".skills", "expected": "exists"},
+          {"code": ".skills li:min-count", "expected": 3}
+        ]
+      }
+    },
+    {
+      "id": "exam_fe_04_flex",
+      "category": "frontend",
+      "tier": "C",
+      "xp": 50,
+      "time_limit_minutes": 12,
+      "title": "Панель навигации",
+      "story": "Построй горизонтальную навигацию.",
+      "description": "Создай `<nav class=\"navbar\">` с 3 ссылками `<a>`. Используй flexbox: `display: flex`, `justify-content: space-between`, `align-items: center`.",
+      "initial_code": "<nav class=\"navbar\">\n  <!-- 3 ссылки -->\n</nav>\n<style>\n  .navbar {\n    /* flexbox стили */\n  }\n</style>",
+      "check_logic": {
+        "engine": "iframe",
+        "cases": [
+          {"code": ".navbar", "expected": "exists"},
+          {"code": ".navbar:display", "expected": "flex"},
+          {"code": ".navbar a:min-count", "expected": 3}
+        ]
+      }
+    },
+    {
+      "id": "exam_fe_05_form",
+      "category": "frontend",
+      "tier": "C",
+      "xp": 50,
+      "time_limit_minutes": 12,
+      "title": "Форма регистрации",
+      "story": "Создай форму для новых авантюристов.",
+      "description": "Создай `<form class=\"reg-form\">` с полями: input type=text (имя), input type=email, input type=password, и button type=submit. Каждое поле должно иметь label.",
+      "initial_code": "<form class=\"reg-form\">\n  <!-- Поля формы с label -->\n</form>",
+      "check_logic": {
+        "engine": "iframe",
+        "cases": [
+          {"code": ".reg-form", "expected": "exists"},
+          {"code": ".reg-form input[type='text']", "expected": "exists"},
+          {"code": ".reg-form input[type='email']", "expected": "exists"},
+          {"code": ".reg-form input[type='password']", "expected": "exists"},
+          {"code": ".reg-form button[type='submit']", "expected": "exists"},
+          {"code": ".reg-form label:min-count", "expected": 3}
+        ]
+      }
+    },
+    {
+      "id": "exam_fe_06_grid",
+      "category": "frontend",
+      "tier": "C",
+      "xp": 55,
+      "time_limit_minutes": 12,
+      "title": "Сетка карточек",
+      "story": "Размести карточки предметов в сетку.",
+      "description": "Создай `<div class=\"item-grid\">` с 4 дочерними `<div class=\"item\">`. CSS: display grid, grid-template-columns: repeat(2, 1fr), gap: 16px.",
+      "initial_code": "<div class=\"item-grid\">\n  <!-- 4 карточки -->\n</div>\n<style>\n  .item-grid {\n    /* grid стили */\n  }\n</style>",
+      "check_logic": {
+        "engine": "iframe",
+        "cases": [
+          {"code": ".item-grid", "expected": "exists"},
+          {"code": ".item-grid:display", "expected": "grid"},
+          {"code": ".item-grid .item:min-count", "expected": 4}
+        ]
+      }
+    },
+    {
+      "id": "exam_fe_07_responsive",
+      "category": "frontend",
+      "tier": "B",
+      "xp": 100,
+      "time_limit_minutes": 18,
+      "title": "Адаптивный layout",
+      "story": "Сделай интерфейс для всех экранов.",
+      "description": "Создай layout: `<header>`, `<main>` с `<aside class=\"sidebar\">` и `<section class=\"content\">`, `<footer>`. На десктопе sidebar и content рядом (flexbox). В @media (max-width: 768px) — друг под другом.",
+      "initial_code": "<header>Заголовок</header>\n<main>\n  <aside class=\"sidebar\">Меню</aside>\n  <section class=\"content\">Контент</section>\n</main>\n<footer>Подвал</footer>\n<style>\n  /* Адаптивные стили */\n</style>",
+      "check_logic": {
+        "engine": "iframe",
+        "cases": [
+          {"code": "header", "expected": "exists"},
+          {"code": "main", "expected": "exists"},
+          {"code": ".sidebar", "expected": "exists"},
+          {"code": ".content", "expected": "exists"},
+          {"code": "footer", "expected": "exists"}
+        ]
+      }
+    },
+    {
+      "id": "exam_fe_08_animation",
+      "category": "frontend",
+      "tier": "B",
+      "xp": 100,
+      "time_limit_minutes": 18,
+      "title": "Анимированная кнопка",
+      "story": "Создай интерактивную кнопку с эффектами.",
+      "description": "Создай `<button class=\"magic-btn\">Заклинание</button>`. CSS: при hover — масштаб 1.1 (transform scale), transition 0.3s, смена background-color. Добавь @keyframes pulse анимацию.",
+      "initial_code": "<button class=\"magic-btn\">Заклинание</button>\n<style>\n  .magic-btn {\n    /* Базовые стили + transition */\n  }\n  .magic-btn:hover {\n    /* hover эффект */\n  }\n  @keyframes pulse {\n    /* анимация */\n  }\n</style>",
+      "check_logic": {
+        "engine": "iframe",
+        "cases": [
+          {"code": ".magic-btn", "expected": "exists"}
+        ]
+      }
+    },
+    {
+      "id": "exam_fe_09_semantic",
+      "category": "frontend",
+      "tier": "A",
+      "xp": 160,
+      "time_limit_minutes": 25,
+      "title": "Семантическая страница",
+      "story": "Построй полностью семантичную структуру.",
+      "description": "Создай полную HTML-страницу: `<header>` с `<nav>` (минимум 3 ссылки), `<main>` с `<article>` (заголовок h1 + параграфы), `<aside>` с `<section>`, `<footer>` с копирайтом. Все элементы семантичные.",
+      "initial_code": "<!-- Семантичная HTML-страница -->\n<header>\n  <nav>\n    <!-- ссылки -->\n  </nav>\n</header>\n<main>\n  <!-- article + aside -->\n</main>\n<footer>\n  <!-- копирайт -->\n</footer>",
+      "check_logic": {
+        "engine": "iframe",
+        "cases": [
+          {"code": "header nav", "expected": "exists"},
+          {"code": "header nav a:min-count", "expected": 3},
+          {"code": "main article", "expected": "exists"},
+          {"code": "main article h1", "expected": "exists"},
+          {"code": "aside section", "expected": "exists"},
+          {"code": "footer", "expected": "exists"}
+        ]
+      }
+    },
+    {
+      "id": "exam_fe_10_dashboard",
+      "category": "frontend",
+      "tier": "A",
+      "xp": 200,
+      "time_limit_minutes": 25,
+      "title": "Дашборд статистики",
+      "story": "Создай информационную панель управления.",
+      "description": "Создай дашборд: `<div class=\"dashboard\">` с grid layout (3 колонки). Внутри 6 карточек `<div class=\"stat-card\">`, каждая с заголовком `<h3>`, значением `<span class=\"value\">` и иконкой. Добавь медиа-запрос для мобильных (1 колонка).",
+      "initial_code": "<div class=\"dashboard\">\n  <!-- 6 stat-card элементов -->\n</div>\n<style>\n  .dashboard { /* grid */ }\n  .stat-card { /* стили карточки */ }\n  @media (max-width: 768px) { /* мобильный */ }\n</style>",
+      "check_logic": {
+        "engine": "iframe",
+        "cases": [
+          {"code": ".dashboard", "expected": "exists"},
+          {"code": ".dashboard:display", "expected": "grid"},
+          {"code": ".stat-card:min-count", "expected": 6},
+          {"code": ".stat-card h3", "expected": "exists"},
+          {"code": ".stat-card .value", "expected": "exists"}
+        ]
+      }
+    },
+
+    {
+      "id": "exam_sc_01_move",
+      "category": "scratch",
+      "tier": "D",
+      "xp": 20,
+      "time_limit_minutes": 8,
+      "title": "Движение спрайта",
+      "story": "Заставь персонажа двигаться.",
+      "description": "Создай проект, где спрайт при нажатии зелёного флага перемещается на 100 шагов вправо.",
+      "initial_code": "",
+      "check_logic": {"engine": "manual", "cases": []}
+    },
+    {
+      "id": "exam_sc_02_event",
+      "category": "scratch",
+      "tier": "D",
+      "xp": 25,
+      "time_limit_minutes": 8,
+      "title": "Управление стрелками",
+      "story": "Настрой управление персонажем.",
+      "description": "Создай проект, где спрайт двигается по 4 направлениям при нажатии стрелок (вверх/вниз/влево/вправо).",
+      "initial_code": "",
+      "check_logic": {"engine": "manual", "cases": []}
+    },
+    {
+      "id": "exam_sc_03_loop",
+      "category": "scratch",
+      "tier": "D",
+      "xp": 25,
+      "time_limit_minutes": 8,
+      "title": "Бесконечное движение",
+      "story": "Создай анимацию повторяющегося действия.",
+      "description": "Создай проект, где спрайт бесконечно ходит от одного края сцены к другому, отскакивая при касании края.",
+      "initial_code": "",
+      "check_logic": {"engine": "manual", "cases": []}
+    },
+    {
+      "id": "exam_sc_04_variable",
+      "category": "scratch",
+      "tier": "C",
+      "xp": 45,
+      "time_limit_minutes": 12,
+      "title": "Счётчик очков",
+      "story": "Создай систему подсчёта очков.",
+      "description": "Создай переменную 'Счёт'. При клике на спрайт — счёт +1. При достижении 10 — показать сообщение 'Победа!' на 2 секунды.",
+      "initial_code": "",
+      "check_logic": {"engine": "manual", "cases": []}
+    },
+    {
+      "id": "exam_sc_05_condition",
+      "category": "scratch",
+      "tier": "C",
+      "xp": 50,
+      "time_limit_minutes": 12,
+      "title": "Определитель цвета",
+      "story": "Спрайт определяет, на каком фоне стоит.",
+      "description": "Создай 3 цветные зоны на фоне. Спрайт при перемещении определяет, какого цвета фон под ним, и говорит название цвета.",
+      "initial_code": "",
+      "check_logic": {"engine": "manual", "cases": []}
+    },
+    {
+      "id": "exam_sc_06_clone",
+      "category": "scratch",
+      "tier": "C",
+      "xp": 55,
+      "time_limit_minutes": 12,
+      "title": "Дождь из клонов",
+      "story": "Создай эффект падающих объектов.",
+      "description": "Создай спрайт, который каждые 0.5 секунд создаёт клон. Клон появляется в случайной позиции сверху и плавно падает вниз, удаляясь при касании края.",
+      "initial_code": "",
+      "check_logic": {"engine": "manual", "cases": []}
+    },
+    {
+      "id": "exam_sc_07_game",
+      "category": "scratch",
+      "tier": "B",
+      "xp": 100,
+      "time_limit_minutes": 18,
+      "title": "Игра «Поймай»",
+      "story": "Создай простую аркадную игру.",
+      "description": "Создай игру: объект случайно появляется, игрок управляет «ловцом» (стрелки). При касании — очки +1, объект перемещается. Таймер 30 сек, после — конец игры.",
+      "initial_code": "",
+      "check_logic": {"engine": "manual", "cases": []}
+    },
+    {
+      "id": "exam_sc_08_list",
+      "category": "scratch",
+      "tier": "B",
+      "xp": 110,
+      "time_limit_minutes": 18,
+      "title": "Список рекордов",
+      "story": "Реализуй таблицу лучших результатов.",
+      "description": "Создай переменную 'Счёт' и список 'Рекорды'. После каждой игры — добавить счёт в список. Показать топ-3 рекорда на экране.",
+      "initial_code": "",
+      "check_logic": {"engine": "manual", "cases": []}
+    },
+    {
+      "id": "exam_sc_09_broadcast",
+      "category": "scratch",
+      "tier": "A",
+      "xp": 160,
+      "time_limit_minutes": 25,
+      "title": "Мультисцена",
+      "story": "Создай проект с несколькими сценами.",
+      "description": "Создай проект с 3 сценами (фонами): меню, игра, финал. Используй сообщения (broadcast) для переключения. Каждая сцена содержит свои спрайты и логику.",
+      "initial_code": "",
+      "check_logic": {"engine": "manual", "cases": []}
+    },
+    {
+      "id": "exam_sc_10_full",
+      "category": "scratch",
+      "tier": "A",
+      "xp": 200,
+      "time_limit_minutes": 25,
+      "title": "Полноценная игра",
+      "story": "Создай законченную игру с полным геймплеем.",
+      "description": "Создай полноценную игру: меню старта, игровой процесс (управление, враги/препятствия, счёт), система жизней (3), экран завершения с рекордом. Минимум 3 спрайта.",
+      "initial_code": "",
+      "check_logic": {"engine": "manual", "cases": []}
+    }
+  ]
+}
