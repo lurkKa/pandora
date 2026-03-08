@@ -754,6 +754,7 @@
         let antiCheatAwayStartedAt = 0;
         let antiCheatAwaySources = {};
         let antiCheatAwaitRefocus = false;
+        let lastLangSwitchAt = 0;
         const EXAM_SCRATCH_MAX_MB = 10;
         const ANTI_CHEAT_MIN_HIDDEN_MS = 550;
         const ANTI_CHEAT_COOLDOWN_MS = 4000;
@@ -803,6 +804,8 @@
 
             if (!isAntiCheatActive() || isScratchTask()) return;
             if (awayDuration < ANTI_CHEAT_MIN_HIDDEN_MS) return;
+            // Grace period: ignore brief blur events caused by OS language switchers
+            if (lastLangSwitchAt && (Date.now() - lastLangSwitchAt) < 1500) return;
             antiCheatAwaitRefocus = true;
             reportCheat(eventType);
         }
@@ -1267,59 +1270,76 @@
             });
 
             // Keyboard shortcuts
+
             document.addEventListener('keydown', (e) => {
                 if (!isAntiCheatActive()) return;
                 if (isScratchTask()) return;
                 const key = String(e.key || '');
                 const keyLower = key.toLowerCase();
-                const modifierOnly = key === 'Control' || key === 'Shift' || key === 'Alt' || key === 'Meta';
-                const hasControlLikeModifier = e.ctrlKey || e.metaKey || e.altKey;
-                const isAllowedCopyPaste =
-                    !e.altKey &&
-                    (e.ctrlKey || e.metaKey) &&
-                    (keyLower === 'c' || keyLower === 'v');
                 const focusedInEditor = isCodeEditorFocused();
-                // Allow Ctrl+Backspace / Ctrl+Delete (word-delete) inside editor
-                const isAllowedWordDelete =
-                    focusedInEditor &&
-                    (e.ctrlKey || e.metaKey) &&
-                    !e.altKey &&
-                    (key === 'Backspace' || key === 'Delete');
-                // Allow language switching: Shift alone, Alt+Shift, Ctrl+Shift
+
+                // ── Modifier-only keys are always safe ──
+                const modifierOnly = key === 'Control' || key === 'Shift' || key === 'Alt' || key === 'Meta';
+
+                // ── Language switching detection ──
+                // Alt+Shift, Ctrl+Shift, Win+Space, Win key alone
                 const isLanguageSwitch =
                     (key === 'Shift' && (e.altKey || e.ctrlKey)) ||
                     (key === 'Alt' && e.shiftKey) ||
                     (key === 'Control' && e.shiftKey) ||
-                    (keyLower === 'space' && e.metaKey);
+                    (key === 'Meta') ||
+                    (keyLower === ' ' && e.metaKey) ||
+                    (key === ' ' && e.metaKey);
 
+                if (modifierOnly || isLanguageSwitch) {
+                    if (isLanguageSwitch) lastLangSwitchAt = Date.now();
+                    return;  // Always allow
+                }
+
+                // ── Hard block: F12 (devtools) ──
                 if (key === 'F12') {
                     e.preventDefault();
                     reportCheat('shortcut');
                     return;
                 }
 
-                if (hasControlLikeModifier && !modifierOnly && !isAllowedCopyPaste && !isAllowedWordDelete && !isLanguageSwitch) {
+                const hasControlLikeModifier = e.ctrlKey || e.metaKey || e.altKey;
+
+                if (hasControlLikeModifier) {
+                    // ── Allowed modifier combos inside editor ──
+                    if (focusedInEditor) {
+                        const allowedEditorCombos = (e.ctrlKey || e.metaKey) && !e.altKey && (
+                            keyLower === 'c' || keyLower === 'v' ||       // copy/paste
+                            keyLower === 'a' ||                           // select all
+                            keyLower === 'z' || keyLower === 'y' ||       // undo/redo
+                            keyLower === 'x' ||                           // cut
+                            key === 'Backspace' || key === 'Delete' ||    // word delete
+                            key === 'ArrowLeft' || key === 'ArrowRight'   // word navigation
+                        );
+                        if (allowedEditorCombos) return;  // Allow
+                    }
+
+                    // Everything else with modifier → cheat
                     e.preventDefault();
                     if ((e.ctrlKey || e.metaKey) && key === 'Tab') {
                         reportCheat('ctrl_tab');
-                        return;
-                    }
-                    if (e.altKey && key === 'Tab') {
+                    } else if (e.altKey && key === 'Tab') {
                         reportCheat('alt_tab');
-                        return;
+                    } else {
+                        reportCheat('shortcut');
                     }
+                    return;
+                }
+
+                // ── No modifier pressed ──
+                // Outside editor: any non-modifier key is suspicious
+                if (!focusedInEditor) {
                     reportCheat('shortcut');
                     return;
                 }
 
-                // Any non-editing key usage outside the code editor is cheating in strict mode.
-                if (!modifierOnly && !focusedInEditor) {
-                    reportCheat('shortcut');
-                    return;
-                }
-
-                // Inside editor allow only direct coding keys (no function/system keys).
-                if (!modifierOnly && focusedInEditor && !isAllowedEditorKey(key)) {
+                // Inside editor: only standard coding keys allowed
+                if (!isAllowedEditorKey(key)) {
                     reportCheat('shortcut');
                 }
             });
