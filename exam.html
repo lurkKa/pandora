@@ -743,8 +743,9 @@
         let taskStarted = false;
         let antiCheatHiddenAt = 0;
         let antiCheatLastReportAt = 0;
+        let antiCheatBlurTimer = null;
         const EXAM_SCRATCH_MAX_MB = 10;
-        const ANTI_CHEAT_MIN_HIDDEN_MS = 1800;
+        const ANTI_CHEAT_MIN_HIDDEN_MS = 450;
         const ANTI_CHEAT_COOLDOWN_MS = 4000;
 
         // ==================== LOGIN ====================
@@ -943,6 +944,12 @@
 
         function showTaskActive() {
             taskStarted = true;
+            antiCheatHiddenAt = 0;
+            antiCheatLastReportAt = 0;
+            if (antiCheatBlurTimer) {
+                clearTimeout(antiCheatBlurTimer);
+                antiCheatBlurTimer = null;
+            }
             document.getElementById('editor-wrap').style.display = isScratchTask() ? 'none' : 'block';
             setScratchTaskUiVisible(isScratchTask());
             document.getElementById('submit-row').style.display = 'flex';
@@ -1103,6 +1110,31 @@
                 if (isScratchTask()) return;
                 if (hiddenMs < ANTI_CHEAT_MIN_HIDDEN_MS) return;
                 reportCheat('tab_switch');
+            });
+
+            // Fallback: some browsers/OS combos do not reliably emit tab-switch shortcuts.
+            // If page stays hidden after blur for a short grace period, treat it as a switch.
+            window.addEventListener('blur', () => {
+                if (!isAntiCheatActive() || isScratchTask()) return;
+                if (!antiCheatHiddenAt) antiCheatHiddenAt = Date.now();
+                if (antiCheatBlurTimer) clearTimeout(antiCheatBlurTimer);
+                antiCheatBlurTimer = setTimeout(() => {
+                    antiCheatBlurTimer = null;
+                    if (!isAntiCheatActive() || isScratchTask()) return;
+                    if (document.hidden || document.visibilityState === 'hidden') {
+                        const hiddenMs = Date.now() - (antiCheatHiddenAt || Date.now());
+                        if (hiddenMs >= ANTI_CHEAT_MIN_HIDDEN_MS) {
+                            reportCheat('visibility');
+                        }
+                    }
+                }, ANTI_CHEAT_MIN_HIDDEN_MS + 120);
+            });
+
+            window.addEventListener('focus', () => {
+                if (antiCheatBlurTimer) {
+                    clearTimeout(antiCheatBlurTimer);
+                    antiCheatBlurTimer = null;
+                }
             });
 
             // Keyboard shortcuts
