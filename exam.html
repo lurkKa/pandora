@@ -1279,6 +1279,18 @@
                     (e.ctrlKey || e.metaKey) &&
                     (keyLower === 'c' || keyLower === 'v');
                 const focusedInEditor = isCodeEditorFocused();
+                // Allow Ctrl+Backspace / Ctrl+Delete (word-delete) inside editor
+                const isAllowedWordDelete =
+                    focusedInEditor &&
+                    (e.ctrlKey || e.metaKey) &&
+                    !e.altKey &&
+                    (key === 'Backspace' || key === 'Delete');
+                // Allow language switching: Shift alone, Alt+Shift, Ctrl+Shift
+                const isLanguageSwitch =
+                    (key === 'Shift' && (e.altKey || e.ctrlKey)) ||
+                    (key === 'Alt' && e.shiftKey) ||
+                    (key === 'Control' && e.shiftKey) ||
+                    (keyLower === 'space' && e.metaKey);
 
                 if (key === 'F12') {
                     e.preventDefault();
@@ -1286,7 +1298,7 @@
                     return;
                 }
 
-                if (hasControlLikeModifier && !modifierOnly && !isAllowedCopyPaste) {
+                if (hasControlLikeModifier && !modifierOnly && !isAllowedCopyPaste && !isAllowedWordDelete && !isLanguageSwitch) {
                     e.preventDefault();
                     if ((e.ctrlKey || e.metaKey) && key === 'Tab') {
                         reportCheat('ctrl_tab');
