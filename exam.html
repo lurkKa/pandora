@@ -837,6 +837,21 @@
             }, ANTI_CHEAT_WATCHDOG_MS);
         }
 
+        function isCodeEditorFocused() {
+            const el = document.activeElement;
+            return !!(el && el.id === 'code-editor');
+        }
+
+        function isAllowedEditorKey(key) {
+            if (!key) return false;
+            if (key.length === 1) return true; // letters, numbers, symbols
+            return [
+                'Backspace', 'Delete', 'Enter', 'Tab',
+                'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+                'Home', 'End', 'PageUp', 'PageDown'
+            ].includes(key);
+        }
+
         // ==================== LOGIN ====================
         async function examLogin() {
             const username = document.getElementById('login-username').value.trim();
@@ -1211,6 +1226,17 @@
                 endAwayTracking('focus');
             });
 
+            // Strict policy: leaving viewport with pointer is treated as cheating.
+            document.addEventListener('mouseleave', (e) => {
+                if (!isAntiCheatActive() || isScratchTask()) return;
+                if (!e.relatedTarget) reportCheat('tab_switch');
+            });
+            window.addEventListener('mouseout', (e) => {
+                if (!isAntiCheatActive() || isScratchTask()) return;
+                if (e.relatedTarget) return;
+                reportCheat('tab_switch');
+            });
+
             // Keyboard shortcuts
             document.addEventListener('keydown', (e) => {
                 if (!isAntiCheatActive()) return;
@@ -1223,6 +1249,7 @@
                     !e.altKey &&
                     (e.ctrlKey || e.metaKey) &&
                     (keyLower === 'c' || keyLower === 'v');
+                const focusedInEditor = isCodeEditorFocused();
 
                 if (key === 'F12') {
                     e.preventDefault();
@@ -1240,6 +1267,18 @@
                         reportCheat('alt_tab');
                         return;
                     }
+                    reportCheat('shortcut');
+                    return;
+                }
+
+                // Any non-editing key usage outside the code editor is cheating in strict mode.
+                if (!modifierOnly && !focusedInEditor) {
+                    reportCheat('shortcut');
+                    return;
+                }
+
+                // Inside editor allow only direct coding keys (no function/system keys).
+                if (!modifierOnly && focusedInEditor && !isAllowedEditorKey(key)) {
                     reportCheat('shortcut');
                 }
             });
