@@ -1460,12 +1460,17 @@
 
                 <div class="card">
                     <div class="card-header">Результаты студентов</div>
-                    <div class="card-body" id="exam-results-content">
-                        <div style="color:var(--text-secondary); text-align:center;">Нажмите «Обновить» для загрузки
+                    <div class="card-body">
+                        <div id="exam-results-summary" style="display:none; margin-bottom:12px;"></div>
+                        <div id="exam-results-content">
+                            <div style="color:var(--text-secondary); text-align:center;">Нажмите «Обновить» для загрузки
+                            </div>
                         </div>
                     </div>
-                    <div style="padding:12px; border-top:1px solid rgba(255,255,255,0.05);">
+                    <div style="padding:12px; border-top:1px solid rgba(255,255,255,0.05); display:flex; gap:8px; flex-wrap:wrap;">
                         <button class="btn btn-small" onclick="loadExamResults()">🔄 Обновить результаты</button>
+                        <button class="btn btn-warning btn-small" onclick="clearAllExamFlags()">🧼 Сбросить предупреждения/читы</button>
+                        <button class="btn btn-danger btn-small" onclick="clearAllExamResults()">🧹 Очистить все результаты</button>
                     </div>
                 </div>
             </section>
@@ -2598,10 +2603,12 @@
 
                 if (data.started_at) {
                     startedEl.innerText = 'Запущен: ' + new Date(data.started_at).toLocaleString('ru-RU');
+                } else {
+                    startedEl.innerText = '';
                 }
 
                 // Render results
-                renderExamResults(data.results || []);
+                renderExamResults(data.results || [], data.summary || null);
             } catch (e) {
                 console.error('Failed to load exam status:', e);
             }
@@ -2627,12 +2634,103 @@
         async function loadExamResults() {
             try {
                 const data = await api('/api/admin/exam/results');
-                renderExamResults(data.results || []);
+                renderExamResults(data.results || [], data.summary || null);
             } catch (e) { alert('Ошибка: ' + e.message); }
         }
 
-        function renderExamResults(results) {
+        function renderExamSummary(summary, results) {
+            const summaryEl = document.getElementById('exam-results-summary');
+            if (!summaryEl) return;
+
+            if (!results || !results.length) {
+                summaryEl.style.display = 'none';
+                summaryEl.innerHTML = '';
+                return;
+            }
+
+            const s = summary || {
+                students_total: results.length,
+                students_with_results: results.filter(r => Number(r.tasks_done || 0) > 0 || Number(r.cheats || 0) > 0 || Number(r.timeouts || 0) > 0).length,
+                tasks_done_total: results.reduce((acc, r) => acc + Number(r.tasks_done || 0), 0),
+                tasks_no_cheat_total: results.reduce((acc, r) => acc + Number(r.tasks_no_cheat || 0), 0),
+                cheats_total: results.reduce((acc, r) => acc + Number(r.cheats || 0), 0),
+                timeouts_total: results.reduce((acc, r) => acc + Number(r.timeouts || 0), 0),
+            };
+
+            summaryEl.style.display = 'grid';
+            summaryEl.style.gridTemplateColumns = 'repeat(auto-fit, minmax(140px, 1fr))';
+            summaryEl.style.gap = '8px';
+            summaryEl.innerHTML = `
+                <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:8px; padding:10px;">
+                    <div style="font-size:11px; color:var(--text-secondary);">Студенты с данными</div>
+                    <div style="font-size:18px; font-weight:700;">${s.students_with_results}/${s.students_total}</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:8px; padding:10px;">
+                    <div style="font-size:11px; color:var(--text-secondary);">Заданий решено</div>
+                    <div style="font-size:18px; font-weight:700;">${s.tasks_done_total}</div>
+                </div>
+                <div style="background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.35); border-radius:8px; padding:10px;">
+                    <div style="font-size:11px; color:#86efac;">Без читов</div>
+                    <div style="font-size:18px; font-weight:700; color:#4ade80;">${s.tasks_no_cheat_total}</div>
+                </div>
+                <div style="background:rgba(248,113,113,0.1); border:1px solid rgba(248,113,113,0.35); border-radius:8px; padding:10px;">
+                    <div style="font-size:11px; color:#fca5a5;">Читы</div>
+                    <div style="font-size:18px; font-weight:700; color:#f87171;">${s.cheats_total}</div>
+                </div>
+                <div style="background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.35); border-radius:8px; padding:10px;">
+                    <div style="font-size:11px; color:#fcd34d;">Таймауты</div>
+                    <div style="font-size:18px; font-weight:700; color:#fbbf24;">${s.timeouts_total}</div>
+                </div>
+            `;
+        }
+
+        async function clearExamUserResults(userId, displayName) {
+            if (!confirm(`Очистить все экзамен-результаты у ученика "${displayName}"?\nСбросятся задания, предупреждения и чит-флаги.`)) return;
+            try {
+                const data = await api(`/api/admin/exam/clear-user/${userId}`, 'POST');
+                alert(data.message || 'Результаты очищены');
+                await loadExamStatus();
+            } catch (e) {
+                alert('Ошибка: ' + e.message);
+            }
+        }
+
+        async function clearExamUserFlags(userId, displayName) {
+            if (!confirm(`Сбросить только предупреждения/чит-флаги у ученика "${displayName}"?\nРешённые задания останутся.`)) return;
+            try {
+                const data = await api(`/api/admin/exam/clear-user/${userId}?mode=flags`, 'POST');
+                alert(data.message || 'Флаги сброшены');
+                await loadExamStatus();
+            } catch (e) {
+                alert('Ошибка: ' + e.message);
+            }
+        }
+
+        async function clearAllExamResults() {
+            if (!confirm('Очистить все экзамен-результаты у всех учеников?\nЭто удалит прогресс, предупреждения и чит-флаги.')) return;
+            try {
+                const data = await api('/api/admin/exam/clear-results', 'POST');
+                alert(data.message || 'Все результаты очищены');
+                await loadExamStatus();
+            } catch (e) {
+                alert('Ошибка: ' + e.message);
+            }
+        }
+
+        async function clearAllExamFlags() {
+            if (!confirm('Сбросить только предупреждения/чит-флаги у всех?\nРешённые задания сохранятся.')) return;
+            try {
+                const data = await api('/api/admin/exam/clear-results?mode=flags', 'POST');
+                alert(data.message || 'Флаги сброшены');
+                await loadExamStatus();
+            } catch (e) {
+                alert('Ошибка: ' + e.message);
+            }
+        }
+
+        function renderExamResults(results, summary = null) {
             const container = document.getElementById('exam-results-content');
+            renderExamSummary(summary, results);
             if (!results.length) {
                 container.innerHTML = '<div style="color:var(--text-secondary); text-align:center;">Нет результатов</div>';
                 return;
@@ -2640,19 +2738,29 @@
             container.innerHTML = `
                 <table class="data-table" style="width:100%;">
                     <thead><tr>
-                        <th>#</th><th>Студент</th><th>Решено</th><th>XP</th><th>Читы</th><th>Таймауты</th><th>Детали</th>
+                        <th>#</th><th>Студент</th><th>Решено</th><th>Без читов</th><th>XP</th><th>Читы</th><th>Таймауты</th><th>Детали</th><th>Действия</th>
                     </tr></thead>
-                    <tbody>${results.map((r, i) => `
+                    <tbody>${results.map((r, i) => {
+                        const safeName = String(r.display_name || '')
+                            .replace(/\\/g, "\\\\")
+                            .replace(/'/g, "\\'");
+                        const cleanSolved = Number(r.tasks_no_cheat || 0);
+                        return `
                         <tr>
                             <td>${i + 1}</td>
                             <td><strong>${r.display_name}</strong><br><small style="color:var(--text-secondary);">@${r.username}</small></td>
                             <td>${r.tasks_done}/5</td>
+                            <td style="font-weight:700; color:${cleanSolved > 0 ? '#4ade80' : 'var(--text-secondary)'};">${cleanSolved}</td>
                             <td style="color:#fbbf24; font-weight:600;">${r.total_xp}</td>
                             <td>${r.cheats > 0 ? '<span style="color:#f87171;">⚠️ ' + r.cheats + '</span>' : '✅ 0'}</td>
                             <td>${r.timeouts > 0 ? '⏰ ' + r.timeouts : '0'}</td>
                             <td style="font-size:11px; color:var(--text-secondary);">${r.details || '—'}</td>
+                            <td style="display:flex; gap:6px; flex-wrap:wrap;">
+                                <button class="btn btn-warning btn-small" onclick="clearExamUserFlags(${r.user_id}, '${safeName}')">🧼 Сбросить флаги</button>
+                                <button class="btn btn-danger btn-small" onclick="clearExamUserResults(${r.user_id}, '${safeName}')">🧹 Очистить</button>
+                            </td>
                         </tr>
-                    `).join('')}</tbody>
+                    `; }).join('')}</tbody>
                 </table>
             `;
         }

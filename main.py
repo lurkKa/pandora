@@ -993,6 +993,8 @@ def init_db():
                 started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 finished_at TIMESTAMP,
                 solution TEXT,
+                submission_link TEXT,
+                submission_filename TEXT,
                 score INTEGER DEFAULT 0,
                 xp_earned INTEGER DEFAULT 0,
                 cheat_warnings INTEGER DEFAULT 0,
@@ -1001,6 +1003,14 @@ def init_db():
                 UNIQUE(user_id, task_id)
             )
         """)
+        for stmt in [
+            "ALTER TABLE exam_progress ADD COLUMN submission_link TEXT",
+            "ALTER TABLE exam_progress ADD COLUMN submission_filename TEXT",
+        ]:
+            try:
+                cursor.execute(stmt)
+            except sqlite3.OperationalError:
+                pass
 
         # Guild achievement tables
         cursor.execute("""
@@ -5405,6 +5415,11 @@ REVIEWABLE_TIERS = {"B", "A", "S"}
 REVIEW_ONLY_MODE = (os.getenv("PANDORA_REVIEW_ONLY_MODE") or "0") == "1"
 FORCE_AUTOCHECK = (os.getenv("PANDORA_FORCE_AUTOCHECK") or "1") == "1"
 MANUAL_REVIEW_FOR_REVIEWABLE_TIERS = (os.getenv("PANDORA_MANUAL_REVIEW_FOR_REVIEWABLE_TIERS") or "0") == "1"
+try:
+    EXTRA_REVIEW_SAMPLE_RATE = float(os.getenv("PANDORA_EXTRA_REVIEW_SAMPLE_RATE", "0.25"))
+except (TypeError, ValueError):
+    EXTRA_REVIEW_SAMPLE_RATE = 0.25
+EXTRA_REVIEW_SAMPLE_RATE = max(0.0, min(1.0, EXTRA_REVIEW_SAMPLE_RATE))
 
 
 def _manual_verification_placeholder(reason: str) -> dict:
@@ -5454,6 +5469,16 @@ def _pending_submission_for_task(cursor, user_id: int, task_id: str) -> Optional
     return dict(row) if row else None
 
 
+def _extra_review_sample_required(user_id: int, task_id: str, code_hash: str) -> bool:
+    """Deterministic sampling to route a fraction of passed tasks to manual review."""
+    if EXTRA_REVIEW_SAMPLE_RATE <= 0:
+        return False
+    key = f"{user_id}:{task_id}:{code_hash}"
+    digest = hashlib.sha256(key.encode("utf-8")).digest()
+    bucket = int.from_bytes(digest[:4], "big") / 0xFFFFFFFF
+    return bucket < EXTRA_REVIEW_SAMPLE_RATE
+
+
 @app.post("/api/tasks/attempt")
 def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depends(require_auth)):
     """
@@ -5461,7 +5486,8 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
 
     Policy:
     - Auto-verify code tasks when tests pass and integrity checks are clean.
-    - Queue pending review for policy/manual-skip cases, top-7 tasks per rank, or integrity flags.
+    - Queue pending review for policy/manual-skip cases, top-7 tasks per rank,
+      integrity flags, or configured quality-sampling review.
     """
     task = get_task(data.task_id)
     if not task:
@@ -5592,16 +5618,19 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
 
         task_xp = int(task.get("xp") or 0)
         top7_review_required = _is_top7_task_by_tier(tasks_by_id, data.task_id)
+        sampled_review_required = (not is_retry) and _extra_review_sample_required(user["id"], data.task_id, code_hash)
         plagiarism_score, matched_user_id = plagiarism_score_for_task(cursor, data.task_id, simhash_hex, user["id"])
         flags = []
         if matched_user_id is not None and plagiarism_score >= PLAGIARISM_THRESHOLD:
             flags.append(f"plagiarism_match:{matched_user_id}")
 
-        # Pending review only for explicit policy/manual-skip, top-7 tier tasks, or integrity flags.
+        # Pending review for explicit policy/manual-skip, top-7 tasks,
+        # integrity flags, tier-policy review, or extra quality sampling.
         if passed and (
             force_pending_review
             or manual_review_required
             or top7_review_required
+            or sampled_review_required
             or (MANUAL_REVIEW_FOR_REVIEWABLE_TIERS and tier in REVIEWABLE_TIERS)
             or flags
         ):
@@ -5612,6 +5641,8 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
                 if manual_review_required
                 else "Top-7 rank task: waiting for Sensei review"
                 if top7_review_required
+                else "Quality sampling review required"
+                if sampled_review_required
                 else "Tier policy review required"
                 if (MANUAL_REVIEW_FOR_REVIEWABLE_TIERS and tier in REVIEWABLE_TIERS)
                 else "Flagged for integrity review"
@@ -8481,6 +8512,28 @@ def _get_user_priorities(cursor, user_id):
     row = cursor.fetchone()
     return dict(row) if row else None
 
+def _compute_exam_time_expired(started_at: str, task: dict) -> int:
+    """Return 1 when task timer is exceeded (with a small grace period)."""
+    if not started_at:
+        return 0
+    time_limit_seconds = ((task or {}).get("time_limit_minutes", 15) + TIER_TIME_EXTRA) * 60
+    try:
+        started_dt = datetime.fromisoformat(started_at)
+        elapsed = (datetime.now() - started_dt).total_seconds()
+        return 1 if elapsed > time_limit_seconds + 10 else 0
+    except Exception:
+        return 0
+
+def _compute_exam_score(task: dict, progress_row: dict, time_expired: int) -> tuple[int, int]:
+    """Compute score + XP for an exam submission."""
+    if (progress_row or {}).get("cheated"):
+        return 0, 0
+    if time_expired:
+        return 0, 0
+    if task and (task.get("check_logic") or {}).get("engine") == "manual":
+        return 7, int(task.get("xp", 0) * 0.7)
+    return 10, int((task or {}).get("xp", 0))
+
 
 @app.get("/api/exam/status")
 def exam_status(user: dict = Depends(require_auth)):
@@ -8680,37 +8733,8 @@ def exam_submit(data: dict, user: dict = Depends(require_auth)):
         # Check time
         exam_tasks = load_exam_tasks()
         task = next((t for t in exam_tasks if t["id"] == task_id), None)
-        time_limit = (task.get("time_limit_minutes", 15) + TIER_TIME_EXTRA) * 60 if task else 1200
-        
-        time_expired = 0
-        if prog["started_at"]:
-            from datetime import datetime
-            try:
-                started = datetime.fromisoformat(prog["started_at"])
-                elapsed = (datetime.now() - started).total_seconds()
-                if elapsed > time_limit + 10:  # 10sec grace
-                    time_expired = 1
-            except:
-                pass
-        
-        # Calculate score
-        score = 0
-        xp_earned = 0
-        if prog["cheated"]:
-            score = 0
-            xp_earned = 0
-        elif time_expired:
-            score = 0
-            xp_earned = 0
-        else:
-            # Run check_logic if available
-            if task and task.get("check_logic", {}).get("engine") == "manual":
-                score = 7  # manual review tasks get a base score
-                xp_earned = int(task.get("xp", 0) * 0.7)
-            else:
-                # For auto-checked tasks, give full score (actual check happens on frontend)
-                score = 10
-                xp_earned = task.get("xp", 0) if task else 0
+        time_expired = _compute_exam_time_expired(prog["started_at"], task)
+        score, xp_earned = _compute_exam_score(task, prog, time_expired)
         
         cursor.execute("""
             UPDATE exam_progress
@@ -8728,12 +8752,125 @@ def exam_submit(data: dict, user: dict = Depends(require_auth)):
     }
 
 
+@app.post("/api/exam/submit-scratch")
+def exam_submit_scratch(
+    task_id: str = Form(...),
+    solution: str = Form(""),
+    link: str = Form(None),
+    file: UploadFile = File(None),
+    user: dict = Depends(require_auth),
+):
+    """Submit exam Scratch task with optional .sb3 upload/link."""
+    uid = int(user["id"])
+    clean_solution = (solution or "").strip()
+    submission_link = (link or "").strip() or None
+    submission_filename = None
+
+    if file is not None and file.filename:
+        original_filename = (file.filename or "").strip()
+        if original_filename and not original_filename.lower().endswith(".sb3"):
+            raise HTTPException(status_code=400, detail="Only .sb3 files are supported")
+
+        max_mb = int(os.getenv("PANDORA_MAX_UPLOAD_MB", "10"))
+        max_bytes = max_mb * 1024 * 1024
+        try:
+            upload_chunk_kb = int(os.getenv("PANDORA_UPLOAD_CHUNK_KB", "4096"))
+        except (TypeError, ValueError):
+            upload_chunk_kb = 4096
+        upload_chunk_kb = max(256, upload_chunk_kb)
+        upload_chunk_bytes = upload_chunk_kb * 1024
+
+        stored_name = f"{uuid.uuid4()}.sb3"
+        file_path = Path("uploads") / stored_name
+        written = 0
+        with open(file_path, "wb") as buffer:
+            while True:
+                chunk = file.file.read(upload_chunk_bytes)
+                if not chunk:
+                    break
+                written += len(chunk)
+                if written > max_bytes:
+                    try:
+                        file_path.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                    raise HTTPException(status_code=413, detail=f"File too large (max {max_mb} MB)")
+                buffer.write(chunk)
+        if written <= 0:
+            try:
+                file_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+            raise HTTPException(status_code=400, detail="Empty upload")
+
+        submission_link = f"/uploads/{stored_name}"
+        submission_filename = original_filename or "project.sb3"
+
+    if not submission_link and not clean_solution:
+        raise HTTPException(400, "Нужно приложить .sb3 файл, ссылку или текст решения")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        state = _get_exam_state(cursor)
+        if not state["is_active"]:
+            raise HTTPException(403, "Экзамен не активен")
+
+        cursor.execute("""
+            SELECT * FROM exam_progress WHERE user_id = ? AND task_id = ?
+        """, (uid, task_id))
+        prog = cursor.fetchone()
+        if not prog:
+            raise HTTPException(404, "Задание не начато")
+        if prog["finished_at"]:
+            raise HTTPException(400, "Задание уже сдано")
+
+        exam_tasks = load_exam_tasks()
+        task = next((t for t in exam_tasks if t["id"] == task_id), None)
+        if not task:
+            raise HTTPException(404, "Задание не найдено")
+        if (task.get("category") or "").lower() != "scratch":
+            raise HTTPException(400, "Это не Scratch-задание")
+
+        time_expired = _compute_exam_time_expired(prog["started_at"], task)
+        score, xp_earned = _compute_exam_score(task, prog, time_expired)
+
+        cursor.execute("""
+            UPDATE exam_progress
+            SET finished_at = CURRENT_TIMESTAMP,
+                solution = ?,
+                submission_link = ?,
+                submission_filename = ?,
+                score = ?,
+                xp_earned = ?,
+                time_expired = ?
+            WHERE user_id = ? AND task_id = ?
+        """, (
+            clean_solution,
+            submission_link,
+            submission_filename,
+            score,
+            xp_earned,
+            time_expired,
+            uid,
+            task_id,
+        ))
+        conn.commit()
+
+    return {
+        "score": score,
+        "xp_earned": xp_earned,
+        "time_expired": bool(time_expired),
+        "cheated": bool(prog["cheated"]),
+        "submission_link": submission_link,
+    }
+
+
 @app.post("/api/exam/cheat-warning")
 def exam_cheat_warning(data: dict, user: dict = Depends(require_auth)):
     """Register a cheat warning. First = warning, second+ = auto-0."""
     uid = int(user["id"])
     task_id = data.get("task_id")
-    event_type = data.get("event_type", "unknown")
+    event_type = str(data.get("event_type", "unknown")).strip().lower()
     
     if not task_id:
         raise HTTPException(400, "task_id required")
@@ -8746,6 +8883,28 @@ def exam_cheat_warning(data: dict, user: dict = Depends(require_auth)):
         prog = cursor.fetchone()
         if not prog:
             raise HTTPException(404, "Нет активного задания")
+
+        # Allow temporary UI/system focus events (keyboard layout switch, file picker, etc.).
+        ignored_soft_events = {"blur", "focus", "layout_switch", "file_dialog", "ime_switch"}
+        if event_type in ignored_soft_events:
+            return {
+                "warnings": int(prog["cheat_warnings"] or 0),
+                "cheated": bool(prog["cheated"]),
+                "ignored": True,
+                "message": "Системное переключение проигнорировано.",
+            }
+
+        # Scratch exam tasks may require opening scratch.mit.edu and working with local files.
+        if (prog["category"] or "").lower() == "scratch":
+            return {
+                "warnings": int(prog["cheat_warnings"] or 0),
+                "cheated": bool(prog["cheated"]),
+                "ignored": True,
+                "message": "Для Scratch-задач переключение вкладок разрешено.",
+            }
+
+        if event_type not in {"visibility", "tab_switch", "ctrl_tab", "alt_tab", "shortcut"}:
+            event_type = "unknown"
         
         warnings = prog["cheat_warnings"] + 1
         cheated = 1 if warnings >= 2 else 0
@@ -8808,30 +8967,59 @@ def exam_leaderboard(user: dict = Depends(require_auth)):
 
 @app.get("/api/exam/journal")
 def exam_journal(user: dict = Depends(require_auth)):
-    """Return user's completed REGULAR tasks as hints (story + description only, no code)."""
+    """Return user's completed regular tasks with narrative, conditions, and own implementation."""
     uid = int(user["id"])
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT task_id FROM completed_tasks WHERE user_id = ? AND is_valid = 1
+            SELECT
+                c.task_id,
+                c.solution,
+                c.completed_at,
+                COALESCE(c.xp_earned, 0) AS xp_earned,
+                (
+                    SELECT s.content
+                    FROM submissions s
+                    WHERE s.user_id = c.user_id AND s.task_id = c.task_id
+                    ORDER BY s.created_at DESC, s.id DESC
+                    LIMIT 1
+                ) AS submission_content,
+                (
+                    SELECT s.link
+                    FROM submissions s
+                    WHERE s.user_id = c.user_id AND s.task_id = c.task_id
+                    ORDER BY s.created_at DESC, s.id DESC
+                    LIMIT 1
+                ) AS submission_link
+            FROM completed_tasks c
+            WHERE c.user_id = ? AND c.is_valid = 1
             ORDER BY completed_at DESC
         """, (uid,))
-        completed_ids = [r["task_id"] for r in cursor.fetchall()]
+        completed_rows = [dict(r) for r in cursor.fetchall()]
     
     tasks_data = load_tasks()
     tasks_map = {t["id"]: t for t in tasks_data.get("tasks", []) if t.get("id")}
     
     journal = []
-    for tid in completed_ids:
+    for row in completed_rows:
+        tid = row.get("task_id")
         task = tasks_map.get(tid, {})
         if task:
+            solution_text = (row.get("solution") or row.get("submission_content") or "").strip()
+            submission_link = (row.get("submission_link") or "").strip()
+            if submission_link and not submission_link.startswith("/uploads/"):
+                submission_link = ""
             journal.append({
                 "id": tid,
                 "title": task.get("title", tid),
                 "category": task.get("category", ""),
                 "story": task.get("story", ""),
                 "description": task.get("description", ""),
-                "tier": task.get("tier", "")
+                "tier": task.get("tier", ""),
+                "solution": solution_text,
+                "submission_link": submission_link,
+                "completed_at": row.get("completed_at"),
+                "xp_earned": int(row.get("xp_earned") or 0),
             })
     
     return {"journal": journal}
@@ -8895,6 +9083,7 @@ def admin_exam_results(admin: dict = Depends(require_admin)):
         cursor.execute("""
             SELECT u.id as user_id, u.display_name, u.username,
                    COUNT(CASE WHEN ep.finished_at IS NOT NULL THEN 1 END) as tasks_done,
+                   COUNT(CASE WHEN ep.finished_at IS NOT NULL AND COALESCE(ep.cheated, 0) = 0 AND COALESCE(ep.score, 0) > 0 THEN 1 END) as tasks_no_cheat,
                    COALESCE(SUM(ep.xp_earned), 0) as total_xp,
                    COUNT(CASE WHEN ep.cheated = 1 THEN 1 END) as cheats,
                    COUNT(CASE WHEN ep.time_expired = 1 THEN 1 END) as timeouts,
@@ -8906,11 +9095,139 @@ def admin_exam_results(admin: dict = Depends(require_admin)):
             ORDER BY total_xp DESC
         """)
         results = [dict(r) for r in cursor.fetchall()]
+
+    summary = {
+        "students_total": len(results),
+        "students_with_results": sum(
+            1
+            for r in results
+            if int(r.get("tasks_done") or 0) > 0
+            or int(r.get("cheats") or 0) > 0
+            or int(r.get("timeouts") or 0) > 0
+        ),
+        "tasks_done_total": sum(int(r.get("tasks_done") or 0) for r in results),
+        "tasks_no_cheat_total": sum(int(r.get("tasks_no_cheat") or 0) for r in results),
+        "cheats_total": sum(int(r.get("cheats") or 0) for r in results),
+        "timeouts_total": sum(int(r.get("timeouts") or 0) for r in results),
+    }
     
     return {
         "is_active": bool(state["is_active"]),
         "started_at": state["started_at"],
-        "results": results
+        "results": results,
+        "summary": summary,
+    }
+
+
+@app.post("/api/admin/exam/clear-user/{user_id}")
+def admin_exam_clear_user_results(
+    user_id: int,
+    mode: str = Query("all"),
+    admin: dict = Depends(require_admin),
+):
+    """Clear one student's exam data: mode=all (default) or mode=flags."""
+    mode = (mode or "all").strip().lower()
+    if mode not in {"all", "flags"}:
+        raise HTTPException(400, "mode must be 'all' or 'flags'")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, role, display_name FROM users WHERE id = ?", (user_id,))
+        target = cursor.fetchone()
+        if not target:
+            raise HTTPException(404, "Пользователь не найден")
+        if (target["role"] or "").lower() == "admin":
+            raise HTTPException(400, "Нельзя очищать результаты администратора")
+
+        if mode == "flags":
+            cursor.execute("""
+                SELECT COUNT(*) AS cnt
+                FROM exam_progress
+                WHERE user_id = ?
+                  AND (COALESCE(cheat_warnings, 0) > 0 OR COALESCE(cheated, 0) = 1)
+            """, (user_id,))
+            row = cursor.fetchone()
+            affected = int(row["cnt"]) if row else 0
+            cursor.execute("""
+                UPDATE exam_progress
+                SET cheat_warnings = 0, cheated = 0
+                WHERE user_id = ?
+                  AND (COALESCE(cheat_warnings, 0) > 0 OR COALESCE(cheated, 0) = 1)
+            """, (user_id,))
+        else:
+            cursor.execute("SELECT COUNT(*) AS cnt FROM exam_progress WHERE user_id = ?", (user_id,))
+            row = cursor.fetchone()
+            affected = int(row["cnt"]) if row else 0
+            cursor.execute("DELETE FROM exam_progress WHERE user_id = ?", (user_id,))
+        conn.commit()
+
+    log_security(
+        "EXAM_RESULTS_CLEARED_USER" if mode == "all" else "EXAM_FLAGS_RESET_USER",
+        user=admin["username"],
+        details=f"user_id={user_id} mode={mode} affected={affected}",
+    )
+    if mode == "flags":
+        return {
+            "message": f"Предупреждения/чит-флаги сброшены (записей: {affected})",
+            "user_id": user_id,
+            "affected": affected,
+            "mode": mode,
+        }
+    return {
+        "message": f"Результаты ученика очищены (записей: {affected})",
+        "user_id": user_id,
+        "removed": affected,
+        "mode": mode,
+    }
+
+
+@app.post("/api/admin/exam/clear-results")
+def admin_exam_clear_all_results(
+    mode: str = Query("all"),
+    admin: dict = Depends(require_admin),
+):
+    """Clear all exam data: mode=all (default) or mode=flags."""
+    mode = (mode or "all").strip().lower()
+    if mode not in {"all", "flags"}:
+        raise HTTPException(400, "mode must be 'all' or 'flags'")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        if mode == "flags":
+            cursor.execute("""
+                SELECT COUNT(*) AS cnt
+                FROM exam_progress
+                WHERE COALESCE(cheat_warnings, 0) > 0 OR COALESCE(cheated, 0) = 1
+            """)
+            row = cursor.fetchone()
+            affected = int(row["cnt"]) if row else 0
+            cursor.execute("""
+                UPDATE exam_progress
+                SET cheat_warnings = 0, cheated = 0
+                WHERE COALESCE(cheat_warnings, 0) > 0 OR COALESCE(cheated, 0) = 1
+            """)
+        else:
+            cursor.execute("SELECT COUNT(*) AS cnt FROM exam_progress")
+            row = cursor.fetchone()
+            affected = int(row["cnt"]) if row else 0
+            cursor.execute("DELETE FROM exam_progress")
+        conn.commit()
+
+    log_security(
+        "EXAM_RESULTS_CLEARED_ALL" if mode == "all" else "EXAM_FLAGS_RESET_ALL",
+        user=admin["username"],
+        details=f"mode={mode} affected={affected}",
+    )
+    if mode == "flags":
+        return {
+            "message": f"Предупреждения/чит-флаги у всех сброшены (записей: {affected})",
+            "affected": affected,
+            "mode": mode,
+        }
+    return {
+        "message": f"Все результаты экзамена очищены (записей: {affected})",
+        "removed": affected,
+        "mode": mode,
     }
 
 

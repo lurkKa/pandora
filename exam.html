@@ -250,6 +250,39 @@
             white-space: pre-wrap;
         }
 
+        .scratch-exam-wrap {
+            display: none;
+            margin-bottom: 16px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px;
+        }
+
+        .scratch-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .btn-scratch {
+            background: rgba(139, 92, 246, 0.2);
+            color: #fff;
+            border: 1px solid rgba(139, 92, 246, 0.45);
+        }
+
+        .btn-scratch:hover {
+            background: rgba(139, 92, 246, 0.32);
+        }
+
+        .scratch-file-name {
+            font-size: 13px;
+            margin-top: 6px;
+            color: var(--text-dim);
+            word-break: break-word;
+        }
+
         /* Code Editor */
         .code-editor-wrap {
             margin-bottom: 16px;
@@ -533,6 +566,34 @@
             max-height: 70vh;
             overflow-y: auto;
         }
+
+        .jm-label {
+            color: var(--text-dim);
+            font-size: 12px;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .jm-box {
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            margin-bottom: 14px;
+        }
+
+        .jm-solution {
+            margin: 0 0 14px 0;
+            background: #0d0d18;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 12px;
+            line-height: 1.5;
+            overflow-x: auto;
+            white-space: pre;
+            color: #e0e0e0;
+        }
     </style>
 </head>
 
@@ -583,6 +644,18 @@
                 </div>
                 <div class="task-story" id="task-story"></div>
                 <div class="task-description" id="task-desc"></div>
+                <div class="scratch-exam-wrap" id="scratch-exam-wrap">
+                    <label style="display:block; margin-bottom:8px; color:var(--text-dim); font-size:13px;">🐱 Scratch Artifact</label>
+                    <div class="scratch-actions">
+                        <button type="button" class="btn btn-scratch" onclick="openScratchMitTab()">🌐 Открыть Scratch Web (MIT)</button>
+                        <button type="button" class="btn btn-scratch" onclick="triggerExamScratchFilePicker()">📁 Выбрать .sb3</button>
+                    </div>
+                    <input type="file" id="exam-scratch-file" accept=".sb3" style="display:none;" onchange="handleExamScratchFileSelected(this)">
+                    <div class="scratch-file-name" id="exam-scratch-file-name"></div>
+                    <div class="locked-hint" style="max-width:none; margin-top:8px;">
+                        В Scratch-заданиях можно открыть вкладку <code>scratch.mit.edu</code>, скачать старый <code>.sb3</code> из журнала и загрузить файл сюда.
+                    </div>
+                </div>
                 <div class="code-editor-wrap" id="editor-wrap">
                     <label>💻 Твоё решение:</label>
                     <textarea id="code-editor" spellcheck="false"></textarea>
@@ -639,8 +712,21 @@
     <div class="journal-modal" id="journal-modal">
         <div class="journal-modal-content">
             <h3 id="jm-title" style="margin-bottom:12px;"></h3>
-            <div id="jm-story" style="color:var(--accent-light); font-size:13px; margin-bottom:10px;"></div>
-            <div id="jm-desc" style="font-size:13px; line-height:1.5; white-space:pre-wrap;"></div>
+            <div id="jm-story-wrap">
+                <div class="jm-label">Нарратив</div>
+                <div id="jm-story" class="jm-box" style="color:var(--accent-light);"></div>
+            </div>
+            <div id="jm-desc-wrap">
+                <div class="jm-label">Условия</div>
+                <div id="jm-desc" class="jm-box"></div>
+            </div>
+            <div id="jm-solution-wrap">
+                <div class="jm-label">Твоя Реализация</div>
+                <pre id="jm-solution" class="jm-solution"></pre>
+            </div>
+            <div id="jm-file-wrap" style="display:none; margin-bottom:8px;">
+                <a id="jm-file-link" class="btn btn-scratch" href="#" target="_blank" rel="noopener noreferrer" download>⬇️ Скачать .sb3 файл</a>
+            </div>
             <button class="btn" style="margin-top:16px; background:rgba(255,255,255,0.1); color:#fff;"
                 onclick="document.getElementById('journal-modal').classList.remove('active')">Закрыть</button>
         </div>
@@ -654,6 +740,12 @@
         let remainingSeconds = 0;
         let cheatWarnings = 0;
         let journalData = [];
+        let taskStarted = false;
+        let antiCheatHiddenAt = 0;
+        let antiCheatLastReportAt = 0;
+        const EXAM_SCRATCH_MAX_MB = 10;
+        const ANTI_CHEAT_MIN_HIDDEN_MS = 1800;
+        const ANTI_CHEAT_COOLDOWN_MS = 4000;
 
         // ==================== LOGIN ====================
         async function examLogin() {
@@ -692,11 +784,74 @@
             return data;
         }
 
+        function isScratchTask() {
+            return !!(currentTask && currentTask.category === 'scratch');
+        }
+
+        function isAntiCheatActive() {
+            return !!(currentTask && taskStarted);
+        }
+
+        function clearExamScratchFile() {
+            const input = document.getElementById('exam-scratch-file');
+            const nameEl = document.getElementById('exam-scratch-file-name');
+            if (input) input.value = '';
+            if (nameEl) {
+                nameEl.innerText = '';
+                nameEl.style.color = 'var(--text-dim)';
+            }
+        }
+
+        function setScratchTaskUiVisible(isScratch) {
+            const scratchWrap = document.getElementById('scratch-exam-wrap');
+            if (scratchWrap) scratchWrap.style.display = isScratch ? 'block' : 'none';
+        }
+
+        function triggerExamScratchFilePicker() {
+            const input = document.getElementById('exam-scratch-file');
+            if (input) input.click();
+        }
+
+        function openScratchMitTab() {
+            if (!isScratchTask()) return;
+            window.open('https://scratch.mit.edu/projects/editor/', '_blank', 'noopener,noreferrer');
+        }
+
+        function validateExamScratchFile(file) {
+            if (!file) return 'Пожалуйста, выберите файл .sb3';
+            const name = String(file.name || '').toLowerCase();
+            if (!name.endsWith('.sb3')) return 'Поддерживается только формат .sb3';
+            const maxBytes = EXAM_SCRATCH_MAX_MB * 1024 * 1024;
+            if (Number(file.size || 0) > maxBytes) return `Файл слишком большой (макс ${EXAM_SCRATCH_MAX_MB} MB)`;
+            return null;
+        }
+
+        function handleExamScratchFileSelected(input) {
+            const picker = input || document.getElementById('exam-scratch-file');
+            const nameEl = document.getElementById('exam-scratch-file-name');
+            if (!nameEl) return;
+            const file = picker && picker.files && picker.files.length > 0 ? picker.files[0] : null;
+            if (!file) {
+                nameEl.innerText = '';
+                return;
+            }
+            const validationError = validateExamScratchFile(file);
+            if (validationError) {
+                nameEl.innerText = `⚠️ ${validationError}`;
+                nameEl.style.color = 'var(--danger)';
+                return;
+            }
+            const sizeMb = (Number(file.size || 0) / (1024 * 1024)).toFixed(2);
+            nameEl.innerText = `📄 ${file.name} (${sizeMb} MB)`;
+            nameEl.style.color = 'var(--success)';
+        }
+
         // ==================== EXAM STATUS ====================
         async function checkExamStatus() {
             try {
                 const status = await api('/api/exam/status');
                 if (!status.is_active) {
+                    taskStarted = false;
                     document.getElementById('not-active-screen').style.display = 'flex';
                     document.getElementById('exam-screen').style.display = 'none';
                     document.getElementById('finish-screen').style.display = 'none';
@@ -741,11 +896,18 @@
                 document.getElementById('task-story').innerText = currentTask.story;
                 document.getElementById('task-desc').innerText = currentTask.description;
                 document.getElementById('submit-msg').innerText = '';
+                document.getElementById('task-story').style.display = currentTask.story ? 'block' : 'none';
+                setScratchTaskUiVisible(isScratchTask());
+                clearExamScratchFile();
 
                 if (data.started) {
                     // Task already in progress (e.g. page refresh)
                     showTaskActive();
-                    document.getElementById('code-editor').value = currentTask.initial_code || '';
+                    if (!isScratchTask()) {
+                        document.getElementById('code-editor').value = currentTask.initial_code || '';
+                    } else {
+                        document.getElementById('code-editor').value = '';
+                    }
                     startTimer();
                 } else {
                     // Task preview — locked, waiting for user to start
@@ -757,8 +919,10 @@
         }
 
         function showTaskLocked() {
+            taskStarted = false;
             document.getElementById('editor-wrap').style.display = 'none';
             document.getElementById('submit-row').style.display = 'none';
+            setScratchTaskUiVisible(isScratchTask());
             document.getElementById('task-locked-overlay').classList.add('active');
             document.getElementById('timer').innerText = '--:--';
             document.getElementById('timer').className = 'timer';
@@ -766,7 +930,9 @@
         }
 
         function showTaskActive() {
-            document.getElementById('editor-wrap').style.display = 'block';
+            taskStarted = true;
+            document.getElementById('editor-wrap').style.display = isScratchTask() ? 'none' : 'block';
+            setScratchTaskUiVisible(isScratchTask());
             document.getElementById('submit-row').style.display = 'flex';
             document.getElementById('task-locked-overlay').classList.remove('active');
             document.getElementById('submit-btn').disabled = false;
@@ -781,7 +947,11 @@
                 const data = await api('/api/exam/start-task', 'POST', { task_id: currentTask.id });
                 remainingSeconds = data.remaining_seconds || 0;
                 cheatWarnings = data.cheat_warnings || 0;
-                document.getElementById('code-editor').value = currentTask.initial_code || '';
+                if (!isScratchTask()) {
+                    document.getElementById('code-editor').value = currentTask.initial_code || '';
+                } else {
+                    document.getElementById('code-editor').value = '';
+                }
                 showTaskActive();
                 startTimer();
             } catch (e) {
@@ -830,6 +1000,49 @@
         }
 
         // ==================== SUBMIT ====================
+        function applySubmitResult(result, msg) {
+            if (timerInterval) clearInterval(timerInterval);
+            taskStarted = false;
+            if (result.cheated) {
+                msg.innerText = '❌ Чит зафиксирован: 0 XP';
+                msg.style.color = 'var(--danger)';
+                return;
+            }
+            if (result.time_expired) {
+                msg.innerText = '⏰ Время вышло: 0 XP';
+                msg.style.color = 'var(--danger)';
+                return;
+            }
+            msg.innerText = `✅ +${result.xp_earned} XP`;
+            msg.style.color = 'var(--success)';
+        }
+
+        async function submitScratchSolution(msg) {
+            const fileInput = document.getElementById('exam-scratch-file');
+            const file = fileInput && fileInput.files && fileInput.files.length > 0 ? fileInput.files[0] : null;
+            const fileError = validateExamScratchFile(file);
+            if (fileError) throw new Error(fileError);
+
+            const formData = new FormData();
+            formData.append('task_id', currentTask.id);
+            formData.append('file', file);
+
+            const note = (document.getElementById('code-editor').value || '').trim();
+            if (note) formData.append('solution', note);
+
+            msg.innerText = '⏳ Загрузка .sb3...';
+            const res = await fetch(`${API_URL}/api/exam/submit-scratch`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${authToken}` },
+                body: formData
+            });
+            const result = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(result.detail || `HTTP ${res.status}`);
+            }
+            return result;
+        }
+
         async function submitSolution() {
             if (!currentTask) return;
             const btn = document.getElementById('submit-btn');
@@ -839,23 +1052,16 @@
             msg.style.color = 'var(--text-dim)';
 
             try {
-                const result = await api('/api/exam/submit', 'POST', {
-                    task_id: currentTask.id,
-                    solution: document.getElementById('code-editor').value
-                });
-
-                if (timerInterval) clearInterval(timerInterval);
-
-                if (result.cheated) {
-                    msg.innerText = `❌ Чит зафиксирован: 0 XP`;
-                    msg.style.color = 'var(--danger)';
-                } else if (result.time_expired) {
-                    msg.innerText = `⏰ Время вышло: 0 XP`;
-                    msg.style.color = 'var(--danger)';
+                let result;
+                if (isScratchTask()) {
+                    result = await submitScratchSolution(msg);
                 } else {
-                    msg.innerText = `✅ +${result.xp_earned} XP`;
-                    msg.style.color = 'var(--success)';
+                    result = await api('/api/exam/submit', 'POST', {
+                        task_id: currentTask.id,
+                        solution: document.getElementById('code-editor').value
+                    });
                 }
+                applySubmitResult(result, msg);
 
                 loadLeaderboard();
                 setTimeout(() => loadCurrentTask(), 2500);
@@ -868,42 +1074,50 @@
 
         // ==================== ANTI-CHEAT ====================
         function initAntiCheat() {
-            // Visibility change (tab switch)
             document.addEventListener('visibilitychange', () => {
-                if (document.hidden && currentTask) reportCheat('visibility');
-            });
-
-            // Window blur (alt-tab, click outside)
-            window.addEventListener('blur', () => {
-                if (currentTask) reportCheat('blur');
+                if (!isAntiCheatActive()) return;
+                if (document.hidden) {
+                    antiCheatHiddenAt = Date.now();
+                    return;
+                }
+                if (!antiCheatHiddenAt) return;
+                const hiddenMs = Date.now() - antiCheatHiddenAt;
+                antiCheatHiddenAt = 0;
+                if (isScratchTask()) return;
+                if (hiddenMs < ANTI_CHEAT_MIN_HIDDEN_MS) return;
+                reportCheat('tab_switch');
             });
 
             // Keyboard shortcuts
             document.addEventListener('keydown', (e) => {
-                if (!currentTask) return;
+                if (!isAntiCheatActive()) return;
+                if (isScratchTask()) return;
                 if ((e.ctrlKey || e.metaKey) && e.key === 'Tab') {
-                    e.preventDefault();
                     reportCheat('ctrl_tab');
                 }
                 if (e.altKey && e.key === 'Tab') {
-                    e.preventDefault();
                     reportCheat('alt_tab');
                 }
             });
 
             // Prevent right-click
             document.addEventListener('contextmenu', (e) => {
-                if (currentTask) e.preventDefault();
+                if (isAntiCheatActive() && !isScratchTask()) e.preventDefault();
             });
         }
 
         async function reportCheat(eventType) {
-            if (!currentTask) return;
+            if (!isAntiCheatActive()) return;
+            if (isScratchTask()) return;
+            const now = Date.now();
+            if (now - antiCheatLastReportAt < ANTI_CHEAT_COOLDOWN_MS) return;
+            antiCheatLastReportAt = now;
             try {
                 const result = await api('/api/exam/cheat-warning', 'POST', {
                     task_id: currentTask.id,
                     event_type: eventType
                 });
+                if (result.ignored) return;
                 cheatWarnings = result.warnings;
 
                 const overlay = document.getElementById('cheat-overlay');
@@ -975,8 +1189,36 @@
             const j = journalData[index];
             if (!j) return;
             document.getElementById('jm-title').innerText = j.title;
-            document.getElementById('jm-story').innerText = j.story || '';
-            document.getElementById('jm-desc').innerText = j.description || '';
+            const storyWrap = document.getElementById('jm-story-wrap');
+            const descWrap = document.getElementById('jm-desc-wrap');
+            const solutionWrap = document.getElementById('jm-solution-wrap');
+            const fileWrap = document.getElementById('jm-file-wrap');
+            const fileLink = document.getElementById('jm-file-link');
+
+            const story = (j.story || '').trim();
+            const description = (j.description || '').trim();
+            const solution = (j.solution || '').trim();
+
+            storyWrap.style.display = story ? 'block' : 'none';
+            descWrap.style.display = description ? 'block' : 'none';
+            document.getElementById('jm-story').innerText = story;
+            document.getElementById('jm-desc').innerText = description;
+
+            if (solution) {
+                solutionWrap.style.display = 'block';
+                document.getElementById('jm-solution').textContent = solution;
+            } else {
+                solutionWrap.style.display = 'block';
+                document.getElementById('jm-solution').textContent = '(реализация не сохранена)';
+            }
+
+            if (j.submission_link) {
+                fileLink.href = `${API_URL}${j.submission_link}`;
+                fileWrap.style.display = 'block';
+            } else {
+                fileWrap.style.display = 'none';
+                fileLink.removeAttribute('href');
+            }
             document.getElementById('journal-modal').classList.add('active');
         }
 
@@ -990,6 +1232,7 @@
 
         // ==================== FINISH SCREEN ====================
         function showFinishScreen(status) {
+            taskStarted = false;
             document.getElementById('exam-screen').style.display = 'none';
             document.getElementById('finish-screen').style.display = 'flex';
             document.getElementById('finish-xp').innerText = `${status.total_xp} XP`;
