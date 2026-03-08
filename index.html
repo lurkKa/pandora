@@ -507,11 +507,20 @@
         }
 
         .quest-card.completed {
-            opacity: 0.96;
-            border-color: rgba(148, 163, 184, 0.28);
-            background: rgba(22, 26, 36, 0.78);
-            backdrop-filter: blur(1.2px) saturate(102%);
-            -webkit-backdrop-filter: blur(1.2px) saturate(102%);
+            border-color: rgba(52, 211, 153, 0.35);
+            background:
+                linear-gradient(135deg, rgba(16, 185, 129, 0.06), rgba(6, 78, 59, 0.08) 60%, rgba(22, 26, 36, 0.9));
+            box-shadow:
+                0 0 20px rgba(52, 211, 153, 0.08),
+                inset 0 1px 0 rgba(52, 211, 153, 0.1);
+        }
+
+        .quest-card.completed:hover {
+            border-color: rgba(52, 211, 153, 0.55);
+            box-shadow:
+                0 0 30px rgba(52, 211, 153, 0.15),
+                0 8px 32px rgba(0, 0, 0, 0.3);
+            transform: translateY(-2px);
         }
 
         .quest-card.locked {
@@ -538,25 +547,73 @@
             font-weight: 700;
         }
 
+        /* Completed card: warm victory overlay */
         .quest-card.completed::before {
             content: '';
             position: absolute;
             inset: 0;
             pointer-events: none;
             background:
-                linear-gradient(140deg, rgba(148, 163, 184, 0.12), rgba(100, 116, 139, 0.06) 42%, transparent 80%),
-                radial-gradient(120% 95% at 100% 0%, rgba(59, 130, 246, 0.08), transparent 56%);
-            opacity: 0.72;
+                linear-gradient(140deg, rgba(52, 211, 153, 0.1), transparent 50%),
+                radial-gradient(ellipse 80% 60% at 100% 0%, rgba(250, 204, 21, 0.06), transparent 60%);
+            opacity: 1;
         }
 
-        .quest-card.completed .quest-title,
-        .quest-card.completed .quest-icon,
-        .quest-card.completed .quest-story,
-        .quest-card.completed .quest-reward,
+        .quest-card.completed .quest-title {
+            color: #a7f3d0;
+        }
+
+        .quest-card.completed .quest-icon {
+            filter: none;
+            opacity: 0.9;
+        }
+
+        .quest-card.completed .quest-story {
+            color: rgba(167, 243, 208, 0.6);
+        }
+
+        .quest-card.completed .quest-reward {
+            color: #86efac;
+        }
+
         .quest-card.completed .quest-homework-note {
             filter: none;
             opacity: 1;
-            text-shadow: none;
+        }
+
+        /* ── Completed checkmark badge ── */
+        .quest-complete-badge {
+            position: absolute;
+            top: 12px;
+            left: 14px;
+            z-index: 5;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: 2px solid rgba(167, 243, 208, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            line-height: 1;
+            color: #fff;
+            box-shadow:
+                0 0 12px rgba(16, 185, 129, 0.4),
+                0 2px 8px rgba(0, 0, 0, 0.3);
+            animation: completeBadgePulse 3s ease-in-out infinite;
+        }
+
+        @keyframes completeBadgePulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 12px rgba(16, 185, 129, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+            }
+
+            50% {
+                box-shadow: 0 0 20px rgba(16, 185, 129, 0.6), 0 2px 8px rgba(0, 0, 0, 0.3);
+            }
         }
 
         .quest-card[data-methods] {
@@ -4804,6 +4861,7 @@
                              onkeydown="if(event.key==='Enter') openQuest('${task.id}')">
                         <div class="tier-indicator tier-${task.tier}">${task.tier}-Rank</div>
                         ${isLocked ? `<div class="quest-lock" aria-hidden="true">🔒</div>` : ``}
+                        ${isCompleted ? `<div class="quest-complete-badge" aria-label="Выполнено">✓</div>` : ``}
                         <div class="quest-card-content">
                             <div class="quest-icon">${icons[task.category] || '📜'}</div>
                             <h3 class="quest-title">${task.title}</h3>
