@@ -525,32 +525,64 @@
             display: flex;
             flex-direction: column;
             gap: 16px;
+            transition: opacity 0.25s ease;
+        }
+
+        .quest-homework-note {
+            font-size: 12px;
+            color: #fca5a5;
+            font-weight: 700;
+        }
+
+        .quest-card.completed {
+            --card-soft-blur: 1.25px;
+            --card-soft-opacity: 0.66;
+        }
+
+        .quest-card[data-methods="2"].completed {
+            --card-soft-blur: 1.1px;
+            --card-soft-opacity: 0.7;
+        }
+
+        .quest-card[data-methods="3"].completed {
+            --card-soft-blur: 1px;
+            --card-soft-opacity: 0.73;
+        }
+
+        .quest-card[data-methods="4"].completed,
+        .quest-card[data-methods="5"].completed,
+        .quest-card[data-methods="6"].completed,
+        .quest-card[data-methods="7"].completed,
+        .quest-card[data-methods="8"].completed,
+        .quest-card[data-methods="9"].completed {
+            --card-soft-blur: 0.85px;
+            --card-soft-opacity: 0.78;
+        }
+
+        .quest-card.completed::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(120% 85% at 10% 100%, rgba(34, 197, 94, 0.18), transparent 45%),
+                radial-gradient(120% 85% at 100% 0%, rgba(16, 185, 129, 0.18), transparent 48%);
+            opacity: 0.9;
+        }
+
+        .quest-card.completed .quest-icon,
+        .quest-card.completed .quest-story,
+        .quest-card.completed .quest-reward,
+        .quest-card.completed .quest-homework-note {
+            filter: blur(var(--card-soft-blur));
+            opacity: var(--card-soft-opacity);
             transition: filter 0.25s ease, opacity 0.25s ease;
         }
 
-        .quest-card.completed .quest-card-content {
-            filter: blur(1.4px);
-            opacity: 0.66;
-        }
-
-        .quest-card[data-methods="2"].completed .quest-card-content {
-            filter: blur(1.25px);
-            opacity: 0.7;
-        }
-
-        .quest-card[data-methods="3"].completed .quest-card-content {
-            filter: blur(1.1px);
-            opacity: 0.73;
-        }
-
-        .quest-card[data-methods="4"].completed .quest-card-content,
-        .quest-card[data-methods="5"].completed .quest-card-content,
-        .quest-card[data-methods="6"].completed .quest-card-content,
-        .quest-card[data-methods="7"].completed .quest-card-content,
-        .quest-card[data-methods="8"].completed .quest-card-content,
-        .quest-card[data-methods="9"].completed .quest-card-content {
-            filter: blur(0.95px);
-            opacity: 0.78;
+        .quest-card.completed .quest-title {
+            filter: none;
+            opacity: 1;
+            text-shadow: 0 0 18px rgba(74, 222, 128, 0.22);
         }
 
         .quest-card[data-methods] {
@@ -4802,7 +4834,7 @@
                             <div class="quest-icon">${icons[task.category] || '📜'}</div>
                             <h3 class="quest-title">${task.title}</h3>
                             <p class="quest-story">${task.story}</p>
-                            ${isHomework ? `<div style="font-size:12px;color:#fca5a5;font-weight:700;">📌 ДЗ • ${hwDeadline}</div>` : ``}
+                            ${isHomework ? `<div class="quest-homework-note">📌 ДЗ • ${hwDeadline}</div>` : ``}
                             <div class="quest-reward">⭐ ${task.xp} XP${isPending ? ' (на проверке)' : ''}</div>
                         </div>
                         ${methodsBadge}

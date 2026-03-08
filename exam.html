@@ -677,8 +677,8 @@
 
             <div class="exam-sidebar">
                 <div class="sidebar-tabs">
-                    <button class="sidebar-tab active" onclick="switchTab('leaderboard')">🏆 Рейтинг</button>
-                    <button class="sidebar-tab" onclick="switchTab('journal')">📜 Журнал</button>
+                    <button class="sidebar-tab active" onclick="switchTab('leaderboard', this)">🏆 Рейтинг</button>
+                    <button class="sidebar-tab" onclick="switchTab('journal', this)">📜 Журнал</button>
                 </div>
                 <div class="sidebar-content" id="sidebar-leaderboard">
                     <div style="color:var(--text-dim); text-align:center; padding:20px; font-size:13px;">Загрузка...
@@ -773,15 +773,27 @@
         }
 
         async function api(endpoint, method = 'GET', body = null) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 12000);
             const opts = { method, headers: { 'Authorization': `Bearer ${authToken}` } };
             if (body) {
                 opts.headers['Content-Type'] = 'application/json';
                 opts.body = JSON.stringify(body);
             }
-            const res = await fetch(`${API_URL}${endpoint}`, opts);
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
-            return data;
+            opts.signal = controller.signal;
+            try {
+                const res = await fetch(`${API_URL}${endpoint}`, opts);
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+                return data;
+            } catch (e) {
+                if (e && e.name === 'AbortError') {
+                    throw new Error('Сервер отвечает слишком долго (таймаут)');
+                }
+                throw e;
+            } finally {
+                clearTimeout(timeoutId);
+            }
         }
 
         function isScratchTask() {
@@ -1167,10 +1179,12 @@
 
         // ==================== JOURNAL (regular tasks as hints) ====================
         async function loadJournal() {
+            const container = document.getElementById('sidebar-journal');
+            if (!container) return;
+            container.innerHTML = '<div style="color:var(--text-dim); text-align:center; padding:20px; font-size:13px;">Загрузка...</div>';
             try {
                 const data = await api('/api/exam/journal');
                 journalData = data.journal || [];
-                const container = document.getElementById('sidebar-journal');
                 if (!journalData.length) {
                     container.innerHTML = '<div style="color:var(--text-dim); text-align:center; padding:20px; font-size:13px;">Нет решённых заданий из обычного режима</div>';
                     return;
@@ -1182,7 +1196,10 @@
                         <div class="journal-cat">${j.category} · Tier ${j.tier}</div>
                     </div>
                 `).join('');
-            } catch (e) { }
+            } catch (e) {
+                console.error('Journal load failed:', e);
+                container.innerHTML = `<div style="color:#fca5a5; text-align:center; padding:20px; font-size:13px;">Не удалось загрузить журнал: ${String(e.message || e)}</div>`;
+            }
         }
 
         function showJournalDetail(index) {
@@ -1223,9 +1240,9 @@
         }
 
         // ==================== SIDEBAR TABS ====================
-        function switchTab(tab) {
+        function switchTab(tab, el) {
             document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
+            if (el) el.classList.add('active');
             document.getElementById('sidebar-leaderboard').style.display = tab === 'leaderboard' ? 'block' : 'none';
             document.getElementById('sidebar-journal').style.display = tab === 'journal' ? 'block' : 'none';
         }

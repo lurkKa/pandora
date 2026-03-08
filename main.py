@@ -823,6 +823,7 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_solution_methods_user_task ON task_solution_methods(user_id, task_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_solution_methods_simhash ON task_solution_methods(task_id, method_simhash)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_submissions_user_task_status ON submissions(user_id, task_id, status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_submissions_user_task_id_desc ON submissions(user_id, task_id, id DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_task_attempts_user_task_time ON task_attempts(user_id, task_id, created_at DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_chat_messages_time ON chat_messages(created_at DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_paste_requests_status ON paste_requests(status, user_id)")
@@ -9166,29 +9167,31 @@ def exam_journal(user: dict = Depends(require_auth)):
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
+            WITH latest_submission AS (
+                SELECT s.user_id, s.task_id, s.content, s.link
+                FROM submissions s
+                JOIN (
+                    SELECT user_id, task_id, MAX(id) AS max_id
+                    FROM submissions
+                    WHERE user_id = ?
+                    GROUP BY user_id, task_id
+                ) x ON x.max_id = s.id
+            )
             SELECT
                 c.task_id,
                 c.solution,
                 c.completed_at,
                 COALESCE(c.xp_earned, 0) AS xp_earned,
-                (
-                    SELECT s.content
-                    FROM submissions s
-                    WHERE s.user_id = c.user_id AND s.task_id = c.task_id
-                    ORDER BY s.created_at DESC, s.id DESC
-                    LIMIT 1
-                ) AS submission_content,
-                (
-                    SELECT s.link
-                    FROM submissions s
-                    WHERE s.user_id = c.user_id AND s.task_id = c.task_id
-                    ORDER BY s.created_at DESC, s.id DESC
-                    LIMIT 1
-                ) AS submission_link
+                ls.content AS submission_content,
+                ls.link AS submission_link
             FROM completed_tasks c
+            LEFT JOIN latest_submission ls
+              ON ls.user_id = c.user_id
+             AND ls.task_id = c.task_id
             WHERE c.user_id = ? AND c.is_valid = 1
-            ORDER BY completed_at DESC
-        """, (uid,))
+            ORDER BY c.completed_at DESC
+            LIMIT 300
+        """, (uid, uid))
         completed_rows = [dict(r) for r in cursor.fetchall()]
     
     tasks_data = load_tasks()
