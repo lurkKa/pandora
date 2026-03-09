@@ -5182,6 +5182,7 @@
             setPageContext('general');
             // Reset paste permission when closing modal
             pasteAllowed = false;
+            pasteUsed = false;
             updatePasteButton();
             if (previewRenderTimer) {
                 clearTimeout(previewRenderTimer);
@@ -5191,33 +5192,47 @@
 
         // ==================== PASTE PROTECTION & AUTO-INDENT ====================
         let pasteAllowed = false;
+        let pasteUsed = false;
         let pasteRequestPending = false;
 
         function updatePasteButton() {
             const btn = document.getElementById('paste-request-btn');
             if (!btn) return;
 
-            if (pasteAllowed) {
-                btn.innerHTML = '✅ Вставка ОК';
+            if (pasteUsed) {
+                btn.innerHTML = '🚫 Использовано';
+                btn.style.background = 'rgba(239, 68, 68, 0.15)';
+                btn.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                btn.style.color = '#f87171';
+                btn.disabled = true;
+            } else if (pasteAllowed) {
+                btn.innerHTML = '✅ Вставка ОК (1 раз)';
                 btn.style.background = 'rgba(74, 222, 128, 0.2)';
                 btn.style.borderColor = 'rgba(74, 222, 128, 0.5)';
                 btn.style.color = '#4ade80';
+                btn.disabled = false;
             } else if (pasteRequestPending) {
                 btn.innerHTML = '⏳ Ожидание...';
                 btn.style.background = 'rgba(251, 191, 36, 0.2)';
                 btn.style.borderColor = 'rgba(251, 191, 36, 0.5)';
                 btn.style.color = '#fbbf24';
+                btn.disabled = true;
             } else {
                 btn.innerHTML = '📋 Вставка';
                 btn.style.background = 'rgba(255,255,255,0.1)';
                 btn.style.borderColor = 'rgba(255,255,255,0.2)';
                 btn.style.color = 'var(--text-secondary)';
+                btn.disabled = false;
             }
         }
 
         async function requestPastePermission() {
+            if (pasteUsed) {
+                alert('Вставка уже была использована для этой задачи. Повторная вставка запрещена.');
+                return;
+            }
             if (pasteAllowed) {
-                alert('Вставка уже разрешена для этой задачи.');
+                alert('Вставка уже разрешена для этой задачи (1 раз).');
                 return;
             }
 
@@ -5277,7 +5292,7 @@
                         pasteAllowed = true;
                         pasteRequestPending = false;
                         updatePasteButton();
-                        alert('✅ Мастер разрешил вставку! Разрешено вставить до 50% кода.');
+                        alert('✅ Мастер разрешил вставку! Разрешена ОДНА вставка (до 50% кода).');
                     } else if (data.rejected) {
                         pasteRequestPending = false;
                         updatePasteButton();
@@ -5325,10 +5340,15 @@
             editor.selectionStart = editor.selectionEnd = start + allowedText.length;
             editor.focus();
 
+            // One-time paste used — block further pastes
+            pasteAllowed = false;
+            pasteUsed = true;
+            updatePasteButton();
+
             // Show notification about half-paste
             const console_el = document.getElementById('output-console');
             if (console_el) {
-                console_el.innerText = `📋 Вставлено ${allowedText.length} из ${pastedText.length} символов (50% лимит).\n\nПродолжайте кодить!`;
+                console_el.innerText = `📋 Вставлено ${allowedText.length} из ${pastedText.length} символов (50% лимит).\n\n🚫 Вставка больше недоступна для этого задания.`;
             }
 
             return false;

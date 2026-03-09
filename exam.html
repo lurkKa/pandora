@@ -1247,9 +1247,10 @@
             });
 
             window.addEventListener('blur', () => {
+                // Blur alone is NOT a cheat — happens during language switch, notifications, etc.
+                // Only track for combined away detection with visibility API.
                 if (!isAntiCheatActive() || isScratchTask()) return;
                 if (!antiCheatHiddenAt) antiCheatHiddenAt = Date.now();
-                beginAwayTracking('blur');
             });
 
             window.addEventListener('focus', () => {
@@ -1258,20 +1259,8 @@
                 endAwayTracking('focus');
             });
 
-            // Strict policy: leaving viewport with pointer is treated as cheating.
-            document.addEventListener('mouseleave', (e) => {
-                if (!isAntiCheatActive() || isScratchTask()) return;
-                // Grace period for OS language switcher overlays (Win+Space, etc.)
-                if (lastLangSwitchAt && (Date.now() - lastLangSwitchAt) < 1500) return;
-                if (!e.relatedTarget) reportCheat('tab_switch');
-            });
-            window.addEventListener('mouseout', (e) => {
-                if (!isAntiCheatActive() || isScratchTask()) return;
-                if (e.relatedTarget) return;
-                // Grace period for OS language switcher overlays (Win+Space, etc.)
-                if (lastLangSwitchAt && (Date.now() - lastLangSwitchAt) < 1500) return;
-                reportCheat('tab_switch');
-            });
+            // Mouse-leave tracking REMOVED — too many false positives from:
+            // language switcher panels, taskbar hover, window borders, notifications, etc.
 
             // Keyboard shortcuts
 
@@ -1323,29 +1312,24 @@
                         if (allowedEditorCombos) return;  // Allow
                     }
 
-                    // Everything else with modifier → cheat
-                    e.preventDefault();
+                    // Only flag OBVIOUS cheat shortcuts: Ctrl+Tab, Alt+Tab
                     if ((e.ctrlKey || e.metaKey) && key === 'Tab') {
+                        e.preventDefault();
                         reportCheat('ctrl_tab');
                     } else if (e.altKey && key === 'Tab') {
+                        e.preventDefault();
                         reportCheat('alt_tab');
-                    } else {
-                        reportCheat('shortcut');
+                    }
+                    // Other modifier combos (Ctrl+S, etc.) — just block, no cheat report
+                    if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+                        // Allow harmless shortcuts like Ctrl+S, Ctrl+F silently
+                        e.preventDefault();
                     }
                     return;
                 }
 
-                // ── No modifier pressed ──
-                // Outside editor: any non-modifier key is suspicious
-                if (!focusedInEditor) {
-                    reportCheat('shortcut');
-                    return;
-                }
-
-                // Inside editor: only standard coding keys allowed
-                if (!isAllowedEditorKey(key)) {
-                    reportCheat('shortcut');
-                }
+                // ── No modifier pressed ── allow everything inside and outside editor
+                // (students may click on task description, etc.)
             });
 
             // Prevent right-click

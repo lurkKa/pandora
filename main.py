@@ -5638,7 +5638,7 @@ def complete_task(data: TaskCompletion, user: dict = Depends(require_auth)):
     raise HTTPException(status_code=410, detail="Deprecated endpoint. Use POST /api/tasks/attempt")
 
 
-PLAGIARISM_THRESHOLD = float(os.getenv("PANDORA_PLAGIARISM_THRESHOLD", "0.92"))
+PLAGIARISM_THRESHOLD = float(os.getenv("PANDORA_PLAGIARISM_THRESHOLD", "2.0"))  # Disabled: 2.0 is unreachable
 MAX_CODE_CHARS = int(os.getenv("PANDORA_MAX_CODE_CHARS", "60000"))
 ATTEMPT_COOLDOWN_S = float(os.getenv("PANDORA_ATTEMPT_COOLDOWN_S", "2.0"))
 REVIEWABLE_TIERS = {"B", "A", "S"}
@@ -8306,25 +8306,25 @@ def get_guild_stats(guild_id: int, user: dict = Depends(require_auth)):
         """, member_ids)
         tasks_month = cursor.fetchone()[0]
 
-        # ── XP by period ──
+        # ── XP by period (from completed_tasks, not xp_log which includes admin/bonus entries) ──
         cursor.execute(f"""
-            SELECT COALESCE(SUM(xp_change), 0) FROM xp_log
-            WHERE user_id IN ({placeholders}) AND xp_change > 0
-              AND DATE(logged_at) = DATE('now')
+            SELECT COALESCE(SUM(xp_earned), 0) FROM completed_tasks
+            WHERE user_id IN ({placeholders}) AND is_valid != 0
+              AND DATE(completed_at) = DATE('now')
         """, member_ids)
         xp_today = cursor.fetchone()[0]
 
         cursor.execute(f"""
-            SELECT COALESCE(SUM(xp_change), 0) FROM xp_log
-            WHERE user_id IN ({placeholders}) AND xp_change > 0
-              AND logged_at >= DATE('now', '-7 days')
+            SELECT COALESCE(SUM(xp_earned), 0) FROM completed_tasks
+            WHERE user_id IN ({placeholders}) AND is_valid != 0
+              AND completed_at >= DATE('now', '-7 days')
         """, member_ids)
         xp_week = cursor.fetchone()[0]
 
         cursor.execute(f"""
-            SELECT COALESCE(SUM(xp_change), 0) FROM xp_log
-            WHERE user_id IN ({placeholders}) AND xp_change > 0
-              AND logged_at >= DATE('now', '-30 days')
+            SELECT COALESCE(SUM(xp_earned), 0) FROM completed_tasks
+            WHERE user_id IN ({placeholders}) AND is_valid != 0
+              AND completed_at >= DATE('now', '-30 days')
         """, member_ids)
         xp_month = cursor.fetchone()[0]
 
