@@ -999,13 +999,24 @@
                     <p>Review Scratch and manual submissions</p>
                 </div>
 
+                <div style="display:flex;gap:8px;margin-bottom:20px;align-items:center;flex-wrap:wrap;">
+                    <button class="btn btn-primary btn-small" id="reviews-btn-pending"
+                        onclick="loadSubmissions('pending')" style="opacity:1;">⏳ Pending</button>
+                    <button class="btn btn-small" id="reviews-btn-all" onclick="loadSubmissions('all')"
+                        style="opacity:0.6;">📋 Все</button>
+                    <button class="btn btn-small" onclick="cleanupDuplicateReviews()">🧹 Подчистить дубли</button>
+                    <span id="reviews-dedupe-info"
+                        style="font-size:12px; color: var(--text-secondary); margin-left:8px;"></span>
+                </div>
+
                 <div class="card">
                     <div class="card-header">
-                        <h3>Pending Submissions <span id="reviews-dedupe-info"
-                                style="font-size:12px; color: var(--text-secondary); margin-left:8px;"></span></h3>
-                        <button class="btn btn-small" onclick="cleanupDuplicateReviews()">🧹 Подчистить дубли</button>
+                        <h3 id="reviews-card-title">Pending Submissions</h3>
                     </div>
-                    <table>
+                    <div id="reviews-loading"
+                        style="padding:24px;text-align:center;color:var(--text-secondary);display:none;">Загрузка...
+                    </div>
+                    <table id="reviews-table-container">
                         <thead>
                             <tr>
                                 <th>Student</th>
@@ -1801,6 +1812,9 @@
         let authToken = localStorage.getItem('admin_token');
         let currentSubmissions = []; // For code viewing in submissions
         let reviewTasksMap = {};
+        let _reviewsTasksCached = false; // true once tasks are fetched
+        let _reviewsStatus = 'pending'; // current filter
+        let _reviewsLoading = false; // prevent concurrent loads
         const REQUEST_TIMEOUT_MS = 45000;
         const AUTH_REQUEST_TIMEOUT_MS = 60000;
 
@@ -2057,7 +2071,7 @@
                 // Load students
                 await Promise.all([
                     loadStudents(),
-                    loadSubmissions()
+                    loadSubmissions('pending')
                 ]);
                 loadLeaderboard(stats.leaderboard);
             } catch (e) {
@@ -2100,75 +2114,170 @@
             });
         }
 
-        async function loadSubmissions() {
-            const data = await api('/api/admin/submissions?compact_duplicates=true');
+        async function loadSubmissions(status) {
+            if (status) _reviewsStatus = status;
+            const filterStatus = _reviewsStatus || 'pending';
+
+            // Update tab buttons
+            ['pending', 'all'].forEach(s => {
+                const btn = document.getElementById(`reviews-btn-${s}`);
+                if (btn) btn.style.opacity = s === filterStatus ? '1' : '0.6';
+            });
+
+            // Update title
+            const titleEl = document.getElementById('reviews-card-title');
+            if (titleEl) titleEl.textContent = filterStatus === 'pending' ? 'Pending Submissions' : 'All Submissions';
+
+            // Prevent concurrent loads
+            if (_reviewsLoading) return;
+            _reviewsLoading = true;
+
+            const loadingEl = document.getElementById('reviews-loading');
+            const tableEl = document.getElementById('reviews-table-container');
             const tbody = document.getElementById('reviews-table');
             const dedupeInfo = document.getElementById('reviews-dedupe-info');
-            tbody.innerHTML = '';
-            dedupeInfo.innerText = '';
 
-            if (!data.submissions || data.submissions.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--text-secondary);">No submissions yet</td></tr>';
-                return;
+            // Show loading only if table is empty
+            if (!tbody.children.length || tbody.children.length <= 1) {
+                if (loadingEl) loadingEl.style.display = 'block';
+                if (tableEl) tableEl.style.display = 'none';
             }
 
-            const hiddenDupes = data.meta?.pending_duplicates_hidden || 0;
-            if (hiddenDupes > 0) {
-                dedupeInfo.innerText = `(скрыто дублей: ${hiddenDupes})`;
-            }
-
-            // Load tasks to get XP info
-            let tasksMap = {};
             try {
-                const tasksData = await fetch(`${API_URL}/api/tasks`);
-                const tasks = await tasksData.json();
-                if (tasks.tasks) {
-                    tasks.tasks.forEach(t => tasksMap[t.id] = t);
+                // Build API URL with status filter
+                let apiUrl = '/api/admin/submissions?compact_duplicates=true';
+                if (filterStatus !== 'all') {
+                    apiUrl += `&status=${filterStatus}`;
                 }
-            } catch (e) { console.error('Failed to load tasks'); }
-            reviewTasksMap = tasksMap;
+                const data = await api(apiUrl);
 
-            currentSubmissions = data.submissions; // Store for code viewing
-            data.submissions.forEach(sub => {
-                const statusClass = sub.status === 'pending' ? 'badge-pending' :
-                    sub.status === 'approved' ? 'badge-approved' : 'badge-rejected';
-                const examMeta = getExamSubmissionMeta(sub);
-                const task = tasksMap[sub.task_id] || {};
-                const taskName = task.title || examMeta?.task_title || sub.task_id;
-                const maxXP = Number(task.xp || examMeta?.task_xp || 0);
-                const dupeCount = Number(sub.pending_duplicates || 0);
-                const downloadLink = sub.link && sub.link.includes('/uploads/')
-                    ? `<a href="${API_URL}${sub.link}" download class="btn btn-small" style="margin-left:4px;">📥</a>`
-                    : '';
-                const scoreInfo = sub.score !== null ? ` (${sub.score}/10)` : '';
-                const examBadge = examMeta
-                    ? `<span style="font-size:10px; color:#80b7ff; margin-left:6px;">EXAM</span>`
-                    : '';
-                const dupeInfo = dupeCount > 0
-                    ? `<div style="font-size:11px; color: var(--warning); margin-top: 2px;">+${dupeCount} дубль(ей) скрыт</div>`
-                    : '';
-                const statusHint = examMeta
-                    ? `<div style="font-size:11px; color: var(--text-secondary); margin-top: 2px;">Manual exam review • ${maxXP} XP max</div>`
-                    : '';
+                // Cache tasks map on first call — avoid re-fetching every time
+                if (!_reviewsTasksCached) {
+                    try {
+                        const tasksData = await fetch(`${API_URL}/api/tasks`);
+                        const tasks = await tasksData.json();
+                        if (tasks.tasks) {
+                            const map = {};
+                            tasks.tasks.forEach(t => map[t.id] = t);
+                            reviewTasksMap = map;
+                        }
+                        _reviewsTasksCached = true;
+                    } catch (e) { console.error('Failed to load tasks for review cache'); }
+                }
 
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${sub.display_name}</td>
-                        <td title="${sub.task_id}">${taskName}${examBadge}${dupeInfo}</td>
-                        <td>
-                            ${sub.link ? `<a href="${sub.link.startsWith('http') ? sub.link : API_URL + sub.link}" target="_blank" style="color: var(--accent-light);">🔗</a>` : '-'}
-                            ${downloadLink}
-                        </td>
-                        <td><span class="badge ${statusClass}">${sub.status}${scoreInfo}</span>${statusHint}</td>
-                        <td>
-                            <button class="btn btn-small" onclick="viewSubmissionCode(${sub.id})" title="Смотреть код">👁️</button>
-                            ${sub.status === 'pending' ? `
-                                <button class="btn btn-primary btn-small" onclick="openReviewModalById(${sub.id})">📝</button>
-                            ` : sub.feedback ? `<span title="${sub.feedback}" style="cursor:help;">💬</span>` : ''}
-                        </td>
-                    </tr>
-                `;
-            });
+                dedupeInfo.textContent = '';
+                const hiddenDupes = data.meta?.pending_duplicates_hidden || 0;
+                if (hiddenDupes > 0) {
+                    dedupeInfo.textContent = `(скрыто дублей: ${hiddenDupes})`;
+                }
+
+                currentSubmissions = data.submissions || [];
+
+                // Build DOM with DocumentFragment (no reflow per row)
+                const frag = document.createDocumentFragment();
+
+                if (currentSubmissions.length === 0) {
+                    const emptyRow = document.createElement('tr');
+                    emptyRow.innerHTML = '<td colspan="5" style="text-align:center; color: var(--text-secondary);">Нет заявок</td>';
+                    frag.appendChild(emptyRow);
+                } else {
+                    currentSubmissions.forEach(sub => {
+                        frag.appendChild(_buildReviewRow(sub));
+                    });
+                }
+
+                tbody.innerHTML = '';
+                tbody.appendChild(frag);
+
+            } catch (e) {
+                console.error('loadSubmissions error:', e);
+            } finally {
+                _reviewsLoading = false;
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (tableEl) tableEl.style.display = '';
+            }
+        }
+
+        function _buildReviewRow(sub) {
+            const tr = document.createElement('tr');
+            tr.dataset.submissionId = sub.id;
+
+            const statusClass = sub.status === 'pending' ? 'badge-pending' :
+                sub.status === 'approved' ? 'badge-approved' : 'badge-rejected';
+            const examMeta = getExamSubmissionMeta(sub);
+            const task = reviewTasksMap[sub.task_id] || {};
+            const taskName = task.title || examMeta?.task_title || sub.task_id;
+            const maxXP = Number(task.xp || examMeta?.task_xp || 0);
+            const dupeCount = Number(sub.pending_duplicates || 0);
+            const downloadLink = sub.link && sub.link.includes('/uploads/')
+                ? `<a href="${API_URL}${sub.link}" download class="btn btn-small" style="margin-left:4px;">📥</a>`
+                : '';
+            const scoreInfo = sub.score !== null ? ` (${sub.score}/10)` : '';
+            const examBadge = examMeta
+                ? `<span style="font-size:10px; color:#80b7ff; margin-left:6px;">EXAM</span>`
+                : '';
+            const dupeInfo = dupeCount > 0
+                ? `<div style="font-size:11px; color: var(--warning); margin-top: 2px;">+${dupeCount} дубль(ей) скрыт</div>`
+                : '';
+            const statusHint = examMeta
+                ? `<div style="font-size:11px; color: var(--text-secondary); margin-top: 2px;">Manual exam review • ${maxXP} XP max</div>`
+                : '';
+
+            tr.innerHTML = `
+                <td>${sub.display_name}</td>
+                <td title="${sub.task_id}">${taskName}${examBadge}${dupeInfo}</td>
+                <td>
+                    ${sub.link ? `<a href="${sub.link.startsWith('http') ? sub.link : API_URL + sub.link}" target="_blank" style="color: var(--accent-light);">🔗</a>` : '-'}
+                    ${downloadLink}
+                </td>
+                <td><span class="badge ${statusClass}">${sub.status}${scoreInfo}</span>${statusHint}</td>
+                <td>
+                    <button class="btn btn-small" onclick="viewSubmissionCode(${sub.id})" title="Смотреть код">👁️</button>
+                    ${sub.status === 'pending' ? `
+                        <button class="btn btn-primary btn-small" onclick="openReviewModalById(${sub.id})">📝</button>
+                    ` : sub.feedback ? `<span title="${sub.feedback}" style="cursor:help;">💬</span>` : ''}
+                </td>
+            `;
+            return tr;
+        }
+
+        function _removeReviewedRow(submissionId) {
+            // Remove from DOM with fade-out
+            const row = document.querySelector(`#reviews-table tr[data-submission-id="${submissionId}"]`);
+            if (row) {
+                row.style.transition = 'opacity 0.3s, transform 0.3s';
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(20px)';
+                setTimeout(() => {
+                    row.remove();
+                    // Show empty message if no rows left
+                    const tbody = document.getElementById('reviews-table');
+                    if (tbody && tbody.children.length === 0) {
+                        const emptyRow = document.createElement('tr');
+                        emptyRow.innerHTML = '<td colspan="5" style="text-align:center; color: var(--text-secondary);">Нет заявок</td>';
+                        tbody.appendChild(emptyRow);
+                    }
+                }, 300);
+            }
+            // Remove from in-memory array
+            currentSubmissions = currentSubmissions.filter(s => Number(s.id) !== Number(submissionId));
+            // Update pending counter
+            _updatePendingCount();
+        }
+
+        async function _updatePendingCount() {
+            try {
+                const stats = await api('/api/admin/stats');
+                const el = document.getElementById('stat-pending');
+                if (el) el.innerText = stats.pending_reviews;
+            } catch (e) {
+                // Fallback: just decrement locally
+                const el = document.getElementById('stat-pending');
+                if (el) {
+                    const current = parseInt(el.innerText) || 0;
+                    if (current > 0) el.innerText = current - 1;
+                }
+            }
         }
 
         async function cleanupDuplicateReviews() {
@@ -2176,7 +2285,8 @@
             try {
                 const res = await api('/api/admin/submissions/cleanup-duplicates', 'POST');
                 alert(`Подчищено дублей: ${res.cleaned || 0}`);
-                await Promise.all([loadSubmissions(), loadDashboard()]);
+                await loadSubmissions(_reviewsStatus);
+                _updatePendingCount();
             } catch (e) {
                 alert('Не удалось подчистить дубли');
             }
@@ -2238,7 +2348,7 @@
 
         async function reviewSubmission(id, status) {
             await api(`/api/admin/submissions/${id}`, 'PUT', { status });
-            await Promise.all([loadSubmissions(), loadDashboard()]);
+            _removeReviewedRow(id);
         }
 
         async function resetPassword(userId, username) {
@@ -2513,7 +2623,7 @@
                     loadDashboard();
                     break;
                 case 'reviews':
-                    loadSubmissions();
+                    loadSubmissions(_reviewsStatus);
                     break;
                 case 'complaints':
                     loadComplaints(_complaintsStatus);
@@ -2564,6 +2674,7 @@
             if (name === 'homework') { loadHomeworkTasks(); loadHomeworkSets(); loadHomeworkStudents(); }
             if (name === 'guilds') { loadAdminGuilds(); loadGuildSettings(); }
             if (name === 'timetracking') loadTimeTracking();
+            if (name === 'reviews') loadSubmissions('pending');
             if (name === 'complaints') loadComplaints('pending');
             if (name === 'exam') loadExamStatus();
             if (name === 'settings') loadPhraseSettings();
@@ -3424,7 +3535,7 @@
             try {
                 await api(`/api/admin/submissions/${submissionId}`, 'PUT', { status, score, feedback });
                 closeReviewModal();
-                await Promise.all([loadSubmissions(), loadDashboard()]);
+                _removeReviewedRow(Number(submissionId));
                 alert(status === 'approved' ? 'Работа одобрена!' : 'Работа отклонена');
             } catch (e) {
                 alert('Ошибка при ревью');
