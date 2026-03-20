@@ -2583,8 +2583,8 @@
             const bonus_value = parseFloat(document.getElementById('event-value').value);
             const color = document.getElementById('event-color').value || '#7c3aed';
 
-            if (!name || !bonus_value) {
-                alert('Name and value required');
+            if (!name || isNaN(bonus_value) || bonus_value <= 0) {
+                alert('Name and bonus value (> 0) required');
                 return;
             }
 
@@ -2596,7 +2596,7 @@
                 loadEvents();
                 alert('Event created!');
             } catch (e) {
-                alert('Error creating event');
+                alert('Error creating event: ' + (e.message || e));
             }
         }
 
