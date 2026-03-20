@@ -439,6 +439,7 @@ def init_db():
                 bonus_type TEXT NOT NULL,
                 bonus_value REAL NOT NULL,
                 is_active INTEGER DEFAULT 1,
+                color TEXT DEFAULT '#7c3aed',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -961,6 +962,12 @@ def init_db():
                 cursor.execute(stmt)
             except sqlite3.OperationalError:
                 pass
+
+        # Events: add color column
+        try:
+            cursor.execute("ALTER TABLE events ADD COLUMN color TEXT DEFAULT '#7c3aed'")
+        except sqlite3.OperationalError:
+            pass
 
         for stmt in [
             "ALTER TABLE sessions ADD COLUMN expires_at TIMESTAMP",
@@ -2105,6 +2112,7 @@ class EventCreateRequest(BaseModel):
     description: Optional[str] = None
     bonus_type: str  # 'xp_multiplier' or 'streak_bonus'
     bonus_value: float  # e.g., 1.5 for 50% bonus
+    color: Optional[str] = '#7c3aed'  # event theme color
 
 class PriorityRequest(BaseModel):
     scratch_priority: int = 25
@@ -2951,6 +2959,59 @@ def get_leaderboard(limit: int = Query(20, le=100)):
             leaders.append(entry)
     return {"leaderboard": leaders}
 
+@app.get("/api/leaderboard/3days")
+def get_leaderboard_3days(limit: int = Query(20, le=100)):
+    """Leaderboard by XP and stars earned in the last 3 days."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT ct.user_id,
+                   u.display_name,
+                   COALESCE(SUM(ct.xp_earned), 0) as xp_3d,
+                   COUNT(*) as stars_3d,
+                   u.xp as total_xp,
+                   u.level,
+                   r.name_ru as rank_name,
+                   r.badge_emoji as rank_badge,
+                   CASE WHEN s.avatar_data IS NOT NULL AND s.avatar_data != '' THEN 1 ELSE 0 END as has_avatar,
+                   gm.guild_id,
+                   g.name as guild_name,
+                   gm.role as guild_role
+            FROM completed_tasks ct
+            JOIN users u ON u.id = ct.user_id
+            LEFT JOIN ranks r ON u.xp >= r.min_xp
+            LEFT JOIN user_stats s ON u.id = s.user_id
+            LEFT JOIN guild_members gm ON gm.user_id = u.id
+            LEFT JOIN guilds g ON g.id = gm.guild_id AND g.disbanded_at IS NULL
+            WHERE u.role = 'student'
+              AND ct.is_valid != 0
+              AND ct.completed_at >= DATE('now', '-3 days')
+              AND r.min_xp = (SELECT MAX(min_xp) FROM ranks WHERE min_xp <= u.xp)
+            GROUP BY ct.user_id
+            ORDER BY xp_3d DESC
+            LIMIT ?
+        """, (limit,))
+        rows = cursor.fetchall()
+
+        leaders = []
+        for i, row in enumerate(rows, 1):
+            leaders.append({
+                "position": i,
+                "id": row["user_id"],
+                "display_name": row["display_name"],
+                "xp_3d": row["xp_3d"],
+                "stars_3d": row["stars_3d"],
+                "total_xp": row["total_xp"],
+                "level": row["level"],
+                "rank_name": row["rank_name"],
+                "rank_badge": row["rank_badge"],
+                "has_avatar": bool(row["has_avatar"]),
+                "guild_id": row["guild_id"],
+                "guild_name": row["guild_name"],
+                "guild_role": row["guild_role"],
+            })
+    return {"leaderboard": leaders}
+
 @app.get("/api/avatar/{user_id}")
 def get_user_avatar(user_id: int):
     """Get user's avatar data (for lazy loading)."""
@@ -3506,14 +3567,23 @@ def update_profile(data: ProfileUpdateRequest, user: dict = Depends(require_auth
     
     return {"message": "Profile updated"}
 
+@app.get("/api/admin/events/all")
+def get_all_events(admin: dict = Depends(require_admin)):
+    """Get ALL events (active + inactive) for admin panel."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM events ORDER BY created_at DESC")
+        events = [dict(row) for row in cursor.fetchall()]
+    return {"events": events}
+
 @app.post("/api/admin/events")
 def create_event(data: EventCreateRequest, admin: dict = Depends(require_admin)):
     """Create a new event (Admin only)."""
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO events (name, description, bonus_type, bonus_value) VALUES (?, ?, ?, ?)",
-            (data.name, data.description, data.bonus_type, data.bonus_value)
+            "INSERT INTO events (name, description, bonus_type, bonus_value, color) VALUES (?, ?, ?, ?, ?)",
+            (data.name, data.description, data.bonus_type, data.bonus_value, data.color or '#7c3aed')
         )
         conn.commit()
         return {"message": "Event created", "id": cursor.lastrowid}
@@ -8390,6 +8460,21 @@ def get_guild_stats(guild_id: int, user: dict = Depends(require_auth)):
         """, member_ids)
         members_summary = [dict(r) for r in cursor.fetchall()]
 
+        # ── Per-member stars by period (1d / 2d / 3d) ──
+        cursor.execute(f"""
+            SELECT u.id, u.display_name,
+                   (SELECT COUNT(*) FROM completed_tasks WHERE user_id = u.id AND is_valid != 0
+                    AND DATE(completed_at) = DATE('now')) as stars_1d,
+                   (SELECT COUNT(*) FROM completed_tasks WHERE user_id = u.id AND is_valid != 0
+                    AND completed_at >= DATE('now', '-2 days')) as stars_2d,
+                   (SELECT COUNT(*) FROM completed_tasks WHERE user_id = u.id AND is_valid != 0
+                    AND completed_at >= DATE('now', '-3 days')) as stars_3d
+            FROM users u
+            WHERE u.id IN ({placeholders})
+            ORDER BY stars_3d DESC, stars_1d DESC
+        """, member_ids)
+        members_stars = [dict(r) for r in cursor.fetchall()]
+
     return {
         "guild_id": guild_id,
         "name": guild["name"],
@@ -8418,6 +8503,7 @@ def get_guild_stats(guild_id: int, user: dict = Depends(require_auth)):
             "best_streak": streak_row["best_streak"],
         },
         "members_summary": members_summary,
+        "members_stars": members_stars,
     }
 
 

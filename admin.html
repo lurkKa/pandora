@@ -1524,17 +1524,27 @@
                                 For multiplier: 1.5 = +50%, 2 = +100%. For streak: 0.1 = +10% per day
                             </p>
                         </div>
+                        <div class="form-group">
+                            <label for="event-color">Event Color</label>
+                            <div style="display:flex; gap:8px; align-items:center;">
+                                <input type="color" id="event-color" value="#7c3aed"
+                                    style="width:50px;height:38px;border:1px solid var(--border);border-radius:6px;background:var(--bg-deep);cursor:pointer;">
+                                <span style="font-size:12px;color:var(--text-secondary);">Цвет для оформления приложения
+                                    во время ивента</span>
+                            </div>
+                        </div>
                         <button class="btn btn-primary" onclick="createEvent()">Create Event</button>
                     </div>
                 </div>
 
                 <div class="card">
                     <div class="card-header">
-                        <h3>Active Events</h3>
+                        <h3>All Events</h3>
                     </div>
                     <table>
                         <thead>
                             <tr>
+                                <th>Color</th>
                                 <th>Name</th>
                                 <th>Type</th>
                                 <th>Value</th>
@@ -2526,18 +2536,14 @@
         // ==================== EVENTS ====================
         async function loadEvents() {
             try {
-                const res = await fetch(`${API_URL}/api/events/active`);
-                const data = await res.json();
-
-                // Also get inactive events
-                const allRes = await fetch(`${API_URL}/api/events/active`);
-                const allData = await allRes.json();
+                const res = await api('/api/admin/events/all');
+                const data = res;
 
                 const tbody = document.getElementById('events-table');
                 tbody.innerHTML = '';
 
                 if (!data.events || data.events.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--text-secondary);">No events yet</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--text-secondary);">No events yet</td></tr>';
                     return;
                 }
 
@@ -2545,10 +2551,12 @@
                     const typeLabel = event.bonus_type === 'xp_multiplier' ? 'XP Multiplier' : 'Streak Bonus';
                     const statusClass = event.is_active ? 'badge-approved' : 'badge-rejected';
                     const statusText = event.is_active ? 'Active' : 'Inactive';
+                    const color = event.color || '#7c3aed';
 
                     tbody.innerHTML += `
                         <tr>
-                            <td>${event.name}</td>
+                            <td><div style="width:20px;height:20px;border-radius:50%;background:${color};border:2px solid rgba(255,255,255,0.1);"></div></td>
+                            <td>${event.name}<br><small style="color:var(--text-secondary);">${event.description || ''}</small></td>
                             <td>${typeLabel}</td>
                             <td>${event.bonus_value}</td>
                             <td><span class="badge ${statusClass}">${statusText}</span></td>
@@ -2573,6 +2581,7 @@
             const description = document.getElementById('event-desc').value.trim();
             const bonus_type = document.getElementById('event-type').value;
             const bonus_value = parseFloat(document.getElementById('event-value').value);
+            const color = document.getElementById('event-color').value || '#7c3aed';
 
             if (!name || !bonus_value) {
                 alert('Name and value required');
@@ -2580,7 +2589,7 @@
             }
 
             try {
-                await api('/api/admin/events', 'POST', { name, description, bonus_type, bonus_value });
+                await api('/api/admin/events', 'POST', { name, description, bonus_type, bonus_value, color });
                 document.getElementById('event-name-input').value = '';
                 document.getElementById('event-desc').value = '';
                 document.getElementById('event-value').value = '';

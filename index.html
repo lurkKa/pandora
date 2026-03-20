@@ -2038,6 +2038,36 @@
             gap: 8px;
         }
 
+        /* Leaderboard Tabs */
+        .leaderboard-tabs {
+            display: flex;
+            gap: 6px;
+        }
+
+        .lb-tab {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .lb-tab:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-bright);
+        }
+
+        .lb-tab.active {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(79, 172, 254, 0.15));
+            border-color: rgba(139, 92, 246, 0.4);
+            color: var(--text-bright);
+        }
+
         .leader-item {
             display: flex;
             align-items: center;
@@ -2708,7 +2738,11 @@
     <div class="leaderboard-sidebar" id="leaderboard-panel">
         <div class="leaderboard-resize-handle" id="leaderboard-resize"></div>
         <div class="leaderboard-header">
-            <h3>🏆 Мировой Рейтинг</h3>
+            <div class="leaderboard-tabs">
+                <button class="lb-tab active" id="lb-tab-world" onclick="switchLeaderboardTab('world')">🏆
+                    Мировой</button>
+                <button class="lb-tab" id="lb-tab-3days" onclick="switchLeaderboardTab('3days')">⭐ 3 дня</button>
+            </div>
         </div>
         <div id="leaderboard-list">
             <!-- Populated by JS -->
@@ -6085,9 +6119,13 @@
                 const res = await fetch(`${API_URL}/api/events/active`);
                 const data = await res.json();
 
+                const banner = document.getElementById('event-banner');
+                const existingGlow = document.getElementById('event-ambient-glow');
+
                 if (data.events && data.events.length > 0) {
-                    const event = data.events[0]; // Show first active event
-                    const banner = document.getElementById('event-banner');
+                    const event = data.events[0];
+                    const color = event.color || '#7c3aed';
+
                     document.getElementById('event-name').innerText = event.name;
 
                     let bonusText = '';
@@ -6097,11 +6135,53 @@
                         bonusText = `+${event.bonus_value * 100}% за страйк`;
                     }
                     document.getElementById('event-bonus').innerText = bonusText;
+
+                    // Apply event color to banner
+                    banner.style.background = `linear-gradient(135deg, ${color} 0%, ${adjustColor(color, -30)} 100%)`;
                     banner.classList.remove('hidden');
+
+                    // Apply subtle ambient glow at the top
+                    if (!existingGlow) {
+                        const glow = document.createElement('div');
+                        glow.id = 'event-ambient-glow';
+                        glow.style.cssText = `
+                            position: fixed;
+                            top: 0; left: 0; right: 0;
+                            height: 200px;
+                            background: radial-gradient(ellipse at top, ${hexToRgba(color, 0.07)} 0%, transparent 70%);
+                            pointer-events: none;
+                            z-index: 0;
+                            transition: opacity 0.5s;
+                        `;
+                        document.body.appendChild(glow);
+                    } else {
+                        existingGlow.style.background = `radial-gradient(ellipse at top, ${hexToRgba(color, 0.07)} 0%, transparent 70%)`;
+                    }
+                } else {
+                    banner.classList.add('hidden');
+                    if (existingGlow) existingGlow.remove();
                 }
             } catch (e) {
                 console.log('No events loaded');
             }
+        }
+
+        // Helper: adjust hex color brightness
+        function adjustColor(hex, amount) {
+            hex = hex.replace('#', '');
+            const r = Math.min(255, Math.max(0, parseInt(hex.substr(0, 2), 16) + amount));
+            const g = Math.min(255, Math.max(0, parseInt(hex.substr(2, 2), 16) + amount));
+            const b = Math.min(255, Math.max(0, parseInt(hex.substr(4, 2), 16) + amount));
+            return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+        }
+
+        // Helper: hex to rgba
+        function hexToRgba(hex, alpha) {
+            hex = hex.replace('#', '');
+            const r = parseInt(hex.substr(0, 2), 16);
+            const g = parseInt(hex.substr(2, 2), 16);
+            const b = parseInt(hex.substr(4, 2), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
         }
 
         async function loadLeaderboard() {
@@ -6156,6 +6236,65 @@
                 lazyLoadAvatars();
             } catch (e) {
                 console.error('Failed to load leaderboard:', e);
+            }
+        }
+
+        // Current leaderboard tab
+        let currentLbTab = 'world';
+
+        function switchLeaderboardTab(tab) {
+            currentLbTab = tab;
+            document.getElementById('lb-tab-world').classList.toggle('active', tab === 'world');
+            document.getElementById('lb-tab-3days').classList.toggle('active', tab === '3days');
+            if (tab === 'world') {
+                loadLeaderboard();
+            } else {
+                loadLeaderboard3Days();
+            }
+        }
+
+        async function loadLeaderboard3Days() {
+            try {
+                const res = await fetch(`${API_URL}/api/leaderboard/3days?limit=20`);
+                const data = await res.json();
+                const list = document.getElementById('leaderboard-list');
+                list.innerHTML = '';
+
+                if (!data.leaderboard || data.leaderboard.length === 0) {
+                    list.innerHTML = '<div style="color:var(--text-secondary); text-align:center; padding:40px 20px; font-size:14px;">Нет данных за последние 3 дня</div>';
+                    return;
+                }
+
+                data.leaderboard.forEach(user => {
+                    const posClass = user.position === 1 ? 'gold' :
+                        user.position === 2 ? 'silver' :
+                            user.position === 3 ? 'bronze' : 'default';
+                    const topClass = user.position === 1 ? 'leader-gold' : user.position === 2 ? 'leader-silver' : user.position === 3 ? 'leader-bronze' : '';
+                    const guildTag = user.guild_name
+                        ? `<span class="guild-tag guild-tag-${user.guild_role === 'president' ? 'president' : user.guild_role === 'chairman' ? 'chairman' : 'member'}">[${user.guild_name}]</span>`
+                        : '';
+                    const avatarId = `avatar-3d-${user.id}`;
+                    list.innerHTML += `
+                        <div class="leader-item ${topClass}" onclick="openPublicProfile(${user.id})" style="cursor:pointer;">
+                            <div class="leader-position ${posClass}">${user.position}</div>
+                            <div id="${avatarId}" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;margin-right:8px;" data-user-id="${user.id}" data-has-avatar="${user.has_avatar}">
+                                <span style="font-size:24px;">🧙</span>
+                            </div>
+                            <div class="leader-info">
+                                <div class="leader-name">${user.display_name}${guildTag}</div>
+                                <div class="leader-rank">${user.rank_badge} ${user.rank_name}</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div class="leader-xp" style="font-size:13px;">+${user.xp_3d.toLocaleString()} XP</div>
+                                <div style="font-size:11px; color:#fbbf24;">⭐ ${user.stars_3d}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                lazyLoadAvatars();
+            } catch (e) {
+                console.error('Failed to load 3-day leaderboard:', e);
             }
         }
 
@@ -6281,7 +6420,11 @@
                 chatPanelRefreshInterval = null;
             }
             if (panel.classList.contains('open')) {
-                loadLeaderboard();
+                if (currentLbTab === '3days') {
+                    loadLeaderboard3Days();
+                } else {
+                    loadLeaderboard();
+                }
             }
         }
 
@@ -8739,6 +8882,16 @@
                     </tr>
                 `).join('');
 
+                // Stars by period table
+                const starsRows = (d.members_stars || []).map(m => `
+                    <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+                        <td style="padding:6px 8px;font-size:12px;color:var(--text-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;">${m.display_name}</td>
+                        <td style="padding:6px 8px;font-size:12px;color:${m.stars_1d > 0 ? '#fbbf24' : 'var(--text-secondary)'};text-align:center;font-weight:${m.stars_1d > 0 ? '700' : '400'};">⭐ ${m.stars_1d}</td>
+                        <td style="padding:6px 8px;font-size:12px;color:${m.stars_2d > 0 ? '#fbbf24' : 'var(--text-secondary)'};text-align:center;font-weight:${m.stars_2d > 0 ? '700' : '400'};">⭐ ${m.stars_2d}</td>
+                        <td style="padding:6px 8px;font-size:12px;color:${m.stars_3d > 0 ? '#fbbf24' : 'var(--text-secondary)'};text-align:center;font-weight:${m.stars_3d > 0 ? '700' : '400'};">⭐ ${m.stars_3d}</td>
+                    </tr>
+                `).join('');
+
                 const body = overlay.querySelector('.guild-create-body');
                 body.innerHTML = `
                     <div style="text-align:left;">
@@ -8830,7 +8983,7 @@
                         </div>` : ''}
 
                         <!-- Members table -->
-                        <div style="background:rgba(255,255,255,0.03); border-radius:12px; padding:14px;">
+                        <div style="background:rgba(255,255,255,0.03); border-radius:12px; padding:14px; margin-bottom:20px;">
                             <div style="font-size:13px; font-weight:600; color:var(--text-bright); margin-bottom:10px;">👥 Все участники (${d.members})</div>
                             <div style="overflow-x:auto;">
                                 <table style="width:100%; border-collapse:collapse;">
@@ -8844,6 +8997,24 @@
                                         </tr>
                                     </thead>
                                     <tbody>${membersTable}</tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Stars by period table -->
+                        <div style="background:linear-gradient(135deg, rgba(251,191,36,0.08), rgba(139,92,246,0.06)); border:1px solid rgba(251,191,36,0.15); border-radius:12px; padding:14px;">
+                            <div style="font-size:13px; font-weight:600; color:#fbbf24; margin-bottom:10px;">⭐ Звёзды участников (по дням)</div>
+                            <div style="overflow-x:auto;">
+                                <table style="width:100%; border-collapse:collapse;">
+                                    <thead>
+                                        <tr style="border-bottom:2px solid rgba(251,191,36,0.15);">
+                                            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text-secondary);">Имя</th>
+                                            <th style="text-align:center;padding:6px 8px;font-size:11px;color:#fbbf24;">1 день</th>
+                                            <th style="text-align:center;padding:6px 8px;font-size:11px;color:#fbbf24;">2 дня</th>
+                                            <th style="text-align:center;padding:6px 8px;font-size:11px;color:#fbbf24;">3 дня</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${starsRows}</tbody>
                                 </table>
                             </div>
                         </div>
