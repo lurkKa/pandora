@@ -6241,6 +6241,7 @@
 
         // Current leaderboard tab
         let currentLbTab = 'world';
+        let lb3dSortBy = 'xp'; // 'xp' or 'stars'
 
         function switchLeaderboardTab(tab) {
             currentLbTab = tab;
@@ -6253,15 +6254,29 @@
             }
         }
 
+        function setLb3dSort(sortBy) {
+            lb3dSortBy = sortBy;
+            loadLeaderboard3Days();
+        }
+
         async function loadLeaderboard3Days() {
             try {
-                const res = await fetch(`${API_URL}/api/leaderboard/3days?limit=20`);
+                const res = await fetch(`${API_URL}/api/leaderboard/3days?limit=20&sort_by=${lb3dSortBy}`);
                 const data = await res.json();
                 const list = document.getElementById('leaderboard-list');
                 list.innerHTML = '';
 
+                // Sort toggle buttons
+                const sortBar = document.createElement('div');
+                sortBar.style.cssText = 'display:flex;gap:6px;padding:8px 16px;';
+                sortBar.innerHTML = `
+                    <button onclick="setLb3dSort('xp')" style="flex:1;padding:5px 8px;border-radius:8px;border:1px solid ${lb3dSortBy === 'xp' ? 'rgba(139,92,246,0.4)' : 'rgba(255,255,255,0.1)'};background:${lb3dSortBy === 'xp' ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.04)'};color:${lb3dSortBy === 'xp' ? 'var(--text-bright)' : 'var(--text-secondary)'};font-size:12px;font-weight:600;cursor:pointer;">⚡ По XP</button>
+                    <button onclick="setLb3dSort('stars')" style="flex:1;padding:5px 8px;border-radius:8px;border:1px solid ${lb3dSortBy === 'stars' ? 'rgba(251,191,36,0.4)' : 'rgba(255,255,255,0.1)'};background:${lb3dSortBy === 'stars' ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.04)'};color:${lb3dSortBy === 'stars' ? '#fbbf24' : 'var(--text-secondary)'};font-size:12px;font-weight:600;cursor:pointer;">⭐ По звёздам</button>
+                `;
+                list.appendChild(sortBar);
+
                 if (!data.leaderboard || data.leaderboard.length === 0) {
-                    list.innerHTML = '<div style="color:var(--text-secondary); text-align:center; padding:40px 20px; font-size:14px;">Нет данных за последние 3 дня</div>';
+                    list.innerHTML += '<div style="color:var(--text-secondary); text-align:center; padding:40px 20px; font-size:14px;">Нет данных за последние 3 дня</div>';
                     return;
                 }
 

@@ -2960,11 +2960,12 @@ def get_leaderboard(limit: int = Query(20, le=100)):
     return {"leaderboard": leaders}
 
 @app.get("/api/leaderboard/3days")
-def get_leaderboard_3days(limit: int = Query(20, le=100)):
+def get_leaderboard_3days(limit: int = Query(20, le=100), sort_by: str = Query("xp")):
     """Leaderboard by XP and stars earned in the last 3 days."""
+    order_col = "stars_3d" if sort_by == "stars" else "xp_3d"
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT ct.user_id,
                    u.display_name,
                    COALESCE(SUM(ct.xp_earned), 0) as xp_3d,
@@ -2988,7 +2989,7 @@ def get_leaderboard_3days(limit: int = Query(20, le=100)):
               AND ct.completed_at >= DATE('now', '-3 days')
               AND r.min_xp = (SELECT MAX(min_xp) FROM ranks WHERE min_xp <= u.xp)
             GROUP BY ct.user_id
-            ORDER BY xp_3d DESC
+            ORDER BY {order_col} DESC
             LIMIT ?
         """, (limit,))
         rows = cursor.fetchall()
