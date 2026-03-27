@@ -1067,7 +1067,45 @@ def init_db():
                 UNIQUE(guild_id, achievement_id)
             )
         """)
-        
+
+        # ========== MINI-ADMIN SYSTEM ==========
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS mini_admin_reviews (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                submission_id INTEGER NOT NULL,
+                mini_admin_id INTEGER NOT NULL,
+                score INTEGER,
+                xp_earned INTEGER DEFAULT 0,
+                admin_final_score INTEGER,
+                admin_approved INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                reviewed_at TIMESTAMP,
+                FOREIGN KEY (submission_id) REFERENCES submissions(id),
+                FOREIGN KEY (mini_admin_id) REFERENCES users(id)
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS mini_admin_xp_actions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                mini_admin_id INTEGER NOT NULL,
+                target_user_id INTEGER NOT NULL,
+                delta_xp INTEGER NOT NULL,
+                comment TEXT NOT NULL,
+                status TEXT DEFAULT 'pending',
+                admin_note TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                resolved_at TIMESTAMP,
+                FOREIGN KEY (mini_admin_id) REFERENCES users(id),
+                FOREIGN KEY (target_user_id) REFERENCES users(id)
+            )
+        """)
+
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_mini_admin_reviews_admin ON mini_admin_reviews(mini_admin_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_mini_admin_reviews_sub ON mini_admin_reviews(submission_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_mini_admin_xp_actions_status ON mini_admin_xp_actions(status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_mini_admin_xp_actions_admin ON mini_admin_xp_actions(mini_admin_id)")
+
         conn.commit()
         
         # Sync guild achievements (tables now exist)
@@ -2030,6 +2068,13 @@ def require_admin(authorization: Optional[str] = Header(None)):
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
 
+def require_mini_admin(authorization: Optional[str] = Header(None)):
+    """Require mini_admin or admin role."""
+    user = require_auth(authorization)
+    if user["role"] not in ("admin", "mini_admin"):
+        raise HTTPException(status_code=403, detail="Mini-admin access required")
+    return user
+
 # ==================== MODELS ====================
 
 class LoginRequest(BaseModel):
@@ -2335,6 +2380,19 @@ def serve_admin_slash():
 def serve_admin_html():
     """Serve admin UI when static-like path is used."""
     return FileResponse("admin.html")
+
+@app.get("/panel", include_in_schema=False)
+def serve_mini_admin():
+    """Serve the mini-admin panel UI."""
+    return FileResponse("mini_admin.html")
+
+@app.get("/panel/", include_in_schema=False)
+def serve_mini_admin_slash():
+    return FileResponse("mini_admin.html")
+
+@app.get("/mini_admin.html", include_in_schema=False)
+def serve_mini_admin_html():
+    return FileResponse("mini_admin.html")
 
 @app.get("/exam", include_in_schema=False)
 def serve_exam():
@@ -5984,6 +6042,7 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
                 ),
             )
             submission_id = cursor.lastrowid
+            _maybe_assign_mini_admin_review(cursor, submission_id)
             conn.commit()
             return {
                 "status": "pending_review",
@@ -6193,6 +6252,7 @@ def attempt_scratch_task(
             ),
         )
         submission_id = cursor.lastrowid
+        _maybe_assign_mini_admin_review(cursor, submission_id)
         conn.commit()
 
     return {"status": "pending_review", "submission_id": submission_id, "message": verification_log}
@@ -6328,6 +6388,7 @@ async def attempt_scratch_task_fast(
             ),
         )
         submission_id = cursor.lastrowid
+        _maybe_assign_mini_admin_review(cursor, submission_id)
         conn.commit()
 
     return {"status": "pending_review", "submission_id": submission_id, "message": verification_log}
@@ -9701,7 +9762,466 @@ def admin_exam_clear_all_results(
     }
 
 
+
 # ==================== END EXAM MODE ====================
+
+
+# ==================== MINI-ADMIN SYSTEM ====================
+
+def _maybe_assign_mini_admin_review(cursor, submission_id: int):
+    """
+    With probability 1/N (N = number of mini-admins), assign this submission
+    for review by a random mini-admin.
+    """
+    cursor.execute("SELECT id FROM users WHERE role = 'mini_admin'")
+    mini_admins = [row["id"] for row in cursor.fetchall()]
+    if not mini_admins:
+        return
+    # Probability = 1/N
+    if random.randint(1, len(mini_admins)) != 1:
+        return
+    chosen_id = random.choice(mini_admins)
+    # Don't assign to self
+    cursor.execute("SELECT user_id FROM submissions WHERE id = ?", (submission_id,))
+    sub = cursor.fetchone()
+    if sub and int(sub["user_id"]) == chosen_id:
+        # Pick another if possible
+        others = [mid for mid in mini_admins if mid != chosen_id]
+        if not others:
+            return
+        chosen_id = random.choice(others)
+    try:
+        cursor.execute(
+            "INSERT INTO mini_admin_reviews (submission_id, mini_admin_id) VALUES (?, ?)",
+            (submission_id, chosen_id),
+        )
+    except Exception:
+        pass
+
+
+# --- Admin: promote / demote / list mini-admins ---
+
+@app.get("/api/admin/mini-admins")
+def list_mini_admins(admin: dict = Depends(require_admin)):
+    """List all mini-admins."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, username, display_name, xp, level
+            FROM users WHERE role = 'mini_admin'
+            ORDER BY display_name
+        """)
+        return {"mini_admins": [dict(r) for r in cursor.fetchall()]}
+
+
+@app.post("/api/admin/promote-mini-admin/{user_id}")
+def promote_mini_admin(user_id: int, admin: dict = Depends(require_admin)):
+    """Promote a student to mini_admin."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, role, username FROM users WHERE id = ?", (user_id,))
+        target = cursor.fetchone()
+        if not target:
+            raise HTTPException(status_code=404, detail="User not found")
+        if target["role"] == "admin":
+            raise HTTPException(status_code=400, detail="Cannot change admin role")
+        if target["role"] == "mini_admin":
+            raise HTTPException(status_code=400, detail="Already a mini-admin")
+        cursor.execute("UPDATE users SET role = 'mini_admin' WHERE id = ?", (user_id,))
+        conn.commit()
+    log_security("MINI_ADMIN_PROMOTED", user=admin["username"], details=f"user_id={user_id}")
+    return {"message": "User promoted to mini-admin", "user_id": user_id}
+
+
+@app.post("/api/admin/demote-mini-admin/{user_id}")
+def demote_mini_admin(user_id: int, admin: dict = Depends(require_admin)):
+    """Demote a mini_admin back to student."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, role FROM users WHERE id = ?", (user_id,))
+        target = cursor.fetchone()
+        if not target:
+            raise HTTPException(status_code=404, detail="User not found")
+        if target["role"] != "mini_admin":
+            raise HTTPException(status_code=400, detail="User is not a mini-admin")
+        cursor.execute("UPDATE users SET role = 'student' WHERE id = ?", (user_id,))
+        conn.commit()
+    log_security("MINI_ADMIN_DEMOTED", user=admin["username"], details=f"user_id={user_id}")
+    return {"message": "User demoted to student", "user_id": user_id}
+
+
+# --- Mini-admin: reviews ---
+
+@app.get("/api/mini-admin/pending-reviews")
+def mini_admin_pending_reviews(user: dict = Depends(require_mini_admin)):
+    """Get reviews assigned to this mini-admin."""
+    if user["role"] == "admin":
+        raise HTTPException(status_code=403, detail="Use admin panel instead")
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT mar.id as review_id, mar.submission_id, mar.score, mar.reviewed_at,
+                   s.task_id, s.category, s.tier, s.code, s.content, s.link,
+                   s.status as submission_status,
+                   u.display_name as student_name, u.username as student_username
+            FROM mini_admin_reviews mar
+            JOIN submissions s ON mar.submission_id = s.id
+            JOIN users u ON s.user_id = u.id
+            WHERE mar.mini_admin_id = ?
+            ORDER BY mar.reviewed_at IS NOT NULL, mar.created_at DESC
+        """, (user["id"],))
+        return {"reviews": [dict(r) for r in cursor.fetchall()]}
+
+
+class MiniAdminReviewRequest(BaseModel):
+    score: int
+
+
+@app.post("/api/mini-admin/review/{review_id}")
+def mini_admin_submit_review(review_id: int, data: MiniAdminReviewRequest, user: dict = Depends(require_mini_admin)):
+    """Submit a mini-admin review score (5-10)."""
+    if user["role"] == "admin":
+        raise HTTPException(status_code=403, detail="Use admin panel instead")
+    if data.score < 5 or data.score > 10:
+        raise HTTPException(status_code=400, detail="Score must be between 5 and 10")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, submission_id, mini_admin_id, score, reviewed_at
+            FROM mini_admin_reviews WHERE id = ?
+        """, (review_id,))
+        review = cursor.fetchone()
+        if not review:
+            raise HTTPException(status_code=404, detail="Review not found")
+        if review["mini_admin_id"] != user["id"]:
+            raise HTTPException(status_code=403, detail="Not your review")
+        if review["reviewed_at"]:
+            raise HTTPException(status_code=409, detail="Already reviewed")
+
+        cursor.execute("""
+            UPDATE mini_admin_reviews
+            SET score = ?, reviewed_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (data.score, review_id))
+
+        conn.commit()
+
+    log_security("MINI_ADMIN_REVIEW", user=user["username"],
+                 details=f"review_id={review_id}, score={data.score}")
+    return {"message": "Review submitted", "score": data.score}
+
+
+# --- Mini-admin: player list and limited XP adjust ---
+
+@app.get("/api/mini-admin/players")
+def mini_admin_list_players(user: dict = Depends(require_mini_admin)):
+    """List all students (for mini-admin panel)."""
+    if user["role"] == "admin":
+        raise HTTPException(status_code=403, detail="Use admin panel instead")
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, username, display_name, xp, level
+            FROM users WHERE role = 'student'
+            ORDER BY display_name
+        """)
+        return {"players": [dict(r) for r in cursor.fetchall()]}
+
+
+MINI_ADMIN_DAILY_XP_LIMIT = 200
+
+
+class MiniAdminXPRequest(BaseModel):
+    user_id: int
+    delta_xp: int
+    comment: str
+
+
+@app.post("/api/mini-admin/adjust-xp")
+def mini_admin_adjust_xp(data: MiniAdminXPRequest, user: dict = Depends(require_mini_admin)):
+    """Adjust XP for a student (±200/day limit, requires comment, goes to admin approval)."""
+    if user["role"] == "admin":
+        raise HTTPException(status_code=403, detail="Use admin panel instead")
+
+    comment = (data.comment or "").strip()
+    if not comment:
+        raise HTTPException(status_code=400, detail="Comment is required")
+    if data.delta_xp == 0:
+        raise HTTPException(status_code=400, detail="delta_xp must be non-zero")
+    if abs(data.delta_xp) > MINI_ADMIN_DAILY_XP_LIMIT:
+        raise HTTPException(status_code=400, detail=f"Single action cannot exceed ±{MINI_ADMIN_DAILY_XP_LIMIT} XP")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        # Check daily limit
+        cursor.execute("""
+            SELECT COALESCE(SUM(ABS(delta_xp)), 0) as used
+            FROM mini_admin_xp_actions
+            WHERE mini_admin_id = ? AND DATE(created_at) = DATE('now')
+              AND status != 'rejected'
+        """, (user["id"],))
+        used = cursor.fetchone()["used"]
+        if used + abs(data.delta_xp) > MINI_ADMIN_DAILY_XP_LIMIT:
+            remaining = max(0, MINI_ADMIN_DAILY_XP_LIMIT - used)
+            raise HTTPException(
+                status_code=400,
+                detail=f"Daily XP limit exceeded. Used: {used}/{MINI_ADMIN_DAILY_XP_LIMIT}. Remaining: {remaining}"
+            )
+
+        # Verify target
+        cursor.execute("SELECT id, display_name FROM users WHERE id = ? AND role = 'student'", (data.user_id,))
+        target = cursor.fetchone()
+        if not target:
+            raise HTTPException(status_code=404, detail="Student not found")
+
+        cursor.execute("""
+            INSERT INTO mini_admin_xp_actions (mini_admin_id, target_user_id, delta_xp, comment)
+            VALUES (?, ?, ?, ?)
+        """, (user["id"], data.user_id, data.delta_xp, comment))
+        conn.commit()
+
+    log_security("MINI_ADMIN_XP_REQUEST", user=user["username"],
+                 details=f"target={data.user_id}, delta={data.delta_xp}, comment={comment[:80]}")
+    return {"message": "XP adjustment submitted for admin approval", "remaining_daily": max(0, MINI_ADMIN_DAILY_XP_LIMIT - used - abs(data.delta_xp))}
+
+
+# --- Mini-admin: stats & leaderboard (read-only) ---
+
+@app.get("/api/mini-admin/stats")
+def mini_admin_stats(user: dict = Depends(require_mini_admin)):
+    """Get system stats (same data as admin stats)."""
+    if user["role"] == "admin":
+        raise HTTPException(status_code=403, detail="Use admin panel instead")
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) as count FROM users WHERE role = 'student'")
+        student_count = cursor.fetchone()["count"]
+        cursor.execute("SELECT COUNT(*) as count FROM completed_tasks")
+        completed_count = cursor.fetchone()["count"]
+        cursor.execute("SELECT COUNT(*) as count FROM submissions WHERE status = 'pending'")
+        pending_count = cursor.fetchone()["count"]
+        cursor.execute("""
+            SELECT u.display_name, u.xp, u.level
+            FROM users u WHERE u.role = 'student'
+            ORDER BY u.xp DESC LIMIT 5
+        """)
+        top_students = [dict(r) for r in cursor.fetchall()]
+        return {
+            "students": student_count,
+            "completed_tasks": completed_count,
+            "pending_reviews": pending_count,
+            "top_students": top_students,
+        }
+
+
+@app.get("/api/mini-admin/leaderboard")
+def mini_admin_leaderboard(user: dict = Depends(require_mini_admin)):
+    """Get leaderboard (same as public)."""
+    if user["role"] == "admin":
+        raise HTTPException(status_code=403, detail="Use admin panel instead")
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT u.id, u.display_name, u.xp, u.level, u.username,
+                   COALESCE(us.total_quests, 0) as quests,
+                   COALESCE(us.streak_days, 0) as streak
+            FROM users u
+            LEFT JOIN user_stats us ON u.id = us.user_id
+            WHERE u.role IN ('student', 'mini_admin')
+            ORDER BY u.xp DESC
+            LIMIT 50
+        """)
+        return {"leaderboard": [dict(r) for r in cursor.fetchall()]}
+
+
+# --- Admin: manage mini-admin XP actions ---
+
+@app.get("/api/admin/mini-admin-xp-actions")
+def admin_list_mini_admin_xp_actions(status: str = Query("pending"), admin: dict = Depends(require_admin)):
+    """List mini-admin XP actions for admin approval."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT a.*, 
+                   ma.display_name as mini_admin_name, ma.username as mini_admin_username,
+                   tu.display_name as target_name, tu.username as target_username
+            FROM mini_admin_xp_actions a
+            JOIN users ma ON a.mini_admin_id = ma.id
+            JOIN users tu ON a.target_user_id = tu.id
+            WHERE a.status = ?
+            ORDER BY a.created_at DESC
+        """, (status,))
+        return {"actions": [dict(r) for r in cursor.fetchall()]}
+
+
+class MiniAdminActionResolve(BaseModel):
+    action: str  # "approve" or "reject"
+    admin_note: str = ""
+
+
+@app.post("/api/admin/mini-admin-xp-actions/{action_id}/resolve")
+def admin_resolve_mini_admin_xp_action(action_id: int, data: MiniAdminActionResolve, admin: dict = Depends(require_admin)):
+    """Approve or reject a mini-admin XP action."""
+    if data.action not in ("approve", "reject"):
+        raise HTTPException(status_code=400, detail="Action must be 'approve' or 'reject'")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM mini_admin_xp_actions WHERE id = ?", (action_id,))
+        act = cursor.fetchone()
+        if not act:
+            raise HTTPException(status_code=404, detail="Action not found")
+        if act["status"] != "pending":
+            raise HTTPException(status_code=409, detail="Action already resolved")
+
+        new_status = "approved" if data.action == "approve" else "rejected"
+        cursor.execute("""
+            UPDATE mini_admin_xp_actions
+            SET status = ?, admin_note = ?, resolved_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (new_status, data.admin_note, action_id))
+
+        xp_applied = 0
+        if data.action == "approve":
+            reason = f"Mini-admin ({act['mini_admin_id']}): {act['comment']}"
+            new_xp, new_level = apply_xp_change(cursor, act["target_user_id"], act["delta_xp"], reason)
+            xp_applied = act["delta_xp"]
+
+        conn.commit()
+
+    log_security("MINI_ADMIN_XP_RESOLVED", user=admin["username"],
+                 details=f"action_id={action_id}, status={new_status}, xp={xp_applied}")
+    return {"message": f"Action {new_status}", "xp_applied": xp_applied}
+
+
+# --- Admin: override mini-admin review ---
+
+@app.get("/api/admin/mini-admin-reviews")
+def admin_list_mini_admin_reviews(admin: dict = Depends(require_admin)):
+    """List mini-admin reviews for admin oversight."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT mar.*, 
+                   ma.display_name as reviewer_name, ma.username as reviewer_username,
+                   s.task_id, s.category, s.tier, s.status as submission_status,
+                   su.display_name as student_name
+            FROM mini_admin_reviews mar
+            JOIN users ma ON mar.mini_admin_id = ma.id
+            JOIN submissions s ON mar.submission_id = s.id
+            JOIN users su ON s.user_id = su.id
+            WHERE mar.score IS NOT NULL
+            ORDER BY mar.reviewed_at DESC
+            LIMIT 100
+        """)
+        return {"reviews": [dict(r) for r in cursor.fetchall()]}
+
+
+class AdminOverrideReview(BaseModel):
+    admin_final_score: int
+
+
+@app.post("/api/admin/mini-admin-reviews/{review_id}/override")
+def admin_override_mini_admin_review(review_id: int, data: AdminOverrideReview, admin: dict = Depends(require_admin)):
+    """Admin overrides a mini-admin review score. XP penalty for divergence."""
+    if data.admin_final_score < 0 or data.admin_final_score > 10:
+        raise HTTPException(status_code=400, detail="Score must be 0-10")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT mar.*, s.task_id, s.user_id as student_id
+            FROM mini_admin_reviews mar
+            JOIN submissions s ON mar.submission_id = s.id
+            WHERE mar.id = ?
+        """, (review_id,))
+        review = cursor.fetchone()
+        if not review:
+            raise HTTPException(status_code=404, detail="Review not found")
+        if review["score"] is None:
+            raise HTTPException(status_code=400, detail="Mini-admin hasn't reviewed yet")
+
+        mini_score = review["score"]
+        admin_score = data.admin_final_score
+        diff = abs(admin_score - mini_score)
+
+        # Calculate mini-admin XP reward
+        # Base: 30% of task XP. Penalty: -20% per point of divergence
+        data_json = load_tasks()
+        task = next((t for t in data_json.get("tasks", []) if t["id"] == review["task_id"]), None)
+        task_xp = int(task.get("xp", 0)) if task else 0
+        base_reward = task_xp * 0.3
+        penalty_factor = max(0.0, 1.0 - diff * 0.2)
+        xp_reward = int(base_reward * penalty_factor)
+
+        cursor.execute("""
+            UPDATE mini_admin_reviews
+            SET admin_final_score = ?, admin_approved = 1, xp_earned = ?
+            WHERE id = ?
+        """, (admin_score, xp_reward, review_id))
+
+        # Award XP to mini-admin
+        if xp_reward > 0:
+            apply_xp_change(
+                cursor, review["mini_admin_id"], xp_reward,
+                f"Mini-admin review reward (task: {review['task_id']}, penalty_factor: {penalty_factor:.2f})"
+            )
+
+        conn.commit()
+
+    log_security("MINI_ADMIN_REVIEW_OVERRIDDEN", user=admin["username"],
+                 details=f"review_id={review_id}, mini_score={mini_score}, admin_score={admin_score}, xp_reward={xp_reward}")
+    return {
+        "message": "Review overridden",
+        "mini_score": mini_score,
+        "admin_score": admin_score,
+        "divergence": diff,
+        "penalty_factor": round(penalty_factor, 2),
+        "xp_reward": xp_reward,
+    }
+
+
+@app.post("/api/admin/mini-admin-reviews/{review_id}/approve")
+def admin_approve_mini_admin_review(review_id: int, admin: dict = Depends(require_admin)):
+    """Admin approves a mini-admin review as-is. Mini-admin gets full 30% XP reward."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT mar.*, s.task_id
+            FROM mini_admin_reviews mar
+            JOIN submissions s ON mar.submission_id = s.id
+            WHERE mar.id = ?
+        """, (review_id,))
+        review = cursor.fetchone()
+        if not review:
+            raise HTTPException(status_code=404, detail="Review not found")
+        if review["score"] is None:
+            raise HTTPException(status_code=400, detail="Mini-admin hasn't reviewed yet")
+
+        data_json = load_tasks()
+        task = next((t for t in data_json.get("tasks", []) if t["id"] == review["task_id"]), None)
+        task_xp = int(task.get("xp", 0)) if task else 0
+        xp_reward = int(task_xp * 0.3)
+
+        cursor.execute("""
+            UPDATE mini_admin_reviews
+            SET admin_final_score = ?, admin_approved = 1, xp_earned = ?
+            WHERE id = ?
+        """, (review["score"], xp_reward, review_id))
+
+        if xp_reward > 0:
+            apply_xp_change(
+                cursor, review["mini_admin_id"], xp_reward,
+                f"Mini-admin review reward (task: {review['task_id']}, approved)"
+            )
+
+        conn.commit()
+
+    log_security("MINI_ADMIN_REVIEW_APPROVED", user=admin["username"],
+                 details=f"review_id={review_id}, score={review['score']}, xp_reward={xp_reward}")
+    return {"message": "Review approved", "xp_reward": xp_reward}
 
 
 # ==================== STARTUP ====================

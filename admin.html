@@ -914,6 +914,9 @@
                 <li class="nav-item" onclick="showSection('exam')" tabindex="0" role="button">
                     <span class="icon">📝</span> Экзамены
                 </li>
+                <li class="nav-item" onclick="showSection('mini-admins')" tabindex="0" role="button">
+                    <span class="icon">🛡️</span> Мини-Админы
+                </li>
             </ul>
             <div class="admin-info">
                 <div class="admin-avatar">S</div>
@@ -1440,6 +1443,58 @@
 
                 <div id="complaints-content">
                     <!-- Populated by JS -->
+                </div>
+            </section>
+
+            <!-- Mini-Admins Section -->
+            <section id="section-mini-admins" class="section">
+                <div class="page-header">
+                    <h2>🛡️ Мини-Админы</h2>
+                    <p>Управление мини-администраторами</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Текущие мини-админы</h3>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Имя</th>
+                                <th>Username</th>
+                                <th>Level</th>
+                                <th>XP</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mini-admins-table"></tbody>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Ревью мини-админов</h3>
+                    </div>
+                    <div id="mini-admin-reviews-list" style="padding:16px;"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Запросы XP от мини-админов</h3>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Мини-админ</th>
+                                <th>Игрок</th>
+                                <th>XP</th>
+                                <th>Комментарий</th>
+                                <th>Дата</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mini-admin-xp-actions-table"></tbody>
+                    </table>
                 </div>
             </section>
 
@@ -2102,13 +2157,18 @@
             tbody.innerHTML = '';
 
             data.users.filter(u => u.role !== 'admin').forEach(user => {
+                const isMini = user.role === 'mini_admin';
+                const miniBtn = isMini
+                    ? `<button class="btn btn-small" style="background:var(--warning);color:#000" onclick="demoteMiniAdmin(${user.id})" title="Снять мини-админа">🛡️ Снять</button>`
+                    : `<button class="btn btn-small" style="background:transparent;border:1px solid var(--accent);color:var(--accent-light)" onclick="promoteMiniAdmin(${user.id})" title="Сделать мини-админом">🛡️ Мини</button>`;
                 tbody.innerHTML += `
-                    <tr>
-                        <td>${user.display_name}</td>
+                    <tr${isMini ? ' style="border-left:3px solid var(--warning)"' : ''}>
+                        <td>${user.display_name}${isMini ? ' <span style="font-size:11px;color:var(--warning)">🛡️</span>' : ''}</td>
                         <td>${user.username}</td>
                         <td>Lv. ${user.level}</td>
                         <td>${user.xp} XP</td>
                         <td>
+                            ${miniBtn}
                             <button class="btn btn-warning btn-small" onclick="openXPAdjustModal(${user.id}, '${user.display_name.replace(/'/g, "\\'")}', ${user.xp})" title="Изменить XP">
                                 ⚡ ±XP
                             </button>
@@ -2687,6 +2747,134 @@
             if (name === 'complaints') loadComplaints('pending');
             if (name === 'exam') loadExamStatus();
             if (name === 'settings') loadPhraseSettings();
+            if (name === 'mini-admins') loadMiniAdmins();
+        }
+
+        // ==================== MINI-ADMIN MANAGEMENT ====================
+
+        async function promoteMiniAdmin(userId) {
+            if (!confirm('Сделать этого игрока мини-админом?')) return;
+            try {
+                await api(`/api/admin/promote-mini-admin/${userId}`, 'POST');
+                loadStudents();
+            } catch (e) { alert(e.message || 'Ошибка'); }
+        }
+
+        async function demoteMiniAdmin(userId) {
+            if (!confirm('Снять мини-админа и вернуть статус обычного игрока?')) return;
+            try {
+                await api(`/api/admin/demote-mini-admin/${userId}`, 'POST');
+                loadStudents();
+                loadMiniAdmins();
+            } catch (e) { alert(e.message || 'Ошибка'); }
+        }
+
+        async function loadMiniAdmins() {
+            // Load mini-admin list
+            try {
+                const data = await api('/api/admin/mini-admins');
+                const tbody = document.getElementById('mini-admins-table');
+                if (!tbody) return;
+                tbody.innerHTML = '';
+                if (!data.mini_admins || data.mini_admins.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">Нет мини-админов</td></tr>';
+                } else {
+                    data.mini_admins.forEach(u => {
+                        tbody.innerHTML += `<tr>
+                            <td>${u.display_name}</td>
+                            <td>${u.username}</td>
+                            <td>Lv. ${u.level}</td>
+                            <td>${u.xp} XP</td>
+                            <td><button class="btn btn-danger btn-small" onclick="demoteMiniAdmin(${u.id})">Снять</button></td>
+                        </tr>`;
+                    });
+                }
+            } catch (e) { console.error('loadMiniAdmins list error', e); }
+
+            // Load mini-admin reviews
+            try {
+                const rdata = await api('/api/admin/mini-admin-reviews');
+                const container = document.getElementById('mini-admin-reviews-list');
+                if (!container) return;
+                const reviews = rdata.reviews || [];
+                if (reviews.length === 0) {
+                    container.innerHTML = '<p style="color:var(--text-secondary)">Нет ревью</p>';
+                } else {
+                    container.innerHTML = reviews.map(r => {
+                        const approved = r.admin_approved ? '<span style="color:var(--success)">✅ Одобрено</span>' : '<span style="color:var(--warning)">⏳ Ожидает</span>';
+                        const dt = r.reviewed_at ? new Date(r.reviewed_at).toLocaleString('ru') : '';
+                        const overrideBtn = !r.admin_approved ? `
+                            <div style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                                <button class="btn btn-success btn-small" onclick="approveMiniReview(${r.id})">✅ Одобрить (30% XP)</button>
+                                <input type="number" id="override-score-${r.id}" min="0" max="10" value="${r.score}" style="width:60px;padding:6px;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-primary);border-radius:6px;">
+                                <button class="btn btn-warning btn-small" onclick="overrideMiniReview(${r.id})">📝 Переоценить</button>
+                            </div>` : `<div style="margin-top:4px;font-size:12px;color:var(--text-secondary)">Итоговая оценка: ${r.admin_final_score}, XP: ${r.xp_earned}</div>`;
+                        return `<div style="padding:12px;border-bottom:1px solid var(--border);">
+                            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                                <div><strong>${r.reviewer_name}</strong> оценил задание <code>${r.task_id}</code> студента <strong>${r.student_name}</strong></div>
+                                <div>${approved}</div>
+                            </div>
+                            <div style="margin-top:4px;font-size:13px;color:var(--text-secondary)">Оценка мини-админа: <strong style="color:var(--accent-light)">${r.score}/10</strong> · ${dt}</div>
+                            ${overrideBtn}
+                        </div>`;
+                    }).join('');
+                }
+            } catch (e) { console.error('loadMiniAdmins reviews error', e); }
+
+            // Load mini-admin XP actions
+            try {
+                const xdata = await api('/api/admin/mini-admin-xp-actions?status=pending');
+                const tbody = document.getElementById('mini-admin-xp-actions-table');
+                if (!tbody) return;
+                const actions = xdata.actions || [];
+                if (actions.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary)">Нет запросов</td></tr>';
+                } else {
+                    tbody.innerHTML = actions.map(a => {
+                        const dt = a.created_at ? new Date(a.created_at).toLocaleString('ru') : '';
+                        const color = a.delta_xp > 0 ? 'var(--success)' : 'var(--danger)';
+                        return `<tr>
+                            <td>${a.mini_admin_name}</td>
+                            <td>${a.target_name}</td>
+                            <td style="color:${color};font-weight:600">${a.delta_xp > 0 ? '+' : ''}${a.delta_xp}</td>
+                            <td style="max-width:200px;word-break:break-word;font-size:12px">${a.comment}</td>
+                            <td style="font-size:12px">${dt}</td>
+                            <td>
+                                <button class="btn btn-success btn-small" onclick="resolveMiniXPAction(${a.id}, 'approve')">✅</button>
+                                <button class="btn btn-danger btn-small" onclick="resolveMiniXPAction(${a.id}, 'reject')">❌</button>
+                            </td>
+                        </tr>`;
+                    }).join('');
+                }
+            } catch (e) { console.error('loadMiniAdmins xp actions error', e); }
+        }
+
+        async function approveMiniReview(reviewId) {
+            try {
+                const res = await api(`/api/admin/mini-admin-reviews/${reviewId}/approve`, 'POST');
+                alert(`Одобрено! XP мини-админу: ${res.xp_reward}`);
+                loadMiniAdmins();
+            } catch (e) { alert(e.message || 'Ошибка'); }
+        }
+
+        async function overrideMiniReview(reviewId) {
+            const scoreInput = document.getElementById(`override-score-${reviewId}`);
+            const score = parseInt(scoreInput?.value);
+            if (isNaN(score) || score < 0 || score > 10) { alert('Оценка должна быть 0-10'); return; }
+            try {
+                const res = await api(`/api/admin/mini-admin-reviews/${reviewId}/override`, 'POST', { admin_final_score: score });
+                alert(`Переоценено! Расхождение: ${res.divergence}, XP мини-админу: ${res.xp_reward} (фактор: ${res.penalty_factor})`);
+                loadMiniAdmins();
+            } catch (e) { alert(e.message || 'Ошибка'); }
+        }
+
+        async function resolveMiniXPAction(actionId, action) {
+            const label = action === 'approve' ? 'одобрить' : 'отклонить';
+            if (!confirm(`Точно ${label} это действие?`)) return;
+            try {
+                await api(`/api/admin/mini-admin-xp-actions/${actionId}/resolve`, 'POST', { action, admin_note: '' });
+                loadMiniAdmins();
+            } catch (e) { alert(e.message || 'Ошибка'); }
         }
 
         // ==================== COMPLAINTS ====================

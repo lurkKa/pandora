@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛡️ Мини-Админ Панель — Академия Pandora</title>
+    <style>
+        :root {
+            --bg-deep: #0a0a0f;
+            --bg-card: #12121a;
+            --bg-hover: #1a1a25;
+            --text-primary: #f0f0f5;
+            --text-secondary: #a0a0b0;
+            --accent: #7c5cbf;
+            --accent-light: #9d7de0;
+            --success: #4ade80;
+            --warning: #fbbf24;
+            --danger: #f87171;
+            --border: #2a2a3a;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        :focus-visible {
+            outline: 3px solid var(--accent-light);
+            outline-offset: 2px;
+        }
+
+        .admin-container {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            background: var(--bg-card);
+            border-right: 1px solid var(--border);
+            padding: 24px 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-logo {
+            padding: 0 24px 24px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 24px;
+        }
+
+        .sidebar-logo h1 {
+            font-size: 18px;
+            color: var(--accent-light);
+            font-weight: 600;
+        }
+
+        .sidebar-logo p {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .nav-menu {
+            list-style: none;
+            flex-grow: 1;
+        }
+
+        .nav-item {
+            padding: 14px 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-secondary);
+            font-size: 15px;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--bg-hover);
+            color: var(--accent-light);
+            border-left-color: var(--accent);
+        }
+
+        .nav-item .icon {
+            font-size: 18px;
+            width: 24px;
+            text-align: center;
+        }
+
+        .user-info {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            background: var(--accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .main-content {
+            padding: 32px;
+            overflow-y: auto;
+        }
+
+        .page-header {
+            margin-bottom: 32px;
+        }
+
+        .page-header h2 {
+            font-size: 26px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .page-header p {
+            color: var(--text-secondary);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .stat-card .label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--accent-light);
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+
+        .card-header {
+            padding: 18px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-header h3 {
+            font-size: 17px;
+            font-weight: 600;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 14px 20px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: var(--bg-hover);
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+        }
+
+        tr:hover td {
+            background: var(--bg-hover);
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-light);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: #000;
+        }
+
+        .btn-danger {
+            background: transparent;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-warning {
+            background: transparent;
+            color: var(--warning);
+            border: 1px solid var(--warning);
+        }
+
+        .btn-warning:hover {
+            background: var(--warning);
+            color: #000;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            font-size: 13px;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-deep);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            border-color: var(--accent);
+            outline: none;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 60px;
+            font-family: inherit;
+        }
+
+        .badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-pending {
+            background: rgba(251, 191, 36, 0.2);
+            color: var(--warning);
+        }
+
+        .badge-approved {
+            background: rgba(74, 222, 128, 0.2);
+            color: var(--success);
+        }
+
+        .badge-rejected {
+            background: rgba(248, 113, 113, 0.2);
+            color: var(--danger);
+        }
+
+        #login-page {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .login-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .login-card h1 {
+            color: var(--accent-light);
+            margin-bottom: 8px;
+        }
+
+        .login-card .subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 28px;
+        }
+
+        .error-msg {
+            background: rgba(248, 113, 113, 0.2);
+            color: var(--danger);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 14px;
+            display: none;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .rank {
+            width: 32px;
+            height: 32px;
+            background: var(--accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .rank.gold {
+            background: #fbbf24;
+            color: #000;
+        }
+
+        .rank.silver {
+            background: #9ca3af;
+            color: #000;
+        }
+
+        .rank.bronze {
+            background: #cd7f32;
+            color: #fff;
+        }
+
+        @media (max-width: 768px) {
+            .admin-container {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+                padding: 12px 0;
+            }
+
+            .sidebar-logo {
+                padding: 0 16px 12px;
+                margin-bottom: 8px;
+            }
+
+            .nav-menu {
+                display: flex;
+                overflow-x: auto;
+                gap: 2px;
+                padding: 0 12px;
+                scrollbar-width: none;
+            }
+
+            .nav-item {
+                flex-shrink: 0;
+                padding: 10px 14px;
+                border-left: none;
+                border-bottom: 3px solid transparent;
+                font-size: 13px;
+                white-space: nowrap;
+            }
+
+            .nav-item.active {
+                border-left-color: transparent;
+                border-bottom-color: var(--accent);
+            }
+
+            .user-info {
+                display: none;
+            }
+
+            .main-content {
+                padding: 16px 12px;
+            }
+
+            th,
+            td {
+                padding: 10px 12px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- LOGIN PAGE -->
+    <div id="login-page">
+        <div class="login-card">
+            <h1>🛡️ Панель Мини-Админа</h1>
+            <p class="subtitle">Вход для мини-администраторов</p>
+            <div class="error-msg" id="login-error"></div>
+            <div class="form-group">
+                <label for="username">Логин</label>
+                <input type="text" id="username" placeholder="Ваш логин">
+            </div>
+            <div class="form-group">
+                <label for="password">Пароль</label>
+                <input type="password" id="password" placeholder="••••••••">
+            </div>
+            <button class="btn btn-primary" style="width:100%;" onclick="login()">Войти</button>
+        </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboard" class="admin-container" style="display:none;">
+        <nav class="sidebar" role="navigation">
+            <div class="sidebar-logo">
+                <h1>🛡️ Мини-Админ</h1>
+                <p>Ограниченное управление</p>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item active" onclick="showSection('overview')" tabindex="0">
+                    <span class="icon">📊</span> Обзор
+                </li>
+                <li class="nav-item" onclick="showSection('reviews')" tabindex="0">
+                    <span class="icon">📝</span> Ревью
+                </li>
+                <li class="nav-item" onclick="showSection('players')" tabindex="0">
+                    <span class="icon">👥</span> Игроки
+                </li>
+                <li class="nav-item" onclick="showSection('leaderboard')" tabindex="0">
+                    <span class="icon">🏆</span> Рейтинг
+                </li>
+            </ul>
+            <div class="user-info">
+                <div class="user-avatar">M</div>
+                <div>
+                    <div style="font-weight:600;" id="user-name">Мини-Админ</div>
+                    <div style="font-size:11px;color:var(--text-secondary);">Mini-Admin</div>
+                </div>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <!-- Overview -->
+            <section id="section-overview" class="section active">
+                <div class="page-header">
+                    <h2>📊 Обзор</h2>
+                    <p>Статистика академии</p>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="label">Всего учеников</div>
+                        <div class="value" id="stat-students">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Заданий выполнено</div>
+                        <div class="value" id="stat-completed">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">На проверке</div>
+                        <div class="value" id="stat-pending">0</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Топ-5 учеников</h3>
+                    </div>
+                    <div id="top-students"></div>
+                </div>
+            </section>
+
+            <!-- Reviews -->
+            <section id="section-reviews" class="section">
+                <div class="page-header">
+                    <h2>📝 Мои ревью</h2>
+                    <p>Задания на проверку</p>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Назначенные ревью</h3>
+                    </div>
+                    <div id="reviews-list" style="padding:16px;">
+                        <p style="color:var(--text-secondary)">Загрузка...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Players -->
+            <section id="section-players" class="section">
+                <div class="page-header">
+                    <h2>👥 Игроки</h2>
+                    <p>Список учеников и управление XP (лимит ±200/день)</p>
+                </div>
+                <div class="card" id="xp-limit-card" style="margin-bottom:16px;padding:16px;">
+                    <span style="font-size:13px;color:var(--text-secondary)">Дневной лимит XP: <strong
+                            id="daily-xp-info">загрузка...</strong></span>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Все ученики</h3>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Имя</th>
+                                <th>Username</th>
+                                <th>Level</th>
+                                <th>XP</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="players-table"></tbody>
+                    </table>
+                </div>
+
+                <!-- XP Adjust Form -->
+                <div class="card" id="xp-form-card" style="display:none;">
+                    <div class="card-header">
+                        <h3 id="xp-form-title">Изменить XP</h3>
+                    </div>
+                    <div style="padding:20px;">
+                        <input type="hidden" id="xp-target-id">
+                        <div class="form-group">
+                            <label>Изменение XP (+ или −)</label>
+                            <input type="number" id="xp-delta" placeholder="Например: 50 или -30">
+                        </div>
+                        <div class="form-group">
+                            <label>Комментарий (обязательно)</label>
+                            <textarea id="xp-comment" placeholder="Причина изменения XP..."></textarea>
+                        </div>
+                        <div style="display:flex;gap:12px;">
+                            <button class="btn btn-primary" onclick="submitXPAdjust()">Отправить на одобрение</button>
+                            <button class="btn btn-danger" onclick="hideXPForm()">Отмена</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Leaderboard -->
+            <section id="section-leaderboard" class="section">
+                <div class="page-header">
+                    <h2>🏆 Рейтинг</h2>
+                    <p>Топ игроков академии</p>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Рейтинг</h3>
+                    </div>
+                    <div id="leaderboard-list"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // ==================== STATE ====================
+        function getApiUrl() {
+            const isHosted = window.location.protocol === 'http:' || window.location.protocol === 'https:';
+            if (isHosted) return window.location.origin.replace(/\/$/, '');
+            return 'http://127.0.0.1:8000';
+        }
+
+        const API_URL = getApiUrl();
+        let authToken = localStorage.getItem('mini_admin_token');
+        let currentUser = null;
+
+        async function fetchJson(url, options = {}, timeoutMs = 30000) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const res = await fetch(url, { ...options, signal: controller.signal });
+                const data = await res.json().catch(() => ({}));
+                return { res, data };
+            } finally { clearTimeout(timeoutId); }
+        }
+
+        async function api(endpoint, opts = {}) {
+            if (!opts.headers) opts.headers = {};
+            opts.headers['Authorization'] = `Bearer ${authToken}`;
+            const { res, data } = await fetchJson(`${API_URL}${endpoint}`, opts);
+            if (!res.ok) {
+                const detail = typeof data?.detail === 'string' ? data.detail : JSON.stringify(data?.detail || 'Error');
+                throw new Error(detail);
+            }
+            return data;
+        }
+
+        // ==================== AUTH ====================
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorEl = document.getElementById('login-error');
+            if (!username || !password) {
+                errorEl.style.display = 'block';
+                errorEl.innerText = 'Введите логин и пароль';
+                return;
+            }
+            try {
+                const { res, data } = await fetchJson(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                if (!res.ok) {
+                    errorEl.style.display = 'block';
+                    errorEl.innerText = data?.detail || 'Неверные данные';
+                    return;
+                }
+                if (data.user.role !== 'mini_admin') {
+                    errorEl.style.display = 'block';
+                    errorEl.innerText = 'Доступ только для мини-администраторов';
+                    return;
+                }
+                authToken = data.token;
+                currentUser = data.user;
+                localStorage.setItem('mini_admin_token', authToken);
+                document.getElementById('user-name').innerText = data.user.display_name;
+                document.getElementById('login-page').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'grid';
+                loadDashboard();
+            } catch (e) {
+                errorEl.style.display = 'block';
+                errorEl.innerText = `Ошибка: ${e.message || e}`;
+            }
+        }
+
+        async function checkAuth() {
+            if (!authToken) return;
+            try {
+                const data = await api('/api/auth/me');
+                if (data.role !== 'mini_admin') {
+                    localStorage.removeItem('mini_admin_token');
+                    return;
+                }
+                currentUser = data;
+                document.getElementById('user-name').innerText = data.display_name;
+                document.getElementById('login-page').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'grid';
+                loadDashboard();
+            } catch (e) {
+                localStorage.removeItem('mini_admin_token');
+            }
+        }
+
+        // ==================== NAVIGATION ====================
+        let _activeSection = 'overview';
+
+        function showSection(name) {
+            _activeSection = name;
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            const section = document.getElementById(`section-${name}`);
+            if (section) section.classList.add('active');
+            const nav = document.querySelector(`.nav-item[onclick*="showSection('${name}'"]`);
+            if (nav) nav.classList.add('active');
+
+            if (name === 'overview') loadStats();
+            if (name === 'reviews') loadReviews();
+            if (name === 'players') loadPlayers();
+            if (name === 'leaderboard') loadLeaderboard();
+        }
+
+        // ==================== DASHBOARD ====================
+        async function loadDashboard() {
+            loadStats();
+        }
+
+        async function loadStats() {
+            try {
+                const data = await api('/api/mini-admin/stats');
+                document.getElementById('stat-students').innerText = data.students;
+                document.getElementById('stat-completed').innerText = data.completed_tasks;
+                document.getElementById('stat-pending').innerText = data.pending_reviews;
+
+                const container = document.getElementById('top-students');
+                if (container && data.top_students) {
+                    container.innerHTML = data.top_students.map((s, i) => `
+                        <div class="leaderboard-item">
+                            <div class="rank ${i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}">${i + 1}</div>
+                            <div style="flex-grow:1;">
+                                <div style="font-weight:600;">${s.display_name}</div>
+                                <div style="font-size:12px;color:var(--text-secondary);">Lv. ${s.level}</div>
+                            </div>
+                            <div style="font-weight:bold;color:var(--accent-light);">${s.xp} XP</div>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) { console.error('loadStats error', e); }
+        }
+
+        // ==================== REVIEWS ====================
+        async function loadReviews() {
+            const container = document.getElementById('reviews-list');
+            try {
+                const data = await api('/api/mini-admin/pending-reviews');
+                const reviews = data.reviews || [];
+                if (reviews.length === 0) {
+                    container.innerHTML = '<p style="color:var(--text-secondary)">Нет назначенных ревью</p>';
+                    return;
+                }
+                container.innerHTML = reviews.map(r => {
+                    const isReviewed = !!r.reviewed_at;
+                    const statusBadge = isReviewed
+                        ? `<span class="badge badge-approved">✅ Оценено: ${r.score}/10</span>`
+                        : `<span class="badge badge-pending">⏳ Ожидает оценки</span>`;
+                    const scoreForm = !isReviewed ? `
+                        <div style="margin-top:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                            <select id="review-score-${r.review_id}" style="padding:8px;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-primary);border-radius:6px;">
+                                <option value="5">5</option><option value="6">6</option><option value="7">7</option>
+                                <option value="8" selected>8</option><option value="9">9</option><option value="10">10</option>
+                            </select>
+                            <button class="btn btn-primary btn-small" onclick="submitReview(${r.review_id})">Оценить</button>
+                        </div>` : '';
+                    const codePreview = r.code ? `<pre style="margin-top:8px;max-height:200px;overflow:auto;background:var(--bg-deep);padding:12px;border-radius:8px;font-size:12px;white-space:pre-wrap;word-break:break-all;">${escapeHtml(r.code.substring(0, 2000))}</pre>` : '';
+                    const linkInfo = r.link ? `<div style="margin-top:4px;"><a href="${r.link}" target="_blank" style="color:var(--accent-light);font-size:13px;">🔗 Ссылка</a></div>` : '';
+                    return `<div style="padding:16px;border-bottom:1px solid var(--border);">
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                            <div><strong>${r.student_name}</strong> · <code style="font-size:12px;">${r.task_id}</code> · ${r.category || ''} ${r.tier || ''}</div>
+                            ${statusBadge}
+                        </div>
+                        ${codePreview}
+                        ${linkInfo}
+                        ${scoreForm}
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                container.innerHTML = `<p style="color:var(--danger)">Ошибка: ${e.message}</p>`;
+            }
+        }
+
+        async function submitReview(reviewId) {
+            const scoreEl = document.getElementById(`review-score-${reviewId}`);
+            const score = parseInt(scoreEl?.value);
+            if (isNaN(score)) return;
+            try {
+                await api(`/api/mini-admin/review/${reviewId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ score })
+                });
+                loadReviews();
+            } catch (e) { alert(e.message || 'Ошибка'); }
+        }
+
+        function escapeHtml(text) {
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // ==================== PLAYERS ====================
+        async function loadPlayers() {
+            try {
+                const data = await api('/api/mini-admin/players');
+                const tbody = document.getElementById('players-table');
+                tbody.innerHTML = '';
+                (data.players || []).forEach(p => {
+                    tbody.innerHTML += `<tr>
+                        <td>${p.display_name}</td>
+                        <td>${p.username}</td>
+                        <td>Lv. ${p.level}</td>
+                        <td>${p.xp} XP</td>
+                        <td>
+                            <button class="btn btn-warning btn-small" onclick="showXPForm(${p.id}, '${p.display_name.replace(/'/g, "\\'")}')">⚡ ±XP</button>
+                        </td>
+                    </tr>`;
+                });
+            } catch (e) { console.error('loadPlayers error', e); }
+
+            // Show daily usage
+            try {
+                document.getElementById('daily-xp-info').innerText = 'обновление...';
+                // We'll show the info from the response of the adjust endpoint
+                document.getElementById('daily-xp-info').innerText = '±200 XP макс. в день';
+            } catch (e) { }
+        }
+
+        function showXPForm(userId, name) {
+            document.getElementById('xp-target-id').value = userId;
+            document.getElementById('xp-form-title').innerText = `Изменить XP: ${name}`;
+            document.getElementById('xp-delta').value = '';
+            document.getElementById('xp-comment').value = '';
+            document.getElementById('xp-form-card').style.display = 'block';
+            document.getElementById('xp-form-card').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function hideXPForm() {
+            document.getElementById('xp-form-card').style.display = 'none';
+        }
+
+        async function submitXPAdjust() {
+            const userId = parseInt(document.getElementById('xp-target-id').value);
+            const delta = parseInt(document.getElementById('xp-delta').value);
+            const comment = document.getElementById('xp-comment').value.trim();
+            if (!userId || isNaN(delta) || delta === 0) { alert('Введите корректное значение XP'); return; }
+            if (!comment) { alert('Комментарий обязателен!'); return; }
+            try {
+                const res = await api('/api/mini-admin/adjust-xp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId, delta_xp: delta, comment })
+                });
+                alert(`Отправлено на одобрение! Осталось XP на сегодня: ${res.remaining_daily}`);
+                hideXPForm();
+            } catch (e) { alert(e.message || 'Ошибка'); }
+        }
+
+        // ==================== LEADERBOARD ====================
+        async function loadLeaderboard() {
+            try {
+                const data = await api('/api/mini-admin/leaderboard');
+                const container = document.getElementById('leaderboard-list');
+                const lb = data.leaderboard || [];
+                if (lb.length === 0) {
+                    container.innerHTML = '<p style="padding:24px;color:var(--text-secondary);">Нет данных</p>';
+                    return;
+                }
+                container.innerHTML = lb.map((u, i) => {
+                    const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+                    return `<div class="leaderboard-item">
+                        <div class="rank ${rankClass}">${i + 1}</div>
+                        <div style="flex-grow:1;">
+                            <div style="font-weight:600;">${u.display_name}</div>
+                            <div style="font-size:12px;color:var(--text-secondary);">Lv. ${u.level} · ${u.quests} заданий · 🔥 ${u.streak} дней</div>
+                        </div>
+                        <div style="font-weight:bold;color:var(--accent-light);">${u.xp} XP</div>
+                    </div>`;
+                }).join('');
+            } catch (e) { console.error('loadLeaderboard error', e); }
+        }
+
+        // ==================== INIT ====================
+        document.getElementById('password').addEventListener('keypress', e => {
+            if (e.key === 'Enter') login();
+        });
+        document.getElementById('username').addEventListener('keypress', e => {
+            if (e.key === 'Enter') document.getElementById('password').focus();
+        });
+
+        checkAuth();
+    </script>
+</body>
+
+</html>
