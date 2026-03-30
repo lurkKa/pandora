@@ -2381,12 +2381,12 @@ def serve_admin_html():
     """Serve admin UI when static-like path is used."""
     return FileResponse("admin.html")
 
-@app.get("/panel", include_in_schema=False)
+@app.get("/miniadmin", include_in_schema=False)
 def serve_mini_admin():
     """Serve the mini-admin panel UI."""
     return FileResponse("mini_admin.html")
 
-@app.get("/panel/", include_in_schema=False)
+@app.get("/miniadmin/", include_in_schema=False)
 def serve_mini_admin_slash():
     return FileResponse("mini_admin.html")
 
@@ -2965,7 +2965,7 @@ def get_leaderboard(limit: int = Query(20, le=100)):
             LEFT JOIN user_stats s ON u.id = s.user_id
             LEFT JOIN guild_members gm ON gm.user_id = u.id
             LEFT JOIN guilds g ON g.id = gm.guild_id AND g.disbanded_at IS NULL
-            WHERE u.role = 'student'
+            WHERE u.role IN ('student', 'mini_admin')
             AND r.min_xp = (SELECT MAX(min_xp) FROM ranks WHERE min_xp <= u.xp)
             ORDER BY u.xp DESC
             LIMIT ?
@@ -3042,7 +3042,7 @@ def get_leaderboard_3days(limit: int = Query(20, le=100), sort_by: str = Query("
             LEFT JOIN user_stats s ON u.id = s.user_id
             LEFT JOIN guild_members gm ON gm.user_id = u.id
             LEFT JOIN guilds g ON g.id = gm.guild_id AND g.disbanded_at IS NULL
-            WHERE u.role = 'student'
+            WHERE u.role IN ('student', 'mini_admin')
               AND ct.is_valid != 0
               AND ct.completed_at >= DATE('now', '-3 days')
               AND r.min_xp = (SELECT MAX(min_xp) FROM ranks WHERE min_xp <= u.xp)
@@ -4004,7 +4004,7 @@ def get_stats(admin: dict = Depends(require_admin)):
     with get_db() as conn:
         cursor = conn.cursor()
         
-        cursor.execute("SELECT COUNT(*) as count FROM users WHERE role = 'student'")
+        cursor.execute("SELECT COUNT(*) as count FROM users WHERE role IN ('student', 'mini_admin')")
         student_count = cursor.fetchone()["count"]
         
         cursor.execute("SELECT COUNT(*) as count FROM completed_tasks")
@@ -4015,7 +4015,7 @@ def get_stats(admin: dict = Depends(require_admin)):
         
         cursor.execute("""
             SELECT u.display_name, u.xp, u.level
-            FROM users u WHERE u.role = 'student'
+            FROM users u WHERE u.role IN ('student', 'mini_admin')
             ORDER BY u.xp DESC LIMIT 5
         """)
         leaderboard = [dict(row) for row in cursor.fetchall()]
@@ -9923,7 +9923,7 @@ def mini_admin_list_players(user: dict = Depends(require_mini_admin)):
         cursor = conn.cursor()
         cursor.execute("""
             SELECT id, username, display_name, xp, level
-            FROM users WHERE role = 'student'
+            FROM users WHERE role IN ('student', 'mini_admin')
             ORDER BY display_name
         """)
         return {"players": [dict(r) for r in cursor.fetchall()]}
@@ -9996,7 +9996,7 @@ def mini_admin_stats(user: dict = Depends(require_mini_admin)):
         raise HTTPException(status_code=403, detail="Use admin panel instead")
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) as count FROM users WHERE role = 'student'")
+        cursor.execute("SELECT COUNT(*) as count FROM users WHERE role IN ('student', 'mini_admin')")
         student_count = cursor.fetchone()["count"]
         cursor.execute("SELECT COUNT(*) as count FROM completed_tasks")
         completed_count = cursor.fetchone()["count"]
@@ -10004,7 +10004,7 @@ def mini_admin_stats(user: dict = Depends(require_mini_admin)):
         pending_count = cursor.fetchone()["count"]
         cursor.execute("""
             SELECT u.display_name, u.xp, u.level
-            FROM users u WHERE u.role = 'student'
+            FROM users u WHERE u.role IN ('student', 'mini_admin')
             ORDER BY u.xp DESC LIMIT 5
         """)
         top_students = [dict(r) for r in cursor.fetchall()]

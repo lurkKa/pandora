@@ -635,6 +635,8 @@
         const API_URL = getApiUrl();
         let authToken = localStorage.getItem('mini_admin_token');
         let currentUser = null;
+        let reviewTasksMap = {};
+        let _reviewsTasksCached = false;
 
         async function fetchJson(url, options = {}, timeoutMs = 30000) {
             const controller = new AbortController();
@@ -764,6 +766,19 @@
         async function loadReviews() {
             const container = document.getElementById('reviews-list');
             try {
+                // Cache tasks map on first call
+                if (!_reviewsTasksCached) {
+                    try {
+                        const { res, data: tasksData } = await fetchJson(`${API_URL}/api/tasks`);
+                        if (res.ok && tasksData.tasks) {
+                            const map = {};
+                            tasksData.tasks.forEach(t => map[t.id] = t);
+                            reviewTasksMap = map;
+                        }
+                        _reviewsTasksCached = true;
+                    } catch (e) { console.error('Failed to load tasks for review cache'); }
+                }
+
                 const data = await api('/api/mini-admin/pending-reviews');
                 const reviews = data.reviews || [];
                 if (reviews.length === 0) {
@@ -772,9 +787,21 @@
                 }
                 container.innerHTML = reviews.map(r => {
                     const isReviewed = !!r.reviewed_at;
+                    const task = reviewTasksMap[r.task_id] || {};
+                    const taskName = task.title || r.task_id;
+                    const maxXP = Number(task.xp || 0);
+                    const taskDesc = [
+                        task.description || '',
+                        task.story ? `Сюжет: ${task.story}` : '',
+                    ].filter(Boolean).join(' · ') || '';
                     const statusBadge = isReviewed
                         ? `<span class="badge badge-approved">✅ Оценено: ${r.score}/10</span>`
                         : `<span class="badge badge-pending">⏳ Ожидает оценки</span>`;
+                    const submissionStatus = r.submission_status === 'approved'
+                        ? '<span class="badge badge-approved" style="margin-left:6px;">✅ Выполнено</span>'
+                        : r.submission_status === 'rejected'
+                            ? '<span class="badge badge-rejected" style="margin-left:6px;">❌ Отклонено</span>'
+                            : '<span class="badge badge-pending" style="margin-left:6px;">⏳ На проверке</span>';
                     const scoreForm = !isReviewed ? `
                         <div style="margin-top:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                             <select id="review-score-${r.review_id}" style="padding:8px;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-primary);border-radius:6px;">
@@ -787,9 +814,16 @@
                     const linkInfo = r.link ? `<div style="margin-top:4px;"><a href="${r.link}" target="_blank" style="color:var(--accent-light);font-size:13px;">🔗 Ссылка</a></div>` : '';
                     return `<div style="padding:16px;border-bottom:1px solid var(--border);">
                         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-                            <div><strong>${r.student_name}</strong> · <code style="font-size:12px;">${r.task_id}</code> · ${r.category || ''} ${r.tier || ''}</div>
-                            ${statusBadge}
+                            <div>
+                                <strong>${r.student_name}</strong> · 
+                                <span style="color:var(--accent-light);font-weight:600;">${taskName}</span>
+                                ${maxXP ? ` · <span style="font-size:12px;color:var(--text-secondary);">${maxXP} XP</span>` : ''}
+                                ${r.category ? ` · <code style="font-size:12px;">${r.category}</code>` : ''}
+                                ${r.tier ? ` · ${r.tier}` : ''}
+                            </div>
+                            <div>${statusBadge}${submissionStatus}</div>
                         </div>
+                        ${taskDesc ? `<div style="margin-top:6px;font-size:13px;color:var(--text-secondary);line-height:1.5;">${escapeHtml(taskDesc)}</div>` : ''}
                         ${codePreview}
                         ${linkInfo}
                         ${scoreForm}
