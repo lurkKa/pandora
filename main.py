@@ -6953,7 +6953,7 @@ def get_progress_data(
         result = {"users": []}
         
         if all_users:
-            cursor.execute("SELECT id, display_name FROM users WHERE role = 'student'")
+            cursor.execute("SELECT id, display_name FROM users WHERE role IN ('student', 'mini_admin')")
             users = cursor.fetchall()
         elif user_id:
             cursor.execute("SELECT id, display_name FROM users WHERE id = ?", (user_id,))
@@ -10034,6 +10034,46 @@ def mini_admin_leaderboard(user: dict = Depends(require_mini_admin)):
             LIMIT 50
         """)
         return {"leaderboard": [dict(r) for r in cursor.fetchall()]}
+
+
+@app.get("/api/mini-admin/progress")
+def mini_admin_progress(
+    user_id: Optional[int] = Query(None),
+    all_users: bool = Query(False),
+    user: dict = Depends(require_mini_admin)
+):
+    """Get progress data for mini-admin charts (same logic as admin)."""
+    if user["role"] == "admin":
+        raise HTTPException(status_code=403, detail="Use admin panel instead")
+    with get_db() as conn:
+        cursor = conn.cursor()
+        result = {"users": []}
+        if all_users:
+            cursor.execute("SELECT id, display_name FROM users WHERE role IN ('student', 'mini_admin')")
+            users = cursor.fetchall()
+        elif user_id:
+            cursor.execute("SELECT id, display_name FROM users WHERE id = ?", (user_id,))
+            users = cursor.fetchall()
+        else:
+            return {"users": []}
+        for u in users:
+            uid = u["id"]
+            cursor.execute("""
+                SELECT DATE(logged_at) as date, SUM(xp_change) as xp_gain
+                FROM xp_log WHERE user_id = ?
+                GROUP BY DATE(logged_at) ORDER BY date
+            """, (uid,))
+            cumulative = 0
+            timeline = []
+            for row in cursor.fetchall():
+                cumulative += row["xp_gain"]
+                timeline.append({"date": row["date"], "xp": cumulative})
+            result["users"].append({
+                "id": uid,
+                "display_name": u["display_name"],
+                "timeline": timeline
+            })
+    return result
 
 
 # --- Admin: manage mini-admin XP actions ---

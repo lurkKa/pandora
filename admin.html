@@ -3271,7 +3271,7 @@
         async function populateUserDropdowns() {
             try {
                 const data = await api('/api/admin/users');
-                const students = data.users.filter(u => u.role === 'student');
+                const students = data.users.filter(u => u.role === 'student' || u.role === 'mini_admin');
 
                 const dropdowns = [
                     'history-user-select',

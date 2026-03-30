@@ -460,6 +460,10 @@
             }
         }
     </style>
+    <!-- Chart.js CDN + date adapter -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
 
 <body>
@@ -501,6 +505,9 @@
                 </li>
                 <li class="nav-item" onclick="showSection('leaderboard')" tabindex="0">
                     <span class="icon">🏆</span> Рейтинг
+                </li>
+                <li class="nav-item" onclick="showSection('progress')" tabindex="0">
+                    <span class="icon">📈</span> Прогресс
                 </li>
             </ul>
             <div class="user-info">
@@ -621,6 +628,37 @@
                     <div id="leaderboard-list"></div>
                 </div>
             </section>
+
+            <!-- Progress -->
+            <section id="section-progress" class="section">
+                <div class="page-header">
+                    <h2>📈 График прогресса</h2>
+                    <p>Визуализация роста учеников по времени</p>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Настройки графика</h3>
+                    </div>
+                    <div style="padding: 24px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="show-all-users" onchange="loadProgressChart()">
+                            <span>Показать всех учеников</span>
+                        </label>
+                        <select id="progress-user-select" onchange="loadProgressChart()"
+                            style="padding: 12px 16px; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 15px; min-width: 200px;">
+                            <option value="">-- Или выберите ученика --</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Кривая прогресса XP</h3>
+                    </div>
+                    <div style="padding: 24px;">
+                        <canvas id="progress-chart" height="300"></canvas>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -732,6 +770,7 @@
             if (name === 'reviews') loadReviews();
             if (name === 'players') loadPlayers();
             if (name === 'leaderboard') loadLeaderboard();
+            if (name === 'progress') { populateProgressDropdown(); loadProgressChart(); }
         }
 
         // ==================== DASHBOARD ====================
@@ -932,6 +971,119 @@
                     </div>`;
                 }).join('');
             } catch (e) { console.error('loadLeaderboard error', e); }
+        }
+
+        // ==================== PROGRESS CHART ====================
+        let progressChart = null;
+
+        async function populateProgressDropdown() {
+            try {
+                const data = await api('/api/mini-admin/players');
+                const select = document.getElementById('progress-user-select');
+                if (!select) return;
+                const currentVal = select.value;
+                select.innerHTML = '<option value="">-- Выберите ученика --</option>';
+                (data.players || []).forEach(p => {
+                    select.innerHTML += `<option value="${p.id}">${p.display_name} (@${p.username})</option>`;
+                });
+                select.value = currentVal;
+            } catch (e) { console.error('populateProgressDropdown error', e); }
+        }
+
+        async function loadProgressChart() {
+            const showAll = document.getElementById('show-all-users').checked;
+            const userId = document.getElementById('progress-user-select').value;
+            if (!showAll && !userId) {
+                if (progressChart) progressChart.destroy();
+                return;
+            }
+            try {
+                let url = '/api/mini-admin/progress?';
+                if (showAll) url += 'all_users=true';
+                else url += `user_id=${userId}`;
+                const data = await api(url);
+                renderProgressChart(data.users || []);
+            } catch (e) { console.error('Failed to load progress:', e); }
+        }
+
+        function fillDateGaps(timeline) {
+            if (!timeline || timeline.length === 0) return [];
+            if (timeline.length < 2) return timeline.map(p => ({ x: p.date, y: Number(p.xp || 0) }));
+            const filled = [];
+            const sorted = [...timeline].sort((a, b) => a.date.localeCompare(b.date));
+            const parseUtcDay = (dateStr) => {
+                const [y, m, d] = String(dateStr || '').split('-').map(Number);
+                if (!y || !m || !d) return null;
+                return Date.UTC(y, m - 1, d);
+            };
+            let curTs = parseUtcDay(sorted[0].date);
+            const endTs = parseUtcDay(sorted[sorted.length - 1].date);
+            if (curTs === null || endTs === null) return sorted.map(p => ({ x: p.date, y: Number(p.xp || 0) }));
+            let idx = 0, lastXP = 0;
+            while (curTs <= endTs) {
+                const dateStr = new Date(curTs).toISOString().slice(0, 10);
+                if (idx < sorted.length && sorted[idx].date === dateStr) { lastXP = sorted[idx].xp; idx++; }
+                filled.push({ x: dateStr, y: lastXP });
+                curTs += 24 * 60 * 60 * 1000;
+            }
+            return filled;
+        }
+
+        function renderProgressChart(users) {
+            const ctx = document.getElementById('progress-chart').getContext('2d');
+            if (progressChart) progressChart.destroy();
+            const colors = ['#8b5cf6', '#4ade80', '#fbbf24', '#f87171', '#60a5fa', '#f472b6', '#a78bfa', '#38bdf8'];
+            const datasets = users.map((user, i) => {
+                const filled = fillDateGaps(user.timeline);
+                return {
+                    label: user.display_name,
+                    data: filled,
+                    borderColor: colors[i % colors.length],
+                    backgroundColor: colors[i % colors.length] + '22',
+                    fill: true,
+                    tension: 0.18,
+                    cubicInterpolationMode: 'monotone',
+                    pointRadius: filled.length > 160 ? 1.8 : 2.8,
+                    pointHoverRadius: 6,
+                    pointHitRadius: 12,
+                    borderWidth: 2.5
+                };
+            });
+            progressChart = new Chart(ctx, {
+                type: 'line',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: { unit: 'day', tooltipFormat: 'dd MMM yyyy', displayFormats: { day: 'dd.MM' } },
+                            title: { display: true, text: 'Дата', color: '#a0a0b0', font: { size: 13 } },
+                            ticks: { color: '#a0a0b0', maxTicksLimit: 15 },
+                            grid: { color: '#2a2a3a' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Кумулятивный XP', color: '#a0a0b0', font: { size: 13 } },
+                            ticks: { color: '#a0a0b0' },
+                            grid: { color: '#2a2a3a' },
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#f0f0f5', usePointStyle: true, padding: 16 } },
+                        tooltip: {
+                            backgroundColor: '#1a1a24',
+                            borderColor: '#8b5cf6',
+                            borderWidth: 1,
+                            titleColor: '#f0f0f5',
+                            bodyColor: '#e0e0e5',
+                            callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString()} XP` }
+                        }
+                    }
+                }
+            });
         }
 
         // ==================== INIT ====================
