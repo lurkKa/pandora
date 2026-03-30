@@ -10107,6 +10107,7 @@ def admin_list_mini_admin_reviews(admin: dict = Depends(require_admin)):
             SELECT mar.*, 
                    ma.display_name as reviewer_name, ma.username as reviewer_username,
                    s.task_id, s.category, s.tier, s.status as submission_status,
+                   s.code, s.content, s.link,
                    su.display_name as student_name
             FROM mini_admin_reviews mar
             JOIN users ma ON mar.mini_admin_id = ma.id

@@ -1877,6 +1877,11 @@
         let authToken = localStorage.getItem('admin_token');
         let currentSubmissions = []; // For code viewing in submissions
         let reviewTasksMap = {};
+
+        function escapeHtml(text) {
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
         let _reviewsTasksCached = false; // true once tasks are fetched
         let _reviewsStatus = 'pending'; // current filter
         let _reviewsLoading = false; // prevent concurrent loads
@@ -2801,8 +2806,17 @@
                     container.innerHTML = '<p style="color:var(--text-secondary)">Нет ревью</p>';
                 } else {
                     container.innerHTML = reviews.map(r => {
+                        const task = reviewTasksMap[r.task_id] || {};
+                        const taskName = task.title || r.task_id;
+                        const maxXP = Number(task.xp || 0);
+                        const taskDesc = [
+                            task.description || '',
+                            task.story ? `Сюжет: ${task.story}` : '',
+                        ].filter(Boolean).join(' · ') || '';
                         const approved = r.admin_approved ? '<span style="color:var(--success)">✅ Одобрено</span>' : '<span style="color:var(--warning)">⏳ Ожидает</span>';
                         const dt = r.reviewed_at ? new Date(r.reviewed_at).toLocaleString('ru') : '';
+                        const codePreview = r.code ? `<pre style="margin-top:8px;max-height:200px;overflow:auto;background:var(--bg-deep);padding:12px;border-radius:8px;font-size:12px;white-space:pre-wrap;word-break:break-all;">${escapeHtml((r.code || '').substring(0, 2000))}</pre>` : '';
+                        const linkInfo = r.link ? `<div style="margin-top:4px;"><a href="${r.link.startsWith('http') ? r.link : API_URL + r.link}" target="_blank" style="color:var(--accent-light);font-size:13px;">🔗 Ссылка</a>${r.link.includes('/uploads/') ? ` <a href="${API_URL}${r.link}" download class="btn btn-small" style="margin-left:4px;">📥</a>` : ''}</div>` : '';
                         const overrideBtn = !r.admin_approved ? `
                             <div style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                                 <button class="btn btn-success btn-small" onclick="approveMiniReview(${r.id})">✅ Одобрить (30% XP)</button>
@@ -2811,10 +2825,13 @@
                             </div>` : `<div style="margin-top:4px;font-size:12px;color:var(--text-secondary)">Итоговая оценка: ${r.admin_final_score}, XP: ${r.xp_earned}</div>`;
                         return `<div style="padding:12px;border-bottom:1px solid var(--border);">
                             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-                                <div><strong>${r.reviewer_name}</strong> оценил задание <code>${r.task_id}</code> студента <strong>${r.student_name}</strong></div>
+                                <div><strong>${r.reviewer_name}</strong> оценил <span style="color:var(--accent-light);font-weight:600;">${taskName}</span>${maxXP ? ` <span style="font-size:12px;color:var(--text-secondary);">${maxXP} XP</span>` : ''}${r.category ? ` · <code>${r.category}</code>` : ''}${r.tier ? ` · ${r.tier}` : ''} студента <strong>${r.student_name}</strong></div>
                                 <div>${approved}</div>
                             </div>
+                            ${taskDesc ? `<div style="margin-top:6px;font-size:13px;color:var(--text-secondary);line-height:1.5;">${escapeHtml(taskDesc)}</div>` : ''}
                             <div style="margin-top:4px;font-size:13px;color:var(--text-secondary)">Оценка мини-админа: <strong style="color:var(--accent-light)">${r.score}/10</strong> · ${dt}</div>
+                            ${codePreview}
+                            ${linkInfo}
                             ${overrideBtn}
                         </div>`;
                     }).join('');
