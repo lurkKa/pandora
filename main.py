@@ -4299,6 +4299,9 @@ def public_task(task: dict) -> dict:
         "story": task.get("story"),
         "description": task.get("description"),
         "initial_code": task.get("initial_code"),
+        "topic": task.get("topic", ""),
+        "task_type": task.get("task_type", "code"),
+        "video_url": task.get("video_url", ""),
         "resources": resources_for_task(task),
         "prerequisites": task.get("prerequisites") or [],
         "check": {
@@ -4815,7 +4818,25 @@ def get_roadmap(user: dict = Depends(require_auth)):
         pt["unlock"] = unlock_info
         tasks.append(pt)
 
-    return {"meta": data.get("meta", {}), "categories": data.get("categories", []), "tasks": tasks, "counts": counts}
+    # Compute per-(category, topic) completion stats for frontend grouping
+    topic_completion = {}
+    for t in tasks:
+        cat = t.get("category", "")
+        topic = t.get("topic", "")
+        key = f"{cat}:{topic}"
+        if key not in topic_completion:
+            topic_completion[key] = {"category": cat, "topic": topic, "total": 0, "completed": 0}
+        topic_completion[key]["total"] += 1
+        if t.get("completed"):
+            topic_completion[key]["completed"] += 1
+
+    return {
+        "meta": data.get("meta", {}),
+        "categories": data.get("categories", []),
+        "tasks": tasks,
+        "counts": counts,
+        "topic_completion": topic_completion,
+    }
 
 
 @app.get("/api/user/homework")

@@ -485,6 +485,249 @@
             margin: 0 auto;
         }
 
+        /* Topic Groups Container */
+        .topic-groups-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .topic-group {
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .topic-group:hover {
+            border-color: rgba(139, 92, 246, 0.2);
+        }
+
+        .topic-group.topic-complete {
+            border-color: rgba(52, 211, 153, 0.25);
+            box-shadow: 0 0 20px rgba(52, 211, 153, 0.06);
+        }
+
+        .topic-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 20px;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(59, 130, 246, 0.05));
+            backdrop-filter: blur(8px);
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.3s ease;
+        }
+
+        .topic-header:hover {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.14), rgba(59, 130, 246, 0.09));
+        }
+
+        .topic-complete .topic-header {
+            background: linear-gradient(135deg, rgba(52, 211, 153, 0.1), rgba(16, 185, 129, 0.06));
+        }
+
+        .topic-chevron {
+            font-size: 12px;
+            color: var(--text-muted);
+            transition: transform 0.3s ease;
+            flex-shrink: 0;
+            width: 20px;
+            text-align: center;
+        }
+
+        .topic-group.collapsed .topic-chevron {
+            transform: rotate(-90deg);
+        }
+
+        .topic-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .topic-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-bright);
+            flex-grow: 1;
+            letter-spacing: -0.2px;
+        }
+
+        .topic-progress {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .topic-progress-bar {
+            width: 80px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .topic-progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            background: linear-gradient(90deg, var(--accent), #818cf8);
+            transition: width 0.5s ease;
+        }
+
+        .topic-complete .topic-progress-fill {
+            background: linear-gradient(90deg, #34d399, #10b981);
+        }
+
+        .topic-progress-text {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            min-width: 48px;
+            text-align: right;
+        }
+
+        .topic-complete-badge {
+            display: none;
+            font-size: 16px;
+            color: var(--success);
+            filter: drop-shadow(0 0 4px rgba(52, 211, 153, 0.5));
+        }
+
+        .topic-complete .topic-complete-badge {
+            display: inline;
+        }
+
+        .topic-body {
+            overflow: hidden;
+            transition: max-height 0.4s ease, opacity 0.3s ease;
+            max-height: 5000px;
+            opacity: 1;
+        }
+
+        .topic-group.collapsed .topic-body {
+            max-height: 0;
+            opacity: 0;
+        }
+
+        .topic-body-inner {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 16px 20px 20px;
+        }
+
+        /* ========== TUTORIAL VIDEO TASKS ========== */
+        .tutorial-video-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            min-width: 0;
+        }
+
+        .tutorial-video-area.hidden {
+            display: none;
+        }
+
+        .tutorial-video-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tutorial-badge {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #1a1a2e;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .tutorial-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .tutorial-video-wrap {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .tutorial-video-frame {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .tutorial-notes-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .tutorial-notes-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-bright);
+        }
+
+        .tutorial-notes {
+            width: 100%;
+            min-height: 120px;
+            padding: 12px;
+            background: var(--bg-surface);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+            line-height: 1.5;
+            resize: vertical;
+        }
+
+        .tutorial-notes:focus {
+            outline: none;
+            border-color: rgba(245, 158, 11, 0.5);
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+        }
+
+        /* Tutorial card in quest grid */
+        .quest-card.tutorial-card {
+            border-color: rgba(245, 158, 11, 0.25);
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.06), rgba(217, 119, 6, 0.03));
+        }
+
+        .quest-card.tutorial-card:hover {
+            border-color: rgba(245, 158, 11, 0.5);
+            box-shadow: 0 0 30px rgba(245, 158, 11, 0.1);
+        }
+
+        .quest-card.tutorial-card .tutorial-card-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #1a1a2e;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
         /* Quest Card */
         .quest-card {
             background: var(--bg-surface);
@@ -3896,6 +4139,25 @@
                         </div>
                     </div>
                 </aside>
+
+                <!-- Tutorial Video Area (hidden for regular tasks) -->
+                <div id="tutorial-video-area" class="tutorial-video-area hidden">
+                    <div class="tutorial-video-header">
+                        <span class="tutorial-badge">🎓 Туториал</span>
+                        <span class="tutorial-label">Посмотри видео и выполни задание</span>
+                    </div>
+                    <div class="tutorial-video-wrap">
+                        <iframe id="tutorial-video-frame" class="tutorial-video-frame"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowfullscreen></iframe>
+                    </div>
+                    <div class="tutorial-notes-wrap">
+                        <label for="tutorial-notes" class="tutorial-notes-label">📝 Твой ответ / заметки:</label>
+                        <textarea id="tutorial-notes" class="tutorial-notes" rows="6"
+                            placeholder="Напиши здесь что узнал, ответь на вопросы задания..."></textarea>
+                    </div>
+                </div>
+
                 <div class="editor-area">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                         <span style="font-size:11px; color:var(--text-secondary);">📝 Редактор кода</span>
@@ -4746,6 +5008,67 @@
 
         // ==================== TASKS ====================
         let userPriorities = { python: 25, javascript: 25, frontend: 25, scratch: 25 };
+        let topicCompletion = {};
+
+        const TOPIC_DISPLAY_NAMES = {
+            // Python
+            'variables': '🔤 Переменные',
+            'math_ops': '➕ Арифметика',
+            'functions': '⚙️ Функции',
+            'if_else': '🔀 Условия (if/else)',
+            'loops': '🔁 Циклы',
+            'strings': '📝 Строки',
+            'lists': '📋 Списки',
+            'arrays': '📋 Массивы',
+            'dicts': '📦 Словари',
+            'objects': '📦 Объекты',
+            'classes': '🏛 Классы и ООП',
+            'regex': '🔍 Регулярные выражения',
+            'algorithms': '🧠 Алгоритмы',
+            'file_io': '📂 Файлы и ввод/вывод',
+            // Frontend
+            'html_elements': '🏗 HTML-элементы',
+            'text_styling': '✏️ Текст и шрифты',
+            'colors_bg': '🎨 Цвета и фоны',
+            'layout': '📐 Layout (flex/grid)',
+            'selectors': '🎯 Селекторы',
+            'animations': '✨ Анимации',
+            'responsive': '📱 Адаптивность',
+            'forms': '📝 Формы',
+            // Scratch
+            'motion': '🏃 Движение',
+            'looks': '👀 Внешний вид',
+            'sound': '🔊 Звук',
+            'events': '🚩 События',
+            'control': '🔄 Управление',
+            'sensing': '📡 Сенсоры',
+            'operators': '➗ Операторы',
+            'my_blocks': '🧩 Мои блоки',
+        };
+
+        function getTopicDisplayName(topic) {
+            if (!topic) return '📜 Разное';
+            return TOPIC_DISPLAY_NAMES[topic] || ('📜 ' + topic.replace(/_/g, ' '));
+        }
+
+        function getTopicCollapsedState() {
+            try {
+                return JSON.parse(localStorage.getItem('pandora_topic_collapsed') || '{}');
+            } catch { return {}; }
+        }
+
+        function setTopicCollapsedState(state) {
+            try { localStorage.setItem('pandora_topic_collapsed', JSON.stringify(state)); } catch { }
+        }
+
+        function toggleTopicGroup(groupKey) {
+            const el = document.querySelector(`[data-topic-key="${CSS.escape(groupKey)}"]`);
+            if (!el) return;
+            const state = getTopicCollapsedState();
+            const isCollapsed = el.classList.toggle('collapsed');
+            state[groupKey] = isCollapsed;
+            setTopicCollapsedState(state);
+        }
 
         async function loadHomework(showPenaltyToast = false) {
             try {
@@ -4808,6 +5131,7 @@
                 }
                 const tasksData = tasksResp.data || {};
                 tasks = tasksData.tasks || [];
+                topicCompletion = tasksData.topic_completion || {};
 
                 // Load user priorities if available
                 if (prioritiesResp && prioritiesResp.res && prioritiesResp.res.ok) {
@@ -4866,15 +5190,51 @@
             return html;
         }
 
+        function renderQuestCard(task, completedIds, icons) {
+            const isCompleted = task.completed || completedIds.has(task.id);
+            const isLocked = Boolean(task.locked) && !isCompleted;
+            const isPending = Boolean(task.pending_review) && !isCompleted;
+            const isTutorial = task.task_type === 'tutorial';
+            const rawMethodsCount = Number(task.methods_count || 0);
+            const methodsCount = isCompleted ? Math.max(1, rawMethodsCount) : Math.max(0, rawMethodsCount);
+            const methodsVisual = Math.min(9, methodsCount);
+            const methodsAttr = methodsCount > 0 ? ` data-methods="${methodsVisual}" data-method-count="${methodsCount}"` : '';
+            const methodsBadge = methodsCount > 0
+                ? `<div class="quest-methods" aria-label="Способов решения: ${methodsCount}">${buildMethodBadges(methodsCount)}</div>`
+                : '';
+            const hw = homeworkByTask[task.id];
+            const isHomework = Boolean(hw);
+            const hwDeadline = hw ? `Дедлайн: ${new Date(hw.deadline_at).toLocaleString()}` : '';
+            const tutorialBadge = isTutorial ? `<div class="tutorial-card-badge">🎓 Туториал</div>` : '';
+            return `
+                <article class="quest-card ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${isPending ? 'pending' : ''} ${isHomework ? 'homework' : ''} ${isTutorial ? 'tutorial-card' : ''}" 
+                         ${methodsAttr}
+                         role="listitem" 
+                         tabindex="0"
+                         onclick="openQuest('${task.id}')"
+                         onkeydown="if(event.key==='Enter') openQuest('${task.id}')">
+                    <div class="tier-indicator tier-${task.tier}">${task.tier}-Rank</div>
+                    ${isLocked ? `<div class="quest-lock" aria-hidden="true">🔒</div>` : ``}
+                    ${isCompleted ? `<div class="quest-complete-badge" aria-label="Выполнено">✓</div>` : ``}
+                    ${tutorialBadge}
+                    <div class="quest-card-content">
+                        <div class="quest-icon">${isTutorial ? '🎓' : (icons[task.category] || '📜')}</div>
+                        <h3 class="quest-title">${task.title}</h3>
+                        <p class="quest-story">${task.story}</p>
+                        ${isHomework ? `<div class="quest-homework-note">📌 ДЗ • ${hwDeadline}</div>` : ``}
+                        <div class="quest-reward">⭐ ${task.xp} XP${isPending ? ' (на проверке)' : ''}</div>
+                    </div>
+                    ${methodsBadge}
+                </article>
+            `;
+        }
+
         function renderQuests() {
             const grid = document.getElementById('quest-grid');
             let filtered = tasks;
 
             // Priority = number of visible tasks per category
-            // Max priority category shows ALL tasks, others show N tasks (N = priority value)
             const tierOrder = { 'D': 0, 'C': 1, 'B': 2, 'A': 3, 'S': 4 };
-
-            // Find max priority value to determine which category shows all
             const maxPriority = Math.max(...Object.values(userPriorities));
 
             // Group tasks by category and limit by priority
@@ -4884,29 +5244,24 @@
                 tasksByCategory[t.category].push(t);
             });
 
-            // Build filtered list respecting priority limits
             let limitedTasks = [];
             for (const [category, categoryTasks] of Object.entries(tasksByCategory)) {
                 const priority = userPriorities[category] || 25;
-
-                // Sort category tasks by tier (easier first)
                 const sorted = [...categoryTasks].sort((a, b) =>
                     (tierOrder[a.tier] || 0) - (tierOrder[b.tier] || 0)
                 );
-
-                // If max priority - show all, otherwise limit to N tasks
                 const limit = (priority >= maxPriority) ? sorted.length : priority;
                 limitedTasks.push(...sorted.slice(0, limit));
             }
 
-            // Apply current filter (All, Python, etc.)
+            // Apply current filter
             if (currentFilter === 'homework') {
                 limitedTasks = tasks.filter(t => Boolean(homeworkByTask[t.id]));
             } else if (currentFilter !== 'all') {
                 limitedTasks = limitedTasks.filter(t => t.category === currentFilter);
             }
 
-            // Final sort: higher priority categories first, then by tier
+            // Sort: higher priority categories first, then by tier
             filtered = limitedTasks.sort((a, b) => {
                 const prioA = userPriorities[a.category] || 25;
                 const prioB = userPriorities[b.category] || 25;
@@ -4928,41 +5283,80 @@
             const completedIds = new Set(currentUser.completed_tasks || []);
             const icons = { python: '🐍', javascript: '⚡', frontend: '🎨', scratch: '🐱' };
 
-            grid.innerHTML = filtered.map(task => {
-                const isCompleted = task.completed || completedIds.has(task.id);
-                const isLocked = Boolean(task.locked) && !isCompleted;
-                const isPending = Boolean(task.pending_review) && !isCompleted;
-                const rawMethodsCount = Number(task.methods_count || 0);
-                const methodsCount = isCompleted ? Math.max(1, rawMethodsCount) : Math.max(0, rawMethodsCount);
-                const methodsVisual = Math.min(9, methodsCount);
-                const methodsAttr = methodsCount > 0 ? ` data-methods="${methodsVisual}" data-method-count="${methodsCount}"` : '';
-                const methodsBadge = methodsCount > 0
-                    ? `<div class="quest-methods" aria-label="Способов решения: ${methodsCount}">${buildMethodBadges(methodsCount)}</div>`
-                    : '';
-                const hw = homeworkByTask[task.id];
-                const isHomework = Boolean(hw);
-                const hwDeadline = hw ? `Дедлайн: ${new Date(hw.deadline_at).toLocaleString()}` : '';
-                return `
-                    <article class="quest-card ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${isPending ? 'pending' : ''} ${isHomework ? 'homework' : ''}" 
-                             ${methodsAttr}
-                             role="listitem" 
-                             tabindex="0"
-                             onclick="openQuest('${task.id}')"
-                             onkeydown="if(event.key==='Enter') openQuest('${task.id}')">
-                        <div class="tier-indicator tier-${task.tier}">${task.tier}-Rank</div>
-                        ${isLocked ? `<div class="quest-lock" aria-hidden="true">🔒</div>` : ``}
-                        ${isCompleted ? `<div class="quest-complete-badge" aria-label="Выполнено">✓</div>` : ``}
-                        <div class="quest-card-content">
-                            <div class="quest-icon">${icons[task.category] || '📜'}</div>
-                            <h3 class="quest-title">${task.title}</h3>
-                            <p class="quest-story">${task.story}</p>
-                            ${isHomework ? `<div class="quest-homework-note">📌 ДЗ • ${hwDeadline}</div>` : ``}
-                            <div class="quest-reward">⭐ ${task.xp} XP${isPending ? ' (на проверке)' : ''}</div>
+            // Check if any tasks have topic assigned
+            const hasTopic = filtered.some(t => t.topic);
+
+            // If no topics assigned yet OR homework filter → render flat (backwards-compat)
+            if (!hasTopic || currentFilter === 'homework') {
+                grid.innerHTML = filtered.map(task => renderQuestCard(task, completedIds, icons)).join('');
+                return;
+            }
+
+            // === GROUPED RENDERING BY TOPIC ===
+            const collapsedState = getTopicCollapsedState();
+
+            // Build topic groups: Map<groupKey, {topic, category, tasks[]}>
+            const topicGroups = new Map();
+            for (const task of filtered) {
+                const topic = task.topic || '';
+                const cat = task.category || '';
+                const groupKey = `${cat}:${topic}`;
+                if (!topicGroups.has(groupKey)) {
+                    topicGroups.set(groupKey, { topic, category: cat, tasks: [] });
+                }
+                topicGroups.get(groupKey).tasks.push(task);
+            }
+
+            // Sort groups: incomplete first, then by category priority, then alphabetically
+            const sortedGroups = [...topicGroups.entries()].sort((a, b) => {
+                const ga = a[1], gb = b[1];
+                // Compute completion for sorting
+                const completedA = ga.tasks.filter(t => t.completed || completedIds.has(t.id)).length;
+                const completedB = gb.tasks.filter(t => t.completed || completedIds.has(t.id)).length;
+                const allDoneA = completedA === ga.tasks.length ? 1 : 0;
+                const allDoneB = completedB === gb.tasks.length ? 1 : 0;
+                if (allDoneA !== allDoneB) return allDoneA - allDoneB; // incomplete first
+                const prioA = userPriorities[ga.category] || 25;
+                const prioB = userPriorities[gb.category] || 25;
+                if (prioB !== prioA) return prioB - prioA;
+                return (ga.topic || 'zzz').localeCompare(gb.topic || 'zzz');
+            });
+
+            // Render grouped HTML
+            let html = '<div class="topic-groups-container">';
+            for (const [groupKey, group] of sortedGroups) {
+                const completedCount = group.tasks.filter(t => t.completed || completedIds.has(t.id)).length;
+                const totalCount = group.tasks.length;
+                const allDone = completedCount === totalCount;
+                const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+                const isCollapsed = allDone ? (collapsedState[groupKey] !== false) : Boolean(collapsedState[groupKey]);
+                const displayName = getTopicDisplayName(group.topic);
+                const showCategory = currentFilter === 'all';
+                const catLabel = showCategory ? `<span style="opacity:0.5;font-size:12px;margin-left:4px">${icons[group.category] || ''}</span>` : '';
+
+                html += `
+                <div class="topic-group ${allDone ? 'topic-complete' : ''} ${isCollapsed ? 'collapsed' : ''}" data-topic-key="${groupKey}">
+                    <div class="topic-header" onclick="toggleTopicGroup('${groupKey.replace(/'/g, "\\'")}')">
+                        <span class="topic-chevron">▼</span>
+                        <span class="topic-icon">${displayName.split(' ')[0]}</span>
+                        <span class="topic-name">${displayName.slice(displayName.indexOf(' ') + 1)}${catLabel}</span>
+                        <span class="topic-complete-badge">✓</span>
+                        <div class="topic-progress">
+                            <div class="topic-progress-bar">
+                                <div class="topic-progress-fill" style="width:${pct}%"></div>
+                            </div>
+                            <span class="topic-progress-text">${completedCount}/${totalCount}</span>
                         </div>
-                        ${methodsBadge}
-                    </article>
-                `;
-            }).join('');
+                    </div>
+                    <div class="topic-body">
+                        <div class="topic-body-inner">
+                            ${group.tasks.map(task => renderQuestCard(task, completedIds, icons)).join('')}
+                        </div>
+                    </div>
+                </div>`;
+            }
+            html += '</div>';
+            grid.innerHTML = html;
         }
 
         // ==================== QUEST MODAL ====================
@@ -5158,6 +5552,21 @@
             hintBtn.setAttribute('aria-expanded', frontendHintsExpanded ? 'true' : 'false');
         }
 
+        function youtubeEmbedUrl(url) {
+            if (!url) return '';
+            let videoId = '';
+            try {
+                const u = new URL(url);
+                if (u.hostname.includes('youtube.com')) {
+                    videoId = u.searchParams.get('v') || '';
+                } else if (u.hostname === 'youtu.be') {
+                    videoId = u.pathname.slice(1);
+                }
+            } catch { videoId = ''; }
+            if (!videoId) return url;
+            return `https://www.youtube.com/embed/${videoId}`;
+        }
+
         function openQuest(taskId) {
             currentTask = tasks.find(t => t.id === taskId);
             if (!currentTask) return;
@@ -5172,16 +5581,37 @@
             const runBtn = document.getElementById('run-btn');
             const previewWrap = document.getElementById('frontend-preview-wrap');
             const previewFrame = document.getElementById('frontend-preview-frame');
+            const tutorialArea = document.getElementById('tutorial-video-area');
+            const tutorialFrame = document.getElementById('tutorial-video-frame');
+            const tutorialNotes = document.getElementById('tutorial-notes');
+            const editorArea = editor ? editor.closest('.editor-area') : null;
 
-            if (currentTask.category === 'scratch') {
+            const isTutorial = currentTask.task_type === 'tutorial';
+
+            if (isTutorial) {
+                // Tutorial mode: show video + notes, hide code editor
+                if (editorArea) editorArea.classList.add('hidden');
+                if (tutorialArea) {
+                    tutorialArea.classList.remove('hidden');
+                    const embedUrl = youtubeEmbedUrl(currentTask.video_url || '');
+                    if (tutorialFrame) tutorialFrame.src = embedUrl;
+                    if (tutorialNotes) tutorialNotes.value = '';
+                }
+                scratchContainer.classList.add('hidden');
+                previewWrap.classList.add('hidden');
+            } else if (currentTask.category === 'scratch') {
+                if (tutorialArea) tutorialArea.classList.add('hidden');
+                if (editorArea) editorArea.classList.remove('hidden');
                 editor.classList.add('hidden');
                 editor.classList.remove('frontend-mode');
                 scratchContainer.classList.remove('hidden');
-                scratchContainer.style.display = ''; // Clear inline if any
+                scratchContainer.style.display = '';
                 previewWrap.classList.add('hidden');
-                scratchInput.value = ''; // Reset file input
+                scratchInput.value = '';
                 handleScratchFileSelected(scratchInput);
             } else {
+                if (tutorialArea) tutorialArea.classList.add('hidden');
+                if (editorArea) editorArea.classList.remove('hidden');
                 editor.classList.remove('hidden');
                 scratchContainer.classList.add('hidden');
                 editor.value = currentTask.initial_code || '';
@@ -5197,7 +5627,16 @@
             }
 
             editor.disabled = Boolean(currentTask.locked);
-            if (runBtn) runBtn.disabled = Boolean(currentTask.locked);
+            if (runBtn) {
+                runBtn.disabled = Boolean(currentTask.locked);
+                if (isTutorial && !currentTask.locked) {
+                    runBtn.disabled = false;
+                    runBtn.onclick = submitTutorialNotes;
+                    runBtn.textContent = '📨 Отправить на проверку';
+                } else {
+                    runBtn.onclick = null;
+                }
+            }
             if (previewWrap) {
                 previewWrap.style.opacity = currentTask.locked ? '0.6' : '1';
                 previewWrap.style.pointerEvents = currentTask.locked ? 'none' : '';
@@ -5205,10 +5644,43 @@
 
             document.getElementById('output-console').innerText = currentTask.locked
                 ? ('🔒 Этот квест пока закрыт.\n\n' + formatUnlockInfo(currentTask.unlock))
-                : 'Готово к проверке...';
+                : isTutorial ? '🎓 Посмотри видео, выполни задание и нажми «Отправить»'
+                    : 'Готово к проверке...';
             document.getElementById('quest-modal').classList.add('active');
-            if (currentTask.category !== 'scratch') editor.focus();
+            if (!isTutorial && currentTask.category !== 'scratch') editor.focus();
             setPageContext('tasks');
+        }
+
+        async function submitTutorialNotes() {
+            if (!currentTask) return;
+            const notes = (document.getElementById('tutorial-notes')?.value || '').trim();
+            if (!notes || notes.length < 10) {
+                alert('Напиши хотя бы 10 символов ответа.');
+                return;
+            }
+            const consoleEl = document.getElementById('output-console');
+            consoleEl.innerText = 'Отправка...';
+            try {
+                const resp = await fetchJsonWithTimeout(`${API_URL}/api/tasks/attempt`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ task_id: currentTask.id, code: notes })
+                });
+                const data = resp.data || {};
+                if (data.status === 'pending_review') {
+                    consoleEl.innerText = '✅ Отправлено на проверку! Мастер скоро проверит.';
+                } else if (data.status === 'completed') {
+                    consoleEl.innerText = '✅ Задание завершено! +' + (data.xp_earned || 0) + ' XP';
+                    syncDashboardData({ forceRoadmap: true });
+                } else {
+                    consoleEl.innerText = data.message || data.status || 'Отправлено';
+                }
+            } catch (e) {
+                consoleEl.innerText = 'Ошибка: ' + (e.message || e);
+            }
         }
 
         function closeModal() {

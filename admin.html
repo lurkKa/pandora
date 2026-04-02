@@ -2281,6 +2281,7 @@
                 sub.status === 'approved' ? 'badge-approved' : 'badge-rejected';
             const examMeta = getExamSubmissionMeta(sub);
             const task = reviewTasksMap[sub.task_id] || {};
+            const isTutorial = task.task_type === 'tutorial';
             const taskName = task.title || examMeta?.task_title || sub.task_id;
             const maxXP = Number(task.xp || examMeta?.task_xp || 0);
             const dupeCount = Number(sub.pending_duplicates || 0);
@@ -2291,6 +2292,12 @@
             const examBadge = examMeta
                 ? `<span style="font-size:10px; color:#80b7ff; margin-left:6px;">EXAM</span>`
                 : '';
+            const tutorialBadge = isTutorial
+                ? `<span style="font-size:10px; color:#f59e0b; margin-left:6px;">🎓 TUTORIAL</span>`
+                : '';
+            const videoLink = isTutorial && task.video_url
+                ? `<a href="${task.video_url}" target="_blank" style="color:#f59e0b; margin-left:4px;" title="Открыть видео">🎥</a>`
+                : '';
             const dupeInfo = dupeCount > 0
                 ? `<div style="font-size:11px; color: var(--warning); margin-top: 2px;">+${dupeCount} дубль(ей) скрыт</div>`
                 : '';
@@ -2300,7 +2307,7 @@
 
             tr.innerHTML = `
                 <td>${sub.display_name}</td>
-                <td title="${sub.task_id}">${taskName}${examBadge}${dupeInfo}</td>
+                <td title="${sub.task_id}">${taskName}${examBadge}${tutorialBadge}${videoLink}${dupeInfo}</td>
                 <td>
                     ${sub.link ? `<a href="${sub.link.startsWith('http') ? sub.link : API_URL + sub.link}" target="_blank" style="color: var(--accent-light);">🔗</a>` : '-'}
                     ${downloadLink}
@@ -3708,6 +3715,10 @@
                 examMeta?.tier ? `Tier: ${examMeta.tier}` : '',
                 examMeta?.description || '',
                 examMeta?.story ? `Сюжет: ${examMeta.story}` : '',
+                task.task_type === 'tutorial' ? '🎓 Туториальное задание (видео + заметки)' : '',
+                task.task_type === 'tutorial' && task.video_url
+                    ? `\n🎥 Видео: ${task.video_url}`
+                    : '',
                 task.description || '',
                 task.story ? `Сюжет: ${task.story}` : '',
                 Array.isArray(task.prerequisites) && task.prerequisites.length > 0
