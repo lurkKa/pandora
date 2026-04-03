@@ -1266,10 +1266,11 @@
 
                 <div class="card" id="priorities-card" style="display: none;">
                     <div class="card-header">
-                        <h3>Распределение приоритетов (%)</h3>
+                        <h3>Распределение приоритетов</h3>
                     </div>
                     <div style="padding: 24px;">
-                        <p style="color: var(--text-secondary); margin-bottom: 16px;">Сумма должна равняться 100%</p>
+                        <p style="color: var(--text-secondary); margin-bottom: 16px;">Каждая категория: 0–100. Категории
+                            с максимальным значением показывают все задания, остальные — пропорционально меньше.</p>
                         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
                             <div class="form-group">
                                 <label>🐱 Scratch</label>
@@ -1290,7 +1291,7 @@
                         </div>
                         <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center;">
                             <button class="btn btn-primary" onclick="savePriorities()">Сохранить</button>
-                            <span id="priority-total" style="color: var(--text-secondary);">Сумма: 100%</span>
+                            <span id="priority-total" style="color: var(--text-secondary);"></span>
                         </div>
                     </div>
                 </div>
@@ -3606,10 +3607,10 @@
             const f = parseInt(document.getElementById('priority-frontend').value) || 0;
             const j = parseInt(document.getElementById('priority-javascript').value) || 0;
             const p = parseInt(document.getElementById('priority-python').value) || 0;
-            const total = s + f + j + p;
+            const max = Math.max(s, f, j, p);
             const el = document.getElementById('priority-total');
-            el.innerText = `Сумма: ${total}%`;
-            el.style.color = total === 100 ? 'var(--success)' : 'var(--danger)';
+            el.innerText = `Макс: ${max} · 🐱${s} 🎨${f} ⚡${j} 🐍${p}`;
+            el.style.color = max > 0 ? 'var(--success)' : 'var(--danger)';
         }
 
         // Add event listeners for priority inputs
@@ -3628,9 +3629,9 @@
                 python_priority: parseInt(document.getElementById('priority-python').value) || 0
             };
 
-            const total = data.scratch_priority + data.frontend_priority + data.javascript_priority + data.python_priority;
-            if (total !== 100) {
-                alert('Сумма приоритетов должна быть 100%!');
+            const max = Math.max(data.scratch_priority, data.frontend_priority, data.javascript_priority, data.python_priority);
+            if (max <= 0) {
+                alert('Хотя бы одна категория должна быть > 0!');
                 return;
             }
 
