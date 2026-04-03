@@ -5544,7 +5544,8 @@
                     runBtn.onclick = submitTutorialNotes;
                     runBtn.textContent = '📨 Отправить на проверку';
                 } else {
-                    runBtn.onclick = null;
+                    runBtn.onclick = runCode;
+                    runBtn.textContent = '▶ Run Code';
                 }
             }
             if (previewWrap) {
