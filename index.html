@@ -614,7 +614,8 @@
         .tutorial-notes-wrap {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 8px;
+            margin-top: 4px;
         }
 
         .tutorial-notes-label {
@@ -625,16 +626,18 @@
 
         .tutorial-notes {
             width: 100%;
-            min-height: 120px;
-            padding: 12px;
+            min-height: 200px;
+            max-height: 400px;
+            padding: 14px 16px;
             background: var(--bg-surface);
-            border: 1px solid rgba(245, 158, 11, 0.2);
+            border: 1px solid rgba(245, 158, 11, 0.25);
             border-radius: var(--radius-sm);
             color: var(--text-primary);
             font-family: inherit;
-            font-size: 14px;
-            line-height: 1.5;
+            font-size: 15px;
+            line-height: 1.6;
             resize: vertical;
+            box-sizing: border-box;
         }
 
         .tutorial-notes:focus {

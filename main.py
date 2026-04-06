@@ -5944,6 +5944,13 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
     # and every case passed. Prevents false-positive passes from malformed payloads.
     logic = task.get("check_logic") or {}
     engine = (logic.get("engine") or "").lower()
+
+    # Manual-engine tasks (tutorials) should always go to pending review, not fail
+    if engine in ("manual", ""):
+        force_pending_review = True
+        passed = True
+        manual_review_required = True
+
     verification_cases = verification.get("cases") if isinstance(verification, dict) else []
     visible_cases = logic.get("cases") if isinstance(logic.get("cases"), list) else []
     hidden_cases = logic.get("hidden_cases") if isinstance(logic.get("hidden_cases"), list) else []
