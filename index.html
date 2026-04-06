@@ -565,6 +565,8 @@
             flex-direction: column;
             gap: 16px;
             min-width: 0;
+            overflow-y: auto;
+            padding: 20px;
         }
 
         .tutorial-video-area.hidden {
@@ -626,18 +628,19 @@
 
         .tutorial-notes {
             width: 100%;
-            min-height: 200px;
-            max-height: 400px;
-            padding: 14px 16px;
+            min-height: 240px;
+            max-height: none;
+            padding: 16px 18px;
             background: var(--bg-surface);
             border: 1px solid rgba(245, 158, 11, 0.25);
             border-radius: var(--radius-sm);
             color: var(--text-primary);
             font-family: inherit;
             font-size: 15px;
-            line-height: 1.6;
+            line-height: 1.7;
             resize: vertical;
             box-sizing: border-box;
+            overflow-y: auto;
         }
 
         .tutorial-notes:focus {
@@ -5573,7 +5576,9 @@
                 return;
             }
             const consoleEl = document.getElementById('output-console');
+            const runBtn = document.getElementById('run-btn');
             consoleEl.innerText = 'Отправка...';
+            if (runBtn) runBtn.disabled = true;
             try {
                 const resp = await fetchJsonWithTimeout(`${API_URL}/api/tasks/attempt`, {
                     method: 'POST',
@@ -5584,16 +5589,36 @@
                     body: JSON.stringify({ task_id: currentTask.id, code: notes })
                 });
                 const data = resp.data || {};
+                if (!resp.res.ok) {
+                    if (data.detail && data.detail.status === 'locked') {
+                        consoleEl.innerText = '🔒 Этот квест пока закрыт.\n\n' + formatUnlockInfo(data.detail.unlock);
+                    } else {
+                        const detail = data.detail;
+                        consoleEl.innerText = '❌ Ошибка: ' + (typeof detail === 'string' ? detail : safeJson(detail || data));
+                    }
+                    return;
+                }
                 if (data.status === 'pending_review') {
-                    consoleEl.innerText = '✅ Отправлено на проверку! Мастер скоро проверит.';
+                    if (data.message === 'Submission already pending review') {
+                        consoleEl.innerText = '⏳ Ответ уже отправлен и ждёт проверки мастера.';
+                    } else {
+                        consoleEl.innerText = '✅ Отправлено на проверку! Мастер скоро проверит.';
+                    }
+                    syncDashboardData({ forceRoadmap: true });
                 } else if (data.status === 'completed') {
                     consoleEl.innerText = '✅ Задание завершено! +' + (data.xp_earned || 0) + ' XP';
                     syncDashboardData({ forceRoadmap: true });
+                } else if (data.status === 'already_completed') {
+                    consoleEl.innerText = '✅ Это задание уже выполнено.';
+                } else if (data.status === 'failed') {
+                    consoleEl.innerText = '❌ ' + (data.verification?.exec_error?.message || 'Не удалось отправить.');
                 } else {
                     consoleEl.innerText = data.message || data.status || 'Отправлено';
                 }
             } catch (e) {
                 consoleEl.innerText = 'Ошибка: ' + (e.message || e);
+            } finally {
+                if (runBtn) runBtn.disabled = Boolean(currentTask && currentTask.locked);
             }
         }
 
