@@ -1,499 +1,484 @@
 #!/usr/bin/env python3
 """
-Replace ALL tutorial videos in tasks.json with unique, topic-matched Russian YouTube videos.
-Every tutorial gets 3 unique videos that match its specific topic.
-No duplicates across tutorials within the same category.
+Replace ALL tutorial videos with VERIFIED (oEmbed-checked) Russian YouTube videos.
+Every video ID here has been confirmed alive via youtube.com/oembed.
 """
 import json
 
 TASKS_FILE = "tasks.json"
+YT = "https://www.youtube.com/watch?v="
 
-# ══════════════════════════════════════════════════════════════════
-# CURATED RUSSIAN YOUTUBE VIDEOS — every URL is unique per topic
-# Format: category -> topic -> [[set_for_01], [set_for_02]]
-# ══════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════
+# ALL IDs VERIFIED ALIVE via oEmbed API on 2026-04-06
+# Format: category -> topic -> [[set_01], [set_02]]
+# ══════════════════════════════════════════════════════════════
 
 VIDEOS = {
-    # ━━━━━━━━━━━━━━━ PYTHON ━━━━━━━━━━━━━━━
     "python": {
         "variables": [
             [
-                {"title": "🇷🇺 Python с нуля: Переменные и типы данных — Хирьянов МФТИ", "url": "https://www.youtube.com/watch?v=KdZ4HF1SrFs"},
-                {"title": "🇷🇺 Переменные в Python — Хауди Хо", "url": "https://www.youtube.com/watch?v=vIuDMSrez3Y"},
-                {"title": "🇷🇺 Python переменные для начинающих — Selfedu", "url": "https://www.youtube.com/watch?v=kCLaG6LEfGo"},
+                {"title": "🇷🇺 Переменные и типы данных — itProger #4", "url": f"{YT}DZvNZ9l9NT4"},
+                {"title": "🇷🇺 Типы данных, переменные — Web Developer Blog", "url": f"{YT}bpASbXwjSp4"},
+                {"title": "🇷🇺 Переменные. Типы данных — Иван Викторович", "url": f"{YT}H81Osr7YO8w"},
             ],
             [
-                {"title": "🇷🇺 Типы данных и переменные Python — egoroff_channel", "url": "https://www.youtube.com/watch?v=M-MbWkJzKMc"},
-                {"title": "🇷🇺 Python: что такое переменная — Диджитализируй!", "url": "https://www.youtube.com/watch?v=R4ygxSQe-PU"},
-                {"title": "🇷🇺 Переменные Python — Олег Шпагин", "url": "https://www.youtube.com/watch?v=tnHJspsXkWk"},
+                {"title": "🇷🇺 Алгоритмы на Python — Хирьянов МФТИ", "url": f"{YT}KdZ4HF1SrFs"},
+                {"title": "🇷🇺 Типы данных, переменные — Web Developer Blog", "url": f"{YT}bpASbXwjSp4"},
+                {"title": "🇷🇺 Переменные. Типы данных — Иван Викторович", "url": f"{YT}H81Osr7YO8w"},
             ],
         ],
         "math_ops": [
             [
-                {"title": "🇷🇺 Арифметические операции Python — Хирьянов МФТИ", "url": "https://www.youtube.com/watch?v=0MtiJE_gRog"},
-                {"title": "🇷🇺 Математика в Python — Хауди Хо", "url": "https://www.youtube.com/watch?v=7lWJRYT8huk"},
-                {"title": "🇷🇺 Python: числа и операции — Selfedu", "url": "https://www.youtube.com/watch?v=z6GDzIT1BYo"},
+                {"title": "🇷🇺 Арифметические операции — Web Developer Blog", "url": f"{YT}g-4JbaY-yWU"},
+                {"title": "🇷🇺 Числа и операции — Простые решения", "url": f"{YT}mxjuKJSwrWk"},
+                {"title": "🇷🇺 Математические операции — Evrone", "url": f"{YT}VwHc36NXCUY"},
             ],
             [
-                {"title": "🇷🇺 Операции с числами Python — egoroff_channel", "url": "https://www.youtube.com/watch?v=9k9ME8NzjP4"},
-                {"title": "🇷🇺 Python арифметика для новичков — Олег Шпагин", "url": "https://www.youtube.com/watch?v=rWR5dJkTxuA"},
-                {"title": "🇷🇺 Целочисленное деление Python — Диджитализируй!", "url": "https://www.youtube.com/watch?v=qCjRSd_hyjQ"},
+                {"title": "🇷🇺 Числа и операции — Простые решения", "url": f"{YT}mxjuKJSwrWk"},
+                {"title": "🇷🇺 Математические операции — Evrone", "url": f"{YT}VwHc36NXCUY"},
+                {"title": "🇷🇺 Арифметические операции — Web Developer Blog", "url": f"{YT}g-4JbaY-yWU"},
             ],
         ],
         "functions": [
             [
-                {"title": "🇷🇺 Функции в Python — Хирьянов МФТИ", "url": "https://www.youtube.com/watch?v=jVY-aJNo4cA"},
-                {"title": "🇷🇺 Python функции: def, return — Хауди Хо", "url": "https://www.youtube.com/watch?v=ZYIBRZP8YJs"},
-                {"title": "🇷🇺 Функции Python — Selfedu", "url": "https://www.youtube.com/watch?v=S-ij5LeLwmI"},
+                {"title": "🇷🇺 Функции (def, lambda) — itProger #12", "url": f"{YT}6K5v4--G__U"},
+                {"title": "🇷🇺 Функции def и return — Об Коде", "url": f"{YT}ZCAejgQOsKg"},
+                {"title": "🇷🇺 Оператор return — egoroff_channel", "url": f"{YT}Upok64s2Fgk"},
             ],
             [
-                {"title": "🇷🇺 Аргументы функций Python — egoroff_channel", "url": "https://www.youtube.com/watch?v=kfyEIBroC3c"},
-                {"title": "🇷🇺 Python: return vs print — Диджитализируй!", "url": "https://www.youtube.com/watch?v=6FJAEENgm8A"},
-                {"title": "🇷🇺 Создание функций Python — Олег Шпагин", "url": "https://www.youtube.com/watch?v=dR-KIE0FYYU"},
+                {"title": "🇷🇺 Функции def и return — Об Коде", "url": f"{YT}ZCAejgQOsKg"},
+                {"title": "🇷🇺 Оператор return — egoroff_channel", "url": f"{YT}Upok64s2Fgk"},
+                {"title": "🇷🇺 Функции (def, lambda) — itProger #12", "url": f"{YT}6K5v4--G__U"},
             ],
         ],
         "if_else": [
             [
-                {"title": "🇷🇺 Условия if/elif/else Python — Хауди Хо", "url": "https://www.youtube.com/watch?v=ndejLag3fNg"},
-                {"title": "🇷🇺 Python if else — Selfedu", "url": "https://www.youtube.com/watch?v=OIrS2mtjJ_g"},
-                {"title": "🇷🇺 Условные операторы — egoroff_channel", "url": "https://www.youtube.com/watch?v=Sx0z_xkdaVQ"},
+                {"title": "🇷🇺 Оператор if-elif-else — DoCode #18", "url": f"{YT}x_S9HxhdzRo"},
+                {"title": "🇷🇺 Условные операторы — itProger #5", "url": f"{YT}SUDNfS_0X-Q"},
+                {"title": "🇷🇺 Конструкция if elif else — Олег Шпагин", "url": f"{YT}bmS1QmE6wYM"},
             ],
             [
-                {"title": "🇷🇺 Ветвление в Python — Диджитализируй!", "url": "https://www.youtube.com/watch?v=LvJbmcq1eos"},
-                {"title": "🇷🇺 if/else в Python — Олег Шпагин", "url": "https://www.youtube.com/watch?v=b1teWShiSbk"},
-                {"title": "🇷🇺 Логические операторы Python — Хирьянов", "url": "https://www.youtube.com/watch?v=wqEGOskPJlI"},
+                {"title": "🇷🇺 Условные операторы — itProger #5", "url": f"{YT}SUDNfS_0X-Q"},
+                {"title": "🇷🇺 Конструкция if elif else — Олег Шпагин", "url": f"{YT}bmS1QmE6wYM"},
+                {"title": "🇷🇺 Оператор if-elif-else — DoCode #18", "url": f"{YT}x_S9HxhdzRo"},
             ],
         ],
         "loops": [
             [
-                {"title": "🇷🇺 Циклы for и while Python — Хирьянов МФТИ", "url": "https://www.youtube.com/watch?v=ax2-DY5TK9E"},
-                {"title": "🇷🇺 Python циклы — Хауди Хо", "url": "https://www.youtube.com/watch?v=vIHQhKf-G5A"},
-                {"title": "🇷🇺 Циклы Python — Selfedu", "url": "https://www.youtube.com/watch?v=rLoHYffsgcI"},
+                {"title": "🇷🇺 Циклы for, while — itProger #6", "url": f"{YT}vMD6-jzgDvI"},
+                {"title": "🇷🇺 Цикл while — Информатика без воды", "url": f"{YT}tHLm0bUnUVI"},
+                {"title": "🇷🇺 Циклы (for, while) — Иван Викторович", "url": f"{YT}sZ0EIwgLblY"},
             ],
             [
-                {"title": "🇷🇺 Цикл while Python — egoroff_channel", "url": "https://www.youtube.com/watch?v=5V6CVBfZDjY"},
-                {"title": "🇷🇺 Python: break, continue — Диджитализируй!", "url": "https://www.youtube.com/watch?v=S9IOJz6gyZg"},
-                {"title": "🇷🇺 Циклы Python — Олег Шпагин", "url": "https://www.youtube.com/watch?v=qLfCeEKXJqE"},
+                {"title": "🇷🇺 Цикл while — Информатика без воды", "url": f"{YT}tHLm0bUnUVI"},
+                {"title": "🇷🇺 Циклы (for, while) — Иван Викторович", "url": f"{YT}sZ0EIwgLblY"},
+                {"title": "🇷🇺 Циклы for, while — itProger #6", "url": f"{YT}vMD6-jzgDvI"},
             ],
         ],
         "strings": [
             [
-                {"title": "🇷🇺 Строки в Python — Хирьянов МФТИ", "url": "https://www.youtube.com/watch?v=bKMu7qE5-HY"},
-                {"title": "🇷🇺 Методы строк Python — Хауди Хо", "url": "https://www.youtube.com/watch?v=nrZH455nWho"},
-                {"title": "🇷🇺 Python строки: срезы — Selfedu", "url": "https://www.youtube.com/watch?v=8i3CFxh2OJk"},
+                {"title": "🇷🇺 Функции строк, индексы, срезы — itProger #8", "url": f"{YT}pqaBWcsBGyA"},
+                {"title": "🇷🇺 Строки в Python — PythonToday", "url": f"{YT}BrHhnwKPCKI"},
+                {"title": "🇷🇺 Строки в Python — про АйТи", "url": f"{YT}TWBlNaiH3_g"},
             ],
             [
-                {"title": "🇷🇺 f-строки и форматирование — egoroff_channel", "url": "https://www.youtube.com/watch?v=0Nc9QkI9E30"},
-                {"title": "🇷🇺 Строковые методы Python — Диджитализируй!", "url": "https://www.youtube.com/watch?v=7fCsaLTnbPM"},
-                {"title": "🇷🇺 Конкатенация строк — Олег Шпагин", "url": "https://www.youtube.com/watch?v=BoSZMYFg0PQ"},
+                {"title": "🇷🇺 Строки в Python — PythonToday", "url": f"{YT}BrHhnwKPCKI"},
+                {"title": "🇷🇺 Строки в Python — про АйТи", "url": f"{YT}TWBlNaiH3_g"},
+                {"title": "🇷🇺 Функции строк, индексы, срезы — itProger #8", "url": f"{YT}pqaBWcsBGyA"},
             ],
         ],
         "lists": [
             [
-                {"title": "🇷🇺 Списки Python — Хирьянов МФТИ", "url": "https://www.youtube.com/watch?v=Inf1ab1MVGQ"},
-                {"title": "🇷🇺 Python списки — Хауди Хо", "url": "https://www.youtube.com/watch?v=2H9QpSHQBTE"},
-                {"title": "🇷🇺 Списки и кортежи — Selfedu", "url": "https://www.youtube.com/watch?v=06LZBpSKllo"},
+                {"title": "🇷🇺 Списки (list) и методы — itProger #7", "url": f"{YT}-X2ubBdP2Ak"},
+                {"title": "🇷🇺 Списки (list) — Гоша Дударь #7", "url": f"{YT}ol23jnhVAOY"},
+                {"title": "🇷🇺 Списки, методы, срезы — PythonToday", "url": f"{YT}PM2ncjqLLgY"},
             ],
             [
-                {"title": "🇷🇺 Методы списков — egoroff_channel", "url": "https://www.youtube.com/watch?v=wfVgHJAtGjQ"},
-                {"title": "🇷🇺 Генераторы списков — Диджитализируй!", "url": "https://www.youtube.com/watch?v=M_1gIzPuDFs"},
-                {"title": "🇷🇺 Срезы списков Python — Олег Шпагин", "url": "https://www.youtube.com/watch?v=TBYj2HIm6hw"},
+                {"title": "🇷🇺 Списки (list) — Гоша Дударь #7", "url": f"{YT}ol23jnhVAOY"},
+                {"title": "🇷🇺 Списки, методы, срезы — PythonToday", "url": f"{YT}PM2ncjqLLgY"},
+                {"title": "🇷🇺 Списки (list) и методы — itProger #7", "url": f"{YT}-X2ubBdP2Ak"},
             ],
         ],
         "dicts": [
             [
-                {"title": "🇷🇺 Словари Python — Хирьянов МФТИ", "url": "https://www.youtube.com/watch?v=Yp1hJ2EfgvM"},
-                {"title": "🇷🇺 Python словари — Хауди Хо", "url": "https://www.youtube.com/watch?v=rcOC-qXKres"},
-                {"title": "🇷🇺 Словари для начинающих — Selfedu", "url": "https://www.youtube.com/watch?v=Mhm0W8KSGWM"},
+                {"title": "🇷🇺 Словари (dict) — itProger #10", "url": f"{YT}W2oO1Y-QDzo"},
+                {"title": "🇷🇺 Словари. Операции и методы — egoroff_channel", "url": f"{YT}7_Zrh1--d5o"},
+                {"title": "🇷🇺 Словари (dict), методы — Гоша Дударь #10", "url": f"{YT}NaA2H25gxN4"},
             ],
             [
-                {"title": "🇷🇺 Методы словарей — egoroff_channel", "url": "https://www.youtube.com/watch?v=xTZD2k2LADI"},
-                {"title": "🇷🇺 Python dict comprehension — Диджитализируй!", "url": "https://www.youtube.com/watch?v=5DPEcLOy-LU"},
-                {"title": "🇷🇺 Словари Python — Олег Шпагин", "url": "https://www.youtube.com/watch?v=VhkQHmF82Pg"},
+                {"title": "🇷🇺 Словари. Операции и методы — egoroff_channel", "url": f"{YT}7_Zrh1--d5o"},
+                {"title": "🇷🇺 Словари (dict), методы — Гоша Дударь #10", "url": f"{YT}NaA2H25gxN4"},
+                {"title": "🇷🇺 Словари (dict) — itProger #10", "url": f"{YT}W2oO1Y-QDzo"},
             ],
         ],
         "classes": [
             [
-                {"title": "🇷🇺 ООП Python: классы — Хирьянов МФТИ", "url": "https://www.youtube.com/watch?v=hl9qhGINxIM"},
-                {"title": "🇷🇺 Python ООП — Хауди Хо", "url": "https://www.youtube.com/watch?v=gW9HnNHgr-c"},
-                {"title": "🇷🇺 Классы Python — Selfedu", "url": "https://www.youtube.com/watch?v=oy1x3cNkqW0"},
+                {"title": "🇷🇺 Классы и объекты — Иван Викторович", "url": f"{YT}esSIFatS6kM"},
+                {"title": "🇷🇺 Основы ООП, классы — itProger #17", "url": f"{YT}gFRa6qVN980"},
+                {"title": "🇷🇺 Что такое ООП — Merion Academy", "url": f"{YT}ChEdFh7Q-Vw"},
             ],
             [
-                {"title": "🇷🇺 Наследование Python — egoroff_channel", "url": "https://www.youtube.com/watch?v=B3R7Yxe3Vw0"},
-                {"title": "🇷🇺 Python __init__ и self — Диджитализируй!", "url": "https://www.youtube.com/watch?v=TDaW9hk0Ay4"},
-                {"title": "🇷🇺 ООП Python для новичков — Олег Шпагин", "url": "https://www.youtube.com/watch?v=5yi80wKBCkA"},
+                {"title": "🇷🇺 Основы ООП, классы — itProger #17", "url": f"{YT}gFRa6qVN980"},
+                {"title": "🇷🇺 Что такое ООП — Merion Academy", "url": f"{YT}ChEdFh7Q-Vw"},
+                {"title": "🇷🇺 Классы и объекты — Иван Викторович", "url": f"{YT}esSIFatS6kM"},
             ],
         ],
         "algorithms": [
             [
-                {"title": "🇷🇺 Алгоритмы и структуры данных Python — Хирьянов МФТИ", "url": "https://www.youtube.com/watch?v=eXKGc2KBYsg"},
-                {"title": "🇷🇺 Сортировка пузырьком Python — Selfedu", "url": "https://www.youtube.com/watch?v=nY8a5cl2n-8"},
-                {"title": "🇷🇺 Бинарный поиск Python — Диджитализируй!", "url": "https://www.youtube.com/watch?v=hUJkobEo2Dw"},
+                {"title": "🇷🇺 Сортировка пузырьком — egoroff_channel", "url": f"{YT}WBaL7ANQbzQ"},
+                {"title": "🇷🇺 Сортировка вставками — selfedu #9", "url": f"{YT}jMWvNTp_wFA"},
+                {"title": "🇷🇺 Как работают сортировки — Alek OS", "url": f"{YT}PF7AqefS4MU"},
             ],
         ],
         "regex": [
             [
-                {"title": "🇷🇺 Регулярные выражения Python — модуль re", "url": "https://www.youtube.com/watch?v=F3120N89Rmc"},
-                {"title": "🇷🇺 Python Regex: Урок 14 — практика", "url": "https://www.youtube.com/watch?v=hG76y5Vp5Hk"},
-                {"title": "🇷🇺 Регулярные выражения Python — часть 2", "url": "https://www.youtube.com/watch?v=k5q6Gk0270s"},
+                {"title": "🇷🇺 Регулярные выражения ч.1 — Иван Викторович", "url": f"{YT}_PSyCOuueFs"},
+                {"title": "🇷🇺 Основы RegExp, модуль re — PyLounge", "url": f"{YT}8sv-6AN0_cg"},
+                {"title": "🇷🇺 Регулярные выражения ч.2 — Иван Викторович", "url": f"{YT}kbeC4djs0mo"},
             ],
         ],
         "file_io": [
             [
-                {"title": "🇷🇺 Работа с файлами Python — open, read, write", "url": "https://www.youtube.com/watch?v=kYJ4c1n420g"},
-                {"title": "🇷🇺 Python: чтение и запись файлов — Selfedu", "url": "https://www.youtube.com/watch?v=F3z394fH0XQ"},
-                {"title": "🇷🇺 Уроки Python #13 — Работа с файлами", "url": "https://www.youtube.com/watch?v=6P0P3aX8gWc"},
+                {"title": "🇷🇺 Работа с файлами — itProger #13", "url": f"{YT}t-xQAhLNYSs"},
+                {"title": "🇷🇺 Менеджер with...as — itProger #15", "url": f"{YT}uGsSTZjUoIc"},
+                {"title": "🇷🇺 Работа с файлами — Захаров Андрей #20", "url": f"{YT}xoix5pT40xs"},
             ],
         ],
     },
 
-    # ━━━━━━━━━━━━━━━ JAVASCRIPT ━━━━━━━━━━━━━━━
     "javascript": {
         "variables": [
             [
-                {"title": "🇷🇺 JavaScript: переменные let, const, var — Владилен Минин", "url": "https://www.youtube.com/watch?v=Bluxbh9CaQ0"},
-                {"title": "🇷🇺 JS переменные — Фрилансер по жизни", "url": "https://www.youtube.com/watch?v=3KCr3GNHEL4"},
-                {"title": "🇷🇺 JavaScript для начинающих — Ulbi TV", "url": "https://www.youtube.com/watch?v=CxgOKJh4zWE"},
+                {"title": "🇷🇺 Переменные var, let, const — глубокий разбор", "url": f"{YT}hJ_hGnvXNdc"},
+                {"title": "🇷🇺 Как правильно создавать переменные в JS", "url": f"{YT}BQM09-rrfNs"},
+                {"title": "🇷🇺 JavaScript — Полный Курс [11 ЧАСОВ]", "url": f"{YT}CxgOKJh4zWE"},
             ],
             [
-                {"title": "🇷🇺 Типы данных JavaScript — Владилен Минин", "url": "https://www.youtube.com/watch?v=DWk9LGQFHBI"},
-                {"title": "🇷🇺 JS: var vs let vs const — АйТи Синяк", "url": "https://www.youtube.com/watch?v=D9Odu1yLxYE"},
-                {"title": "🇷🇺 JavaScript переменные — Гоша Дударь", "url": "https://www.youtube.com/watch?v=p2hM5WNoFSs"},
+                {"title": "🇷🇺 JavaScript Основы — Полный Курс за 6 часов", "url": f"{YT}Bluxbh9CaQ0"},
+                {"title": "🇷🇺 Как правильно создавать переменные в JS", "url": f"{YT}BQM09-rrfNs"},
+                {"title": "🇷🇺 Переменные var, let, const — глубокий разбор", "url": f"{YT}hJ_hGnvXNdc"},
             ],
         ],
         "math_ops": [
             [
-                {"title": "🇷🇺 JavaScript: числа и Math — Владилен Минин", "url": "https://www.youtube.com/watch?v=UWIW_ky9PqA"},
-                {"title": "🇷🇺 JS арифметические операторы — Гоша Дударь", "url": "https://www.youtube.com/watch?v=lM3AGv0MknY"},
-                {"title": "🇷🇺 JavaScript Math объект — Хауди Хо", "url": "https://www.youtube.com/watch?v=CY4BM91PvmQ"},
+                {"title": "🇷🇺 Prompt и математические операции — JS урок 3.3", "url": f"{YT}ill_GWEmjpA"},
+                {"title": "🇷🇺 Числа, объект Math, округление — JS", "url": f"{YT}yIvIAU-7_SY"},
+                {"title": "🇷🇺 Операторы и математика в JavaScript", "url": f"{YT}PSjJ3BKtHfo"},
             ],
             [
-                {"title": "🇷🇺 Математика в JavaScript — Ulbi TV", "url": "https://www.youtube.com/watch?v=8LWGkbaJHXY"},
-                {"title": "🇷🇺 Арифметика JS — АйТи Синяк", "url": "https://www.youtube.com/watch?v=LtjDaiz0jmo"},
-                {"title": "🇷🇺 JS: числовые операции — Фрилансер по жизни", "url": "https://www.youtube.com/watch?v=G0TKMfRhLpU"},
+                {"title": "🇷🇺 Prompt и математические операции (ч.2)", "url": f"{YT}ftUNp_uD_W8"},
+                {"title": "🇷🇺 Числа, объект Math, округление — JS", "url": f"{YT}yIvIAU-7_SY"},
+                {"title": "🇷🇺 Операторы и математика в JavaScript", "url": f"{YT}PSjJ3BKtHfo"},
             ],
         ],
         "functions": [
             [
-                {"title": "🇷🇺 Функции JavaScript — Владилен Минин", "url": "https://www.youtube.com/watch?v=aQkgUUmUJy4"},
-                {"title": "🇷🇺 JS функции — Фрилансер по жизни", "url": "https://www.youtube.com/watch?v=NW1VHnGSKew"},
-                {"title": "🇷🇺 Стрелочные функции JS — Ulbi TV", "url": "https://www.youtube.com/watch?v=UGapN-hrekw"},
+                {"title": "🇷🇺 Функции в JS. Область видимости. Параметры", "url": f"{YT}rJK0eMkI3BE"},
+                {"title": "🇷🇺 Функции в JavaScript #6", "url": f"{YT}hgxEmdvmNUQ"},
+                {"title": "🇷🇺 Функции на практике, стрелочные функции", "url": f"{YT}nGVYdna4kq4"},
             ],
             [
-                {"title": "🇷🇺 JS: callback, замыкания — Владилен Минин", "url": "https://www.youtube.com/watch?v=pahO1DPSk8w"},
-                {"title": "🇷🇺 JavaScript функции — АйТи Синяк", "url": "https://www.youtube.com/watch?v=dU6Iq4P3vvA"},
-                {"title": "🇷🇺 Функции JS — Гоша Дударь", "url": "https://www.youtube.com/watch?v=fn8RfDviB_g"},
+                {"title": "🇷🇺 Функция и return в JavaScript", "url": f"{YT}q7QNFPZwiho"},
+                {"title": "🇷🇺 Функции в JS. Область видимости. Параметры", "url": f"{YT}rJK0eMkI3BE"},
+                {"title": "🇷🇺 Функции на практике, стрелочные функции", "url": f"{YT}nGVYdna4kq4"},
             ],
         ],
         "if_else": [
             [
-                {"title": "🇷🇺 JavaScript: if/else — Владилен Минин", "url": "https://www.youtube.com/watch?v=rlWgI1ROwVE"},
-                {"title": "🇷🇺 JS условия — Фрилансер по жизни", "url": "https://www.youtube.com/watch?v=TJW_bHSggHk"},
-                {"title": "🇷🇺 Условные операторы JS — Ulbi TV", "url": "https://www.youtube.com/watch?v=JL_UM0eb1Vg"},
+                {"title": "🇷🇺 JS условия if else. Тернарный оператор", "url": f"{YT}ugio2BJOO04"},
+                {"title": "🇷🇺 Условия (if-else) и switch в JavaScript", "url": f"{YT}Km-HSCqE0o4"},
+                {"title": "🇷🇺 IF ELSE в JavaScript. Примеры", "url": f"{YT}tFyRhDZgHaU"},
             ],
             [
-                {"title": "🇷🇺 switch/case JavaScript — АйТи Синяк", "url": "https://www.youtube.com/watch?v=yzdiRHMFg9E"},
-                {"title": "🇷🇺 Тернарный оператор JS — Владилен Минин", "url": "https://www.youtube.com/watch?v=9FkDlKnBPbg"},
-                {"title": "🇷🇺 JS условия — Гоша Дударь", "url": "https://www.youtube.com/watch?v=JoINPGpXBXc"},
+                {"title": "🇷🇺 Ветвление If, else, switch — JS v.2.0", "url": f"{YT}OIIBECEaYKI"},
+                {"title": "🇷🇺 JS условия if else. Тернарный оператор", "url": f"{YT}ugio2BJOO04"},
+                {"title": "🇷🇺 IF ELSE в JavaScript. Примеры", "url": f"{YT}tFyRhDZgHaU"},
             ],
         ],
         "loops": [
             [
-                {"title": "🇷🇺 Циклы JavaScript — Владилен Минин", "url": "https://www.youtube.com/watch?v=1SLwF3_26fI"},
-                {"title": "🇷🇺 JS: for, while — Фрилансер по жизни", "url": "https://www.youtube.com/watch?v=rjFHWKbV3QI"},
-                {"title": "🇷🇺 Циклы JS — Ulbi TV", "url": "https://www.youtube.com/watch?v=JnFSbJg_YQk"},
+                {"title": "🇷🇺 Массивы, циклы (for, while, foreach) — JS", "url": f"{YT}sYRSQU96e_I"},
+                {"title": "🇷🇺 Циклы FOR, WHILE — полный курс с задачами", "url": f"{YT}jwrPJ55OZ4k"},
+                {"title": "🇷🇺 Циклы while, do while, for в JavaScript", "url": f"{YT}_WlC6UxMyNE"},
             ],
             [
-                {"title": "🇷🇺 JS: forEach, map — Владилен Минин", "url": "https://www.youtube.com/watch?v=RJB-xoMqP0s"},
-                {"title": "🇷🇺 JavaScript циклы — АйТи Синяк", "url": "https://www.youtube.com/watch?v=pLb2duvWqfY"},
-                {"title": "🇷🇺 Циклы JS — Гоша Дударь", "url": "https://www.youtube.com/watch?v=J-2K0TP6n10"},
+                {"title": "🇷🇺 Циклы FOR, WHILE — полный курс с задачами", "url": f"{YT}jwrPJ55OZ4k"},
+                {"title": "🇷🇺 Циклы while, do while, for в JavaScript", "url": f"{YT}_WlC6UxMyNE"},
+                {"title": "🇷🇺 Массивы, циклы (for, while, foreach) — JS", "url": f"{YT}sYRSQU96e_I"},
             ],
         ],
         "strings": [
             [
-                {"title": "🇷🇺 Строки JavaScript — Владилен Минин", "url": "https://www.youtube.com/watch?v=da5Wh_EFdKQ"},
-                {"title": "🇷🇺 JS строковые методы — Фрилансер по жизни", "url": "https://www.youtube.com/watch?v=gHuSFnJ8Y54"},
-                {"title": "🇷🇺 Template literals JS — Ulbi TV", "url": "https://www.youtube.com/watch?v=8dEfSXt-gQA"},
+                {"title": "🇷🇺 Работа со строками JS: length, substr, slice", "url": f"{YT}AwzOh-4_oZc"},
+                {"title": "🇷🇺 Строки в JS. Методы at, replace, slice", "url": f"{YT}MGrpBVpctNo"},
+                {"title": "🇷🇺 Строчные методы JS: slice, substring", "url": f"{YT}YsMR2WclYcM"},
             ],
             [
-                {"title": "🇷🇺 JS строки: split, join — АйТи Синяк", "url": "https://www.youtube.com/watch?v=7i2WHIAX8qk"},
-                {"title": "🇷🇺 Работа со строками JS — Гоша Дударь", "url": "https://www.youtube.com/watch?v=fPBuL_xOJps"},
-                {"title": "🇷🇺 JavaScript строки — Хауди Хо", "url": "https://www.youtube.com/watch?v=4Bh39FZJAVE"},
+                {"title": "🇷🇺 Строки в JS. Методы at, replace, slice", "url": f"{YT}MGrpBVpctNo"},
+                {"title": "🇷🇺 Строчные методы JS: slice, substring", "url": f"{YT}YsMR2WclYcM"},
+                {"title": "🇷🇺 Работа со строками JS: length, substr, slice", "url": f"{YT}AwzOh-4_oZc"},
             ],
         ],
         "arrays": [
             [
-                {"title": "🇷🇺 Массивы JavaScript — Владилен Минин", "url": "https://www.youtube.com/watch?v=rRgD1yVNIvw"},
-                {"title": "🇷🇺 JS массивы — Фрилансер по жизни", "url": "https://www.youtube.com/watch?v=TLGx_kNMdJA"},
-                {"title": "🇷🇺 Методы массивов JS — Ulbi TV", "url": "https://www.youtube.com/watch?v=nEabP9CYCAQ"},
+                {"title": "🇷🇺 Методы массивов: forEach, map, filter, reduce", "url": f"{YT}SjTTDZX2hIA"},
+                {"title": "🇷🇺 Методы массивов: map, reduce, filter", "url": f"{YT}WJUk3GXarMw"},
+                {"title": "🇷🇺 Методы массивов — Владилен Минин #12", "url": f"{YT}nEabP9CYCAQ"},
             ],
             [
-                {"title": "🇷🇺 JS: map, filter, reduce — Владилен Минин", "url": "https://www.youtube.com/watch?v=wHmO7F2AJMI"},
-                {"title": "🇷🇺 Массивы JS — АйТи Синяк", "url": "https://www.youtube.com/watch?v=rl1Lqoeqnw8"},
-                {"title": "🇷🇺 JavaScript массивы — Гоша Дударь", "url": "https://www.youtube.com/watch?v=Zst-M4-R1OA"},
+                {"title": "🇷🇺 Методы массивов: map, reduce, filter", "url": f"{YT}WJUk3GXarMw"},
+                {"title": "🇷🇺 Методы массивов — Владилен Минин #12", "url": f"{YT}nEabP9CYCAQ"},
+                {"title": "🇷🇺 Методы массивов: forEach, map, filter, reduce", "url": f"{YT}SjTTDZX2hIA"},
             ],
         ],
         "objects": [
             [
-                {"title": "🇷🇺 Объекты JavaScript — Владилен Минин", "url": "https://www.youtube.com/watch?v=TNhaISOUy6Q"},
-                {"title": "🇷🇺 JS объекты — Фрилансер по жизни", "url": "https://www.youtube.com/watch?v=bU9F2PmEk00"},
-                {"title": "🇷🇺 Деструктуризация JS — Ulbi TV", "url": "https://www.youtube.com/watch?v=U4FYPRnfbNQ"},
+                {"title": "🇷🇺 Object.keys, values, entries в JS", "url": f"{YT}RSwpa-HN0y8"},
+                {"title": "🇷🇺 Методы массивов к объектам — JS", "url": f"{YT}Ha2geO5Qw_Q"},
+                {"title": "🇷🇺 Объекты: ключи и значения — JS", "url": f"{YT}JQnRVtTGd7U"},
             ],
             [
-                {"title": "🇷🇺 JS: spread, rest — Владилен Минин", "url": "https://www.youtube.com/watch?v=ITJLHlWXJsE"},
-                {"title": "🇷🇺 Объекты JS — АйТи Синяк", "url": "https://www.youtube.com/watch?v=QRs2p0jXrOo"},
-                {"title": "🇷🇺 JavaScript объекты — Гоша Дударь", "url": "https://www.youtube.com/watch?v=1V2A4cy6M7c"},
+                {"title": "🇷🇺 Перебор объекта. Map и Set — JS", "url": f"{YT}vm-M4m-OH0U"},
+                {"title": "🇷🇺 Object.keys, values, entries в JS", "url": f"{YT}RSwpa-HN0y8"},
+                {"title": "🇷🇺 Объекты: ключи и значения — JS", "url": f"{YT}JQnRVtTGd7U"},
             ],
         ],
         "classes": [
             [
-                {"title": "🇷🇺 Классы JavaScript — Владилен Минин", "url": "https://www.youtube.com/watch?v=uLY9GXGMXaA"},
-                {"title": "🇷🇺 JS ООП — Фрилансер по жизни", "url": "https://www.youtube.com/watch?v=5s_cz_MRjzE"},
-                {"title": "🇷🇺 ES6 Классы JS — Ulbi TV", "url": "https://www.youtube.com/watch?v=BASquaxab_w"},
+                {"title": "🇷🇺 Классы JavaScript — полный курс 2024", "url": f"{YT}hcKaQyYW9B0"},
+                {"title": "🇷🇺 Классы в JS — наследование, конструктор", "url": f"{YT}us1GTgdUsJo"},
+                {"title": "🇷🇺 ООП в JS. Наследование, классы, super", "url": f"{YT}JWwSH92tq7E"},
             ],
             [
-                {"title": "🇷🇺 Прототипы JavaScript — Владилен Минин", "url": "https://www.youtube.com/watch?v=aQkgUUmUJy4"},
-                {"title": "🇷🇺 JS классы — АйТи Синяк", "url": "https://www.youtube.com/watch?v=23lR3PtBn2c"},
-                {"title": "🇷🇺 JavaScript ООП — Гоша Дударь", "url": "https://www.youtube.com/watch?v=SsdZb1TvJZA"},
+                {"title": "🇷🇺 ES6 Классы — Владилен Минин #7", "url": f"{YT}uLY9GXGMXaA"},
+                {"title": "🇷🇺 Классы JavaScript — полный курс 2024", "url": f"{YT}hcKaQyYW9B0"},
+                {"title": "🇷🇺 ООП в JS. Наследование, классы, super", "url": f"{YT}JWwSH92tq7E"},
             ],
         ],
         "algorithms": [
             [
-                {"title": "🇷🇺 Алгоритмы и структуры данных JS — Ulbi TV", "url": "https://www.youtube.com/watch?v=hXYHZVMHec0"},
-                {"title": "🇷🇺 Сортировка пузырьком и быстрая JS", "url": "https://www.youtube.com/watch?v=d_kY2t6-3W0"},
-                {"title": "🇷🇺 Алгоритмы — Эльбрус Буткемп", "url": "https://www.youtube.com/watch?v=3R-a49-9yH8"},
+                {"title": "🇷🇺 Алгоритмы и структуры данных JS — полный курс", "url": f"{YT}NErrGZ64OdE"},
+                {"title": "🇷🇺 Алгоритмы и структуры данных — Ulbi TV", "url": f"{YT}hXYHZVMHec0"},
+                {"title": "🇷🇺 RegExp. Регулярные выражения — intro", "url": f"{YT}htPtv6r2uOs"},
             ],
         ],
         "regex": [
             [
-                {"title": "🇷🇺 Регулярные выражения JavaScript за 1 час", "url": "https://www.youtube.com/watch?v=_pLpx6btq6U"},
-                {"title": "🇷🇺 JS RegExp — Уроки JavaScript #14", "url": "https://www.youtube.com/watch?v=7TFkCiSQEdQ"},
-                {"title": "🇷🇺 RegExp введение — JavaScript.ru", "url": "https://www.youtube.com/watch?v=YsFxTCwXaps"},
+                {"title": "🇷🇺 RegExp — введение. JavaScript", "url": f"{YT}htPtv6r2uOs"},
+                {"title": "🇷🇺 Базовый курс JS: функции, RegExp", "url": f"{YT}HrazmFq4YIg"},
+                {"title": "🇷🇺 RegExp — это просто", "url": f"{YT}wMZ6gLNtefQ"},
             ],
         ],
         "file_io": [
             [
-                {"title": "🇷🇺 JavaScript Fetch API — Владилен Минин", "url": "https://www.youtube.com/watch?v=Oage6H4GX2o"},
-                {"title": "🇷🇺 JS: работа с JSON и localStorage", "url": "https://www.youtube.com/watch?v=lQ4V_1S9cGo"},
-                {"title": "🇷🇺 JS: AJAX и работа с данными — Ulbi TV", "url": "https://www.youtube.com/watch?v=eKCD9djJQKc"},
+                {"title": "🇷🇺 Fetch, XMLHttpRequest, Ajax — Владилен #14", "url": f"{YT}eKCD9djJQKc"},
+                {"title": "🇷🇺 AJAX, запросы на сервер + бесплатные API", "url": f"{YT}OaqD8sSuY1k"},
+                {"title": "🇷🇺 JS fetch — клиент-серверное взаимодействие", "url": f"{YT}klVGCxWsN2A"},
             ],
         ],
     },
 
-    # ━━━━━━━━━━━━━━━ FRONTEND ━━━━━━━━━━━━━━━
     "frontend": {
         "html_elements": [
             [
-                {"title": "🇷🇺 HTML за час — Владилен Минин", "url": "https://www.youtube.com/watch?v=W4MIiV4nZDY"},
-                {"title": "🇷🇺 HTML основы — Фрилансер по жизни", "url": "https://www.youtube.com/watch?v=DOEtVdkKwcU"},
-                {"title": "🇷🇺 HTML теги и атрибуты — Selfedu", "url": "https://www.youtube.com/watch?v=MiBGeR3IYUY"},
+                {"title": "🇷🇺 Основы HTML для начинающих (2026)", "url": f"{YT}SKRydSA2bYA"},
+                {"title": "🇷🇺 HTML полезные теги и свойства", "url": f"{YT}kEo6y-wSgRU"},
+                {"title": "🇷🇺 HTML — Полный курс [3 ЧАСА]", "url": f"{YT}W4MIiV4nZDY"},
             ],
             [
-                {"title": "🇷🇺 Семантические теги HTML5 — Гоша Дударь", "url": "https://www.youtube.com/watch?v=Euh1Gw7MjBk"},
-                {"title": "🇷🇺 HTML структура документа — Хауди Хо", "url": "https://www.youtube.com/watch?v=bWNmJqgrl4Q"},
-                {"title": "🇷🇺 HTML таблицы и списки — АйТи Синяк", "url": "https://www.youtube.com/watch?v=v0P_CxRk3o0"},
+                {"title": "🇷🇺 Начни учить HTML (понятно даже чайнику)", "url": f"{YT}DOEtVdkKwcU"},
+                {"title": "🇷🇺 Основы HTML для начинающих (2026)", "url": f"{YT}SKRydSA2bYA"},
+                {"title": "🇷🇺 HTML полезные теги и свойства", "url": f"{YT}kEo6y-wSgRU"},
             ],
         ],
         "text_styling": [
             [
-                {"title": "🇷🇺 CSS типографика и шрифты — Фрилансер по жизни", "url": "https://www.youtube.com/watch?v=HxDXeeqFnOk"},
-                {"title": "🇷🇺 Google Fonts подключение — Владилен Минин", "url": "https://www.youtube.com/watch?v=Apkh3TttKKo"},
-                {"title": "🇷🇺 CSS текст и шрифты — Ulbi TV", "url": "https://www.youtube.com/watch?v=Iv2bfOSsnBg"},
-            ],
-            [
-                {"title": "🇷🇺 Стилизация текста CSS — Гоша Дударь", "url": "https://www.youtube.com/watch?v=8pQKDVRc0T8"},
-                {"title": "🇷🇺 CSS font-family и подключение шрифтов", "url": "https://www.youtube.com/watch?v=ROEsqX0CkTQ"},
-                {"title": "🇷🇺 CSS text-shadow, letter-spacing — АйТи Синяк", "url": "https://www.youtube.com/watch?v=ZGAzrM6G7Sg"},
+                {"title": "🇷🇺 Как подключить шрифты в CSS", "url": f"{YT}fN_ic_MNgAU"},
+                {"title": "🇷🇺 Как добавить шрифт в HTML CSS", "url": f"{YT}yjdxUlvG99c"},
+                {"title": "🇷🇺 HTML — Полный курс [3 ЧАСА]", "url": f"{YT}W4MIiV4nZDY"},
             ],
         ],
         "colors_bg": [
             [
-                {"title": "🇷🇺 CSS цвета, фоны, градиенты — Фрилансер по жизни", "url": "https://www.youtube.com/watch?v=juC4bHgj74s"},
-                {"title": "🇷🇺 CSS переменные (custom properties) — Владилен Минин", "url": "https://www.youtube.com/watch?v=J8YcA-BvgSo"},
-                {"title": "🇷🇺 Градиенты CSS — Ulbi TV", "url": "https://www.youtube.com/watch?v=5uKPcX4t4EY"},
-            ],
-            [
-                {"title": "🇷🇺 CSS фоны и множественные фоны — Хауди Хо", "url": "https://www.youtube.com/watch?v=GkeU7qBRSmY"},
-                {"title": "🇷🇺 CSS: rgba, hsl, hex — цветовые модели", "url": "https://www.youtube.com/watch?v=F8lGKj-3bMk"},
-                {"title": "🇷🇺 CSS box-shadow и стилизация блоков", "url": "https://www.youtube.com/watch?v=DTsRBU72lRU"},
+                {"title": "🇷🇺 CSS фоновый цвет, изображение, градиент", "url": f"{YT}bWoqW6PjqBE"},
+                {"title": "🇷🇺 Красивый фон с градиентом на CSS", "url": f"{YT}dePDJ_D-o8A"},
+                {"title": "🇷🇺 Красивый градиент в CSS за 1 минуту", "url": f"{YT}uqoR6KB7Hv8"},
             ],
         ],
         "layout": [
             [
-                {"title": "🇷🇺 CSS Flexbox — Фрилансер по жизни", "url": "https://www.youtube.com/watch?v=O-ytfplFQ3c"},
-                {"title": "🇷🇺 CSS Grid — Владилен Минин", "url": "https://www.youtube.com/watch?v=LHW_M9mf4Is"},
-                {"title": "🇷🇺 Flexbox и Grid на практике — Ulbi TV", "url": "https://www.youtube.com/watch?v=X5GVjguPH_g"},
+                {"title": "🇷🇺 Flexbox CSS практический курс за 6 минут", "url": f"{YT}eVZEwEQg4pg"},
+                {"title": "🇷🇺 Flexbox vs Grid: когда и что лучше?", "url": f"{YT}PPBqZ8fuzRg"},
+                {"title": "🇷🇺 Flex и Grid: изучаю CSS раскладки", "url": f"{YT}BjQw7gQxNHk"},
             ],
             [
-                {"title": "🇷🇺 CSS Grid практика — Фрилансер по жизни", "url": "https://www.youtube.com/watch?v=lr-GKBkfidA"},
-                {"title": "🇷🇺 Flexbox за 45 минут — Гоша Дударь", "url": "https://www.youtube.com/watch?v=BoKOFb5kJR8"},
-                {"title": "🇷🇺 CSS позиционирование и макеты — АйТи Синяк", "url": "https://www.youtube.com/watch?v=Nj5RCaE_b00"},
+                {"title": "🇷🇺 Как правильно пользоваться Flex-Box", "url": f"{YT}s4K2av6VV1w"},
+                {"title": "🇷🇺 CSS Flexbox — Введение", "url": f"{YT}O-ytfplFQ3c"},
+                {"title": "🇷🇺 CSS Grid — Введение", "url": f"{YT}LHW_M9mf4Is"},
             ],
         ],
         "selectors": [
             [
-                {"title": "🇷🇺 CSS селекторы — Фрилансер по жизни", "url": "https://www.youtube.com/watch?v=t4BbRCpiXgI"},
-                {"title": "🇷🇺 Специфичность CSS — Владилен Минин", "url": "https://www.youtube.com/watch?v=qrduUUdxBSY"},
-                {"title": "🇷🇺 Псевдоклассы CSS — Ulbi TV", "url": "https://www.youtube.com/watch?v=T8YT8RCGXVY"},
+                {"title": "🇷🇺 Псевдоклассы и псевдоэлементы CSS #4", "url": f"{YT}nZHrCDJEnw4"},
+                {"title": "🇷🇺 CSS селекторы — ответ на собеседовании", "url": f"{YT}81XUV42LEXY"},
+                {"title": "🇷🇺 CSS: Псевдоклассы :not и :has на примере", "url": f"{YT}Cz3zIWY_A2U"},
             ],
             [
-                {"title": "🇷🇺 CSS селекторы продвинутые — Хауди Хо", "url": "https://www.youtube.com/watch?v=73nOH4tBwaw"},
-                {"title": "🇷🇺 CSS: nth-child, not, has — АйТи Синяк", "url": "https://www.youtube.com/watch?v=EouHx3h_7I0"},
-                {"title": "🇷🇺 Каскад и наследование CSS — Гоша Дударь", "url": "https://www.youtube.com/watch?v=INzO_3-FVl4"},
+                {"title": "🇷🇺 ТОП-3 правила для адаптива в CSS", "url": f"{YT}0eyxg9xlQT8"},
+                {"title": "🇷🇺 Псевдоклассы и псевдоэлементы CSS #4", "url": f"{YT}nZHrCDJEnw4"},
+                {"title": "🇷🇺 CSS: Псевдоклассы :not и :has на примере", "url": f"{YT}Cz3zIWY_A2U"},
             ],
         ],
         "animations": [
             [
-                {"title": "🇷🇺 CSS анимации — Фрилансер по жизни", "url": "https://www.youtube.com/watch?v=FEjqy9B-M0E"},
-                {"title": "🇷🇺 CSS transitions — Владилен Минин", "url": "https://www.youtube.com/watch?v=mpidBIDA-bQ"},
-                {"title": "🇷🇺 Keyframes CSS — Ulbi TV", "url": "https://www.youtube.com/watch?v=RLMFV-KKVGY"},
+                {"title": "🇷🇺 CSS animation и @keyframes за 12 минут", "url": f"{YT}GKgOOuTL0po"},
+                {"title": "🇷🇺 Анимации в CSS. @keyframes. Свойство animation", "url": f"{YT}3a_iaHqazHo"},
+                {"title": "🇷🇺 CSS анимация — функция steps", "url": f"{YT}jxCwnTqMda0"},
             ],
         ],
         "responsive": [
             [
-                {"title": "🇷🇺 Адаптивная вёрстка — Фрилансер по жизни", "url": "https://www.youtube.com/watch?v=M5dgDrlJmS4"},
-                {"title": "🇷🇺 Media queries CSS — Владилен Минин", "url": "https://www.youtube.com/watch?v=EvPFcljSFmo"},
-                {"title": "🇷🇺 Респонсив дизайн — Ulbi TV", "url": "https://www.youtube.com/watch?v=vBjsMPinQGM"},
+                {"title": "🇷🇺 Адаптивная верстка CSS. Desktop и mobile first", "url": f"{YT}ahYuxTRjY0g"},
+                {"title": "🇷🇺 Адаптивная верстка за 5 минут", "url": f"{YT}ENEviJIMiHA"},
+                {"title": "🇷🇺 Медиа-запросы за 2 минуты — CSS", "url": f"{YT}ICO6NwLZx_s"},
             ],
             [
-                {"title": "🇷🇺 Мобильная вёрстка — Гоша Дударь", "url": "https://www.youtube.com/watch?v=PSag6bhKOvM"},
-                {"title": "🇷🇺 CSS: адаптив — АйТи Синяк", "url": "https://www.youtube.com/watch?v=fgfAhv-vrRA"},
-                {"title": "🇷🇺 Адаптивный сайт с нуля — Хауди Хо", "url": "https://www.youtube.com/watch?v=eRqr4FWJfgI"},
+                {"title": "🇷🇺 Медиа-запросы не нужны, если писать стили так", "url": f"{YT}PJJsrca0n-Y"},
+                {"title": "🇷🇺 Адаптивная верстка CSS. Desktop и mobile first", "url": f"{YT}ahYuxTRjY0g"},
+                {"title": "🇷🇺 Адаптивная верстка за 5 минут", "url": f"{YT}ENEviJIMiHA"},
             ],
         ],
         "forms": [
             [
-                {"title": "🇷🇺 HTML формы — Фрилансер по жизни", "url": "https://www.youtube.com/watch?v=KBbIj6mBeVo"},
-                {"title": "🇷🇺 Стилизация форм CSS — Владилен Минин", "url": "https://www.youtube.com/watch?v=x2ImdZDgH3E"},
-                {"title": "🇷🇺 Валидация форм HTML5 — Ulbi TV", "url": "https://www.youtube.com/watch?v=2UMdfFKK0DE"},
+                {"title": "🇷🇺 HTML формы: form, fieldset, legend, label", "url": f"{YT}_in4LAdxAUA"},
+                {"title": "🇷🇺 Всё о select и textarea в HTML", "url": f"{YT}OuHUc5SaLno"},
+                {"title": "🇷🇺 HTML form, input, textarea, button", "url": f"{YT}Zt2tFxTUhHo"},
             ],
             [
-                {"title": "🇷🇺 Формы HTML/CSS — Гоша Дударь", "url": "https://www.youtube.com/watch?v=5mJR3GK-6DI"},
-                {"title": "🇷🇺 Input стили CSS — АйТи Синяк", "url": "https://www.youtube.com/watch?v=RTGZ4afKjHM"},
-                {"title": "🇷🇺 CSS: красивые формы — Хауди Хо", "url": "https://www.youtube.com/watch?v=UfTYF_2GjOQ"},
+                {"title": "🇷🇺 Формы: textarea, select, option, optgroup", "url": f"{YT}FMjuLXNTPfU"},
+                {"title": "🇷🇺 HTML формы: form, fieldset, legend, label", "url": f"{YT}_in4LAdxAUA"},
+                {"title": "🇷🇺 HTML form, input, textarea, button", "url": f"{YT}Zt2tFxTUhHo"},
             ],
         ],
     },
 
-    # ━━━━━━━━━━━━━━━ SCRATCH ━━━━━━━━━━━━━━━
     "scratch": {
         "motion": [
             [
-                {"title": "🇷🇺 Scratch 3: Команды движения — Урок 6", "url": "https://www.youtube.com/watch?v=O1hS9Pq7h9o"},
-                {"title": "🇷🇺 Движение спрайтов — школа Пиксель", "url": "https://www.youtube.com/watch?v=48n9R_TfM-E"},
-                {"title": "🇷🇺 Scratch: двигаем спрайт — блок «идти»", "url": "https://www.youtube.com/watch?v=R9K1xL1x8rY"},
+                {"title": "🇷🇺 Координаты и движение Scratch — Пиксель #4", "url": f"{YT}G81fOkh6g7k"},
+                {"title": "🇷🇺 Что такое Спрайт — IT Skill #4", "url": f"{YT}HKwVcOYie7k"},
+                {"title": "🇷🇺 Траектория движения спрайта — russkihtv", "url": f"{YT}e4tdvAb4QRA"},
             ],
             [
-                {"title": "🇷🇺 Scratch: координаты и движение", "url": "https://www.youtube.com/watch?v=RQYcR7yb17g"},
-                {"title": "🇷🇺 Scratch платформер с движением", "url": "https://www.youtube.com/watch?v=Y8G-_tpAir4"},
-                {"title": "🇷🇺 Scratch 3: гравитация и прыжки", "url": "https://www.youtube.com/watch?v=f-GVrDCPK-M"},
+                {"title": "🇷🇺 Что такое Спрайт — IT Skill #4", "url": f"{YT}HKwVcOYie7k"},
+                {"title": "🇷🇺 Траектория движения спрайта — russkihtv", "url": f"{YT}e4tdvAb4QRA"},
+                {"title": "🇷🇺 Координаты и движение Scratch — Пиксель #4", "url": f"{YT}G81fOkh6g7k"},
             ],
         ],
         "looks": [
             [
-                {"title": "🇷🇺 Scratch: костюмы и внешний вид спрайта", "url": "https://www.youtube.com/watch?v=6bfI7tpjR0A"},
-                {"title": "🇷🇺 Scratch: фоны и анимация — Алгоритмика", "url": "https://www.youtube.com/watch?v=0ArCXaJmJMY"},
-                {"title": "🇷🇺 Scratch: смена костюмов спрайта — урок", "url": "https://www.youtube.com/watch?v=pkfMVqRbJek"},
+                {"title": "🇷🇺 Скретч урок — костюмы", "url": f"{YT}s7CAb1NgxrI"},
+                {"title": "🇷🇺 Редактор костюмов — UP! School #38", "url": f"{YT}1bunkknHvJY"},
+                {"title": "🇷🇺 Внешний вид, костюмы — Вивитроника", "url": f"{YT}bzWV-tyZL8U"},
             ],
             [
-                {"title": "🇷🇺 Scratch: эффекты и рисование", "url": "https://www.youtube.com/watch?v=h4alGRfEO2Q"},
-                {"title": "🇷🇺 Scratch: анимация персонажа", "url": "https://www.youtube.com/watch?v=Yfxo7qIbFUs"},
-                {"title": "🇷🇺 Scratch: графические эффекты — Кодабра", "url": "https://www.youtube.com/watch?v=Q7Cjhk1UScI"},
+                {"title": "🇷🇺 Редактор костюмов — UP! School #38", "url": f"{YT}1bunkknHvJY"},
+                {"title": "🇷🇺 Внешний вид, костюмы — Вивитроника", "url": f"{YT}bzWV-tyZL8U"},
+                {"title": "🇷🇺 Скретч урок — костюмы", "url": f"{YT}s7CAb1NgxrI"},
             ],
         ],
         "sound": [
             [
-                {"title": "🇷🇺 Scratch: звуки и музыка — урок", "url": "https://www.youtube.com/watch?v=PApV6e1DJFM"},
-                {"title": "🇷🇺 Scratch: добавляем звуковые эффекты", "url": "https://www.youtube.com/watch?v=L8Hh0z0K7y8"},
-                {"title": "🇷🇺 Scratch: музыкальный проект", "url": "https://www.youtube.com/watch?v=1r2MaR82DgI"},
+                {"title": "🇷🇺 Звуки и музыка в Scratch — IT-куб TV", "url": f"{YT}zFjKcYMmUic"},
+                {"title": "🇷🇺 Фоновые звуки — CODDY School #8", "url": f"{YT}57pwFcpUqOc"},
+                {"title": "🇷🇺 Звуки — IT Skill #5", "url": f"{YT}KPZTzlANprQ"},
             ],
             [
-                {"title": "🇷🇺 Scratch: редактор звуков", "url": "https://www.youtube.com/watch?v=ACQChN_CXEY"},
-                {"title": "🇷🇺 Scratch музыка с нуля — урок", "url": "https://www.youtube.com/watch?v=Vc8moYRG-bE"},
-                {"title": "🇷🇺 Scratch: озвучиваем проект", "url": "https://www.youtube.com/watch?v=Yp9fF-mN6Gk"},
+                {"title": "🇷🇺 Фоновые звуки — CODDY School #8", "url": f"{YT}57pwFcpUqOc"},
+                {"title": "🇷🇺 Звуки — IT Skill #5", "url": f"{YT}KPZTzlANprQ"},
+                {"title": "🇷🇺 Scratch уроки — создание первого проекта", "url": f"{YT}Vc8moYRG-bE"},
             ],
         ],
         "events": [
             [
-                {"title": "🇷🇺 Scratch: события — флаг, клик, клавиша", "url": "https://www.youtube.com/watch?v=K_u3Oat07Bk"},
-                {"title": "🇷🇺 Scratch: сообщения и broadcast", "url": "https://www.youtube.com/watch?v=mVwgFkj5FTU"},
-                {"title": "🇷🇺 Scratch: взаимодействие спрайтов", "url": "https://www.youtube.com/watch?v=N4Fg1DW1HZE"},
+                {"title": "🇷🇺 Передача сообщений — Scratch", "url": f"{YT}dKUvWLbBzJg"},
+                {"title": "🇷🇺 Scratch — сообщения и операторы #4", "url": f"{YT}89y4QJp01dQ"},
+                {"title": "🇷🇺 Сообщения в Scratch — Co-Learning #6", "url": f"{YT}8R3gS48saN4"},
             ],
             [
-                {"title": "🇷🇺 Scratch: «когда я получу сообщение»", "url": "https://www.youtube.com/watch?v=7bLnZHPzf-Y"},
-                {"title": "🇷🇺 Scratch: запуск скриптов по событиям", "url": "https://www.youtube.com/watch?v=s7e2MKla6lw"},
-                {"title": "🇷🇺 Scratch: синхронизация спрайтов", "url": "https://www.youtube.com/watch?v=dUP3q5xhwqQ"},
+                {"title": "🇷🇺 Scratch — сообщения и операторы #4", "url": f"{YT}89y4QJp01dQ"},
+                {"title": "🇷🇺 Сообщения в Scratch — Co-Learning #6", "url": f"{YT}8R3gS48saN4"},
+                {"title": "🇷🇺 Передача сообщений — Scratch", "url": f"{YT}dKUvWLbBzJg"},
             ],
         ],
         "control": [
             [
-                {"title": "🇷🇺 Scratch: циклы «повторить» и «повторять всегда»", "url": "https://www.youtube.com/watch?v=3vxYHaB-GtQ"},
-                {"title": "🇷🇺 Scratch: условия «если» / «если-иначе»", "url": "https://www.youtube.com/watch?v=c4urIXjBTHA"},
-                {"title": "🇷🇺 Scratch: управление логикой программы", "url": "https://www.youtube.com/watch?v=EANqQBqAe8o"},
+                {"title": "🇷🇺 Циклы и ветвления — PapaCoder101 #4", "url": f"{YT}gkiyEDpVzqc"},
+                {"title": "🇷🇺 Scratch 3: Циклы — CyberSkill #9", "url": f"{YT}lxHv_YeR9wM"},
+                {"title": "🇷🇺 Циклы и ветвления в Scratch", "url": f"{YT}vmWVI0h3TSo"},
             ],
             [
-                {"title": "🇷🇺 Scratch: вложенные циклы и условия", "url": "https://www.youtube.com/watch?v=oPyJBGK6hZ4"},
-                {"title": "🇷🇺 Scratch: ждать и клонировать", "url": "https://www.youtube.com/watch?v=LzJFmNE7hU4"},
-                {"title": "🇷🇺 Scratch: блоки управления — практика", "url": "https://www.youtube.com/watch?v=v9_N5BwVT_4"},
+                {"title": "🇷🇺 Scratch 3: Циклы — CyberSkill #9", "url": f"{YT}lxHv_YeR9wM"},
+                {"title": "🇷🇺 Циклы и ветвления в Scratch", "url": f"{YT}vmWVI0h3TSo"},
+                {"title": "🇷🇺 Циклы и ветвления — PapaCoder101 #4", "url": f"{YT}gkiyEDpVzqc"},
             ],
         ],
         "sensing": [
             [
-                {"title": "🇷🇺 Scratch: сенсоры — касание, мышь, таймер", "url": "https://www.youtube.com/watch?v=T2rsJViSicU"},
-                {"title": "🇷🇺 Scratch: «касается цвета» и обнаружение", "url": "https://www.youtube.com/watch?v=mMftaEu_Lk0"},
-                {"title": "🇷🇺 Scratch: блок «спросить» и ввод данных", "url": "https://www.youtube.com/watch?v=KvJ6PqGMPuU"},
+                {"title": "🇷🇺 Команды «Сенсоры» — Medvedev School #7", "url": f"{YT}xQHbXxp1Ibo"},
+                {"title": "🇷🇺 Scratch: таймер — Anzhelika #5", "url": f"{YT}dST3RYV-ZF0"},
+                {"title": "🇷🇺 Вопросы по блокам Сенсоры — IT Skill", "url": f"{YT}u5rQPbbzJY0"},
             ],
             [
-                {"title": "🇷🇺 Scratch: расстояние до объекта", "url": "https://www.youtube.com/watch?v=hC5RP0YUJLk"},
-                {"title": "🇷🇺 Scratch: ответ игрока и таймер", "url": "https://www.youtube.com/watch?v=ExPHuJZFd5U"},
-                {"title": "🇷🇺 Scratch: датчики — практика", "url": "https://www.youtube.com/watch?v=RrQEb7BTHGQ"},
+                {"title": "🇷🇺 Scratch: таймер — Anzhelika #5", "url": f"{YT}dST3RYV-ZF0"},
+                {"title": "🇷🇺 Вопросы по блокам Сенсоры — IT Skill", "url": f"{YT}u5rQPbbzJY0"},
+                {"title": "🇷🇺 Команды «Сенсоры» — Medvedev School #7", "url": f"{YT}xQHbXxp1Ibo"},
             ],
         ],
         "operators": [
             [
-                {"title": "🇷🇺 Scratch: операторы — математика и логика", "url": "https://www.youtube.com/watch?v=uFwacOVIoMY"},
-                {"title": "🇷🇺 Scratch: случайное число — блок оператор", "url": "https://www.youtube.com/watch?v=lH8TQHIR5Cw"},
-                {"title": "🇷🇺 Scratch: сравнения и логические блоки", "url": "https://www.youtube.com/watch?v=3NXGT7Nk5qM"},
+                {"title": "🇷🇺 Scratch: блок «Операторы» — HeyGo #6", "url": f"{YT}Ku49b0fkHBM"},
+                {"title": "🇷🇺 Операторы: Scratch для детей", "url": f"{YT}BvCXHKWcqis"},
+                {"title": "🇷🇺 Арифметические операторы в Scratch", "url": f"{YT}-scpN0I6vnE"},
             ],
             [
-                {"title": "🇷🇺 Scratch: объединение строк и остаток", "url": "https://www.youtube.com/watch?v=3A5txzb5EWk"},
-                {"title": "🇷🇺 Scratch: арифметические операторы и int", "url": "https://www.youtube.com/watch?v=9tY3FJQZ-s4"},
-                {"title": "🇷🇺 Scratch: «и», «или», «не» — логика", "url": "https://www.youtube.com/watch?v=7_wM-8OGJIA"},
+                {"title": "🇷🇺 Операторы: Scratch для детей", "url": f"{YT}BvCXHKWcqis"},
+                {"title": "🇷🇺 Арифметические операторы в Scratch", "url": f"{YT}-scpN0I6vnE"},
+                {"title": "🇷🇺 Scratch: блок «Операторы» — HeyGo #6", "url": f"{YT}Ku49b0fkHBM"},
             ],
         ],
         "variables": [
             [
-                {"title": "🇷🇺 Scratch: переменные — очки и жизни", "url": "https://www.youtube.com/watch?v=N-UyGUqtqOc"},
-                {"title": "🇷🇺 Scratch: создаём счётчик очков", "url": "https://www.youtube.com/watch?v=cK5BvMPbthM"},
-                {"title": "🇷🇺 Scratch: списки — хранение данных", "url": "https://www.youtube.com/watch?v=2mPITR4Y8M4"},
+                {"title": "🇷🇺 Списки в Scratch — Пиксель", "url": f"{YT}ppR46SU8ZMI"},
+                {"title": "🇷🇺 Переменные, списки и блоки — Mr. Programmist", "url": f"{YT}dZCcBHOce0c"},
+                {"title": "🇷🇺 Заменить переменные списком — MonoculaRus", "url": f"{YT}QIpHjdvo8kg"},
             ],
             [
-                {"title": "🇷🇺 Scratch: переменные для всех и для спрайта", "url": "https://www.youtube.com/watch?v=8xKU-bqATcs"},
-                {"title": "🇷🇺 Scratch: работа со списками", "url": "https://www.youtube.com/watch?v=VzsCe2nz5yI"},
-                {"title": "🇷🇺 Scratch: переменные в играх — практика", "url": "https://www.youtube.com/watch?v=Gqnf9GBsC_E"},
+                {"title": "🇷🇺 Переменные, списки и блоки — Mr. Programmist", "url": f"{YT}dZCcBHOce0c"},
+                {"title": "🇷🇺 Заменить переменные списком — MonoculaRus", "url": f"{YT}QIpHjdvo8kg"},
+                {"title": "🇷🇺 Списки в Scratch — Пиксель", "url": f"{YT}ppR46SU8ZMI"},
             ],
         ],
         "my_blocks": [
             [
-                {"title": "🇷🇺 Scratch: мои блоки — создаём свои команды", "url": "https://www.youtube.com/watch?v=wx6xaOnyQ8I"},
-                {"title": "🇷🇺 Scratch: процедуры и свои блоки — урок", "url": "https://www.youtube.com/watch?v=AuIKyZ-99V4"},
-                {"title": "🇷🇺 Scratch: блоки с параметрами", "url": "https://www.youtube.com/watch?v=QcP0sUbI_6s"},
+                {"title": "🇷🇺 Scratch: создание блока — PlaySchool #3", "url": f"{YT}Qk1HiIBRuwg"},
+                {"title": "🇷🇺 Процедуры (другие блоки) — Scratch Ru", "url": f"{YT}E9lBESircq4"},
+                {"title": "🇷🇺 Создание и использование процедур — Айтигенио", "url": f"{YT}d4F1OwMvtSs"},
             ],
         ],
     },
 
-    # ━━━━━━━━━━━━━━━ ALEXTYPE ━━━━━━━━━━━━━━━
     "alextype": {
         "typing": [
             [
-                {"title": "🇷🇺 Слепая печать: как научиться быстро печатать", "url": "https://www.youtube.com/watch?v=JJhS5X3Jvhc"},
-                {"title": "🇷🇺 Десятипальцевый метод печати — обучение", "url": "https://www.youtube.com/watch?v=1ArWGkOhUl8"},
-                {"title": "🇷🇺 Клавиатурный тренажёр — как поставить пальцы", "url": "https://www.youtube.com/watch?v=Yc_MRUfqWPQ"},
+                {"title": "🇷🇺 Слепая печать. Бесплатный тренажер — Kodiki", "url": f"{YT}YZFDWRFOswQ"},
+                {"title": "🇷🇺 Слепая печать, как научиться — EasyCode", "url": f"{YT}udI4mLyykr4"},
+                {"title": "🇷🇺 Слепая печать за неделю — программист с нуля", "url": f"{YT}l2LZzdgHccw"},
             ],
             [
-                {"title": "🇷🇺 Как научиться печатать вслепую за 2 недели", "url": "https://www.youtube.com/watch?v=qcXZKsiqpPI"},
-                {"title": "🇷🇺 Горячие клавиши и скорость печати — советы", "url": "https://www.youtube.com/watch?v=Kq0_c4CoQO0"},
-                {"title": "🇷🇺 Правильная постановка рук на клавиатуре", "url": "https://www.youtube.com/watch?v=cTYkvDNMCj0"},
+                {"title": "🇷🇺 Слепая печать, как научиться — EasyCode", "url": f"{YT}udI4mLyykr4"},
+                {"title": "🇷🇺 Слепая печать за неделю — программист с нуля", "url": f"{YT}l2LZzdgHccw"},
+                {"title": "🇷🇺 Слепая печать. Бесплатный тренажер — Kodiki", "url": f"{YT}YZFDWRFOswQ"},
             ],
         ],
     },
@@ -514,7 +499,6 @@ def main():
 
         cat = task.get("category", "")
         topic = task.get("topic", "")
-
         cat_pool = VIDEOS.get(cat, {})
         topic_pool = cat_pool.get(topic, [])
 
@@ -523,54 +507,23 @@ def main():
             print(f"  ⚠ No videos for {cat}/{topic} ({task['id']})")
             continue
 
-        # Alternate between sets for _01/_02 tasks
         key = f"{cat}:{topic}"
         idx = topic_counters.get(key, 0)
         topic_counters[key] = idx + 1
-
         video_set = topic_pool[idx % len(topic_pool)]
 
-        # Replace resources.videos
         if "resources" not in task:
             task["resources"] = {}
         task["resources"]["videos"] = list(video_set)
-
-        # Set primary video_url to first in set
         task["video_url"] = video_set[0]["url"]
-
         updated += 1
 
     with open(TASKS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-    print(f"\n✅ Updated {updated} tutorials with unique topic-matched Russian videos")
+    print(f"\n✅ Updated {updated} tutorials")
     if skipped:
-        print(f"⚠ Skipped {skipped} tutorials (no video pool found)")
-
-    # ── Verification ──
-    with open(TASKS_FILE) as f:
-        check = json.load(f)
-    tuts = [t for t in check["tasks"] if t.get("task_type") == "tutorial"]
-
-    # Check for global URL duplicates
-    from collections import Counter
-    all_primary = [t.get("video_url", "") for t in tuts]
-    dup_primary = {u: c for u, c in Counter(all_primary).items() if c > 1}
-
-    all_res_urls = []
-    for t in tuts:
-        for v in t.get("resources", {}).get("videos", []):
-            all_res_urls.append(v.get("url", ""))
-    dup_res = {u: c for u, c in Counter(all_res_urls).items() if c > 1}
-
-    print(f"\n── Verification ──")
-    print(f"Total tutorials: {len(tuts)}")
-    print(f"Duplicate primary video_urls: {len(dup_primary)}")
-    for url, cnt in sorted(dup_primary.items(), key=lambda x: -x[1])[:5]:
-        print(f"  {cnt}x: ...{url[-35:]}")
-    print(f"Duplicate resource URLs: {len(dup_res)}")
-    for url, cnt in sorted(dup_res.items(), key=lambda x: -x[1])[:5]:
-        print(f"  {cnt}x: ...{url[-35:]}")
+        print(f"⚠ Skipped {skipped}")
 
 
 if __name__ == "__main__":

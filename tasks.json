@@ -183,7 +183,7 @@
       "tier": "D",
       "topic": "variables",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=KdZ4HF1SrFs",
+      "video_url": "https://www.youtube.com/watch?v=DZvNZ9l9NT4",
       "title": "🎓 Туториал: Переменные в Python",
       "story": "Переменные в Python: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как объявлять переменные, выбирать понятные имена и хранить данные.\n\nОтветь в заметках:\n1. Что такое переменная и чем она отличается от строкового литерала или числа в коде?\n2. Какие имена переменных считаются удачными и почему?\n3. Приведи 3 свои переменные для мини-игры: имя героя, здоровье и золото.\n\nМини-упражнение: Запиши в заметках 2–3 строки Python с присваиваниями.",
@@ -229,16 +229,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Python с нуля: Переменные и типы данных — Хирьянов МФТИ",
-            "url": "https://www.youtube.com/watch?v=KdZ4HF1SrFs"
+            "title": "🇷🇺 Переменные и типы данных — itProger #4",
+            "url": "https://www.youtube.com/watch?v=DZvNZ9l9NT4"
           },
           {
-            "title": "🇷🇺 Переменные в Python — Хауди Хо",
-            "url": "https://www.youtube.com/watch?v=vIuDMSrez3Y"
+            "title": "🇷🇺 Типы данных, переменные — Web Developer Blog",
+            "url": "https://www.youtube.com/watch?v=bpASbXwjSp4"
           },
           {
-            "title": "🇷🇺 Python переменные для начинающих — Selfedu",
-            "url": "https://www.youtube.com/watch?v=kCLaG6LEfGo"
+            "title": "🇷🇺 Переменные. Типы данных — Иван Викторович",
+            "url": "https://www.youtube.com/watch?v=H81Osr7YO8w"
           }
         ]
       }
@@ -249,7 +249,7 @@
       "tier": "D",
       "topic": "variables",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=M-MbWkJzKMc",
+      "video_url": "https://www.youtube.com/watch?v=KdZ4HF1SrFs",
       "title": "🎓 Туториал: Переменные в Python — разбор и закрепление",
       "story": "Переменные в Python: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как объявлять переменные, выбирать понятные имена и хранить данные.\n\nОтветь в заметках:\n1. Когда стоит менять значение переменной, а когда лучше завести новую?\n2. Почему плохо использовать имена вроде `a`, `data1` или `temp` без причины?\n3. Покажи пример, где одна переменная вычисляется из другой.\n\nМини-упражнение: Сделай маленький пример с `coins`, `bonus` и `total`.",
@@ -295,16 +295,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Типы данных и переменные Python — egoroff_channel",
-            "url": "https://www.youtube.com/watch?v=M-MbWkJzKMc"
+            "title": "🇷🇺 Алгоритмы на Python — Хирьянов МФТИ",
+            "url": "https://www.youtube.com/watch?v=KdZ4HF1SrFs"
           },
           {
-            "title": "🇷🇺 Python: что такое переменная — Диджитализируй!",
-            "url": "https://www.youtube.com/watch?v=R4ygxSQe-PU"
+            "title": "🇷🇺 Типы данных, переменные — Web Developer Blog",
+            "url": "https://www.youtube.com/watch?v=bpASbXwjSp4"
           },
           {
-            "title": "🇷🇺 Переменные Python — Олег Шпагин",
-            "url": "https://www.youtube.com/watch?v=tnHJspsXkWk"
+            "title": "🇷🇺 Переменные. Типы данных — Иван Викторович",
+            "url": "https://www.youtube.com/watch?v=H81Osr7YO8w"
           }
         ]
       }
@@ -315,7 +315,7 @@
       "tier": "D",
       "topic": "math_ops",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=0MtiJE_gRog",
+      "video_url": "https://www.youtube.com/watch?v=g-4JbaY-yWU",
       "title": "🎓 Туториал: Арифметика в Python",
       "story": "Арифметика в Python: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как работают сложение, вычитание, умножение, деление и остаток от деления.\n\nОтветь в заметках:\n1. Чем `/` отличается от `//` и где это полезно?\n2. Для чего в задачах нужен оператор `%`?\n3. Приведи 2 вычисления для игрового урона или цены покупки.\n\nМини-упражнение: Посчитай в заметках стоимость 3 зелий по 12 монет и остаток от 37 монет после покупки.",
@@ -361,16 +361,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Арифметические операции Python — Хирьянов МФТИ",
-            "url": "https://www.youtube.com/watch?v=0MtiJE_gRog"
+            "title": "🇷🇺 Арифметические операции — Web Developer Blog",
+            "url": "https://www.youtube.com/watch?v=g-4JbaY-yWU"
           },
           {
-            "title": "🇷🇺 Математика в Python — Хауди Хо",
-            "url": "https://www.youtube.com/watch?v=7lWJRYT8huk"
+            "title": "🇷🇺 Числа и операции — Простые решения",
+            "url": "https://www.youtube.com/watch?v=mxjuKJSwrWk"
           },
           {
-            "title": "🇷🇺 Python: числа и операции — Selfedu",
-            "url": "https://www.youtube.com/watch?v=z6GDzIT1BYo"
+            "title": "🇷🇺 Математические операции — Evrone",
+            "url": "https://www.youtube.com/watch?v=VwHc36NXCUY"
           }
         ]
       }
@@ -381,7 +381,7 @@
       "tier": "D",
       "topic": "math_ops",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=9k9ME8NzjP4",
+      "video_url": "https://www.youtube.com/watch?v=mxjuKJSwrWk",
       "title": "🎓 Туториал: Арифметика в Python — разбор и закрепление",
       "story": "Арифметика в Python: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как работают сложение, вычитание, умножение, деление и остаток от деления.\n\nОтветь в заметках:\n1. В каком порядке Python выполняет арифметические операции?\n2. Когда стоит использовать скобки, даже если без них код тоже сработает?\n3. Покажи пример формулы для опыта или маны.\n\nМини-упражнение: Запиши 2 выражения с разным приоритетом операций и сравни результат.",
@@ -427,16 +427,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Операции с числами Python — egoroff_channel",
-            "url": "https://www.youtube.com/watch?v=9k9ME8NzjP4"
+            "title": "🇷🇺 Числа и операции — Простые решения",
+            "url": "https://www.youtube.com/watch?v=mxjuKJSwrWk"
           },
           {
-            "title": "🇷🇺 Python арифметика для новичков — Олег Шпагин",
-            "url": "https://www.youtube.com/watch?v=rWR5dJkTxuA"
+            "title": "🇷🇺 Математические операции — Evrone",
+            "url": "https://www.youtube.com/watch?v=VwHc36NXCUY"
           },
           {
-            "title": "🇷🇺 Целочисленное деление Python — Диджитализируй!",
-            "url": "https://www.youtube.com/watch?v=qCjRSd_hyjQ"
+            "title": "🇷🇺 Арифметические операции — Web Developer Blog",
+            "url": "https://www.youtube.com/watch?v=g-4JbaY-yWU"
           }
         ]
       }
@@ -447,7 +447,7 @@
       "tier": "D",
       "topic": "functions",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=jVY-aJNo4cA",
+      "video_url": "https://www.youtube.com/watch?v=6K5v4--G__U",
       "title": "🎓 Туториал: Функции в Python",
       "story": "Функции в Python: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как объявлять функции, передавать аргументы и возвращать результат.\n\nОтветь в заметках:\n1. Зачем выносить повторяющуюся логику в функцию?\n2. Чем `return` отличается от `print()`?\n3. Придумай маленькую функцию для RPG: лечение, приветствие или подсчёт цены.\n\nМини-упражнение: Напиши в заметках сигнатуру и тело одной простой функции.",
@@ -493,16 +493,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Функции в Python — Хирьянов МФТИ",
-            "url": "https://www.youtube.com/watch?v=jVY-aJNo4cA"
+            "title": "🇷🇺 Функции (def, lambda) — itProger #12",
+            "url": "https://www.youtube.com/watch?v=6K5v4--G__U"
           },
           {
-            "title": "🇷🇺 Python функции: def, return — Хауди Хо",
-            "url": "https://www.youtube.com/watch?v=ZYIBRZP8YJs"
+            "title": "🇷🇺 Функции def и return — Об Коде",
+            "url": "https://www.youtube.com/watch?v=ZCAejgQOsKg"
           },
           {
-            "title": "🇷🇺 Функции Python — Selfedu",
-            "url": "https://www.youtube.com/watch?v=S-ij5LeLwmI"
+            "title": "🇷🇺 Оператор return — egoroff_channel",
+            "url": "https://www.youtube.com/watch?v=Upok64s2Fgk"
           }
         ]
       }
@@ -513,7 +513,7 @@
       "tier": "D",
       "topic": "functions",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=kfyEIBroC3c",
+      "video_url": "https://www.youtube.com/watch?v=ZCAejgQOsKg",
       "title": "🎓 Туториал: Функции в Python — разбор и закрепление",
       "story": "Функции в Python: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как объявлять функции, передавать аргументы и возвращать результат.\n\nОтветь в заметках:\n1. Что произойдёт, если функция ничего не возвращает явно?\n2. Как выбрать хорошие имена для функции и аргументов?\n3. Покажи функцию с двумя аргументами и одним результатом.\n\nМини-упражнение: Сделай мини-функцию `add_bonus(base, bonus)`.",
@@ -559,16 +559,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Аргументы функций Python — egoroff_channel",
-            "url": "https://www.youtube.com/watch?v=kfyEIBroC3c"
+            "title": "🇷🇺 Функции def и return — Об Коде",
+            "url": "https://www.youtube.com/watch?v=ZCAejgQOsKg"
           },
           {
-            "title": "🇷🇺 Python: return vs print — Диджитализируй!",
-            "url": "https://www.youtube.com/watch?v=6FJAEENgm8A"
+            "title": "🇷🇺 Оператор return — egoroff_channel",
+            "url": "https://www.youtube.com/watch?v=Upok64s2Fgk"
           },
           {
-            "title": "🇷🇺 Создание функций Python — Олег Шпагин",
-            "url": "https://www.youtube.com/watch?v=dR-KIE0FYYU"
+            "title": "🇷🇺 Функции (def, lambda) — itProger #12",
+            "url": "https://www.youtube.com/watch?v=6K5v4--G__U"
           }
         ]
       }
@@ -579,7 +579,7 @@
       "tier": "D",
       "topic": "if_else",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=ndejLag3fNg",
+      "video_url": "https://www.youtube.com/watch?v=x_S9HxhdzRo",
       "title": "🎓 Туториал: Условия if/else в Python",
       "story": "Условия if/else в Python: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как проверять условия и выбирать разное поведение программы.\n\nОтветь в заметках:\n1. В каких случаях нужен `if`, а когда достаточно `if/else`?\n2. Как программа выбирает только одну ветку из нескольких?\n3. Придумай условие для проверки уровня, золота или чётности числа.\n\nМини-упражнение: Запиши в заметках условие: если золота >= 100, купить меч, иначе копить.",
@@ -625,16 +625,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Условия if/elif/else Python — Хауди Хо",
-            "url": "https://www.youtube.com/watch?v=ndejLag3fNg"
+            "title": "🇷🇺 Оператор if-elif-else — DoCode #18",
+            "url": "https://www.youtube.com/watch?v=x_S9HxhdzRo"
           },
           {
-            "title": "🇷🇺 Python if else — Selfedu",
-            "url": "https://www.youtube.com/watch?v=OIrS2mtjJ_g"
+            "title": "🇷🇺 Условные операторы — itProger #5",
+            "url": "https://www.youtube.com/watch?v=SUDNfS_0X-Q"
           },
           {
-            "title": "🇷🇺 Условные операторы — egoroff_channel",
-            "url": "https://www.youtube.com/watch?v=Sx0z_xkdaVQ"
+            "title": "🇷🇺 Конструкция if elif else — Олег Шпагин",
+            "url": "https://www.youtube.com/watch?v=bmS1QmE6wYM"
           }
         ]
       }
@@ -645,7 +645,7 @@
       "tier": "D",
       "topic": "if_else",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=LvJbmcq1eos",
+      "video_url": "https://www.youtube.com/watch?v=SUDNfS_0X-Q",
       "title": "🎓 Туториал: Условия if/else в Python — разбор и закрепление",
       "story": "Условия if/else в Python: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как проверять условия и выбирать разное поведение программы.\n\nОтветь в заметках:\n1. Почему порядок условий в цепочке `if/elif/else` важен?\n2. Какие ошибки часто бывают в булевой логике новичков?\n3. Покажи пример, где функция возвращает разные строки при разных входах.\n\nМини-упражнение: Сделай мини-задачу: вернуть `adult` или `minor` по возрасту.",
@@ -691,16 +691,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Ветвление в Python — Диджитализируй!",
-            "url": "https://www.youtube.com/watch?v=LvJbmcq1eos"
+            "title": "🇷🇺 Условные операторы — itProger #5",
+            "url": "https://www.youtube.com/watch?v=SUDNfS_0X-Q"
           },
           {
-            "title": "🇷🇺 if/else в Python — Олег Шпагин",
-            "url": "https://www.youtube.com/watch?v=b1teWShiSbk"
+            "title": "🇷🇺 Конструкция if elif else — Олег Шпагин",
+            "url": "https://www.youtube.com/watch?v=bmS1QmE6wYM"
           },
           {
-            "title": "🇷🇺 Логические операторы Python — Хирьянов",
-            "url": "https://www.youtube.com/watch?v=wqEGOskPJlI"
+            "title": "🇷🇺 Оператор if-elif-else — DoCode #18",
+            "url": "https://www.youtube.com/watch?v=x_S9HxhdzRo"
           }
         ]
       }
@@ -711,7 +711,7 @@
       "tier": "D",
       "topic": "loops",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=ax2-DY5TK9E",
+      "video_url": "https://www.youtube.com/watch?v=vMD6-jzgDvI",
       "title": "🎓 Туториал: Циклы в Python",
       "story": "Циклы в Python: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как повторять действия с `for` и `while` и не писать один и тот же код много раз.\n\nОтветь в заметках:\n1. Чем `for` отличается от `while`?\n2. Когда удобнее перебирать диапазон, а когда — список?\n3. Придумай цикл, который выводит числа от 1 до 5 или перебирает инвентарь.\n\nМини-упражнение: Запиши один пример `for` и один пример `while`.",
@@ -757,16 +757,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Циклы for и while Python — Хирьянов МФТИ",
-            "url": "https://www.youtube.com/watch?v=ax2-DY5TK9E"
+            "title": "🇷🇺 Циклы for, while — itProger #6",
+            "url": "https://www.youtube.com/watch?v=vMD6-jzgDvI"
           },
           {
-            "title": "🇷🇺 Python циклы — Хауди Хо",
-            "url": "https://www.youtube.com/watch?v=vIHQhKf-G5A"
+            "title": "🇷🇺 Цикл while — Информатика без воды",
+            "url": "https://www.youtube.com/watch?v=tHLm0bUnUVI"
           },
           {
-            "title": "🇷🇺 Циклы Python — Selfedu",
-            "url": "https://www.youtube.com/watch?v=rLoHYffsgcI"
+            "title": "🇷🇺 Циклы (for, while) — Иван Викторович",
+            "url": "https://www.youtube.com/watch?v=sZ0EIwgLblY"
           }
         ]
       }
@@ -777,7 +777,7 @@
       "tier": "D",
       "topic": "loops",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=5V6CVBfZDjY",
+      "video_url": "https://www.youtube.com/watch?v=tHLm0bUnUVI",
       "title": "🎓 Туториал: Циклы в Python — разбор и закрепление",
       "story": "Циклы в Python: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как повторять действия с `for` и `while` и не писать один и тот же код много раз.\n\nОтветь в заметках:\n1. Как избежать бесконечного цикла `while`?\n2. Для чего нужен счётчик итераций?\n3. Покажи пример, где цикл накапливает сумму.\n\nМини-упражнение: Сделай маленький цикл для подсчёта монет в списке.",
@@ -823,16 +823,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Цикл while Python — egoroff_channel",
-            "url": "https://www.youtube.com/watch?v=5V6CVBfZDjY"
+            "title": "🇷🇺 Цикл while — Информатика без воды",
+            "url": "https://www.youtube.com/watch?v=tHLm0bUnUVI"
           },
           {
-            "title": "🇷🇺 Python: break, continue — Диджитализируй!",
-            "url": "https://www.youtube.com/watch?v=S9IOJz6gyZg"
+            "title": "🇷🇺 Циклы (for, while) — Иван Викторович",
+            "url": "https://www.youtube.com/watch?v=sZ0EIwgLblY"
           },
           {
-            "title": "🇷🇺 Циклы Python — Олег Шпагин",
-            "url": "https://www.youtube.com/watch?v=qLfCeEKXJqE"
+            "title": "🇷🇺 Циклы for, while — itProger #6",
+            "url": "https://www.youtube.com/watch?v=vMD6-jzgDvI"
           }
         ]
       }
@@ -843,7 +843,7 @@
       "tier": "D",
       "topic": "strings",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=bKMu7qE5-HY",
+      "video_url": "https://www.youtube.com/watch?v=pqaBWcsBGyA",
       "title": "🎓 Туториал: Строки в Python",
       "story": "Строки в Python: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как брать длину строки, менять регистр, делать срезы и собирать новый текст.\n\nОтветь в заметках:\n1. Какие операции со строками ты увидел в видео?\n2. Когда лучше использовать конкатенацию, а когда форматирование?\n3. Придумай 2 примера строковых задач: приветствие, пароль, никнейм.\n\nМини-упражнение: Собери строку приветствия для героя и запиши её в заметках.",
@@ -889,16 +889,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Строки в Python — Хирьянов МФТИ",
-            "url": "https://www.youtube.com/watch?v=bKMu7qE5-HY"
+            "title": "🇷🇺 Функции строк, индексы, срезы — itProger #8",
+            "url": "https://www.youtube.com/watch?v=pqaBWcsBGyA"
           },
           {
-            "title": "🇷🇺 Методы строк Python — Хауди Хо",
-            "url": "https://www.youtube.com/watch?v=nrZH455nWho"
+            "title": "🇷🇺 Строки в Python — PythonToday",
+            "url": "https://www.youtube.com/watch?v=BrHhnwKPCKI"
           },
           {
-            "title": "🇷🇺 Python строки: срезы — Selfedu",
-            "url": "https://www.youtube.com/watch?v=8i3CFxh2OJk"
+            "title": "🇷🇺 Строки в Python — про АйТи",
+            "url": "https://www.youtube.com/watch?v=TWBlNaiH3_g"
           }
         ]
       }
@@ -909,7 +909,7 @@
       "tier": "D",
       "topic": "strings",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=0Nc9QkI9E30",
+      "video_url": "https://www.youtube.com/watch?v=BrHhnwKPCKI",
       "title": "🎓 Туториал: Строки в Python — разбор и закрепление",
       "story": "Строки в Python: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как брать длину строки, менять регистр, делать срезы и собирать новый текст.\n\nОтветь в заметках:\n1. Чем отличается строка от списка символов с точки зрения работы новичка?\n2. Какие ошибки часто бывают при работе с индексами и срезами?\n3. Покажи пример с `.lower()`, `.upper()` или `.replace()`.\n\nМини-упражнение: Сделай мини-пример очистки никнейма от пробелов.",
@@ -955,16 +955,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 f-строки и форматирование — egoroff_channel",
-            "url": "https://www.youtube.com/watch?v=0Nc9QkI9E30"
+            "title": "🇷🇺 Строки в Python — PythonToday",
+            "url": "https://www.youtube.com/watch?v=BrHhnwKPCKI"
           },
           {
-            "title": "🇷🇺 Строковые методы Python — Диджитализируй!",
-            "url": "https://www.youtube.com/watch?v=7fCsaLTnbPM"
+            "title": "🇷🇺 Строки в Python — про АйТи",
+            "url": "https://www.youtube.com/watch?v=TWBlNaiH3_g"
           },
           {
-            "title": "🇷🇺 Конкатенация строк — Олег Шпагин",
-            "url": "https://www.youtube.com/watch?v=BoSZMYFg0PQ"
+            "title": "🇷🇺 Функции строк, индексы, срезы — itProger #8",
+            "url": "https://www.youtube.com/watch?v=pqaBWcsBGyA"
           }
         ]
       }
@@ -975,7 +975,7 @@
       "tier": "D",
       "topic": "lists",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=Inf1ab1MVGQ",
+      "video_url": "https://www.youtube.com/watch?v=-X2ubBdP2Ak",
       "title": "🎓 Туториал: Списки в Python",
       "story": "Списки в Python: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как хранить несколько значений в одном списке, брать элементы и менять содержимое.\n\nОтветь в заметках:\n1. Когда список удобнее отдельных переменных?\n2. Как получить первый, последний и несколько элементов списка?\n3. Придумай список инвентаря или чисел для подсчёта суммы.\n\nМини-упражнение: Запиши список из 4 предметов и покажи, как взять первый и последний.",
@@ -1021,16 +1021,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Списки Python — Хирьянов МФТИ",
-            "url": "https://www.youtube.com/watch?v=Inf1ab1MVGQ"
+            "title": "🇷🇺 Списки (list) и методы — itProger #7",
+            "url": "https://www.youtube.com/watch?v=-X2ubBdP2Ak"
           },
           {
-            "title": "🇷🇺 Python списки — Хауди Хо",
-            "url": "https://www.youtube.com/watch?v=2H9QpSHQBTE"
+            "title": "🇷🇺 Списки (list) — Гоша Дударь #7",
+            "url": "https://www.youtube.com/watch?v=ol23jnhVAOY"
           },
           {
-            "title": "🇷🇺 Списки и кортежи — Selfedu",
-            "url": "https://www.youtube.com/watch?v=06LZBpSKllo"
+            "title": "🇷🇺 Списки, методы, срезы — PythonToday",
+            "url": "https://www.youtube.com/watch?v=PM2ncjqLLgY"
           }
         ]
       }
@@ -1041,7 +1041,7 @@
       "tier": "D",
       "topic": "lists",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=wfVgHJAtGjQ",
+      "video_url": "https://www.youtube.com/watch?v=ol23jnhVAOY",
       "title": "🎓 Туториал: Списки в Python — разбор и закрепление",
       "story": "Списки в Python: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как хранить несколько значений в одном списке, брать элементы и менять содержимое.\n\nОтветь в заметках:\n1. Для чего нужны `.append()` и `.pop()`?\n2. Когда полезны срезы списка?\n3. Покажи пример задачи, где список фильтруется или суммируется.\n\nМини-упражнение: Сделай мини-инвентарь, добавь в него предмет и убери один.",
@@ -1087,16 +1087,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Методы списков — egoroff_channel",
-            "url": "https://www.youtube.com/watch?v=wfVgHJAtGjQ"
+            "title": "🇷🇺 Списки (list) — Гоша Дударь #7",
+            "url": "https://www.youtube.com/watch?v=ol23jnhVAOY"
           },
           {
-            "title": "🇷🇺 Генераторы списков — Диджитализируй!",
-            "url": "https://www.youtube.com/watch?v=M_1gIzPuDFs"
+            "title": "🇷🇺 Списки, методы, срезы — PythonToday",
+            "url": "https://www.youtube.com/watch?v=PM2ncjqLLgY"
           },
           {
-            "title": "🇷🇺 Срезы списков Python — Олег Шпагин",
-            "url": "https://www.youtube.com/watch?v=TBYj2HIm6hw"
+            "title": "🇷🇺 Списки (list) и методы — itProger #7",
+            "url": "https://www.youtube.com/watch?v=-X2ubBdP2Ak"
           }
         ]
       }
@@ -1107,7 +1107,7 @@
       "tier": "D",
       "topic": "dicts",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=Yp1hJ2EfgvM",
+      "video_url": "https://www.youtube.com/watch?v=W2oO1Y-QDzo",
       "title": "🎓 Туториал: Словари в Python",
       "story": "Словари в Python: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как хранить пары ключ-значение и быстро получать связанные данные.\n\nОтветь в заметках:\n1. Когда словарь удобнее списка?\n2. Что такое ключ и значение в словаре?\n3. Придумай словарь героя с именем, классом и уровнем.\n\nМини-упражнение: Запиши маленький словарь и покажи, как достать одно поле.",
@@ -1153,16 +1153,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Словари Python — Хирьянов МФТИ",
-            "url": "https://www.youtube.com/watch?v=Yp1hJ2EfgvM"
+            "title": "🇷🇺 Словари (dict) — itProger #10",
+            "url": "https://www.youtube.com/watch?v=W2oO1Y-QDzo"
           },
           {
-            "title": "🇷🇺 Python словари — Хауди Хо",
-            "url": "https://www.youtube.com/watch?v=rcOC-qXKres"
+            "title": "🇷🇺 Словари. Операции и методы — egoroff_channel",
+            "url": "https://www.youtube.com/watch?v=7_Zrh1--d5o"
           },
           {
-            "title": "🇷🇺 Словари для начинающих — Selfedu",
-            "url": "https://www.youtube.com/watch?v=Mhm0W8KSGWM"
+            "title": "🇷🇺 Словари (dict), методы — Гоша Дударь #10",
+            "url": "https://www.youtube.com/watch?v=NaA2H25gxN4"
           }
         ]
       }
@@ -1173,7 +1173,7 @@
       "tier": "D",
       "topic": "dicts",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=xTZD2k2LADI",
+      "video_url": "https://www.youtube.com/watch?v=7_Zrh1--d5o",
       "title": "🎓 Туториал: Словари в Python — разбор и закрепление",
       "story": "Словари в Python: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как хранить пары ключ-значение и быстро получать связанные данные.\n\nОтветь в заметках:\n1. Как безопасно работать с отсутствующим ключом?\n2. Когда полезны `.keys()`, `.values()` и `.items()`?\n3. Покажи пример списка словарей — например, списка задач или предметов.\n\nМини-упражнение: Сделай мини-словарь предмета с `name` и `price`.",
@@ -1219,16 +1219,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Методы словарей — egoroff_channel",
-            "url": "https://www.youtube.com/watch?v=xTZD2k2LADI"
+            "title": "🇷🇺 Словари. Операции и методы — egoroff_channel",
+            "url": "https://www.youtube.com/watch?v=7_Zrh1--d5o"
           },
           {
-            "title": "🇷🇺 Python dict comprehension — Диджитализируй!",
-            "url": "https://www.youtube.com/watch?v=5DPEcLOy-LU"
+            "title": "🇷🇺 Словари (dict), методы — Гоша Дударь #10",
+            "url": "https://www.youtube.com/watch?v=NaA2H25gxN4"
           },
           {
-            "title": "🇷🇺 Словари Python — Олег Шпагин",
-            "url": "https://www.youtube.com/watch?v=VhkQHmF82Pg"
+            "title": "🇷🇺 Словари (dict) — itProger #10",
+            "url": "https://www.youtube.com/watch?v=W2oO1Y-QDzo"
           }
         ]
       }
@@ -1239,7 +1239,7 @@
       "tier": "C",
       "topic": "classes",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=hl9qhGINxIM",
+      "video_url": "https://www.youtube.com/watch?v=esSIFatS6kM",
       "title": "🎓 Туториал: Классы в Python",
       "story": "Классы в Python: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как создавать свои объекты через `class`, `__init__` и методы.\n\nОтветь в заметках:\n1. Зачем вообще нужны классы, если уже есть словари и функции?\n2. Что делает `__init__`?\n3. Придумай класс `Hero` или `Potion` с 2–3 свойствами.\n\nМини-упражнение: Запиши в заметках каркас класса с одним методом.",
@@ -1285,16 +1285,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 ООП Python: классы — Хирьянов МФТИ",
-            "url": "https://www.youtube.com/watch?v=hl9qhGINxIM"
+            "title": "🇷🇺 Классы и объекты — Иван Викторович",
+            "url": "https://www.youtube.com/watch?v=esSIFatS6kM"
           },
           {
-            "title": "🇷🇺 Python ООП — Хауди Хо",
-            "url": "https://www.youtube.com/watch?v=gW9HnNHgr-c"
+            "title": "🇷🇺 Основы ООП, классы — itProger #17",
+            "url": "https://www.youtube.com/watch?v=gFRa6qVN980"
           },
           {
-            "title": "🇷🇺 Классы Python — Selfedu",
-            "url": "https://www.youtube.com/watch?v=oy1x3cNkqW0"
+            "title": "🇷🇺 Что такое ООП — Merion Academy",
+            "url": "https://www.youtube.com/watch?v=ChEdFh7Q-Vw"
           }
         ]
       }
@@ -1305,7 +1305,7 @@
       "tier": "B",
       "topic": "regex",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=F3120N89Rmc",
+      "video_url": "https://www.youtube.com/watch?v=_PSyCOuueFs",
       "title": "🎓 Туториал: Регулярные выражения в Python",
       "story": "Регулярные выражения в Python: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как искать шаблоны в тексте через регулярные выражения.\n\nОтветь в заметках:\n1. Для каких задач регулярные выражения особенно полезны?\n2. Чем отличаются поиск, проверка совпадения и извлечение всех вхождений?\n3. Придумай шаблон для числа, email или даты.\n\nМини-упражнение: Запиши одно простое регулярное выражение и поясни, что оно находит.",
@@ -1351,16 +1351,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Регулярные выражения Python — модуль re",
-            "url": "https://www.youtube.com/watch?v=F3120N89Rmc"
+            "title": "🇷🇺 Регулярные выражения ч.1 — Иван Викторович",
+            "url": "https://www.youtube.com/watch?v=_PSyCOuueFs"
           },
           {
-            "title": "🇷🇺 Python Regex: Урок 14 — практика",
-            "url": "https://www.youtube.com/watch?v=hG76y5Vp5Hk"
+            "title": "🇷🇺 Основы RegExp, модуль re — PyLounge",
+            "url": "https://www.youtube.com/watch?v=8sv-6AN0_cg"
           },
           {
-            "title": "🇷🇺 Регулярные выражения Python — часть 2",
-            "url": "https://www.youtube.com/watch?v=k5q6Gk0270s"
+            "title": "🇷🇺 Регулярные выражения ч.2 — Иван Викторович",
+            "url": "https://www.youtube.com/watch?v=kbeC4djs0mo"
           }
         ]
       }
@@ -1371,7 +1371,7 @@
       "tier": "A",
       "topic": "algorithms",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=eXKGc2KBYsg",
+      "video_url": "https://www.youtube.com/watch?v=WBaL7ANQbzQ",
       "title": "🎓 Туториал: Алгоритмическое мышление в Python",
       "story": "Алгоритмическое мышление в Python: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как разбивать задачу на шаги, проверять крайние случаи и выбирать подход.\n\nОтветь в заметках:\n1. Почему одна и та же задача может решаться по-разному?\n2. Что такое крайний случай и почему его важно проверить отдельно?\n3. Опиши словами алгоритм поиска максимума или удаления дублей.\n\nМини-упражнение: Сделай план решения маленькой задачи в 4–5 шагов без кода.",
@@ -1417,16 +1417,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Алгоритмы и структуры данных Python — Хирьянов МФТИ",
-            "url": "https://www.youtube.com/watch?v=eXKGc2KBYsg"
+            "title": "🇷🇺 Сортировка пузырьком — egoroff_channel",
+            "url": "https://www.youtube.com/watch?v=WBaL7ANQbzQ"
           },
           {
-            "title": "🇷🇺 Сортировка пузырьком Python — Selfedu",
-            "url": "https://www.youtube.com/watch?v=nY8a5cl2n-8"
+            "title": "🇷🇺 Сортировка вставками — selfedu #9",
+            "url": "https://www.youtube.com/watch?v=jMWvNTp_wFA"
           },
           {
-            "title": "🇷🇺 Бинарный поиск Python — Диджитализируй!",
-            "url": "https://www.youtube.com/watch?v=hUJkobEo2Dw"
+            "title": "🇷🇺 Как работают сортировки — Alek OS",
+            "url": "https://www.youtube.com/watch?v=PF7AqefS4MU"
           }
         ]
       }
@@ -1437,7 +1437,7 @@
       "tier": "C",
       "topic": "file_io",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=kYJ4c1n420g",
+      "video_url": "https://www.youtube.com/watch?v=t-xQAhLNYSs",
       "title": "🎓 Туториал: Работа с файлами в Python",
       "story": "Работа с файлами в Python: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как читать и записывать данные в файлы и зачем нужен `with open(...)`.\n\nОтветь в заметках:\n1. Когда программе вообще нужен файл, а не просто переменная?\n2. Почему `with open(...)` удобнее ручного открытия и закрытия?\n3. Придумай пример: лог, сохранение результатов, список покупок.\n\nМини-упражнение: Запиши 2 строки псевдокода: чтение файла и запись файла.",
@@ -1483,16 +1483,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Работа с файлами Python — open, read, write",
-            "url": "https://www.youtube.com/watch?v=kYJ4c1n420g"
+            "title": "🇷🇺 Работа с файлами — itProger #13",
+            "url": "https://www.youtube.com/watch?v=t-xQAhLNYSs"
           },
           {
-            "title": "🇷🇺 Python: чтение и запись файлов — Selfedu",
-            "url": "https://www.youtube.com/watch?v=F3z394fH0XQ"
+            "title": "🇷🇺 Менеджер with...as — itProger #15",
+            "url": "https://www.youtube.com/watch?v=uGsSTZjUoIc"
           },
           {
-            "title": "🇷🇺 Уроки Python #13 — Работа с файлами",
-            "url": "https://www.youtube.com/watch?v=6P0P3aX8gWc"
+            "title": "🇷🇺 Работа с файлами — Захаров Андрей #20",
+            "url": "https://www.youtube.com/watch?v=xoix5pT40xs"
           }
         ]
       }
@@ -4619,7 +4619,7 @@
       "tier": "D",
       "topic": "variables",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=Bluxbh9CaQ0",
+      "video_url": "https://www.youtube.com/watch?v=hJ_hGnvXNdc",
       "title": "🎓 Туториал: Переменные в JavaScript",
       "story": "Переменные в JavaScript: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как использовать `let` и `const`, хранить значения и не путаться в именах.\n\nОтветь в заметках:\n1. Чем `let` отличается от `const` на практике?\n2. Почему хорошие имена переменных важны для чтения кода?\n3. Придумай переменные для интерфейса: `userName`, `score`, `isAdmin`.\n\nМини-упражнение: Запиши 3 коротких примера с `let` и `const`.",
@@ -4665,15 +4665,15 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 JavaScript: переменные let, const, var — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=Bluxbh9CaQ0"
+            "title": "🇷🇺 Переменные var, let, const — глубокий разбор",
+            "url": "https://www.youtube.com/watch?v=hJ_hGnvXNdc"
           },
           {
-            "title": "🇷🇺 JS переменные — Фрилансер по жизни",
-            "url": "https://www.youtube.com/watch?v=3KCr3GNHEL4"
+            "title": "🇷🇺 Как правильно создавать переменные в JS",
+            "url": "https://www.youtube.com/watch?v=BQM09-rrfNs"
           },
           {
-            "title": "🇷🇺 JavaScript для начинающих — Ulbi TV",
+            "title": "🇷🇺 JavaScript — Полный Курс [11 ЧАСОВ]",
             "url": "https://www.youtube.com/watch?v=CxgOKJh4zWE"
           }
         ]
@@ -4685,7 +4685,7 @@
       "tier": "D",
       "topic": "variables",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=DWk9LGQFHBI",
+      "video_url": "https://www.youtube.com/watch?v=Bluxbh9CaQ0",
       "title": "🎓 Туториал: Переменные в JavaScript — разбор и закрепление",
       "story": "Переменные в JavaScript: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как использовать `let` и `const`, хранить значения и не путаться в именах.\n\nОтветь в заметках:\n1. Когда изменение переменной — нормальная часть логики, а когда это запах кода?\n2. Почему новичкам не стоит полагаться на `var`?\n3. Покажи пример вычисляемой переменной вроде `totalPrice`.\n\nМини-упражнение: Сделай мини-сценарий: цена, скидка, итог.",
@@ -4731,16 +4731,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Типы данных JavaScript — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=DWk9LGQFHBI"
+            "title": "🇷🇺 JavaScript Основы — Полный Курс за 6 часов",
+            "url": "https://www.youtube.com/watch?v=Bluxbh9CaQ0"
           },
           {
-            "title": "🇷🇺 JS: var vs let vs const — АйТи Синяк",
-            "url": "https://www.youtube.com/watch?v=D9Odu1yLxYE"
+            "title": "🇷🇺 Как правильно создавать переменные в JS",
+            "url": "https://www.youtube.com/watch?v=BQM09-rrfNs"
           },
           {
-            "title": "🇷🇺 JavaScript переменные — Гоша Дударь",
-            "url": "https://www.youtube.com/watch?v=p2hM5WNoFSs"
+            "title": "🇷🇺 Переменные var, let, const — глубокий разбор",
+            "url": "https://www.youtube.com/watch?v=hJ_hGnvXNdc"
           }
         ]
       }
@@ -4751,7 +4751,7 @@
       "tier": "D",
       "topic": "math_ops",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=UWIW_ky9PqA",
+      "video_url": "https://www.youtube.com/watch?v=ill_GWEmjpA",
       "title": "🎓 Туториал: Арифметика в JavaScript",
       "story": "Арифметика в JavaScript: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как JavaScript считает выражения и где нужны арифметические операторы.\n\nОтветь в заметках:\n1. Чем полезны `Math.floor`, `Math.ceil` или `Math.round`?\n2. Для чего бывает нужен остаток от деления `%`?\n3. Придумай 2 примера для корзины, опыта или таймера.\n\nМини-упражнение: Запиши формулу расчёта скидки или очков за бой.",
@@ -4797,16 +4797,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 JavaScript: числа и Math — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=UWIW_ky9PqA"
+            "title": "🇷🇺 Prompt и математические операции — JS урок 3.3",
+            "url": "https://www.youtube.com/watch?v=ill_GWEmjpA"
           },
           {
-            "title": "🇷🇺 JS арифметические операторы — Гоша Дударь",
-            "url": "https://www.youtube.com/watch?v=lM3AGv0MknY"
+            "title": "🇷🇺 Числа, объект Math, округление — JS",
+            "url": "https://www.youtube.com/watch?v=yIvIAU-7_SY"
           },
           {
-            "title": "🇷🇺 JavaScript Math объект — Хауди Хо",
-            "url": "https://www.youtube.com/watch?v=CY4BM91PvmQ"
+            "title": "🇷🇺 Операторы и математика в JavaScript",
+            "url": "https://www.youtube.com/watch?v=PSjJ3BKtHfo"
           }
         ]
       }
@@ -4817,7 +4817,7 @@
       "tier": "D",
       "topic": "math_ops",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=8LWGkbaJHXY",
+      "video_url": "https://www.youtube.com/watch?v=ftUNp_uD_W8",
       "title": "🎓 Туториал: Арифметика в JavaScript — разбор и закрепление",
       "story": "Арифметика в JavaScript: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как JavaScript считает выражения и где нужны арифметические операторы.\n\nОтветь в заметках:\n1. Что может пойти не так при вычислениях с дробями?\n2. Когда стоит вынести формулу в отдельную функцию?\n3. Покажи пример со случайным числом или округлением.\n\nМини-упражнение: Сделай маленький пример с `Math.random()` или округлением времени.",
@@ -4863,16 +4863,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Математика в JavaScript — Ulbi TV",
-            "url": "https://www.youtube.com/watch?v=8LWGkbaJHXY"
+            "title": "🇷🇺 Prompt и математические операции (ч.2)",
+            "url": "https://www.youtube.com/watch?v=ftUNp_uD_W8"
           },
           {
-            "title": "🇷🇺 Арифметика JS — АйТи Синяк",
-            "url": "https://www.youtube.com/watch?v=LtjDaiz0jmo"
+            "title": "🇷🇺 Числа, объект Math, округление — JS",
+            "url": "https://www.youtube.com/watch?v=yIvIAU-7_SY"
           },
           {
-            "title": "🇷🇺 JS: числовые операции — Фрилансер по жизни",
-            "url": "https://www.youtube.com/watch?v=G0TKMfRhLpU"
+            "title": "🇷🇺 Операторы и математика в JavaScript",
+            "url": "https://www.youtube.com/watch?v=PSjJ3BKtHfo"
           }
         ]
       }
@@ -4883,7 +4883,7 @@
       "tier": "D",
       "topic": "functions",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=aQkgUUmUJy4",
+      "video_url": "https://www.youtube.com/watch?v=rJK0eMkI3BE",
       "title": "🎓 Туториал: Функции в JavaScript",
       "story": "Функции в JavaScript: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как писать функции, стрелочные функции и возвращать результат.\n\nОтветь в заметках:\n1. Зачем выносить повторяемый код в функцию?\n2. Когда удобно использовать обычную функцию, а когда стрелочную?\n3. Придумай функцию для карточки товара, подсчёта очков или приветствия.\n\nМини-упражнение: Запиши одну простую функцию с двумя аргументами.",
@@ -4929,16 +4929,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Функции JavaScript — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=aQkgUUmUJy4"
+            "title": "🇷🇺 Функции в JS. Область видимости. Параметры",
+            "url": "https://www.youtube.com/watch?v=rJK0eMkI3BE"
           },
           {
-            "title": "🇷🇺 JS функции — Фрилансер по жизни",
-            "url": "https://www.youtube.com/watch?v=NW1VHnGSKew"
+            "title": "🇷🇺 Функции в JavaScript #6",
+            "url": "https://www.youtube.com/watch?v=hgxEmdvmNUQ"
           },
           {
-            "title": "🇷🇺 Стрелочные функции JS — Ulbi TV",
-            "url": "https://www.youtube.com/watch?v=UGapN-hrekw"
+            "title": "🇷🇺 Функции на практике, стрелочные функции",
+            "url": "https://www.youtube.com/watch?v=nGVYdna4kq4"
           }
         ]
       }
@@ -4949,7 +4949,7 @@
       "tier": "D",
       "topic": "functions",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=pahO1DPSk8w",
+      "video_url": "https://www.youtube.com/watch?v=q7QNFPZwiho",
       "title": "🎓 Туториал: Функции в JavaScript — разбор и закрепление",
       "story": "Функции в JavaScript: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как писать функции, стрелочные функции и возвращать результат.\n\nОтветь в заметках:\n1. Что отличает аргументы от локальных переменных внутри функции?\n2. Почему `return` важнее простого `console.log` в боевом коде?\n3. Покажи пример функции-обработчика события или колбэка.\n\nМини-упражнение: Напиши мини-функцию `formatPrice(price)`.",
@@ -4995,16 +4995,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 JS: callback, замыкания — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=pahO1DPSk8w"
+            "title": "🇷🇺 Функция и return в JavaScript",
+            "url": "https://www.youtube.com/watch?v=q7QNFPZwiho"
           },
           {
-            "title": "🇷🇺 JavaScript функции — АйТи Синяк",
-            "url": "https://www.youtube.com/watch?v=dU6Iq4P3vvA"
+            "title": "🇷🇺 Функции в JS. Область видимости. Параметры",
+            "url": "https://www.youtube.com/watch?v=rJK0eMkI3BE"
           },
           {
-            "title": "🇷🇺 Функции JS — Гоша Дударь",
-            "url": "https://www.youtube.com/watch?v=fn8RfDviB_g"
+            "title": "🇷🇺 Функции на практике, стрелочные функции",
+            "url": "https://www.youtube.com/watch?v=nGVYdna4kq4"
           }
         ]
       }
@@ -5015,7 +5015,7 @@
       "tier": "D",
       "topic": "if_else",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=rlWgI1ROwVE",
+      "video_url": "https://www.youtube.com/watch?v=ugio2BJOO04",
       "title": "🎓 Туториал: Условия в JavaScript",
       "story": "Условия в JavaScript: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как принимать решения в коде с помощью `if`, `else if`, `else` и тернарного оператора.\n\nОтветь в заметках:\n1. Когда достаточно одного `if`, а когда нужна цепочка условий?\n2. Что делает тернарный оператор и когда он уместен?\n3. Придумай проверку для возраста, роли пользователя или статуса заказа.\n\nМини-упражнение: Запиши мини-логику: если товар в наличии — показать кнопку, иначе текст `Нет в наличии`.",
@@ -5061,16 +5061,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 JavaScript: if/else — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=rlWgI1ROwVE"
+            "title": "🇷🇺 JS условия if else. Тернарный оператор",
+            "url": "https://www.youtube.com/watch?v=ugio2BJOO04"
           },
           {
-            "title": "🇷🇺 JS условия — Фрилансер по жизни",
-            "url": "https://www.youtube.com/watch?v=TJW_bHSggHk"
+            "title": "🇷🇺 Условия (if-else) и switch в JavaScript",
+            "url": "https://www.youtube.com/watch?v=Km-HSCqE0o4"
           },
           {
-            "title": "🇷🇺 Условные операторы JS — Ulbi TV",
-            "url": "https://www.youtube.com/watch?v=JL_UM0eb1Vg"
+            "title": "🇷🇺 IF ELSE в JavaScript. Примеры",
+            "url": "https://www.youtube.com/watch?v=tFyRhDZgHaU"
           }
         ]
       }
@@ -5081,7 +5081,7 @@
       "tier": "D",
       "topic": "if_else",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=yzdiRHMFg9E",
+      "video_url": "https://www.youtube.com/watch?v=OIIBECEaYKI",
       "title": "🎓 Туториал: Условия в JavaScript — разбор и закрепление",
       "story": "Условия в JavaScript: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как принимать решения в коде с помощью `if`, `else if`, `else` и тернарного оператора.\n\nОтветь в заметках:\n1. Почему порядок условий может менять результат?\n2. Какие булевы ошибки чаще всего делают новички?\n3. Покажи пример функции, которая возвращает разные строки по условию.\n\nМини-упражнение: Сделай мини-задачу с `if/else` для проверки чётности.",
@@ -5127,16 +5127,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 switch/case JavaScript — АйТи Синяк",
-            "url": "https://www.youtube.com/watch?v=yzdiRHMFg9E"
+            "title": "🇷🇺 Ветвление If, else, switch — JS v.2.0",
+            "url": "https://www.youtube.com/watch?v=OIIBECEaYKI"
           },
           {
-            "title": "🇷🇺 Тернарный оператор JS — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=9FkDlKnBPbg"
+            "title": "🇷🇺 JS условия if else. Тернарный оператор",
+            "url": "https://www.youtube.com/watch?v=ugio2BJOO04"
           },
           {
-            "title": "🇷🇺 JS условия — Гоша Дударь",
-            "url": "https://www.youtube.com/watch?v=JoINPGpXBXc"
+            "title": "🇷🇺 IF ELSE в JavaScript. Примеры",
+            "url": "https://www.youtube.com/watch?v=tFyRhDZgHaU"
           }
         ]
       }
@@ -5147,7 +5147,7 @@
       "tier": "D",
       "topic": "loops",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=1SLwF3_26fI",
+      "video_url": "https://www.youtube.com/watch?v=sYRSQU96e_I",
       "title": "🎓 Туториал: Циклы в JavaScript",
       "story": "Циклы в JavaScript: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как повторять действия с `for`, `while`, `for...of` и не дублировать код.\n\nОтветь в заметках:\n1. Чем `for` отличается от `while` и `for...of`?\n2. Когда цикл лучше методов массива, а когда хуже?\n3. Придумай цикл по товарам, сообщениям или очкам.\n\nМини-упражнение: Запиши короткий пример цикла, который суммирует массив чисел.",
@@ -5193,16 +5193,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Циклы JavaScript — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=1SLwF3_26fI"
+            "title": "🇷🇺 Массивы, циклы (for, while, foreach) — JS",
+            "url": "https://www.youtube.com/watch?v=sYRSQU96e_I"
           },
           {
-            "title": "🇷🇺 JS: for, while — Фрилансер по жизни",
-            "url": "https://www.youtube.com/watch?v=rjFHWKbV3QI"
+            "title": "🇷🇺 Циклы FOR, WHILE — полный курс с задачами",
+            "url": "https://www.youtube.com/watch?v=jwrPJ55OZ4k"
           },
           {
-            "title": "🇷🇺 Циклы JS — Ulbi TV",
-            "url": "https://www.youtube.com/watch?v=JnFSbJg_YQk"
+            "title": "🇷🇺 Циклы while, do while, for в JavaScript",
+            "url": "https://www.youtube.com/watch?v=_WlC6UxMyNE"
           }
         ]
       }
@@ -5213,7 +5213,7 @@
       "tier": "D",
       "topic": "loops",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=RJB-xoMqP0s",
+      "video_url": "https://www.youtube.com/watch?v=jwrPJ55OZ4k",
       "title": "🎓 Туториал: Циклы в JavaScript — разбор и закрепление",
       "story": "Циклы в JavaScript: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как повторять действия с `for`, `while`, `for...of` и не дублировать код.\n\nОтветь в заметках:\n1. Как избежать бесконечного цикла?\n2. Что такое счётчик и зачем его обновлять?\n3. Покажи пример обхода массива с накоплением результата.\n\nМини-упражнение: Сделай мини-цикл для вывода только положительных чисел.",
@@ -5259,16 +5259,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 JS: forEach, map — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=RJB-xoMqP0s"
+            "title": "🇷🇺 Циклы FOR, WHILE — полный курс с задачами",
+            "url": "https://www.youtube.com/watch?v=jwrPJ55OZ4k"
           },
           {
-            "title": "🇷🇺 JavaScript циклы — АйТи Синяк",
-            "url": "https://www.youtube.com/watch?v=pLb2duvWqfY"
+            "title": "🇷🇺 Циклы while, do while, for в JavaScript",
+            "url": "https://www.youtube.com/watch?v=_WlC6UxMyNE"
           },
           {
-            "title": "🇷🇺 Циклы JS — Гоша Дударь",
-            "url": "https://www.youtube.com/watch?v=J-2K0TP6n10"
+            "title": "🇷🇺 Массивы, циклы (for, while, foreach) — JS",
+            "url": "https://www.youtube.com/watch?v=sYRSQU96e_I"
           }
         ]
       }
@@ -5279,7 +5279,7 @@
       "tier": "D",
       "topic": "strings",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=da5Wh_EFdKQ",
+      "video_url": "https://www.youtube.com/watch?v=AwzOh-4_oZc",
       "title": "🎓 Туториал: Строки в JavaScript",
       "story": "Строки в JavaScript: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как обрабатывать строки: регистр, поиск, замена, шаблонные строки.\n\nОтветь в заметках:\n1. Какие методы строк чаще всего встречаются в задачах?\n2. Чем шаблонные строки удобнее конкатенации?\n3. Придумай 2 задачи: приветствие, slug, форматирование адреса.\n\nМини-упражнение: Собери фразу через template literal и покажи ещё один пример с `.trim()` или `.replace()`.",
@@ -5325,16 +5325,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Строки JavaScript — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=da5Wh_EFdKQ"
+            "title": "🇷🇺 Работа со строками JS: length, substr, slice",
+            "url": "https://www.youtube.com/watch?v=AwzOh-4_oZc"
           },
           {
-            "title": "🇷🇺 JS строковые методы — Фрилансер по жизни",
-            "url": "https://www.youtube.com/watch?v=gHuSFnJ8Y54"
+            "title": "🇷🇺 Строки в JS. Методы at, replace, slice",
+            "url": "https://www.youtube.com/watch?v=MGrpBVpctNo"
           },
           {
-            "title": "🇷🇺 Template literals JS — Ulbi TV",
-            "url": "https://www.youtube.com/watch?v=8dEfSXt-gQA"
+            "title": "🇷🇺 Строчные методы JS: slice, substring",
+            "url": "https://www.youtube.com/watch?v=YsMR2WclYcM"
           }
         ]
       }
@@ -5345,7 +5345,7 @@
       "tier": "D",
       "topic": "strings",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=7i2WHIAX8qk",
+      "video_url": "https://www.youtube.com/watch?v=MGrpBVpctNo",
       "title": "🎓 Туториал: Строки в JavaScript — разбор и закрепление",
       "story": "Строки в JavaScript: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как обрабатывать строки: регистр, поиск, замена, шаблонные строки.\n\nОтветь в заметках:\n1. Почему важно очищать ввод пользователя от лишних пробелов?\n2. Какие ошибки бывают при работе с индексами строки?\n3. Покажи пример проверки `includes` или разбивки `split`.\n\nМини-упражнение: Сделай мини-пример нормализации строки для поиска.",
@@ -5391,16 +5391,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 JS строки: split, join — АйТи Синяк",
-            "url": "https://www.youtube.com/watch?v=7i2WHIAX8qk"
+            "title": "🇷🇺 Строки в JS. Методы at, replace, slice",
+            "url": "https://www.youtube.com/watch?v=MGrpBVpctNo"
           },
           {
-            "title": "🇷🇺 Работа со строками JS — Гоша Дударь",
-            "url": "https://www.youtube.com/watch?v=fPBuL_xOJps"
+            "title": "🇷🇺 Строчные методы JS: slice, substring",
+            "url": "https://www.youtube.com/watch?v=YsMR2WclYcM"
           },
           {
-            "title": "🇷🇺 JavaScript строки — Хауди Хо",
-            "url": "https://www.youtube.com/watch?v=4Bh39FZJAVE"
+            "title": "🇷🇺 Работа со строками JS: length, substr, slice",
+            "url": "https://www.youtube.com/watch?v=AwzOh-4_oZc"
           }
         ]
       }
@@ -5411,7 +5411,7 @@
       "tier": "D",
       "topic": "arrays",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=rRgD1yVNIvw",
+      "video_url": "https://www.youtube.com/watch?v=SjTTDZX2hIA",
       "title": "🎓 Туториал: Массивы в JavaScript",
       "story": "Массивы в JavaScript: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как хранить набор значений в массиве и использовать методы `map`, `filter`, `reduce` и другие.\n\nОтветь в заметках:\n1. Когда массив лучше объекта?\n2. Чем отличаются `map`, `filter` и `reduce`?\n3. Придумай массив товаров, задач или оценок.\n\nМини-упражнение: Покажи один пример с `filter` или `map` в заметках.",
@@ -5457,15 +5457,15 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Массивы JavaScript — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=rRgD1yVNIvw"
+            "title": "🇷🇺 Методы массивов: forEach, map, filter, reduce",
+            "url": "https://www.youtube.com/watch?v=SjTTDZX2hIA"
           },
           {
-            "title": "🇷🇺 JS массивы — Фрилансер по жизни",
-            "url": "https://www.youtube.com/watch?v=TLGx_kNMdJA"
+            "title": "🇷🇺 Методы массивов: map, reduce, filter",
+            "url": "https://www.youtube.com/watch?v=WJUk3GXarMw"
           },
           {
-            "title": "🇷🇺 Методы массивов JS — Ulbi TV",
+            "title": "🇷🇺 Методы массивов — Владилен Минин #12",
             "url": "https://www.youtube.com/watch?v=nEabP9CYCAQ"
           }
         ]
@@ -5477,7 +5477,7 @@
       "tier": "D",
       "topic": "arrays",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=wHmO7F2AJMI",
+      "video_url": "https://www.youtube.com/watch?v=WJUk3GXarMw",
       "title": "🎓 Туториал: Массивы в JavaScript — разбор и закрепление",
       "story": "Массивы в JavaScript: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как хранить набор значений в массиве и использовать методы `map`, `filter`, `reduce` и другие.\n\nОтветь в заметках:\n1. Когда удобен `find`, а когда — `some` или `every`?\n2. Почему важно понимать, какие методы возвращают новый массив?\n3. Покажи пример удаления дублей или сортировки.\n\nМини-упражнение: Сделай мини-массив и отфильтруй из него числа больше 10.",
@@ -5523,16 +5523,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 JS: map, filter, reduce — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=wHmO7F2AJMI"
+            "title": "🇷🇺 Методы массивов: map, reduce, filter",
+            "url": "https://www.youtube.com/watch?v=WJUk3GXarMw"
           },
           {
-            "title": "🇷🇺 Массивы JS — АйТи Синяк",
-            "url": "https://www.youtube.com/watch?v=rl1Lqoeqnw8"
+            "title": "🇷🇺 Методы массивов — Владилен Минин #12",
+            "url": "https://www.youtube.com/watch?v=nEabP9CYCAQ"
           },
           {
-            "title": "🇷🇺 JavaScript массивы — Гоша Дударь",
-            "url": "https://www.youtube.com/watch?v=Zst-M4-R1OA"
+            "title": "🇷🇺 Методы массивов: forEach, map, filter, reduce",
+            "url": "https://www.youtube.com/watch?v=SjTTDZX2hIA"
           }
         ]
       }
@@ -5543,7 +5543,7 @@
       "tier": "C",
       "topic": "objects",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=TNhaISOUy6Q",
+      "video_url": "https://www.youtube.com/watch?v=RSwpa-HN0y8",
       "title": "🎓 Туториал: Объекты в JavaScript",
       "story": "Объекты в JavaScript: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как описывать сущности через объекты, читать поля и разбирать данные по ключам.\n\nОтветь в заметках:\n1. Чем объект отличается от массива?\n2. Когда удобнее точечная запись, а когда квадратные скобки?\n3. Придумай объект `user` или `product` с 3–4 полями.\n\nМини-упражнение: Запиши объект и покажи, как получить одно поле.",
@@ -5589,16 +5589,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Объекты JavaScript — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=TNhaISOUy6Q"
+            "title": "🇷🇺 Object.keys, values, entries в JS",
+            "url": "https://www.youtube.com/watch?v=RSwpa-HN0y8"
           },
           {
-            "title": "🇷🇺 JS объекты — Фрилансер по жизни",
-            "url": "https://www.youtube.com/watch?v=bU9F2PmEk00"
+            "title": "🇷🇺 Методы массивов к объектам — JS",
+            "url": "https://www.youtube.com/watch?v=Ha2geO5Qw_Q"
           },
           {
-            "title": "🇷🇺 Деструктуризация JS — Ulbi TV",
-            "url": "https://www.youtube.com/watch?v=U4FYPRnfbNQ"
+            "title": "🇷🇺 Объекты: ключи и значения — JS",
+            "url": "https://www.youtube.com/watch?v=JQnRVtTGd7U"
           }
         ]
       }
@@ -5609,7 +5609,7 @@
       "tier": "C",
       "topic": "objects",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=ITJLHlWXJsE",
+      "video_url": "https://www.youtube.com/watch?v=vm-M4m-OH0U",
       "title": "🎓 Туториал: Объекты в JavaScript — разбор и закрепление",
       "story": "Объекты в JavaScript: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как описывать сущности через объекты, читать поля и разбирать данные по ключам.\n\nОтветь в заметках:\n1. Что дают `Object.keys`, `Object.values` и `Object.entries`?\n2. Как деструктуризация помогает читать код?\n3. Покажи пример массива объектов.\n\nМини-упражнение: Сделай маленький объект заказа и распечатай одну строку по нему.",
@@ -5655,16 +5655,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 JS: spread, rest — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=ITJLHlWXJsE"
+            "title": "🇷🇺 Перебор объекта. Map и Set — JS",
+            "url": "https://www.youtube.com/watch?v=vm-M4m-OH0U"
           },
           {
-            "title": "🇷🇺 Объекты JS — АйТи Синяк",
-            "url": "https://www.youtube.com/watch?v=QRs2p0jXrOo"
+            "title": "🇷🇺 Object.keys, values, entries в JS",
+            "url": "https://www.youtube.com/watch?v=RSwpa-HN0y8"
           },
           {
-            "title": "🇷🇺 JavaScript объекты — Гоша Дударь",
-            "url": "https://www.youtube.com/watch?v=1V2A4cy6M7c"
+            "title": "🇷🇺 Объекты: ключи и значения — JS",
+            "url": "https://www.youtube.com/watch?v=JQnRVtTGd7U"
           }
         ]
       }
@@ -5675,7 +5675,7 @@
       "tier": "C",
       "topic": "classes",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=uLY9GXGMXaA",
+      "video_url": "https://www.youtube.com/watch?v=hcKaQyYW9B0",
       "title": "🎓 Туториал: Классы в JavaScript",
       "story": "Классы в JavaScript: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как создавать экземпляры через `class`, `constructor` и методы.\n\nОтветь в заметках:\n1. Когда класс делает код понятнее, чем набор функций и объектов?\n2. Что происходит внутри `constructor`?\n3. Придумай класс `Player`, `Cart` или `Task`.\n\nМини-упражнение: Запиши каркас класса с одним методом и одним свойством.",
@@ -5721,16 +5721,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Классы JavaScript — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=uLY9GXGMXaA"
+            "title": "🇷🇺 Классы JavaScript — полный курс 2024",
+            "url": "https://www.youtube.com/watch?v=hcKaQyYW9B0"
           },
           {
-            "title": "🇷🇺 JS ООП — Фрилансер по жизни",
-            "url": "https://www.youtube.com/watch?v=5s_cz_MRjzE"
+            "title": "🇷🇺 Классы в JS — наследование, конструктор",
+            "url": "https://www.youtube.com/watch?v=us1GTgdUsJo"
           },
           {
-            "title": "🇷🇺 ES6 Классы JS — Ulbi TV",
-            "url": "https://www.youtube.com/watch?v=BASquaxab_w"
+            "title": "🇷🇺 ООП в JS. Наследование, классы, super",
+            "url": "https://www.youtube.com/watch?v=JWwSH92tq7E"
           }
         ]
       }
@@ -5741,7 +5741,7 @@
       "tier": "B",
       "topic": "regex",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=_pLpx6btq6U",
+      "video_url": "https://www.youtube.com/watch?v=htPtv6r2uOs",
       "title": "🎓 Туториал: Регулярные выражения в JavaScript",
       "story": "Регулярные выражения в JavaScript: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как находить и проверять шаблоны в строках с помощью регулярных выражений.\n\nОтветь в заметках:\n1. Для каких задач regex подходит лучше обычных методов строк?\n2. Чем отличаются `.test()` и `.match()`?\n3. Придумай шаблон для телефона, даты или числа.\n\nМини-упражнение: Запиши простое регулярное выражение и поясни его словами.",
@@ -5787,16 +5787,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Регулярные выражения JavaScript за 1 час",
-            "url": "https://www.youtube.com/watch?v=_pLpx6btq6U"
+            "title": "🇷🇺 RegExp — введение. JavaScript",
+            "url": "https://www.youtube.com/watch?v=htPtv6r2uOs"
           },
           {
-            "title": "🇷🇺 JS RegExp — Уроки JavaScript #14",
-            "url": "https://www.youtube.com/watch?v=7TFkCiSQEdQ"
+            "title": "🇷🇺 Базовый курс JS: функции, RegExp",
+            "url": "https://www.youtube.com/watch?v=HrazmFq4YIg"
           },
           {
-            "title": "🇷🇺 RegExp введение — JavaScript.ru",
-            "url": "https://www.youtube.com/watch?v=YsFxTCwXaps"
+            "title": "🇷🇺 RegExp — это просто",
+            "url": "https://www.youtube.com/watch?v=wMZ6gLNtefQ"
           }
         ]
       }
@@ -5807,7 +5807,7 @@
       "tier": "A",
       "topic": "algorithms",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=hXYHZVMHec0",
+      "video_url": "https://www.youtube.com/watch?v=NErrGZ64OdE",
       "title": "🎓 Туториал: Алгоритмы в JavaScript",
       "story": "Алгоритмы в JavaScript: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как мыслить шагами, проверять крайние случаи и собирать решение из простых действий.\n\nОтветь в заметках:\n1. Почему сложную задачу полезно сначала решить на бумаге?\n2. Какие крайние случаи ты бы проверил у задачи про массивы или строки?\n3. Опиши словами алгоритм удаления дублей или поиска максимума.\n\nМини-упражнение: Сделай план решения задачи в 5 шагов без кода.",
@@ -5853,16 +5853,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Алгоритмы и структуры данных JS — Ulbi TV",
+            "title": "🇷🇺 Алгоритмы и структуры данных JS — полный курс",
+            "url": "https://www.youtube.com/watch?v=NErrGZ64OdE"
+          },
+          {
+            "title": "🇷🇺 Алгоритмы и структуры данных — Ulbi TV",
             "url": "https://www.youtube.com/watch?v=hXYHZVMHec0"
           },
           {
-            "title": "🇷🇺 Сортировка пузырьком и быстрая JS",
-            "url": "https://www.youtube.com/watch?v=d_kY2t6-3W0"
-          },
-          {
-            "title": "🇷🇺 Алгоритмы — Эльбрус Буткемп",
-            "url": "https://www.youtube.com/watch?v=3R-a49-9yH8"
+            "title": "🇷🇺 RegExp. Регулярные выражения — intro",
+            "url": "https://www.youtube.com/watch?v=htPtv6r2uOs"
           }
         ]
       }
@@ -5873,7 +5873,7 @@
       "tier": "C",
       "topic": "file_io",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=Oage6H4GX2o",
+      "video_url": "https://www.youtube.com/watch?v=eKCD9djJQKc",
       "title": "🎓 Туториал: Файлы в Node.js",
       "story": "Файлы в Node.js: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как в Node.js читать и записывать файлы и зачем это нужно на практике.\n\nОтветь в заметках:\n1. В каких проектах нужен модуль `fs`?\n2. Когда выбирать синхронное чтение, а когда асинхронное?\n3. Придумай пример: лог, экспорт данных, сохранение настроек.\n\nМини-упражнение: Запиши в заметках короткий пример чтения файла и обработки текста.",
@@ -5919,16 +5919,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 JavaScript Fetch API — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=Oage6H4GX2o"
-          },
-          {
-            "title": "🇷🇺 JS: работа с JSON и localStorage",
-            "url": "https://www.youtube.com/watch?v=lQ4V_1S9cGo"
-          },
-          {
-            "title": "🇷🇺 JS: AJAX и работа с данными — Ulbi TV",
+            "title": "🇷🇺 Fetch, XMLHttpRequest, Ajax — Владилен #14",
             "url": "https://www.youtube.com/watch?v=eKCD9djJQKc"
+          },
+          {
+            "title": "🇷🇺 AJAX, запросы на сервер + бесплатные API",
+            "url": "https://www.youtube.com/watch?v=OaqD8sSuY1k"
+          },
+          {
+            "title": "🇷🇺 JS fetch — клиент-серверное взаимодействие",
+            "url": "https://www.youtube.com/watch?v=klVGCxWsN2A"
           }
         ]
       }
@@ -8927,7 +8927,7 @@
       "tier": "D",
       "topic": "html_elements",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=W4MIiV4nZDY",
+      "video_url": "https://www.youtube.com/watch?v=SKRydSA2bYA",
       "title": "🎓 Туториал: HTML-элементы",
       "story": "HTML-элементы: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, какие HTML-теги отвечают за структуру страницы и зачем нужна семантика.\n\nОтветь в заметках:\n1. Какие теги из видео отвечают за заголовки, списки, ссылки и изображения?\n2. Почему семантическая разметка лучше набора безликих `div`?\n3. Опиши структуру простой страницы: header, main, section, footer.\n\nМини-упражнение: Нарисуй в заметках каркас одной страницы из 5–6 HTML-элементов.",
@@ -8973,16 +8973,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 HTML за час — Владилен Минин",
+            "title": "🇷🇺 Основы HTML для начинающих (2026)",
+            "url": "https://www.youtube.com/watch?v=SKRydSA2bYA"
+          },
+          {
+            "title": "🇷🇺 HTML полезные теги и свойства",
+            "url": "https://www.youtube.com/watch?v=kEo6y-wSgRU"
+          },
+          {
+            "title": "🇷🇺 HTML — Полный курс [3 ЧАСА]",
             "url": "https://www.youtube.com/watch?v=W4MIiV4nZDY"
-          },
-          {
-            "title": "🇷🇺 HTML основы — Фрилансер по жизни",
-            "url": "https://www.youtube.com/watch?v=DOEtVdkKwcU"
-          },
-          {
-            "title": "🇷🇺 HTML теги и атрибуты — Selfedu",
-            "url": "https://www.youtube.com/watch?v=MiBGeR3IYUY"
           }
         ]
       }
@@ -8993,7 +8993,7 @@
       "tier": "D",
       "topic": "html_elements",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=Euh1Gw7MjBk",
+      "video_url": "https://www.youtube.com/watch?v=DOEtVdkKwcU",
       "title": "🎓 Туториал: HTML-элементы — разбор и закрепление",
       "story": "HTML-элементы: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, какие HTML-теги отвечают за структуру страницы и зачем нужна семантика.\n\nОтветь в заметках:\n1. Когда уместны `section`, `article`, `nav` и `aside`?\n2. Какие ошибки новичков чаще всего встречаются в HTML-структуре?\n3. Покажи, как бы ты разметил карточку товара или профиль героя.\n\nМини-упражнение: Составь мини-дерево HTML для карточки с заголовком, картинкой и кнопкой.",
@@ -9039,16 +9039,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Семантические теги HTML5 — Гоша Дударь",
-            "url": "https://www.youtube.com/watch?v=Euh1Gw7MjBk"
+            "title": "🇷🇺 Начни учить HTML (понятно даже чайнику)",
+            "url": "https://www.youtube.com/watch?v=DOEtVdkKwcU"
           },
           {
-            "title": "🇷🇺 HTML структура документа — Хауди Хо",
-            "url": "https://www.youtube.com/watch?v=bWNmJqgrl4Q"
+            "title": "🇷🇺 Основы HTML для начинающих (2026)",
+            "url": "https://www.youtube.com/watch?v=SKRydSA2bYA"
           },
           {
-            "title": "🇷🇺 HTML таблицы и списки — АйТи Синяк",
-            "url": "https://www.youtube.com/watch?v=v0P_CxRk3o0"
+            "title": "🇷🇺 HTML полезные теги и свойства",
+            "url": "https://www.youtube.com/watch?v=kEo6y-wSgRU"
           }
         ]
       }
@@ -9059,7 +9059,7 @@
       "tier": "D",
       "topic": "text_styling",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=HxDXeeqFnOk",
+      "video_url": "https://www.youtube.com/watch?v=fN_ic_MNgAU",
       "title": "🎓 Туториал: Стили текста в CSS",
       "story": "Стили текста в CSS: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как оформлять текст через CSS: размер, вес, выравнивание, интервалы и декор.\n\nОтветь в заметках:\n1. Какие свойства влияют на читаемость текста сильнее всего?\n2. Чем `font-weight`, `line-height` и `letter-spacing` отличаются друг от друга?\n3. Придумай оформление заголовка и второстепенного текста.\n\nМини-упражнение: Запиши 3 CSS-свойства для стилизации заголовка.",
@@ -9105,16 +9105,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 CSS типографика и шрифты — Фрилансер по жизни",
-            "url": "https://www.youtube.com/watch?v=HxDXeeqFnOk"
+            "title": "🇷🇺 Как подключить шрифты в CSS",
+            "url": "https://www.youtube.com/watch?v=fN_ic_MNgAU"
           },
           {
-            "title": "🇷🇺 Google Fonts подключение — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=Apkh3TttKKo"
+            "title": "🇷🇺 Как добавить шрифт в HTML CSS",
+            "url": "https://www.youtube.com/watch?v=yjdxUlvG99c"
           },
           {
-            "title": "🇷🇺 CSS текст и шрифты — Ulbi TV",
-            "url": "https://www.youtube.com/watch?v=Iv2bfOSsnBg"
+            "title": "🇷🇺 HTML — Полный курс [3 ЧАСА]",
+            "url": "https://www.youtube.com/watch?v=W4MIiV4nZDY"
           }
         ]
       }
@@ -9125,7 +9125,7 @@
       "tier": "D",
       "topic": "text_styling",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=8pQKDVRc0T8",
+      "video_url": "https://www.youtube.com/watch?v=fN_ic_MNgAU",
       "title": "🎓 Туториал: Стили текста в CSS — разбор и закрепление",
       "story": "Стили текста в CSS: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как оформлять текст через CSS: размер, вес, выравнивание, интервалы и декор.\n\nОтветь в заметках:\n1. Почему не стоит задавать слишком маленький `line-height`?\n2. Когда `text-transform` полезен, а когда мешает?\n3. Покажи пример стиля для кнопки или бейджа с текстом.\n\nМини-упражнение: Опиши в заметках типографику для hero-блока.",
@@ -9171,16 +9171,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Стилизация текста CSS — Гоша Дударь",
-            "url": "https://www.youtube.com/watch?v=8pQKDVRc0T8"
+            "title": "🇷🇺 Как подключить шрифты в CSS",
+            "url": "https://www.youtube.com/watch?v=fN_ic_MNgAU"
           },
           {
-            "title": "🇷🇺 CSS font-family и подключение шрифтов",
-            "url": "https://www.youtube.com/watch?v=ROEsqX0CkTQ"
+            "title": "🇷🇺 Как добавить шрифт в HTML CSS",
+            "url": "https://www.youtube.com/watch?v=yjdxUlvG99c"
           },
           {
-            "title": "🇷🇺 CSS text-shadow, letter-spacing — АйТи Синяк",
-            "url": "https://www.youtube.com/watch?v=ZGAzrM6G7Sg"
+            "title": "🇷🇺 HTML — Полный курс [3 ЧАСА]",
+            "url": "https://www.youtube.com/watch?v=W4MIiV4nZDY"
           }
         ]
       }
@@ -9191,7 +9191,7 @@
       "tier": "D",
       "topic": "colors_bg",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=juC4bHgj74s",
+      "video_url": "https://www.youtube.com/watch?v=bWoqW6PjqBE",
       "title": "🎓 Туториал: Фоны и цвета в CSS",
       "story": "Фоны и цвета в CSS: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как работать с цветом, фоном, прозрачностью, границами и акцентами.\n\nОтветь в заметках:\n1. Чем фон блока отличается от цвета текста?\n2. Когда полезны градиенты, `opacity` или `box-shadow`?\n3. Придумай палитру для тёмной карточки или светлого баннера.\n\nМини-упражнение: Запиши 2–3 CSS-строки для фона и акцентного цвета карточки.",
@@ -9237,16 +9237,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 CSS цвета, фоны, градиенты — Фрилансер по жизни",
-            "url": "https://www.youtube.com/watch?v=juC4bHgj74s"
+            "title": "🇷🇺 CSS фоновый цвет, изображение, градиент",
+            "url": "https://www.youtube.com/watch?v=bWoqW6PjqBE"
           },
           {
-            "title": "🇷🇺 CSS переменные (custom properties) — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=J8YcA-BvgSo"
+            "title": "🇷🇺 Красивый фон с градиентом на CSS",
+            "url": "https://www.youtube.com/watch?v=dePDJ_D-o8A"
           },
           {
-            "title": "🇷🇺 Градиенты CSS — Ulbi TV",
-            "url": "https://www.youtube.com/watch?v=5uKPcX4t4EY"
+            "title": "🇷🇺 Красивый градиент в CSS за 1 минуту",
+            "url": "https://www.youtube.com/watch?v=uqoR6KB7Hv8"
           }
         ]
       }
@@ -9257,7 +9257,7 @@
       "tier": "D",
       "topic": "colors_bg",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=GkeU7qBRSmY",
+      "video_url": "https://www.youtube.com/watch?v=bWoqW6PjqBE",
       "title": "🎓 Туториал: Фоны и цвета в CSS — разбор и закрепление",
       "story": "Фоны и цвета в CSS: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как работать с цветом, фоном, прозрачностью, границами и акцентами.\n\nОтветь в заметках:\n1. Как сделать интерфейс контрастным и при этом не кричащим?\n2. Какие ошибки бывают с прозрачностью и тенями?\n3. Покажи пример фонового оформления кнопки или секции.\n\nМини-упражнение: Опиши мини-тему для блока: фон, текст, бордер, тень.",
@@ -9303,16 +9303,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 CSS фоны и множественные фоны — Хауди Хо",
-            "url": "https://www.youtube.com/watch?v=GkeU7qBRSmY"
+            "title": "🇷🇺 CSS фоновый цвет, изображение, градиент",
+            "url": "https://www.youtube.com/watch?v=bWoqW6PjqBE"
           },
           {
-            "title": "🇷🇺 CSS: rgba, hsl, hex — цветовые модели",
-            "url": "https://www.youtube.com/watch?v=F8lGKj-3bMk"
+            "title": "🇷🇺 Красивый фон с градиентом на CSS",
+            "url": "https://www.youtube.com/watch?v=dePDJ_D-o8A"
           },
           {
-            "title": "🇷🇺 CSS box-shadow и стилизация блоков",
-            "url": "https://www.youtube.com/watch?v=DTsRBU72lRU"
+            "title": "🇷🇺 Красивый градиент в CSS за 1 минуту",
+            "url": "https://www.youtube.com/watch?v=uqoR6KB7Hv8"
           }
         ]
       }
@@ -9323,7 +9323,7 @@
       "tier": "C",
       "topic": "layout",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=O-ytfplFQ3c",
+      "video_url": "https://www.youtube.com/watch?v=eVZEwEQg4pg",
       "title": "🎓 Туториал: Layout: Flexbox и Grid",
       "story": "Layout: Flexbox и Grid: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как располагать элементы на странице с помощью Flexbox и Grid.\n\nОтветь в заметках:\n1. Когда удобнее Flexbox, а когда Grid?\n2. Что делают `justify-content`, `align-items`, `gap` и `grid-template-columns`?\n3. Придумай раскладку карточек, шапки или профиля.\n\nМини-упражнение: Нарисуй словами или схематично один flex- или grid-макет.",
@@ -9369,16 +9369,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 CSS Flexbox — Фрилансер по жизни",
-            "url": "https://www.youtube.com/watch?v=O-ytfplFQ3c"
+            "title": "🇷🇺 Flexbox CSS практический курс за 6 минут",
+            "url": "https://www.youtube.com/watch?v=eVZEwEQg4pg"
           },
           {
-            "title": "🇷🇺 CSS Grid — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=LHW_M9mf4Is"
+            "title": "🇷🇺 Flexbox vs Grid: когда и что лучше?",
+            "url": "https://www.youtube.com/watch?v=PPBqZ8fuzRg"
           },
           {
-            "title": "🇷🇺 Flexbox и Grid на практике — Ulbi TV",
-            "url": "https://www.youtube.com/watch?v=X5GVjguPH_g"
+            "title": "🇷🇺 Flex и Grid: изучаю CSS раскладки",
+            "url": "https://www.youtube.com/watch?v=BjQw7gQxNHk"
           }
         ]
       }
@@ -9389,7 +9389,7 @@
       "tier": "C",
       "topic": "layout",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=lr-GKBkfidA",
+      "video_url": "https://www.youtube.com/watch?v=s4K2av6VV1w",
       "title": "🎓 Туториал: Layout: Flexbox и Grid — разбор и закрепление",
       "story": "Layout: Flexbox и Grid: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как располагать элементы на странице с помощью Flexbox и Grid.\n\nОтветь в заметках:\n1. Почему layout лучше продумывать от контейнера к дочерним элементам?\n2. Какие частые ошибки бывают с шириной и переполнением?\n3. Покажи, как бы ты сверстал ряд карточек с одинаковыми промежутками.\n\nМини-упражнение: Опиши CSS для контейнера из 3 карточек в ряд.",
@@ -9435,16 +9435,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 CSS Grid практика — Фрилансер по жизни",
-            "url": "https://www.youtube.com/watch?v=lr-GKBkfidA"
+            "title": "🇷🇺 Как правильно пользоваться Flex-Box",
+            "url": "https://www.youtube.com/watch?v=s4K2av6VV1w"
           },
           {
-            "title": "🇷🇺 Flexbox за 45 минут — Гоша Дударь",
-            "url": "https://www.youtube.com/watch?v=BoKOFb5kJR8"
+            "title": "🇷🇺 CSS Flexbox — Введение",
+            "url": "https://www.youtube.com/watch?v=O-ytfplFQ3c"
           },
           {
-            "title": "🇷🇺 CSS позиционирование и макеты — АйТи Синяк",
-            "url": "https://www.youtube.com/watch?v=Nj5RCaE_b00"
+            "title": "🇷🇺 CSS Grid — Введение",
+            "url": "https://www.youtube.com/watch?v=LHW_M9mf4Is"
           }
         ]
       }
@@ -9455,7 +9455,7 @@
       "tier": "C",
       "topic": "selectors",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=t4BbRCpiXgI",
+      "video_url": "https://www.youtube.com/watch?v=nZHrCDJEnw4",
       "title": "🎓 Туториал: CSS-селекторы",
       "story": "CSS-селекторы: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как точно выбирать элементы через классы, псевдоклассы и псевдоэлементы.\n\nОтветь в заметках:\n1. Чем `.card .title` отличается от `.card.title`?\n2. Для чего нужны `:hover`, `:focus`, `::before` и `::after`?\n3. Придумай селектор для кнопки внутри карточки или для второго элемента списка.\n\nМини-упражнение: Запиши 2 селектора: один обычный, один с псевдоклассом.",
@@ -9501,16 +9501,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 CSS селекторы — Фрилансер по жизни",
-            "url": "https://www.youtube.com/watch?v=t4BbRCpiXgI"
+            "title": "🇷🇺 Псевдоклассы и псевдоэлементы CSS #4",
+            "url": "https://www.youtube.com/watch?v=nZHrCDJEnw4"
           },
           {
-            "title": "🇷🇺 Специфичность CSS — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=qrduUUdxBSY"
+            "title": "🇷🇺 CSS селекторы — ответ на собеседовании",
+            "url": "https://www.youtube.com/watch?v=81XUV42LEXY"
           },
           {
-            "title": "🇷🇺 Псевдоклассы CSS — Ulbi TV",
-            "url": "https://www.youtube.com/watch?v=T8YT8RCGXVY"
+            "title": "🇷🇺 CSS: Псевдоклассы :not и :has на примере",
+            "url": "https://www.youtube.com/watch?v=Cz3zIWY_A2U"
           }
         ]
       }
@@ -9521,7 +9521,7 @@
       "tier": "C",
       "topic": "selectors",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=73nOH4tBwaw",
+      "video_url": "https://www.youtube.com/watch?v=0eyxg9xlQT8",
       "title": "🎓 Туториал: CSS-селекторы — разбор и закрепление",
       "story": "CSS-селекторы: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как точно выбирать элементы через классы, псевдоклассы и псевдоэлементы.\n\nОтветь в заметках:\n1. Почему слишком длинные селекторы делают CSS хрупким?\n2. Когда полезен `:nth-child()`?\n3. Покажи пример декоративного псевдоэлемента.\n\nМини-упражнение: Составь мини-правило для hover-состояния ссылки или кнопки.",
@@ -9567,16 +9567,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 CSS селекторы продвинутые — Хауди Хо",
-            "url": "https://www.youtube.com/watch?v=73nOH4tBwaw"
+            "title": "🇷🇺 ТОП-3 правила для адаптива в CSS",
+            "url": "https://www.youtube.com/watch?v=0eyxg9xlQT8"
           },
           {
-            "title": "🇷🇺 CSS: nth-child, not, has — АйТи Синяк",
-            "url": "https://www.youtube.com/watch?v=EouHx3h_7I0"
+            "title": "🇷🇺 Псевдоклассы и псевдоэлементы CSS #4",
+            "url": "https://www.youtube.com/watch?v=nZHrCDJEnw4"
           },
           {
-            "title": "🇷🇺 Каскад и наследование CSS — Гоша Дударь",
-            "url": "https://www.youtube.com/watch?v=INzO_3-FVl4"
+            "title": "🇷🇺 CSS: Псевдоклассы :not и :has на примере",
+            "url": "https://www.youtube.com/watch?v=Cz3zIWY_A2U"
           }
         ]
       }
@@ -9587,7 +9587,7 @@
       "tier": "C",
       "topic": "animations",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=FEjqy9B-M0E",
+      "video_url": "https://www.youtube.com/watch?v=GKgOOuTL0po",
       "title": "🎓 Туториал: CSS-анимации",
       "story": "CSS-анимации: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как оживлять интерфейс через `transition`, `transform` и `@keyframes`.\n\nОтветь в заметках:\n1. Когда достаточно `transition`, а когда нужна полноценная `animation`?\n2. Какие свойства безопаснее анимировать для интерфейса?\n3. Придумай лёгкий hover-эффект для кнопки или карточки.\n\nМини-упражнение: Запиши короткий CSS-пример анимации или transition.",
@@ -9633,16 +9633,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 CSS анимации — Фрилансер по жизни",
-            "url": "https://www.youtube.com/watch?v=FEjqy9B-M0E"
+            "title": "🇷🇺 CSS animation и @keyframes за 12 минут",
+            "url": "https://www.youtube.com/watch?v=GKgOOuTL0po"
           },
           {
-            "title": "🇷🇺 CSS transitions — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=mpidBIDA-bQ"
+            "title": "🇷🇺 Анимации в CSS. @keyframes. Свойство animation",
+            "url": "https://www.youtube.com/watch?v=3a_iaHqazHo"
           },
           {
-            "title": "🇷🇺 Keyframes CSS — Ulbi TV",
-            "url": "https://www.youtube.com/watch?v=RLMFV-KKVGY"
+            "title": "🇷🇺 CSS анимация — функция steps",
+            "url": "https://www.youtube.com/watch?v=jxCwnTqMda0"
           }
         ]
       }
@@ -9653,7 +9653,7 @@
       "tier": "B",
       "topic": "responsive",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=M5dgDrlJmS4",
+      "video_url": "https://www.youtube.com/watch?v=ahYuxTRjY0g",
       "title": "🎓 Туториал: Адаптивная верстка",
       "story": "Адаптивная верстка: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как адаптировать интерфейс под разные экраны через media queries и гибкие размеры.\n\nОтветь в заметках:\n1. Зачем вообще нужна адаптивность?\n2. Что обычно меняют на мобильном экране: сетку, отступы, размеры текста или всё вместе?\n3. Придумай, как превратить 3 колонки на десктопе в 1 колонку на телефоне.\n\nМини-упражнение: Запиши пример одного `@media`-правила в заметках.",
@@ -9699,16 +9699,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Адаптивная вёрстка — Фрилансер по жизни",
-            "url": "https://www.youtube.com/watch?v=M5dgDrlJmS4"
+            "title": "🇷🇺 Адаптивная верстка CSS. Desktop и mobile first",
+            "url": "https://www.youtube.com/watch?v=ahYuxTRjY0g"
           },
           {
-            "title": "🇷🇺 Media queries CSS — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=EvPFcljSFmo"
+            "title": "🇷🇺 Адаптивная верстка за 5 минут",
+            "url": "https://www.youtube.com/watch?v=ENEviJIMiHA"
           },
           {
-            "title": "🇷🇺 Респонсив дизайн — Ulbi TV",
-            "url": "https://www.youtube.com/watch?v=vBjsMPinQGM"
+            "title": "🇷🇺 Медиа-запросы за 2 минуты — CSS",
+            "url": "https://www.youtube.com/watch?v=ICO6NwLZx_s"
           }
         ]
       }
@@ -9719,7 +9719,7 @@
       "tier": "B",
       "topic": "responsive",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=PSag6bhKOvM",
+      "video_url": "https://www.youtube.com/watch?v=PJJsrca0n-Y",
       "title": "🎓 Туториал: Адаптивная верстка — разбор и закрепление",
       "story": "Адаптивная верстка: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как адаптировать интерфейс под разные экраны через media queries и гибкие размеры.\n\nОтветь в заметках:\n1. Почему проектировать mobile-first часто удобнее?\n2. Какие единицы измерения полезны в адаптивной вёрстке?\n3. Покажи пример изменения сетки или шапки на маленьком экране.\n\nМини-упражнение: Сделай мини-план адаптации карточек под ширину < 768px.",
@@ -9765,16 +9765,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Мобильная вёрстка — Гоша Дударь",
-            "url": "https://www.youtube.com/watch?v=PSag6bhKOvM"
+            "title": "🇷🇺 Медиа-запросы не нужны, если писать стили так",
+            "url": "https://www.youtube.com/watch?v=PJJsrca0n-Y"
           },
           {
-            "title": "🇷🇺 CSS: адаптив — АйТи Синяк",
-            "url": "https://www.youtube.com/watch?v=fgfAhv-vrRA"
+            "title": "🇷🇺 Адаптивная верстка CSS. Desktop и mobile first",
+            "url": "https://www.youtube.com/watch?v=ahYuxTRjY0g"
           },
           {
-            "title": "🇷🇺 Адаптивный сайт с нуля — Хауди Хо",
-            "url": "https://www.youtube.com/watch?v=eRqr4FWJfgI"
+            "title": "🇷🇺 Адаптивная верстка за 5 минут",
+            "url": "https://www.youtube.com/watch?v=ENEviJIMiHA"
           }
         ]
       }
@@ -9785,7 +9785,7 @@
       "tier": "D",
       "topic": "forms",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=KBbIj6mBeVo",
+      "video_url": "https://www.youtube.com/watch?v=_in4LAdxAUA",
       "title": "🎓 Туториал: HTML-формы",
       "story": "HTML-формы: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как собирать пользовательский ввод через `form`, `label`, `input`, `textarea` и валидацию.\n\nОтветь в заметках:\n1. Почему у поля ввода должен быть `label`?\n2. Какие типы `input` ты заметил и для чего они нужны?\n3. Придумай форму регистрации, поиска или обратной связи.\n\nМини-упражнение: Нарисуй состав одной маленькой формы из 3 полей и кнопки.",
@@ -9831,16 +9831,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 HTML формы — Фрилансер по жизни",
-            "url": "https://www.youtube.com/watch?v=KBbIj6mBeVo"
+            "title": "🇷🇺 HTML формы: form, fieldset, legend, label",
+            "url": "https://www.youtube.com/watch?v=_in4LAdxAUA"
           },
           {
-            "title": "🇷🇺 Стилизация форм CSS — Владилен Минин",
-            "url": "https://www.youtube.com/watch?v=x2ImdZDgH3E"
+            "title": "🇷🇺 Всё о select и textarea в HTML",
+            "url": "https://www.youtube.com/watch?v=OuHUc5SaLno"
           },
           {
-            "title": "🇷🇺 Валидация форм HTML5 — Ulbi TV",
-            "url": "https://www.youtube.com/watch?v=2UMdfFKK0DE"
+            "title": "🇷🇺 HTML form, input, textarea, button",
+            "url": "https://www.youtube.com/watch?v=Zt2tFxTUhHo"
           }
         ]
       }
@@ -9851,7 +9851,7 @@
       "tier": "D",
       "topic": "forms",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=5mJR3GK-6DI",
+      "video_url": "https://www.youtube.com/watch?v=FMjuLXNTPfU",
       "title": "🎓 Туториал: HTML-формы — разбор и закрепление",
       "story": "HTML-формы: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как собирать пользовательский ввод через `form`, `label`, `input`, `textarea` и валидацию.\n\nОтветь в заметках:\n1. Зачем нужны `placeholder`, `required` и `type=\"email\"`?\n2. Какие ошибки мешают удобству формы?\n3. Покажи пример формы, где есть текстовое поле и checkbox.\n\nМини-упражнение: Составь мини-форму для профиля героя: ник, почта, согласие.",
@@ -9897,16 +9897,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Формы HTML/CSS — Гоша Дударь",
-            "url": "https://www.youtube.com/watch?v=5mJR3GK-6DI"
+            "title": "🇷🇺 Формы: textarea, select, option, optgroup",
+            "url": "https://www.youtube.com/watch?v=FMjuLXNTPfU"
           },
           {
-            "title": "🇷🇺 Input стили CSS — АйТи Синяк",
-            "url": "https://www.youtube.com/watch?v=RTGZ4afKjHM"
+            "title": "🇷🇺 HTML формы: form, fieldset, legend, label",
+            "url": "https://www.youtube.com/watch?v=_in4LAdxAUA"
           },
           {
-            "title": "🇷🇺 CSS: красивые формы — Хауди Хо",
-            "url": "https://www.youtube.com/watch?v=UfTYF_2GjOQ"
+            "title": "🇷🇺 HTML form, input, textarea, button",
+            "url": "https://www.youtube.com/watch?v=Zt2tFxTUhHo"
           }
         ]
       }
@@ -12937,7 +12937,7 @@
       "tier": "D",
       "topic": "motion",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=O1hS9Pq7h9o",
+      "video_url": "https://www.youtube.com/watch?v=G81fOkh6g7k",
       "title": "🎓 Туториал: Движение в Scratch",
       "story": "Движение в Scratch: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как двигать спрайт, менять направление и перемещать его по сцене.\n\nОтветь в заметках:\n1. Какие блоки движения показали в видео?\n2. Когда лучше использовать `идти`, а когда `скользить`?\n3. Придумай короткий маршрут спрайта по сцене.\n\nМини-упражнение: Опиши 3 блока, из которых соберёшь движение героя.",
@@ -12983,16 +12983,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Scratch 3: Команды движения — Урок 6",
-            "url": "https://www.youtube.com/watch?v=O1hS9Pq7h9o"
+            "title": "🇷🇺 Координаты и движение Scratch — Пиксель #4",
+            "url": "https://www.youtube.com/watch?v=G81fOkh6g7k"
           },
           {
-            "title": "🇷🇺 Движение спрайтов — школа Пиксель",
-            "url": "https://www.youtube.com/watch?v=48n9R_TfM-E"
+            "title": "🇷🇺 Что такое Спрайт — IT Skill #4",
+            "url": "https://www.youtube.com/watch?v=HKwVcOYie7k"
           },
           {
-            "title": "🇷🇺 Scratch: двигаем спрайт — блок «идти»",
-            "url": "https://www.youtube.com/watch?v=R9K1xL1x8rY"
+            "title": "🇷🇺 Траектория движения спрайта — russkihtv",
+            "url": "https://www.youtube.com/watch?v=e4tdvAb4QRA"
           }
         ]
       }
@@ -13003,7 +13003,7 @@
       "tier": "D",
       "topic": "motion",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=RQYcR7yb17g",
+      "video_url": "https://www.youtube.com/watch?v=HKwVcOYie7k",
       "title": "🎓 Туториал: Движение в Scratch — разбор и закрепление",
       "story": "Движение в Scratch: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как двигать спрайт, менять направление и перемещать его по сцене.\n\nОтветь в заметках:\n1. Как направление влияет на движение спрайта?\n2. Что делать, если объект уезжает за край?\n3. Покажи мини-сценарий движения к мыши или в случайную точку.\n\nМини-упражнение: Нарисуй последовательность блоков для рывка и поворота.",
@@ -13049,16 +13049,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Scratch: координаты и движение",
-            "url": "https://www.youtube.com/watch?v=RQYcR7yb17g"
+            "title": "🇷🇺 Что такое Спрайт — IT Skill #4",
+            "url": "https://www.youtube.com/watch?v=HKwVcOYie7k"
           },
           {
-            "title": "🇷🇺 Scratch платформер с движением",
-            "url": "https://www.youtube.com/watch?v=Y8G-_tpAir4"
+            "title": "🇷🇺 Траектория движения спрайта — russkihtv",
+            "url": "https://www.youtube.com/watch?v=e4tdvAb4QRA"
           },
           {
-            "title": "🇷🇺 Scratch 3: гравитация и прыжки",
-            "url": "https://www.youtube.com/watch?v=f-GVrDCPK-M"
+            "title": "🇷🇺 Координаты и движение Scratch — Пиксель #4",
+            "url": "https://www.youtube.com/watch?v=G81fOkh6g7k"
           }
         ]
       }
@@ -13069,7 +13069,7 @@
       "tier": "D",
       "topic": "looks",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=6bfI7tpjR0A",
+      "video_url": "https://www.youtube.com/watch?v=s7CAb1NgxrI",
       "title": "🎓 Туториал: Внешний вид в Scratch",
       "story": "Внешний вид в Scratch: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как менять костюмы, фон, реплики и внешний вид спрайта.\n\nОтветь в заметках:\n1. Какие блоки внешнего вида тебе запомнились?\n2. Когда стоит использовать `сказать`, а когда менять костюм или фон?\n3. Придумай маленькую сцену с репликой героя.\n\nМини-упражнение: Запиши мини-сценарий из 2–3 блоков внешнего вида.",
@@ -13115,16 +13115,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Scratch: костюмы и внешний вид спрайта",
-            "url": "https://www.youtube.com/watch?v=6bfI7tpjR0A"
+            "title": "🇷🇺 Скретч урок — костюмы",
+            "url": "https://www.youtube.com/watch?v=s7CAb1NgxrI"
           },
           {
-            "title": "🇷🇺 Scratch: фоны и анимация — Алгоритмика",
-            "url": "https://www.youtube.com/watch?v=0ArCXaJmJMY"
+            "title": "🇷🇺 Редактор костюмов — UP! School #38",
+            "url": "https://www.youtube.com/watch?v=1bunkknHvJY"
           },
           {
-            "title": "🇷🇺 Scratch: смена костюмов спрайта — урок",
-            "url": "https://www.youtube.com/watch?v=pkfMVqRbJek"
+            "title": "🇷🇺 Внешний вид, костюмы — Вивитроника",
+            "url": "https://www.youtube.com/watch?v=bzWV-tyZL8U"
           }
         ]
       }
@@ -13135,7 +13135,7 @@
       "tier": "D",
       "topic": "looks",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=h4alGRfEO2Q",
+      "video_url": "https://www.youtube.com/watch?v=1bunkknHvJY",
       "title": "🎓 Туториал: Внешний вид в Scratch — разбор и закрепление",
       "story": "Внешний вид в Scratch: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как менять костюмы, фон, реплики и внешний вид спрайта.\n\nОтветь в заметках:\n1. Как визуальные эффекты помогают понять состояние игры?\n2. Когда уместно скрывать и показывать спрайт?\n3. Покажи, как бы ты оформил интро для мини-игры.\n\nМини-упражнение: Составь план смены фона и одной реплики героя.",
@@ -13181,16 +13181,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Scratch: эффекты и рисование",
-            "url": "https://www.youtube.com/watch?v=h4alGRfEO2Q"
+            "title": "🇷🇺 Редактор костюмов — UP! School #38",
+            "url": "https://www.youtube.com/watch?v=1bunkknHvJY"
           },
           {
-            "title": "🇷🇺 Scratch: анимация персонажа",
-            "url": "https://www.youtube.com/watch?v=Yfxo7qIbFUs"
+            "title": "🇷🇺 Внешний вид, костюмы — Вивитроника",
+            "url": "https://www.youtube.com/watch?v=bzWV-tyZL8U"
           },
           {
-            "title": "🇷🇺 Scratch: графические эффекты — Кодабра",
-            "url": "https://www.youtube.com/watch?v=Q7Cjhk1UScI"
+            "title": "🇷🇺 Скретч урок — костюмы",
+            "url": "https://www.youtube.com/watch?v=s7CAb1NgxrI"
           }
         ]
       }
@@ -13201,7 +13201,7 @@
       "tier": "D",
       "topic": "sound",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=PApV6e1DJFM",
+      "video_url": "https://www.youtube.com/watch?v=zFjKcYMmUic",
       "title": "🎓 Туториал: Звук в Scratch",
       "story": "Звук в Scratch: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как добавлять звук в проект и связывать его с действиями на сцене.\n\nОтветь в заметках:\n1. Какие блоки звука были в уроке?\n2. Когда полезно проигрывать звук до конца, а когда без ожидания?\n3. Придумай, где в игре нужен звук: старт, победа, ошибка.\n\nМини-упражнение: Опиши простой сценарий со звуком при событии.",
@@ -13247,16 +13247,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Scratch: звуки и музыка — урок",
-            "url": "https://www.youtube.com/watch?v=PApV6e1DJFM"
+            "title": "🇷🇺 Звуки и музыка в Scratch — IT-куб TV",
+            "url": "https://www.youtube.com/watch?v=zFjKcYMmUic"
           },
           {
-            "title": "🇷🇺 Scratch: добавляем звуковые эффекты",
-            "url": "https://www.youtube.com/watch?v=L8Hh0z0K7y8"
+            "title": "🇷🇺 Фоновые звуки — CODDY School #8",
+            "url": "https://www.youtube.com/watch?v=57pwFcpUqOc"
           },
           {
-            "title": "🇷🇺 Scratch: музыкальный проект",
-            "url": "https://www.youtube.com/watch?v=1r2MaR82DgI"
+            "title": "🇷🇺 Звуки — IT Skill #5",
+            "url": "https://www.youtube.com/watch?v=KPZTzlANprQ"
           }
         ]
       }
@@ -13267,7 +13267,7 @@
       "tier": "D",
       "topic": "sound",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=ACQChN_CXEY",
+      "video_url": "https://www.youtube.com/watch?v=57pwFcpUqOc",
       "title": "🎓 Туториал: Звук в Scratch — разбор и закрепление",
       "story": "Звук в Scratch: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как добавлять звук в проект и связывать его с действиями на сцене.\n\nОтветь в заметках:\n1. Почему звук лучше использовать умеренно?\n2. Как звук помогает обратной связи игроку?\n3. Покажи пример звукового сигнала для кнопки или победы.\n\nМини-упражнение: Сделай маленький план проекта с двумя звуками.",
@@ -13313,16 +13313,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Scratch: редактор звуков",
-            "url": "https://www.youtube.com/watch?v=ACQChN_CXEY"
+            "title": "🇷🇺 Фоновые звуки — CODDY School #8",
+            "url": "https://www.youtube.com/watch?v=57pwFcpUqOc"
           },
           {
-            "title": "🇷🇺 Scratch музыка с нуля — урок",
+            "title": "🇷🇺 Звуки — IT Skill #5",
+            "url": "https://www.youtube.com/watch?v=KPZTzlANprQ"
+          },
+          {
+            "title": "🇷🇺 Scratch уроки — создание первого проекта",
             "url": "https://www.youtube.com/watch?v=Vc8moYRG-bE"
-          },
-          {
-            "title": "🇷🇺 Scratch: озвучиваем проект",
-            "url": "https://www.youtube.com/watch?v=Yp9fF-mN6Gk"
           }
         ]
       }
@@ -13333,7 +13333,7 @@
       "tier": "D",
       "topic": "events",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=K_u3Oat07Bk",
+      "video_url": "https://www.youtube.com/watch?v=dKUvWLbBzJg",
       "title": "🎓 Туториал: События в Scratch",
       "story": "События в Scratch: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как запускать сценарии по флагу, клавише, клику и сообщениям.\n\nОтветь в заметках:\n1. Какие события в Scratch запускают скрипты?\n2. Чем событие по флагу отличается от события по клавише или сообщению?\n3. Придумай 2 разных запуска для одного мини-проекта.\n\nМини-упражнение: Запиши сценарий: по флагу подготовка, по пробелу действие.",
@@ -13379,16 +13379,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Scratch: события — флаг, клик, клавиша",
-            "url": "https://www.youtube.com/watch?v=K_u3Oat07Bk"
+            "title": "🇷🇺 Передача сообщений — Scratch",
+            "url": "https://www.youtube.com/watch?v=dKUvWLbBzJg"
           },
           {
-            "title": "🇷🇺 Scratch: сообщения и broadcast",
-            "url": "https://www.youtube.com/watch?v=mVwgFkj5FTU"
+            "title": "🇷🇺 Scratch — сообщения и операторы #4",
+            "url": "https://www.youtube.com/watch?v=89y4QJp01dQ"
           },
           {
-            "title": "🇷🇺 Scratch: взаимодействие спрайтов",
-            "url": "https://www.youtube.com/watch?v=N4Fg1DW1HZE"
+            "title": "🇷🇺 Сообщения в Scratch — Co-Learning #6",
+            "url": "https://www.youtube.com/watch?v=8R3gS48saN4"
           }
         ]
       }
@@ -13399,7 +13399,7 @@
       "tier": "D",
       "topic": "events",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=7bLnZHPzf-Y",
+      "video_url": "https://www.youtube.com/watch?v=89y4QJp01dQ",
       "title": "🎓 Туториал: События в Scratch — разбор и закрепление",
       "story": "События в Scratch: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как запускать сценарии по флагу, клавише, клику и сообщениям.\n\nОтветь в заметках:\n1. Когда стоит использовать broadcast-сообщения?\n2. Почему один проект часто состоит из нескольких скриптов-реакций?\n3. Покажи пример реакции на клик по спрайту.\n\nМини-упражнение: Составь мини-план с зелёным флагом и сообщением `start`.",
@@ -13445,16 +13445,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Scratch: «когда я получу сообщение»",
-            "url": "https://www.youtube.com/watch?v=7bLnZHPzf-Y"
+            "title": "🇷🇺 Scratch — сообщения и операторы #4",
+            "url": "https://www.youtube.com/watch?v=89y4QJp01dQ"
           },
           {
-            "title": "🇷🇺 Scratch: запуск скриптов по событиям",
-            "url": "https://www.youtube.com/watch?v=s7e2MKla6lw"
+            "title": "🇷🇺 Сообщения в Scratch — Co-Learning #6",
+            "url": "https://www.youtube.com/watch?v=8R3gS48saN4"
           },
           {
-            "title": "🇷🇺 Scratch: синхронизация спрайтов",
-            "url": "https://www.youtube.com/watch?v=dUP3q5xhwqQ"
+            "title": "🇷🇺 Передача сообщений — Scratch",
+            "url": "https://www.youtube.com/watch?v=dKUvWLbBzJg"
           }
         ]
       }
@@ -13465,7 +13465,7 @@
       "tier": "D",
       "topic": "control",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=3vxYHaB-GtQ",
+      "video_url": "https://www.youtube.com/watch?v=gkiyEDpVzqc",
       "title": "🎓 Туториал: Управление в Scratch",
       "story": "Управление в Scratch: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как повторять действия, ждать, ветвить логику и управлять ходом сценария.\n\nОтветь в заметках:\n1. Какие управляющие блоки ты увидел: повтор, ждать, если, всегда?\n2. Когда нужен конечный цикл, а когда бесконечный?\n3. Придумай маленькую механику с повторением или ожиданием.\n\nМини-упражнение: Опиши 3–4 блока для повторяющегося действия спрайта.",
@@ -13511,16 +13511,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Scratch: циклы «повторить» и «повторять всегда»",
-            "url": "https://www.youtube.com/watch?v=3vxYHaB-GtQ"
+            "title": "🇷🇺 Циклы и ветвления — PapaCoder101 #4",
+            "url": "https://www.youtube.com/watch?v=gkiyEDpVzqc"
           },
           {
-            "title": "🇷🇺 Scratch: условия «если» / «если-иначе»",
-            "url": "https://www.youtube.com/watch?v=c4urIXjBTHA"
+            "title": "🇷🇺 Scratch 3: Циклы — CyberSkill #9",
+            "url": "https://www.youtube.com/watch?v=lxHv_YeR9wM"
           },
           {
-            "title": "🇷🇺 Scratch: управление логикой программы",
-            "url": "https://www.youtube.com/watch?v=EANqQBqAe8o"
+            "title": "🇷🇺 Циклы и ветвления в Scratch",
+            "url": "https://www.youtube.com/watch?v=vmWVI0h3TSo"
           }
         ]
       }
@@ -13531,7 +13531,7 @@
       "tier": "D",
       "topic": "control",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=oPyJBGK6hZ4",
+      "video_url": "https://www.youtube.com/watch?v=lxHv_YeR9wM",
       "title": "🎓 Туториал: Управление в Scratch — разбор и закрепление",
       "story": "Управление в Scratch: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как повторять действия, ждать, ветвить логику и управлять ходом сценария.\n\nОтветь в заметках:\n1. Как избежать сценария, который зависает или повторяется не так?\n2. Когда нужна проверка `если`, а когда достаточно просто команды?\n3. Покажи пример цикла для патруля или анимации.\n\nМини-упражнение: Составь мини-логику: повторить 5 раз прыжок и подождать.",
@@ -13577,16 +13577,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Scratch: вложенные циклы и условия",
-            "url": "https://www.youtube.com/watch?v=oPyJBGK6hZ4"
+            "title": "🇷🇺 Scratch 3: Циклы — CyberSkill #9",
+            "url": "https://www.youtube.com/watch?v=lxHv_YeR9wM"
           },
           {
-            "title": "🇷🇺 Scratch: ждать и клонировать",
-            "url": "https://www.youtube.com/watch?v=LzJFmNE7hU4"
+            "title": "🇷🇺 Циклы и ветвления в Scratch",
+            "url": "https://www.youtube.com/watch?v=vmWVI0h3TSo"
           },
           {
-            "title": "🇷🇺 Scratch: блоки управления — практика",
-            "url": "https://www.youtube.com/watch?v=v9_N5BwVT_4"
+            "title": "🇷🇺 Циклы и ветвления — PapaCoder101 #4",
+            "url": "https://www.youtube.com/watch?v=gkiyEDpVzqc"
           }
         ]
       }
@@ -13597,7 +13597,7 @@
       "tier": "D",
       "topic": "sensing",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=T2rsJViSicU",
+      "video_url": "https://www.youtube.com/watch?v=xQHbXxp1Ibo",
       "title": "🎓 Туториал: Сенсоры в Scratch",
       "story": "Сенсоры в Scratch: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как спрайт замечает мышь, касание, расстояние, ответ игрока и таймер.\n\nОтветь в заметках:\n1. Какие сенсоры были в видео?\n2. Для чего полезны блоки `спросить` и `ответ`?\n3. Придумай проверку касания мыши, края или другого спрайта.\n\nМини-упражнение: Опиши сценарий, где герой реагирует на игрока или препятствие.",
@@ -13643,16 +13643,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Scratch: сенсоры — касание, мышь, таймер",
-            "url": "https://www.youtube.com/watch?v=T2rsJViSicU"
+            "title": "🇷🇺 Команды «Сенсоры» — Medvedev School #7",
+            "url": "https://www.youtube.com/watch?v=xQHbXxp1Ibo"
           },
           {
-            "title": "🇷🇺 Scratch: «касается цвета» и обнаружение",
-            "url": "https://www.youtube.com/watch?v=mMftaEu_Lk0"
+            "title": "🇷🇺 Scratch: таймер — Anzhelika #5",
+            "url": "https://www.youtube.com/watch?v=dST3RYV-ZF0"
           },
           {
-            "title": "🇷🇺 Scratch: блок «спросить» и ввод данных",
-            "url": "https://www.youtube.com/watch?v=KvJ6PqGMPuU"
+            "title": "🇷🇺 Вопросы по блокам Сенсоры — IT Skill",
+            "url": "https://www.youtube.com/watch?v=u5rQPbbzJY0"
           }
         ]
       }
@@ -13663,7 +13663,7 @@
       "tier": "D",
       "topic": "sensing",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=hC5RP0YUJLk",
+      "video_url": "https://www.youtube.com/watch?v=dST3RYV-ZF0",
       "title": "🎓 Туториал: Сенсоры в Scratch — разбор и закрепление",
       "story": "Сенсоры в Scratch: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как спрайт замечает мышь, касание, расстояние, ответ игрока и таймер.\n\nОтветь в заметках:\n1. Почему сенсоры делают проект интерактивным?\n2. Как использовать таймер в мини-игре?\n3. Покажи пример условия на касание или расстояние.\n\nМини-упражнение: Сделай маленький план проекта с вопросом игроку и ответом.",
@@ -13709,16 +13709,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Scratch: расстояние до объекта",
-            "url": "https://www.youtube.com/watch?v=hC5RP0YUJLk"
+            "title": "🇷🇺 Scratch: таймер — Anzhelika #5",
+            "url": "https://www.youtube.com/watch?v=dST3RYV-ZF0"
           },
           {
-            "title": "🇷🇺 Scratch: ответ игрока и таймер",
-            "url": "https://www.youtube.com/watch?v=ExPHuJZFd5U"
+            "title": "🇷🇺 Вопросы по блокам Сенсоры — IT Skill",
+            "url": "https://www.youtube.com/watch?v=u5rQPbbzJY0"
           },
           {
-            "title": "🇷🇺 Scratch: датчики — практика",
-            "url": "https://www.youtube.com/watch?v=RrQEb7BTHGQ"
+            "title": "🇷🇺 Команды «Сенсоры» — Medvedev School #7",
+            "url": "https://www.youtube.com/watch?v=xQHbXxp1Ibo"
           }
         ]
       }
@@ -13729,7 +13729,7 @@
       "tier": "D",
       "topic": "operators",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=uFwacOVIoMY",
+      "video_url": "https://www.youtube.com/watch?v=Ku49b0fkHBM",
       "title": "🎓 Туториал: Операторы в Scratch",
       "story": "Операторы в Scratch: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как считать, сравнивать и соединять условия с помощью операторов.\n\nОтветь в заметках:\n1. Какие арифметические и логические блоки ты заметил?\n2. Для чего нужен случайный выбор числа?\n3. Придумай механику с проверкой `больше`, `меньше` или `равно`.\n\nМини-упражнение: Опиши мини-логику: если случайное число > 5, сказать `Удача!`.",
@@ -13775,16 +13775,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Scratch: операторы — математика и логика",
-            "url": "https://www.youtube.com/watch?v=uFwacOVIoMY"
+            "title": "🇷🇺 Scratch: блок «Операторы» — HeyGo #6",
+            "url": "https://www.youtube.com/watch?v=Ku49b0fkHBM"
           },
           {
-            "title": "🇷🇺 Scratch: случайное число — блок оператор",
-            "url": "https://www.youtube.com/watch?v=lH8TQHIR5Cw"
+            "title": "🇷🇺 Операторы: Scratch для детей",
+            "url": "https://www.youtube.com/watch?v=BvCXHKWcqis"
           },
           {
-            "title": "🇷🇺 Scratch: сравнения и логические блоки",
-            "url": "https://www.youtube.com/watch?v=3NXGT7Nk5qM"
+            "title": "🇷🇺 Арифметические операторы в Scratch",
+            "url": "https://www.youtube.com/watch?v=-scpN0I6vnE"
           }
         ]
       }
@@ -13795,7 +13795,7 @@
       "tier": "D",
       "topic": "operators",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=3A5txzb5EWk",
+      "video_url": "https://www.youtube.com/watch?v=BvCXHKWcqis",
       "title": "🎓 Туториал: Операторы в Scratch — разбор и закрепление",
       "story": "Операторы в Scratch: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как считать, сравнивать и соединять условия с помощью операторов.\n\nОтветь в заметках:\n1. Когда полезны `и`, `или`, `не` в Scratch?\n2. Как оператор сравнения помогает в условии?\n3. Покажи пример вычисления очков или скорости.\n\nМини-упражнение: Составь короткий пример с двумя операторами в одном проекте.",
@@ -13841,16 +13841,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Scratch: объединение строк и остаток",
-            "url": "https://www.youtube.com/watch?v=3A5txzb5EWk"
+            "title": "🇷🇺 Операторы: Scratch для детей",
+            "url": "https://www.youtube.com/watch?v=BvCXHKWcqis"
           },
           {
-            "title": "🇷🇺 Scratch: арифметические операторы и int",
-            "url": "https://www.youtube.com/watch?v=9tY3FJQZ-s4"
+            "title": "🇷🇺 Арифметические операторы в Scratch",
+            "url": "https://www.youtube.com/watch?v=-scpN0I6vnE"
           },
           {
-            "title": "🇷🇺 Scratch: «и», «или», «не» — логика",
-            "url": "https://www.youtube.com/watch?v=7_wM-8OGJIA"
+            "title": "🇷🇺 Scratch: блок «Операторы» — HeyGo #6",
+            "url": "https://www.youtube.com/watch?v=Ku49b0fkHBM"
           }
         ]
       }
@@ -13861,7 +13861,7 @@
       "tier": "D",
       "topic": "variables",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=N-UyGUqtqOc",
+      "video_url": "https://www.youtube.com/watch?v=ppR46SU8ZMI",
       "title": "🎓 Туториал: Переменные и списки в Scratch",
       "story": "Переменные и списки в Scratch: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как хранить очки, жизни, данные игрока и элементы списка.\n\nОтветь в заметках:\n1. Для чего в игре нужны переменные и списки?\n2. Когда использовать одну переменную, а когда список?\n3. Придумай счётчик очков или инвентарь из 3 предметов.\n\nМини-упражнение: Опиши сценарий, где переменная увеличивается на 1 при событии.",
@@ -13907,16 +13907,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Scratch: переменные — очки и жизни",
-            "url": "https://www.youtube.com/watch?v=N-UyGUqtqOc"
+            "title": "🇷🇺 Списки в Scratch — Пиксель",
+            "url": "https://www.youtube.com/watch?v=ppR46SU8ZMI"
           },
           {
-            "title": "🇷🇺 Scratch: создаём счётчик очков",
-            "url": "https://www.youtube.com/watch?v=cK5BvMPbthM"
+            "title": "🇷🇺 Переменные, списки и блоки — Mr. Programmist",
+            "url": "https://www.youtube.com/watch?v=dZCcBHOce0c"
           },
           {
-            "title": "🇷🇺 Scratch: списки — хранение данных",
-            "url": "https://www.youtube.com/watch?v=2mPITR4Y8M4"
+            "title": "🇷🇺 Заменить переменные списком — MonoculaRus",
+            "url": "https://www.youtube.com/watch?v=QIpHjdvo8kg"
           }
         ]
       }
@@ -13927,7 +13927,7 @@
       "tier": "D",
       "topic": "variables",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=8xKU-bqATcs",
+      "video_url": "https://www.youtube.com/watch?v=dZCcBHOce0c",
       "title": "🎓 Туториал: Переменные и списки в Scratch — разбор и закрепление",
       "story": "Переменные и списки в Scratch: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как хранить очки, жизни, данные игрока и элементы списка.\n\nОтветь в заметках:\n1. Почему имя переменной должно быть понятным?\n2. Как переменная помогает проверять прогресс игрока?\n3. Покажи пример списка покупок или инвентаря.\n\nМини-упражнение: Сделай мини-план с переменной `score` и списком `items`.",
@@ -13973,16 +13973,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Scratch: переменные для всех и для спрайта",
-            "url": "https://www.youtube.com/watch?v=8xKU-bqATcs"
+            "title": "🇷🇺 Переменные, списки и блоки — Mr. Programmist",
+            "url": "https://www.youtube.com/watch?v=dZCcBHOce0c"
           },
           {
-            "title": "🇷🇺 Scratch: работа со списками",
-            "url": "https://www.youtube.com/watch?v=VzsCe2nz5yI"
+            "title": "🇷🇺 Заменить переменные списком — MonoculaRus",
+            "url": "https://www.youtube.com/watch?v=QIpHjdvo8kg"
           },
           {
-            "title": "🇷🇺 Scratch: переменные в играх — практика",
-            "url": "https://www.youtube.com/watch?v=Gqnf9GBsC_E"
+            "title": "🇷🇺 Списки в Scratch — Пиксель",
+            "url": "https://www.youtube.com/watch?v=ppR46SU8ZMI"
           }
         ]
       }
@@ -13993,7 +13993,7 @@
       "tier": "C",
       "topic": "my_blocks",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=wx6xaOnyQ8I",
+      "video_url": "https://www.youtube.com/watch?v=Qk1HiIBRuwg",
       "title": "🎓 Туториал: Мои блоки в Scratch",
       "story": "Мои блоки в Scratch: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как создавать собственные блоки для повторяющихся действий в проекте.\n\nОтветь в заметках:\n1. Зачем создавать свой блок вместо копирования кусочков сценария?\n2. Какие действия ты бы вынес в отдельный блок в своей игре?\n3. Придумай собственный блок для атаки, прыжка или анимации.\n\nМини-упражнение: Запиши название своего блока и 2–3 действия, которые он будет выполнять.",
@@ -14039,16 +14039,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Scratch: мои блоки — создаём свои команды",
-            "url": "https://www.youtube.com/watch?v=wx6xaOnyQ8I"
+            "title": "🇷🇺 Scratch: создание блока — PlaySchool #3",
+            "url": "https://www.youtube.com/watch?v=Qk1HiIBRuwg"
           },
           {
-            "title": "🇷🇺 Scratch: процедуры и свои блоки — урок",
-            "url": "https://www.youtube.com/watch?v=AuIKyZ-99V4"
+            "title": "🇷🇺 Процедуры (другие блоки) — Scratch Ru",
+            "url": "https://www.youtube.com/watch?v=E9lBESircq4"
           },
           {
-            "title": "🇷🇺 Scratch: блоки с параметрами",
-            "url": "https://www.youtube.com/watch?v=QcP0sUbI_6s"
+            "title": "🇷🇺 Создание и использование процедур — Айтигенио",
+            "url": "https://www.youtube.com/watch?v=d4F1OwMvtSs"
           }
         ]
       }
@@ -274138,7 +274138,7 @@
       "tier": "D",
       "topic": "typing",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=JJhS5X3Jvhc",
+      "video_url": "https://www.youtube.com/watch?v=YZFDWRFOswQ",
       "title": "🎓 Туториал: Слепая печать",
       "story": "Слепая печать: Мастер оставил видеосвиток по теме, чтобы ты сначала увидел живой разбор, а уже потом шёл в код.",
       "description": "Посмотри видео о том, как печатать вслепую, держать руки правильно и увеличивать скорость без потери точности.\n\nОтветь в заметках:\n1. Какая посадка и положение рук считаются базовыми?\n2. Почему точность важнее скорости на старте?\n3. Какой личный план тренировок на 7 дней ты можешь составить?\n\nМини-упражнение: Запиши свой короткий режим тренировки: минуты, цель по точности и повторение.",
@@ -274184,16 +274184,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Слепая печать: как научиться быстро печатать",
-            "url": "https://www.youtube.com/watch?v=JJhS5X3Jvhc"
+            "title": "🇷🇺 Слепая печать. Бесплатный тренажер — Kodiki",
+            "url": "https://www.youtube.com/watch?v=YZFDWRFOswQ"
           },
           {
-            "title": "🇷🇺 Десятипальцевый метод печати — обучение",
-            "url": "https://www.youtube.com/watch?v=1ArWGkOhUl8"
+            "title": "🇷🇺 Слепая печать, как научиться — EasyCode",
+            "url": "https://www.youtube.com/watch?v=udI4mLyykr4"
           },
           {
-            "title": "🇷🇺 Клавиатурный тренажёр — как поставить пальцы",
-            "url": "https://www.youtube.com/watch?v=Yc_MRUfqWPQ"
+            "title": "🇷🇺 Слепая печать за неделю — программист с нуля",
+            "url": "https://www.youtube.com/watch?v=l2LZzdgHccw"
           }
         ]
       }
@@ -274204,7 +274204,7 @@
       "tier": "D",
       "topic": "typing",
       "task_type": "tutorial",
-      "video_url": "https://www.youtube.com/watch?v=qcXZKsiqpPI",
+      "video_url": "https://www.youtube.com/watch?v=udI4mLyykr4",
       "title": "🎓 Туториал: Слепая печать — разбор и закрепление",
       "story": "Слепая печать: Наставник подготовил короткий урок с примерами, чтобы закрепить механику темы до практики.",
       "description": "Посмотри видео о том, как печатать вслепую, держать руки правильно и увеличивать скорость без потери точности.\n\nОтветь в заметках:\n1. Что мешает прогрессу в слепой печати чаще всего?\n2. Как отслеживать свой рост по скорости и ошибкам?\n3. Какие 2–3 правила ты возьмёшь в практику уже сегодня?\n\nМини-упражнение: Составь мини-чеклист перед тренировкой печати.",
@@ -274250,16 +274250,16 @@
       "resources": {
         "videos": [
           {
-            "title": "🇷🇺 Как научиться печатать вслепую за 2 недели",
-            "url": "https://www.youtube.com/watch?v=qcXZKsiqpPI"
+            "title": "🇷🇺 Слепая печать, как научиться — EasyCode",
+            "url": "https://www.youtube.com/watch?v=udI4mLyykr4"
           },
           {
-            "title": "🇷🇺 Горячие клавиши и скорость печати — советы",
-            "url": "https://www.youtube.com/watch?v=Kq0_c4CoQO0"
+            "title": "🇷🇺 Слепая печать за неделю — программист с нуля",
+            "url": "https://www.youtube.com/watch?v=l2LZzdgHccw"
           },
           {
-            "title": "🇷🇺 Правильная постановка рук на клавиатуре",
-            "url": "https://www.youtube.com/watch?v=cTYkvDNMCj0"
+            "title": "🇷🇺 Слепая печать. Бесплатный тренажер — Kodiki",
+            "url": "https://www.youtube.com/watch?v=YZFDWRFOswQ"
           }
         ]
       }
