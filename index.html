@@ -5568,11 +5568,34 @@
             setPageContext('tasks');
         }
 
+        function showTutorialToast(msg, type = 'success') {
+            const existing = document.getElementById('tutorial-toast');
+            if (existing) existing.remove();
+            const colors = { success: '#27ae60', pending: '#e67e22', error: '#e74c3c', info: '#3498db' };
+            const toast = document.createElement('div');
+            toast.id = 'tutorial-toast';
+            Object.assign(toast.style, {
+                position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)',
+                background: colors[type] || colors.info, color: '#fff',
+                padding: '16px 32px', borderRadius: '12px', fontSize: '1.1rem',
+                fontWeight: '600', zIndex: '100000', boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                animation: 'fadeInDown 0.3s ease', textAlign: 'center', maxWidth: '90vw',
+                lineHeight: '1.4'
+            });
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.transition = 'opacity 0.4s ease';
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+
         async function submitTutorialNotes() {
             if (!currentTask) return;
             const notes = (document.getElementById('tutorial-notes')?.value || '').trim();
             if (!notes || notes.length < 10) {
-                alert('Напиши хотя бы 10 символов ответа.');
+                showTutorialToast('✏️ Напиши хотя бы 10 символов ответа.', 'error');
                 return;
             }
             const consoleEl = document.getElementById('output-console');
@@ -5592,31 +5615,40 @@
                 if (!resp.res.ok) {
                     if (data.detail && data.detail.status === 'locked') {
                         consoleEl.innerText = '🔒 Этот квест пока закрыт.\n\n' + formatUnlockInfo(data.detail.unlock);
+                        showTutorialToast('🔒 Этот квест пока закрыт', 'error');
                     } else {
                         const detail = data.detail;
                         consoleEl.innerText = '❌ Ошибка: ' + (typeof detail === 'string' ? detail : safeJson(detail || data));
+                        showTutorialToast('❌ Ошибка при отправке', 'error');
                     }
                     return;
                 }
                 if (data.status === 'pending_review') {
                     if (data.message === 'Submission already pending review') {
                         consoleEl.innerText = '⏳ Ответ уже отправлен и ждёт проверки мастера.';
+                        showTutorialToast('⏳ Ответ уже отправлен и ждёт проверки', 'pending');
                     } else {
                         consoleEl.innerText = '✅ Отправлено на проверку! Мастер скоро проверит.';
+                        showTutorialToast('✅ Отправлено на проверку! Мастер скоро проверит.', 'success');
                     }
                     syncDashboardData({ forceRoadmap: true });
                 } else if (data.status === 'completed') {
                     consoleEl.innerText = '✅ Задание завершено! +' + (data.xp_earned || 0) + ' XP';
+                    showTutorialToast('✅ Задание завершено! +' + (data.xp_earned || 0) + ' XP', 'success');
                     syncDashboardData({ forceRoadmap: true });
                 } else if (data.status === 'already_completed') {
                     consoleEl.innerText = '✅ Это задание уже выполнено.';
+                    showTutorialToast('✅ Это задание уже выполнено', 'info');
                 } else if (data.status === 'failed') {
                     consoleEl.innerText = '❌ ' + (data.verification?.exec_error?.message || 'Не удалось отправить.');
+                    showTutorialToast('❌ Не удалось отправить', 'error');
                 } else {
                     consoleEl.innerText = data.message || data.status || 'Отправлено';
+                    showTutorialToast('📨 ' + (data.message || data.status || 'Отправлено'), 'info');
                 }
             } catch (e) {
                 consoleEl.innerText = 'Ошибка: ' + (e.message || e);
+                showTutorialToast('❌ Ошибка: ' + (e.message || e), 'error');
             } finally {
                 if (runBtn) runBtn.disabled = Boolean(currentTask && currentTask.locked);
             }
