@@ -4769,6 +4769,50 @@ def _homework_items_for_user(cursor, user_id: int, tasks_by_id: dict) -> list[di
         )
     return items
 
+@app.get("/api/tasks/{task_id}/history")
+def get_task_history(task_id: str, user: dict = Depends(require_auth)):
+    """Return the user's previous solutions for a given task."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT completed_at, solution, xp_earned, is_valid
+            FROM completed_tasks
+            WHERE user_id = ? AND task_id = ?
+            ORDER BY completed_at DESC
+            LIMIT 10
+        """, (user["id"], task_id))
+        rows = cursor.fetchall()
+
+        # Also check submissions table for pending/failed attempts
+        cursor.execute("""
+            SELECT submitted_at, code, status
+            FROM submissions
+            WHERE user_id = ? AND task_id = ?
+            ORDER BY submitted_at DESC
+            LIMIT 10
+        """, (user["id"], task_id))
+        sub_rows = cursor.fetchall()
+
+    history = []
+    for r in rows:
+        history.append({
+            "completed_at": r["completed_at"],
+            "solution": r["solution"],
+            "xp_earned": r["xp_earned"],
+            "is_valid": bool(r["is_valid"]),
+        })
+    for r in sub_rows:
+        history.append({
+            "completed_at": r["submitted_at"],
+            "solution": r["code"],
+            "xp_earned": 0,
+            "is_valid": r["status"] == "approved",
+        })
+
+    # Sort by date descending, deduplicate
+    history.sort(key=lambda x: x["completed_at"] or "", reverse=True)
+    return {"history": history[:10]}
+
 @app.get("/api/roadmap")
 def get_roadmap(user: dict = Depends(require_auth)):
     """Return tasks annotated with completion + unlock state for the current user."""

@@ -533,18 +533,41 @@
         }
 
         .topic-chip .chip-progress {
-            width: 32px;
-            height: 3px;
+            width: 40px;
+            height: 6px;
             background: rgba(255, 255, 255, 0.1);
-            border-radius: 2px;
+            border-radius: 3px;
             overflow: hidden;
         }
 
         .topic-chip .chip-progress-fill {
             height: 100%;
-            border-radius: 2px;
-            background: var(--accent);
+            border-radius: 3px;
             transition: width 0.3s ease;
+        }
+
+        .topic-chip .chip-progress-fill.pct-low {
+            background: #e74c3c;
+        }
+
+        .topic-chip .chip-progress-fill.pct-mid {
+            background: #e67e22;
+        }
+
+        .topic-chip .chip-progress-fill.pct-high {
+            background: #f1c40f;
+        }
+
+        .topic-chip .chip-progress-fill.pct-done {
+            background: var(--success);
+        }
+
+        .topic-chip .chip-pct {
+            font-size: 10px;
+            font-weight: 700;
+            opacity: 0.7;
+            min-width: 28px;
+            text-align: right;
         }
 
         .topic-chip.complete {
@@ -555,6 +578,146 @@
 
         .topic-chip.complete .chip-progress-fill {
             background: var(--success);
+        }
+
+        /* ========== STREAK WIDGET ========== */
+        .streak-widget {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px;
+            background: rgba(255, 152, 0, 0.08);
+            border: 1px solid rgba(255, 152, 0, 0.2);
+            border-radius: 12px;
+            margin-bottom: 12px;
+            font-size: 14px;
+            color: var(--text-bright);
+        }
+
+        .streak-widget .streak-fire {
+            font-size: 22px;
+        }
+
+        .streak-widget .streak-num {
+            font-weight: 700;
+            font-size: 18px;
+            color: #ff9800;
+        }
+
+        .streak-widget .streak-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .streak-widget .daily-goal {
+            margin-left: auto;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .streak-widget .daily-bar {
+            width: 60px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .streak-widget .daily-bar-fill {
+            height: 100%;
+            background: #4caf50;
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+
+        /* ========== QUEST MODAL EXTRAS ========== */
+        .hint-btn {
+            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            background: rgba(255, 193, 7, 0.08);
+            color: #ffc107;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .hint-btn:hover {
+            background: rgba(255, 193, 7, 0.15);
+        }
+
+        .hint-content {
+            display: none;
+            margin-top: 8px;
+            padding: 10px;
+            border: 1px dashed rgba(255, 193, 7, 0.2);
+            border-radius: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            background: rgba(255, 193, 7, 0.04);
+        }
+
+        .hint-content.visible {
+            display: block;
+        }
+
+        .history-btn {
+            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            background: rgba(139, 92, 246, 0.08);
+            color: var(--accent);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .history-btn:hover {
+            background: rgba(139, 92, 246, 0.15);
+        }
+
+        .history-list {
+            display: none;
+            margin-top: 8px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .history-list.visible {
+            display: block;
+        }
+
+        .history-item {
+            padding: 6px 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .history-item:hover {
+            background: rgba(139, 92, 246, 0.1);
+        }
+
+        .next-task-btn {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 8px 16px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .next-task-btn:hover {
+            filter: brightness(1.15);
+            transform: translateY(-1px);
         }
 
 
@@ -4082,6 +4245,14 @@
                                 style="display:none; margin-top:8px; border:1px dashed rgba(255,255,255,0.15); border-radius:10px; padding:10px; font-size:12px; color:var(--text-secondary); line-height:1.45;">
                             </div>
                         </div>
+                        <div id="quest-extra-tools" style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+                            <button type="button" class="hint-btn" id="quest-hint-btn" onclick="toggleQuestHint()">💡
+                                Подсказка</button>
+                            <button type="button" class="history-btn" id="quest-history-btn"
+                                onclick="toggleQuestHistory()">📜 Мои попытки</button>
+                        </div>
+                        <div id="quest-hint-content" class="hint-content"></div>
+                        <div id="quest-history-list" class="history-list"></div>
                     </div>
                 </aside>
 
@@ -5083,6 +5254,7 @@
 
                 await loadHomework(false);
                 renderQuests();
+                renderStreakWidget();
             } catch (e) {
                 console.error('Failed to load tasks:', e);
             }
@@ -5258,10 +5430,12 @@
                 const isComplete = stats.completed === stats.total;
                 const isActive = selectedTopicFilter === topic ? 'active' : '';
                 const completeClass = isComplete ? 'complete' : '';
+                const pctClass = pct >= 100 ? 'pct-done' : pct >= 60 ? 'pct-high' : pct >= 30 ? 'pct-mid' : 'pct-low';
                 chipsHtml += `<div class="topic-chip ${isActive} ${completeClass}" onclick="selectTopicChip('${topic.replace(/'/g, "\\'")}')">
                     ${displayName}
                     <span class="chip-count">${stats.completed}/${stats.total}</span>
-                    <div class="chip-progress"><div class="chip-progress-fill" style="width:${pct}%"></div></div>
+                    <span class="chip-pct">${pct}%</span>
+                    <div class="chip-progress"><div class="chip-progress-fill ${pctClass}" style="width:${pct}%"></div></div>
                 </div>`;
             }
             chipsHtml += `</div>`;
@@ -5559,6 +5733,12 @@
                 previewWrap.style.pointerEvents = currentTask.locked ? 'none' : '';
             }
 
+            // Reset hint & history panels
+            const hintContent = document.getElementById('quest-hint-content');
+            const historyList = document.getElementById('quest-history-list');
+            if (hintContent) { hintContent.classList.remove('visible'); hintContent.innerHTML = ''; }
+            if (historyList) { historyList.classList.remove('visible'); historyList.innerHTML = ''; }
+
             document.getElementById('output-console').innerText = currentTask.locked
                 ? ('🔒 Этот квест пока закрыт.\n\n' + formatUnlockInfo(currentTask.unlock))
                 : isTutorial ? '🎓 Посмотри видео, выполни задание и нажми «Отправить»'
@@ -5589,6 +5769,149 @@
                 toast.style.opacity = '0';
                 setTimeout(() => toast.remove(), 400);
             }, 4000);
+        }
+
+        // ==================== GENERIC HINTS ====================
+        const TOPIC_HINTS = {
+            variables: '💡 Создай переменную через = и присвой ей нужное значение.',
+            math_ops: '💡 Используй арифметические операторы: +, -, *, /, %, **',
+            functions: '💡 Определи функцию через def (Python) или function (JS). Не забудь return!',
+            if_else: '💡 Используй if/elif/else для проверки условий. Проверь отступы.',
+            loops: '💡 for — перебор по коллекции или range. while — цикл с условием.',
+            strings: '💡 Строки: .upper(), .lower(), .split(), .replace(), срезы s[a:b]',
+            lists: '💡 Списки: .append(), .sort(), .pop(), len(). Индексация с 0.',
+            arrays: '💡 Массивы: .map(), .filter(), .reduce(), .push(), .includes()',
+            dicts: '💡 Словари: dict[key], .keys(), .values(), .items(), .get(key, default)',
+            objects: '💡 Объекты JS: Object.keys(), Object.values(), деструктуризация {a, b} = obj',
+            classes: '💡 class Имя: def __init__(self, ...): self.поле = ...',
+            regex: '💡 import re; re.findall(r"паттерн", строка). \\d=цифра, \\w=буква, *=повтор',
+            algorithms: '💡 Подумай о крайних случаях: пустой ввод, один элемент, отрицательные числа.',
+            file_io: '💡 with open("file.txt", "r") as f: data = f.read()',
+            html_elements: '💡 Убедись что тег закрыт: <tag>...</tag> и ID/class указаны верно.',
+            text_styling: '💡 CSS свойства текста: font-size, font-weight, color, text-align',
+            colors_bg: '💡 background: #hex или rgb(r,g,b). Градиенты: linear-gradient()',
+            layout: '💡 display: flex; justify-content: center; align-items: center; gap: 10px;',
+            selectors: '💡 CSS селекторы: .class, #id, :hover, :nth-child(n), ::before',
+            animations: '💡 transition: property 0.3s ease; @keyframes name { from {} to {} }',
+            responsive: '💡 @media (max-width: 768px) { ... } — стили для мобильных.',
+            forms: '💡 <input type="text" name="field" required> <button type="submit">',
+            motion: '💡 Используй блок «идти N шагов» или «перейди в x: y:»',
+            looks: '💡 Блоки внешности: «сменить костюм на», «задать размер %»',
+            sound: '💡 Блок «проиграть звук_» до конца',
+            events: '💡 «когда я получу сообщение» + «передать сообщение всем»',
+            control: '💡 «повторить N раз» или «если ... то ... иначе»',
+            sensing: '💡 «касается _?» или «спросить _ и ждать», ответ в блоке «ответ»',
+            operators: '💡 Блоки математики: «_ + _», «случайное от _ до _», «_ > _»',
+            my_blocks: '💡 Нажми «Создать блок» → дай имя → определи действия внутри',
+            typing: '💡 Ставь пальцы на домашнюю позицию: ФЫВА ОЛДЖ (рус) или ASDF JKL; (eng)',
+        };
+
+        function toggleQuestHint() {
+            if (!currentTask) return;
+            const el = document.getElementById('quest-hint-content');
+            if (!el) return;
+            if (el.classList.contains('visible')) {
+                el.classList.remove('visible');
+                return;
+            }
+            const hint = currentTask.hint || TOPIC_HINTS[currentTask.topic] || '💡 Внимательно прочитай описание задания и обрати внимание на примеры.';
+            el.textContent = hint;
+            el.classList.add('visible');
+        }
+
+        // ==================== ATTEMPT HISTORY ====================
+        async function toggleQuestHistory() {
+            if (!currentTask) return;
+            const el = document.getElementById('quest-history-list');
+            if (!el) return;
+            if (el.classList.contains('visible')) {
+                el.classList.remove('visible');
+                return;
+            }
+            el.innerHTML = '<div style="padding:8px; text-align:center;">Загрузка...</div>';
+            el.classList.add('visible');
+            try {
+                const resp = await fetchJsonWithTimeout(`${API_URL}/api/tasks/${currentTask.id}/history`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const items = (resp.data && resp.data.history) || [];
+                if (items.length === 0) {
+                    el.innerHTML = '<div style="padding:8px; text-align:center; opacity:0.6;">Нет предыдущих попыток</div>';
+                    return;
+                }
+                el.innerHTML = items.map((item, i) => {
+                    const date = new Date(item.completed_at).toLocaleString();
+                    const status = item.is_valid ? '✅' : '❌';
+                    const xp = item.xp_earned ? ` (+${item.xp_earned} XP)` : '';
+                    return `<div class="history-item" onclick="loadHistorySolution(${i})" title="Нажми чтобы вставить в редактор">
+                        ${status} ${date}${xp}
+                    </div>`;
+                }).join('');
+                window._historyItems = items;
+            } catch (e) {
+                el.innerHTML = '<div style="padding:8px; color:#e74c3c;">Ошибка загрузки</div>';
+            }
+        }
+
+        function loadHistorySolution(index) {
+            const items = window._historyItems || [];
+            if (!items[index] || !items[index].solution) return;
+            const editor = document.getElementById('code-editor');
+            if (editor) {
+                editor.value = items[index].solution;
+                showTutorialToast('📜 Код из попытки вставлен в редактор', 'info');
+            }
+        }
+
+        // ==================== NEXT TASK ====================
+        function findNextTask() {
+            if (!currentTask || !tasks || !tasks.length) return null;
+            const completedIds = new Set(currentUser?.completed_tasks || []);
+            const sameTopic = tasks.filter(t =>
+                t.topic === currentTask.topic && t.category === currentTask.category &&
+                !completedIds.has(t.id) && !t.completed && !t.locked && t.id !== currentTask.id
+            );
+            if (sameTopic.length) return sameTopic[0];
+            const sameCat = tasks.filter(t =>
+                t.category === currentTask.category &&
+                !completedIds.has(t.id) && !t.completed && !t.locked && t.id !== currentTask.id
+            );
+            if (sameCat.length) return sameCat[0];
+            const any = tasks.filter(t =>
+                !completedIds.has(t.id) && !t.completed && !t.locked && t.id !== currentTask.id
+            );
+            return any.length ? any[0] : null;
+        }
+
+        function appendNextTaskButton(outputEl) {
+            const next = findNextTask();
+            if (!next || !outputEl) return;
+            const btn = document.createElement('button');
+            btn.className = 'next-task-btn';
+            btn.textContent = '➡️ Следующее: ' + next.title.substring(0, 40);
+            btn.onclick = () => openQuest(next.id);
+            outputEl.appendChild(document.createElement('br'));
+            outputEl.appendChild(btn);
+        }
+
+        // ==================== STREAK WIDGET ====================
+        function renderStreakWidget() {
+            const existing = document.getElementById('streak-widget');
+            if (existing) existing.remove();
+            const grid = document.getElementById('quest-grid');
+            if (!grid) return;
+            const streakEl = document.getElementById('profile-streak');
+            const streak = parseInt(streakEl?.textContent || '0', 10);
+            const widget = document.createElement('div');
+            widget.id = 'streak-widget';
+            widget.className = 'streak-widget';
+            widget.innerHTML = `
+                <span class="streak-fire">${streak > 0 ? '🔥' : '❄️'}</span>
+                <span class="streak-num">${streak}</span>
+                <span class="streak-label">дн. подряд</span>
+                <span class="daily-goal">Решай задания каждый день!</span>
+            `;
+            grid.parentNode.insertBefore(widget, grid);
         }
 
         async function submitTutorialNotes() {
@@ -6436,6 +6759,7 @@
                     setTimeout(() => loadAchievements(), 900);
                     setTimeout(() => syncDashboardData({ forceRoadmap: true }), 1000);
                     if (currentTask.category === 'frontend') setFrontendPreviewStatus('PASSED');
+                    appendNextTaskButton(output);
                     return;
                 }
 
