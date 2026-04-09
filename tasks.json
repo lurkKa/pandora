@@ -6116,64 +6116,6 @@
       "topic": "functions"
     },
     {
-      "id": "js_49_parse_int",
-      "category": "javascript",
-      "tier": "D",
-      "xp": 20,
-      "title": "Чтение Свитка",
-      "story": "На свитке число написано текстом. Преврати в цифры.",
-      "description": "Функция `toInt(str)` превращает `'10'` в `10`.",
-      "initial_code": "function toInt(str) {\n    return parseInt(str);\n}",
-      "check_logic": {
-        "engine": "javascript",
-        "cases": [
-          {
-            "code": "toInt('42')",
-            "expected": 42
-          }
-        ],
-        "hidden_cases": [
-          {
-            "code": "toInt('42')",
-            "expected": 42
-          },
-          {
-            "code": "toInt('42')",
-            "expected": 42
-          },
-          {
-            "code": "toInt('42')",
-            "expected": 42
-          }
-        ]
-      },
-      "campaign": {
-        "act": 1,
-        "chapter": 2,
-        "order": 4,
-        "type": "quest"
-      },
-      "resources": {
-        "docs": [
-          {
-            "title": "MDN: объекты (RU)",
-            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide/Working_with_objects"
-          },
-          {
-            "title": "MDN: руководство по JavaScript (RU)",
-            "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide"
-          }
-        ],
-        "videos": [
-          {
-            "title": "JavaScript: основы (freeCodeCamp, EN)",
-            "url": "https://www.youtube.com/watch?v=PkZNo7MFNFg"
-          }
-        ]
-      },
-      "topic": "functions"
-    },
-    {
       "id": "js_cur_d_001_double_xp",
       "category": "javascript",
       "tier": "D",

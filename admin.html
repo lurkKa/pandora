@@ -917,6 +917,9 @@
                 <li class="nav-item" onclick="showSection('mini-admins')" tabindex="0" role="button">
                     <span class="icon">🛡️</span> Мини-Админы
                 </li>
+                <li class="nav-item" onclick="showSection('behavior')" tabindex="0" role="button">
+                    <span class="icon">🔊</span> Поведение
+                </li>
             </ul>
             <div class="admin-info">
                 <div class="admin-avatar">S</div>
@@ -1495,6 +1498,52 @@
                             </tr>
                         </thead>
                         <tbody id="mini-admin-xp-actions-table"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Behavior Panel Section -->
+            <section id="section-behavior" class="section">
+                <div class="page-header">
+                    <h2>🔊 Панель поведения</h2>
+                    <p>Нарушения дисциплины от системы мониторинга шума</p>
+                </div>
+
+                <div class="stats-grid" style="margin-bottom:20px;">
+                    <div class="stat-card">
+                        <div class="label">⏳ Ожидают</div>
+                        <div class="value" id="behavior-pending-count">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">✅ Одобрено сегодня</div>
+                        <div class="value" id="behavior-approved-today">—</div>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:8px;margin-bottom:20px;align-items:center;flex-wrap:wrap;">
+                    <button class="btn btn-primary btn-small" id="behavior-btn-pending"
+                        onclick="loadBehaviorIncidents('pending')" style="opacity:1;">⏳ Ожидающие</button>
+                    <button class="btn btn-small" id="behavior-btn-all" onclick="loadBehaviorIncidents('all')"
+                        style="opacity:0.6;">📋 Все</button>
+                    <button class="btn btn-small" onclick="loadBehaviorIncidents()">🔄 Обновить</button>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 id="behavior-card-title">Нарушения</h3>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Время</th>
+                                <th>Уровень</th>
+                                <th>Описание</th>
+                                <th>XP штраф</th>
+                                <th>Статус</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="behavior-table"></tbody>
                     </table>
                 </div>
             </section>
@@ -2761,6 +2810,7 @@
             if (name === 'exam') loadExamStatus();
             if (name === 'settings') loadPhraseSettings();
             if (name === 'mini-admins') loadMiniAdmins();
+            if (name === 'behavior') loadBehaviorIncidents('pending');
         }
 
         // ==================== MINI-ADMIN MANAGEMENT ====================
@@ -4035,6 +4085,127 @@
                 container.innerHTML = '<div class="card"><div style="padding:40px;text-align:center;color:var(--danger);">Ошибка загрузки</div></div>';
                 console.error('Failed to load time tracking:', e);
             }
+        }
+
+        // ==================== BEHAVIOR PANEL ====================
+
+        let _behaviorFilter = 'pending';
+        let _behaviorRefreshTimer = null;
+
+        const SEVERITY_BADGES = {
+            medium: '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:rgba(250,204,21,0.15);color:#facc15;">🟡 Средняя</span>',
+            loud: '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:rgba(251,146,60,0.15);color:#fb923c;">🟠 Очень громко</span>',
+            critical: '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:rgba(248,113,113,0.15);color:#f87171;">🔴 Критически</span>',
+        };
+
+        const STATUS_BADGES = {
+            pending: '<span style="padding:3px 8px;border-radius:4px;font-size:11px;background:rgba(250,204,21,0.12);color:#facc15;">⏳ Ожидает</span>',
+            approved: '<span style="padding:3px 8px;border-radius:4px;font-size:11px;background:rgba(74,222,128,0.12);color:#4ade80;">✅ Одобрено</span>',
+            rejected: '<span style="padding:3px 8px;border-radius:4px;font-size:11px;background:rgba(248,113,113,0.12);color:#f87171;">❌ Отклонено</span>',
+        };
+
+        async function loadBehaviorIncidents(filter) {
+            if (filter) _behaviorFilter = filter;
+            // Update button states
+            document.getElementById('behavior-btn-pending').style.opacity = _behaviorFilter === 'pending' ? '1' : '0.6';
+            document.getElementById('behavior-btn-all').style.opacity = _behaviorFilter === 'all' ? '1' : '0.6';
+            document.getElementById('behavior-card-title').textContent =
+                _behaviorFilter === 'pending' ? 'Ожидающие нарушения' : 'Все нарушения';
+
+            try {
+                const res = await api(`/api/admin/behavior/incidents?status=${_behaviorFilter}`);
+                document.getElementById('behavior-pending-count').textContent = res.pending_count || 0;
+
+                const tbody = document.getElementById('behavior-table');
+                if (!res.incidents || res.incidents.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:32px;">Нет нарушений</td></tr>';
+                    return;
+                }
+
+                let approvedToday = 0;
+                const today = new Date().toISOString().slice(0, 10);
+
+                tbody.innerHTML = res.incidents.map(inc => {
+                    if (inc.status === 'approved' && inc.resolved_at && inc.resolved_at.startsWith(today)) approvedToday++;
+                    const time = inc.reported_at ? new Date(inc.reported_at + 'Z').toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '—';
+                    const severity = SEVERITY_BADGES[inc.severity] || inc.severity;
+                    const statusBadge = STATUS_BADGES[inc.status] || inc.status;
+                    const xpDisplay = inc.status === 'approved'
+                        ? `<strong style="color:#f87171;">-${inc.applied_xp} XP</strong>`
+                        : `${inc.suggested_xp} XP`;
+
+                    let actions = '';
+                    if (inc.status === 'pending') {
+                        actions = `
+                            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                                <button class="btn btn-success btn-small" onclick="approveBehavior(${inc.id}, ${inc.suggested_xp})" title="Одобрить штраф">✅ −${inc.suggested_xp}</button>
+                                <button class="btn btn-danger btn-small" onclick="rejectBehavior(${inc.id})" title="Отклонить">❌</button>
+                                <div style="display:flex;align-items:center;gap:4px;">
+                                    <input type="range" min="10" max="50" value="${inc.suggested_xp}" id="beh-slider-${inc.id}"
+                                        style="width:80px;accent-color:var(--accent);" oninput="document.getElementById('beh-val-${inc.id}').textContent=this.value">
+                                    <span id="beh-val-${inc.id}" style="font-size:12px;min-width:24px;text-align:center;">${inc.suggested_xp}</span>
+                                    <button class="btn btn-small" onclick="approveBehaviorCustom(${inc.id})" title="Прим. своё значение">📝</button>
+                                </div>
+                            </div>
+                        `;
+                    } else if (inc.admin_note) {
+                        actions = `<span style="font-size:11px;color:var(--text-secondary);">${inc.admin_note}</span>`;
+                    }
+
+                    return `<tr>
+                        <td style="white-space:nowrap;">${time}</td>
+                        <td>${severity}</td>
+                        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;">${inc.description || '—'}</td>
+                        <td>${xpDisplay}</td>
+                        <td>${statusBadge}</td>
+                        <td>${actions}</td>
+                    </tr>`;
+                }).join('');
+
+                document.getElementById('behavior-approved-today').textContent = approvedToday;
+
+            } catch (e) {
+                console.error('Error loading behavior incidents:', e);
+            }
+
+            // Auto-refresh every 15s if on behavior tab
+            clearTimeout(_behaviorRefreshTimer);
+            if (_activeSection === 'behavior') {
+                _behaviorRefreshTimer = setTimeout(() => loadBehaviorIncidents(), 15000);
+            }
+        }
+
+        async function approveBehavior(id, xp) {
+            if (!confirm(`Одобрить штраф −${xp} XP для ВСЕХ учеников?`)) return;
+            try {
+                const res = await api(`/api/admin/behavior/incidents/${id}/resolve`, 'POST',
+                    { action: 'approve', custom_xp: xp, note: '' });
+                alert(`✅ Штраф −${res.xp_applied} XP применён к ${res.students_affected} ученикам`);
+                loadBehaviorIncidents();
+                loadStudents();
+            } catch (e) { alert('Ошибка: ' + (e.message || e)); }
+        }
+
+        async function approveBehaviorCustom(id) {
+            const slider = document.getElementById(`beh-slider-${id}`);
+            const xp = parseInt(slider.value);
+            if (!confirm(`Одобрить штраф −${xp} XP для ВСЕХ учеников?`)) return;
+            try {
+                const res = await api(`/api/admin/behavior/incidents/${id}/resolve`, 'POST',
+                    { action: 'approve', custom_xp: xp, note: `Ручной штраф: ${xp}` });
+                alert(`✅ Штраф −${res.xp_applied} XP применён к ${res.students_affected} ученикам`);
+                loadBehaviorIncidents();
+                loadStudents();
+            } catch (e) { alert('Ошибка: ' + (e.message || e)); }
+        }
+
+        async function rejectBehavior(id) {
+            if (!confirm('Отклонить это нарушение?')) return;
+            try {
+                await api(`/api/admin/behavior/incidents/${id}/resolve`, 'POST',
+                    { action: 'reject', note: 'Ложное срабатывание' });
+                loadBehaviorIncidents();
+            } catch (e) { alert('Ошибка: ' + (e.message || e)); }
         }
 
         window.addEventListener('load', () => {

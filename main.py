@@ -75,6 +75,19 @@ ALLOWED_ORIGINS = [
 TRUST_PROXY_HEADERS = (os.getenv("PANDORA_TRUST_PROXY_HEADERS") or "0") == "1"
 DISPLAY_NAME_MAX_LEN = 50
 
+# ==================== BEHAVIOR AGENT TOKEN ====================
+_BEHAVIOR_TOKEN_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".behavior_agent_token")
+def _load_behavior_token() -> str:
+    tok = os.getenv("BEHAVIOR_AGENT_TOKEN", "").strip()
+    if tok:
+        return tok
+    try:
+        with open(_BEHAVIOR_TOKEN_FILE, "r") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return ""
+BEHAVIOR_AGENT_TOKEN = _load_behavior_token()
+
 # ==================== LOGGING SETUP ====================
 
 LOG_DIR = "logs"
@@ -814,6 +827,24 @@ def init_db():
                 FOREIGN KEY (reporter_id) REFERENCES users(id)
             )
         """)
+
+        # ========== BEHAVIOR INCIDENTS ==========
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS behavior_incidents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                severity TEXT NOT NULL,
+                noise_level REAL NOT NULL,
+                description TEXT,
+                suggested_xp INTEGER NOT NULL,
+                status TEXT DEFAULT 'pending',
+                applied_xp INTEGER,
+                admin_note TEXT,
+                reported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                resolved_at TIMESTAMP,
+                resolved_by INTEGER
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_behavior_incidents_status ON behavior_incidents(status)")
 
         # Performance indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_xp ON users(xp DESC)")
@@ -10335,6 +10366,174 @@ def admin_approve_mini_admin_review(review_id: int, admin: dict = Depends(requir
     log_security("MINI_ADMIN_REVIEW_APPROVED", user=admin["username"],
                  details=f"review_id={review_id}, score={review['score']}, xp_reward={xp_reward}")
     return {"message": "Review approved", "xp_reward": xp_reward}
+
+
+# ==================== BEHAVIOR PANEL ====================
+
+# Severity → suggested XP mapping
+_BEHAVIOR_SEVERITY_XP = {
+    "medium":   (10, 20),
+    "loud":     (20, 35),
+    "critical": (35, 50),
+}
+
+_BEHAVIOR_SEVERITY_LABELS = {
+    "medium":   "Средняя громкость",
+    "loud":     "Очень громко",
+    "critical": "Критически громко",
+}
+
+
+class BehaviorReportRequest(BaseModel):
+    severity: str
+    noise_level: float
+    description: str = ""
+
+
+class BehaviorResolveRequest(BaseModel):
+    action: str  # approve | reject
+    custom_xp: Optional[int] = None
+    note: str = ""
+
+
+def _verify_behavior_token(authorization: Optional[str] = Header(None)):
+    """Verify bearer token for the local behavior agent."""
+    if not BEHAVIOR_AGENT_TOKEN:
+        raise HTTPException(status_code=503, detail="Behavior system not configured (no token)")
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Invalid Authorization format")
+    if not secrets.compare_digest(parts[1], BEHAVIOR_AGENT_TOKEN):
+        raise HTTPException(status_code=403, detail="Invalid behavior agent token")
+    return True
+
+
+@app.post("/api/behavior/report")
+def behavior_report(data: BehaviorReportRequest, _auth: bool = Depends(_verify_behavior_token)):
+    """Receive a noise violation report from the local behavior agent."""
+    if data.severity not in _BEHAVIOR_SEVERITY_XP:
+        raise HTTPException(status_code=400, detail=f"Invalid severity. Must be one of: {list(_BEHAVIOR_SEVERITY_XP.keys())}")
+    if not (0.0 <= data.noise_level <= 1.0):
+        raise HTTPException(status_code=400, detail="noise_level must be between 0.0 and 1.0")
+
+    xp_lo, xp_hi = _BEHAVIOR_SEVERITY_XP[data.severity]
+    # Interpolate XP from noise_level within severity range
+    suggested_xp = int(xp_lo + (xp_hi - xp_lo) * min(1.0, max(0.0, data.noise_level)))
+    suggested_xp = max(10, min(50, suggested_xp))
+
+    desc = data.description or _BEHAVIOR_SEVERITY_LABELS.get(data.severity, data.severity)
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO behavior_incidents (severity, noise_level, description, suggested_xp)
+            VALUES (?, ?, ?, ?)
+        """, (data.severity, data.noise_level, desc, suggested_xp))
+        incident_id = cursor.lastrowid
+        conn.commit()
+
+    logger.info("Behavior incident reported: id=%d, severity=%s, noise=%.2f, suggested_xp=%d",
+                incident_id, data.severity, data.noise_level, suggested_xp)
+    return {
+        "id": incident_id,
+        "severity": data.severity,
+        "suggested_xp": suggested_xp,
+        "status": "pending"
+    }
+
+
+@app.get("/api/admin/behavior/incidents")
+def admin_list_behavior_incidents(status: str = Query("pending"), admin: dict = Depends(require_admin)):
+    """List behavior incidents for admin review."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        if status == "all":
+            cursor.execute("""
+                SELECT bi.*, u.display_name as resolved_by_name
+                FROM behavior_incidents bi
+                LEFT JOIN users u ON bi.resolved_by = u.id
+                ORDER BY bi.reported_at DESC
+                LIMIT 200
+            """)
+        else:
+            cursor.execute("""
+                SELECT bi.*, u.display_name as resolved_by_name
+                FROM behavior_incidents bi
+                LEFT JOIN users u ON bi.resolved_by = u.id
+                WHERE bi.status = ?
+                ORDER BY bi.reported_at DESC
+                LIMIT 200
+            """, (status,))
+        incidents = [dict(r) for r in cursor.fetchall()]
+        # Add label
+        for inc in incidents:
+            inc["severity_label"] = _BEHAVIOR_SEVERITY_LABELS.get(inc["severity"], inc["severity"])
+        # Count pending
+        cursor.execute("SELECT COUNT(*) FROM behavior_incidents WHERE status = 'pending'")
+        pending_count = cursor.fetchone()[0]
+    return {"incidents": incidents, "pending_count": pending_count}
+
+
+@app.post("/api/admin/behavior/incidents/{incident_id}/resolve")
+def admin_resolve_behavior_incident(incident_id: int, data: BehaviorResolveRequest, admin: dict = Depends(require_admin)):
+    """Approve or reject a behavior incident. On approve, deducts XP from all students."""
+    if data.action not in ("approve", "reject"):
+        raise HTTPException(status_code=400, detail="Action must be 'approve' or 'reject'")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM behavior_incidents WHERE id = ?", (incident_id,))
+        inc = cursor.fetchone()
+        if not inc:
+            raise HTTPException(status_code=404, detail="Incident not found")
+        if inc["status"] != "pending":
+            raise HTTPException(status_code=409, detail="Incident already resolved")
+
+        if data.action == "reject":
+            cursor.execute("""
+                UPDATE behavior_incidents
+                SET status = 'rejected', admin_note = ?, resolved_at = CURRENT_TIMESTAMP, resolved_by = ?
+                WHERE id = ?
+            """, (data.note, admin["user_id"], incident_id))
+            conn.commit()
+            log_security("BEHAVIOR_INCIDENT_REJECTED", user=admin["username"],
+                         details=f"incident_id={incident_id}")
+            return {"message": "Incident rejected", "xp_applied": 0}
+
+        # Approve — compute XP to apply
+        xp_to_apply = data.custom_xp if data.custom_xp is not None else inc["suggested_xp"]
+        xp_to_apply = max(10, min(50, int(xp_to_apply)))  # clamp 10-50
+
+        cursor.execute("""
+            UPDATE behavior_incidents
+            SET status = 'approved', applied_xp = ?, admin_note = ?,
+                resolved_at = CURRENT_TIMESTAMP, resolved_by = ?
+            WHERE id = ?
+        """, (xp_to_apply, data.note, admin["user_id"], incident_id))
+
+        # Deduct XP from all students
+        cursor.execute("SELECT id FROM users WHERE role IN ('student', 'mini_admin')")
+        students = cursor.fetchall()
+        affected = 0
+        for student in students:
+            try:
+                apply_xp_change(cursor, student["id"], -xp_to_apply,
+                                f"behavior_penalty:incident_{incident_id}")
+                affected += 1
+            except Exception:
+                pass
+
+        conn.commit()
+
+    log_security("BEHAVIOR_INCIDENT_APPROVED", user=admin["username"],
+                 details=f"incident_id={incident_id}, xp=-{xp_to_apply}, affected={affected}")
+    return {
+        "message": "Penalty applied",
+        "xp_applied": xp_to_apply,
+        "students_affected": affected
+    }
 
 
 # ==================== STARTUP ====================
