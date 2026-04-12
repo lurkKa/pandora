@@ -3037,6 +3037,111 @@
             } catch (e) { alert('Ошибка: ' + e.message); }
         }
 
+        // ==================== BEHAVIOR PANEL ====================
+        let _behaviorStatus = 'pending';
+
+        async function loadBehaviorIncidents(status) {
+            if (status) _behaviorStatus = status;
+            else status = _behaviorStatus;
+
+            // Update filter button states
+            ['pending', 'all'].forEach(s => {
+                const btn = document.getElementById(`behavior-btn-${s}`);
+                if (btn) btn.style.opacity = s === status ? '1' : '0.6';
+            });
+
+            const tbody = document.getElementById('behavior-table');
+            const title = document.getElementById('behavior-card-title');
+            if (title) title.textContent = status === 'all' ? 'Все нарушения' : 'Ожидающие нарушения';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:24px;">Загрузка...</td></tr>';
+
+            try {
+                const data = await api(`/api/admin/behavior/incidents?status=${status}`);
+                const incidents = data.incidents || [];
+                const pendingCount = data.pending_count || 0;
+
+                // Update stats
+                const pendingEl = document.getElementById('behavior-pending-count');
+                if (pendingEl) pendingEl.textContent = pendingCount;
+
+                if (incidents.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:24px;">Нет инцидентов</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = incidents.map(inc => {
+                    const dt = inc.reported_at ? new Date(inc.reported_at).toLocaleString('ru') : '—';
+                    const severityColors = {
+                        'medium': { bg: 'rgba(251,191,36,0.15)', color: '#fbbf24', label: '⚡ Средняя' },
+                        'loud': { bg: 'rgba(251,146,60,0.15)', color: '#fb923c', label: '🔊 Громко' },
+                        'critical': { bg: 'rgba(248,113,113,0.15)', color: '#f87171', label: '🔴 Критично' }
+                    };
+                    const sev = severityColors[inc.severity] || severityColors['medium'];
+                    const sevBadge = `<span style="padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;background:${sev.bg};color:${sev.color};">${inc.severity_label || sev.label}</span>`;
+
+                    const statusBadge = inc.status === 'approved'
+                        ? '<span style="color:#22c55e;font-weight:600;">✅ Одобрено</span>'
+                        : inc.status === 'rejected'
+                            ? '<span style="color:#f87171;font-weight:600;">❌ Отклонено</span>'
+                            : '<span style="color:#fbbf24;font-weight:600;">⏳ Ожидает</span>';
+
+                    const xpDisplay = inc.status === 'approved'
+                        ? `<strong style="color:#f87171;">−${inc.applied_xp}</strong>`
+                        : `<span style="color:var(--text-secondary);">${inc.suggested_xp}</span>`;
+
+                    let actionsHtml = '';
+                    if (inc.status === 'pending') {
+                        actionsHtml = `
+                            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                                <input type="number" id="behavior-xp-${inc.id}" value="${inc.suggested_xp}" min="10" max="50"
+                                    style="width:60px;padding:4px 6px;background:var(--bg-deep);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:12px;"
+                                    title="XP штраф">
+                                <button class="btn btn-success btn-small" onclick="resolveBehaviorIncident(${inc.id}, 'approve')" style="padding:4px 10px;font-size:11px;">✅</button>
+                                <button class="btn btn-danger btn-small" onclick="resolveBehaviorIncident(${inc.id}, 'reject')" style="padding:4px 10px;font-size:11px;">❌</button>
+                            </div>`;
+                    } else {
+                        const resolvedInfo = [];
+                        if (inc.resolved_by_name) resolvedInfo.push(inc.resolved_by_name);
+                        if (inc.resolved_at) resolvedInfo.push(new Date(inc.resolved_at).toLocaleString('ru'));
+                        if (inc.admin_note) resolvedInfo.push(`📝 ${inc.admin_note}`);
+                        actionsHtml = `<span style="font-size:11px;color:var(--text-secondary);">${resolvedInfo.join(' · ')}</span>`;
+                    }
+
+                    return `<tr>
+                        <td style="font-size:12px;">${dt}</td>
+                        <td>${sevBadge}</td>
+                        <td style="font-size:13px;max-width:250px;overflow:hidden;text-overflow:ellipsis;" title="${(inc.description || '').replace(/"/g, '&quot;')}">${inc.description || '—'}</td>
+                        <td>${xpDisplay}</td>
+                        <td>${statusBadge}</td>
+                        <td>${actionsHtml}</td>
+                    </tr>`;
+                }).join('');
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--danger);padding:24px;">Ошибка: ${e.message}</td></tr>`;
+            }
+        }
+
+        async function resolveBehaviorIncident(id, action) {
+            const xpInput = document.getElementById(`behavior-xp-${id}`);
+            const customXp = xpInput ? parseInt(xpInput.value) : null;
+            const note = action === 'reject' ? (prompt('Причина отклонения (необязательно):') || '') : '';
+
+            try {
+                const data = await api(`/api/admin/behavior/incidents/${id}/resolve`, 'POST', {
+                    action: action,
+                    custom_xp: customXp,
+                    note: note
+                });
+                const msg = action === 'approve'
+                    ? `Штраф применён: −${data.xp_applied} XP × ${data.students_affected} учеников`
+                    : 'Инцидент отклонён';
+                alert(msg);
+                loadBehaviorIncidents(_behaviorStatus);
+            } catch (e) {
+                alert('Ошибка: ' + e.message);
+            }
+        }
+
         // ==================== EXAM ADMIN ====================
         let _examActive = false;
 

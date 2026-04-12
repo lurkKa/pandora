@@ -2346,7 +2346,8 @@ def alextype_complete(data: AlexTypeCompleteRequest, user: dict = Depends(requir
 
     # ===== SERVER-SIDE ANTI-CHEAT: Typing speed validation =====
     _MAX_HUMAN_CPM = 800  # World record ~750 CPM; above this = cheat
-    _MIN_ELAPSED_MS = 3000  # At least 3 seconds of typing required
+    _DYNAMIC_MIN_ELAPSED_MS = int((data.chars_typed / _MAX_HUMAN_CPM) * 60000 * 0.8)  # Allow 20% margin
+    _DYNAMIC_MIN_ELAPSED_MS = max(500, _DYNAMIC_MIN_ELAPSED_MS) # Absolute minimum 0.5s
 
     if data.elapsed_ms > 0:
         elapsed_min = data.elapsed_ms / 60000.0
@@ -2354,7 +2355,7 @@ def alextype_complete(data: AlexTypeCompleteRequest, user: dict = Depends(requir
             server_cpm = data.chars_typed / elapsed_min
             if server_cpm > _MAX_HUMAN_CPM:
                 return {"xp_awarded": 0, "message": "⚠️ Слишком быстро. Печатай сам!"}
-        if data.elapsed_ms < _MIN_ELAPSED_MS:
+        if data.elapsed_ms < _DYNAMIC_MIN_ELAPSED_MS:
             return {"xp_awarded": 0, "message": "⚠️ Слишком быстро. Печатай сам!"}
     else:
         # No elapsed_ms provided — legacy client or cheat; reject if chars > 20
