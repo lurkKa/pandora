@@ -16,7 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 TOKEN_FILE="$PROJECT_DIR/.behavior_agent_token"
 AGENT_SCRIPT="$SCRIPT_DIR/behavior_agent.py"
-SERVER_URL="${1:-http://localhost:8000}"
+SERVER_URL="${1:-https://pandora-academy.onrender.com}"
 
 echo "═══════════════════════════════════════════════"
 echo "  🔊 PANDORA Behavior Agent"

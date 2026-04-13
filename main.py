@@ -10497,7 +10497,7 @@ def admin_resolve_behavior_incident(incident_id: int, data: BehaviorResolveReque
                 UPDATE behavior_incidents
                 SET status = 'rejected', admin_note = ?, resolved_at = CURRENT_TIMESTAMP, resolved_by = ?
                 WHERE id = ?
-            """, (data.note, admin["user_id"], incident_id))
+            """, (data.note, admin["id"], incident_id))
             conn.commit()
             log_security("BEHAVIOR_INCIDENT_REJECTED", user=admin["username"],
                          details=f"incident_id={incident_id}")
@@ -10512,7 +10512,7 @@ def admin_resolve_behavior_incident(incident_id: int, data: BehaviorResolveReque
             SET status = 'approved', applied_xp = ?, admin_note = ?,
                 resolved_at = CURRENT_TIMESTAMP, resolved_by = ?
             WHERE id = ?
-        """, (xp_to_apply, data.note, admin["user_id"], incident_id))
+        """, (xp_to_apply, data.note, admin["id"], incident_id))
 
         # Deduct XP from all students
         cursor.execute("SELECT id FROM users WHERE role IN ('student', 'mini_admin')")
