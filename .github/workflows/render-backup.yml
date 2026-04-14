@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Validate required secrets
         env:
@@ -58,9 +60,9 @@ jobs:
             --password "$PANDORA_BACKUP_PASS" \
             --output "$BACKUP_FILE"
 
-      - name: Prune old backups (keep latest 21)
+      - name: Prune old backups (keep latest 30)
         run: |
-          ls -1t backups/academy_backup_*.db.gz 2>/dev/null | tail -n +22 | xargs -r rm -f
+          ls -1t backups/academy_backup_*.db.gz 2>/dev/null | tail -n +31 | xargs -r rm -f
 
       - name: Publish backup branch
         run: |
@@ -70,12 +72,31 @@ jobs:
           TMP_DIR="$(mktemp -d)"
           cp -a backups "$TMP_DIR/backups"
 
-          ORPHAN_BRANCH="backup-orphan-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          git checkout --orphan "$ORPHAN_BRANCH"
-          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          git fetch origin backup-snapshots || true
+          if git ls-remote --exit-code --heads origin backup-snapshots >/dev/null 2>&1; then
+            git checkout backup-snapshots
+          else
+            git checkout --orphan backup-snapshots
+            git rm -rf . || true
+          fi
+
           mkdir -p backups
           cp -a "$TMP_DIR/backups/." backups/
           printf "# Backup Branch\n\nAuto-generated SQLite snapshots.\n" > README.md
+          
+          # Remove deleted backups from git tracking
+          ls -1t backups/academy_backup_*.db.gz 2>/dev/null | tail -n +31 | xargs -r git rm -f --ignore-unmatch 2>/dev/null || true
+          
           git add backups README.md
-          git commit -m "backup: $(date -u +'%Y-%m-%d %H:%M UTC')"
-          git push -f origin "HEAD:backup-snapshots"
+          git commit -m "backup: $(date -u +'%Y-%m-%d %H:%M UTC')" || echo "No changes"
+
+          COMMITS=$(git rev-list HEAD | wc -l)
+          if [ "$COMMITS" -gt 30 ]; then
+            ROOT_COMMIT=$(git rev-parse HEAD~29)
+            ROOT_TREE=$(git rev-parse HEAD~29^{tree})
+            NEW_ROOT=$(git commit-tree $ROOT_TREE -m "Base backup (truncated)")
+            git rebase --onto "$NEW_ROOT" "$ROOT_COMMIT" HEAD
+            git push -f origin backup-snapshots
+          else
+            git push origin backup-snapshots
+          fi
