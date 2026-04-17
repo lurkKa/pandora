@@ -1,27 +1,31 @@
-name: render-backup
+name: Render and Backup
 
 on:
+  push:
+    branches: [ main ]
   schedule:
-    - cron: "0 */2 * * *"
+    - cron: '0 */6 * * *'
   workflow_dispatch:
 
-permissions:
-  contents: write
-
-concurrency:
-  group: render-backup
-  cancel-in-progress: false
-
 jobs:
-  backup:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Validate required secrets
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Validate secrets
         env:
           PANDORA_BASE_URL: ${{ secrets.PANDORA_BASE_URL }}
           PANDORA_BACKUP_USER: ${{ secrets.PANDORA_BACKUP_USER }}
@@ -60,18 +64,18 @@ jobs:
             --password "$PANDORA_BACKUP_PASS" \
             --output "$BACKUP_FILE"
 
-      - name: Prune old backups (keep latest 2)
-        run: |
-          ls -1t backups/academy_backup_*.db.gz 2>/dev/null | tail -n +3 | xargs -r rm -f
-
       - name: Publish backup branch
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          TMP_DIR="$(mktemp -d)"
-          cp -a backups "$TMP_DIR/backups"
 
+          # Сохраняем новый бэкап во временную папку
+          BACKUP_BASENAME=$(basename "$BACKUP_FILE")
+          TMP_DIR="$(mktemp -d)"
+          cp "$BACKUP_FILE" "$TMP_DIR/$BACKUP_BASENAME"
+
+          # Переключаемся на ветку backup-snapshots
           git fetch origin backup-snapshots || true
           if git ls-remote --exit-code --heads origin backup-snapshots >/dev/null 2>&1; then
             git checkout backup-snapshots
@@ -80,22 +84,31 @@ jobs:
             git rm -rf . || true
           fi
 
+          # Каждый коммит содержит только ОДИН файл бэкапа
+          rm -rf backups
           mkdir -p backups
-          cp -a "$TMP_DIR/backups/." backups/
-          printf "# Backup Branch\n\nAuto-generated SQLite snapshots.\n" > README.md
-          
-          # Remove deleted backups from git tracking
-          ls -1t backups/academy_backup_*.db.gz 2>/dev/null | tail -n +3 | xargs -r git rm -f --ignore-unmatch 2>/dev/null || true
-          
-          git add backups README.md
-          git commit -m "backup: $(date -u +'%Y-%m-%d %H:%M UTC')" || echo "No changes"
+          cp "$TMP_DIR/$BACKUP_BASENAME" "backups/$BACKUP_BASENAME"
 
-          COMMITS=$(git rev-list HEAD | wc -l)
-          if [ "$COMMITS" -gt 2 ]; then
-            ROOT_COMMIT=$(git rev-parse HEAD~1)
-            ROOT_TREE=$(git rev-parse HEAD~1^{tree})
-            NEW_ROOT=$(git commit-tree $ROOT_TREE -m "Base backup (truncated)")
-            git rebase --onto "$NEW_ROOT" "$ROOT_COMMIT" HEAD
+          printf "# Backup Branch\n\nAuto-generated SQLite snapshots.\nEach commit contains exactly one backup file.\nLast 20 commits are retained.\n" > README.md
+
+          git add -f backups README.md
+          git commit -m "backup: $(date -u +'%Y-%m-%d %H:%M UTC') — $BACKUP_BASENAME" || {
+            echo "No changes to commit"
+            exit 0
+          }
+
+          # Обрезаем историю: оставляем только 20 последних коммитов
+          MAX_KEEP=20
+          COMMITS=$(git rev-list --count HEAD)
+          echo "Total commits: $COMMITS (max keep: $MAX_KEEP)"
+
+          if [ "$COMMITS" -gt "$MAX_KEEP" ]; then
+            echo "Pruning old commits..."
+            # Находим коммит, который станет новым корнем (20-й с конца)
+            NEW_ROOT_REF=$(git rev-list HEAD | sed -n "${MAX_KEEP}p")
+            NEW_ROOT_TREE=$(git rev-parse "${NEW_ROOT_REF}^{tree}")
+            SYNTHETIC_ROOT=$(git commit-tree "$NEW_ROOT_TREE" -m "base (truncated history)")
+            git rebase --onto "$SYNTHETIC_ROOT" "$NEW_ROOT_REF" HEAD
             git push -f origin backup-snapshots
           else
             git push origin backup-snapshots
