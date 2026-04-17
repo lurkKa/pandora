@@ -1785,11 +1785,11 @@ def process_task_completion(
         if event["bonus_type"] == "xp_multiplier":
             bonus_multiplier *= event["bonus_value"]
     
-    # Streak Bonus — hardcoded 1% per streak day, max 25%
+    # Streak Bonus — 2% per streak day, max 30% (reached at 15 days)
     cursor.execute("SELECT streak_days FROM user_stats WHERE user_id = ?", (user_id,))
     streak_row = cursor.fetchone()
     streak_days = streak_row["streak_days"] if streak_row else 0
-    streak_boost_pct = min(streak_days * 1, 25)  # 1% per day, cap 25%
+    streak_boost_pct = min(streak_days * 2, 30)  # 2% per day, cap 30% at day 15
     bonus_multiplier += streak_boost_pct / 100.0
     
     # Penalty for many failed attempts — kicks in after 30 fails, max -10%

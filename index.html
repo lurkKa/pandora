@@ -5908,7 +5908,7 @@
             widget.innerHTML = `
                 <span class="streak-fire">${streak > 0 ? '🔥' : '❄️'}</span>
                 <span class="streak-num">${streak}</span>
-                <span class="streak-label">дн. подряд${streak > 0 ? ' (+' + Math.min(streak, 25) + '% XP)' : ''}</span>
+                <span class="streak-label">дн. подряд${streak > 0 ? ' (+' + Math.min(streak * 2, 30) + '% XP)' : ''}</span>
                 <span class="daily-goal">Решай задания каждый день!</span>
             `;
             grid.parentNode.insertBefore(widget, grid);
@@ -7145,7 +7145,7 @@
                     : '🌱 Новичок';
                 document.getElementById('profile-quests').innerText = profile.stats?.total_quests || 0;
                 const streakDays = profile.stats?.streak_days || 0;
-                const streakBoost = Math.min(streakDays, 25);
+                const streakBoost = Math.min(streakDays * 2, 30);
                 document.getElementById('profile-streak').innerText = streakDays + (streakDays > 0 ? ' (+' + streakBoost + '%)' : '');
                 document.getElementById('profile-position').innerText = '#' + (profile.leaderboard_position || 1);
 
