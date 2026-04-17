@@ -91,7 +91,7 @@ jobs:
 
           printf "# Backup Branch\n\nAuto-generated SQLite snapshots.\nEach commit contains exactly one backup file.\nLast 20 commits are retained.\n" > README.md
 
-          git add backups README.md
+          git add -f backups README.md
           git commit -m "backup: $(date -u +'%Y-%m-%d %H:%M UTC') — $BACKUP_BASENAME" || {
             echo "No changes to commit"
             exit 0
