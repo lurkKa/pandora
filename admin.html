@@ -2723,14 +2723,24 @@
         }
 
         async function toggleEvent(id) {
-            await api(`/api/admin/events/${id}`, 'PUT');
-            loadEvents();
+            try {
+                await api(`/api/admin/events/${id}`, 'PUT');
+                loadEvents();
+            } catch (e) {
+                alert('Ошибка переключения ивента: ' + (e.message || e));
+                console.error('toggleEvent error:', e);
+            }
         }
 
         async function deleteEvent(id) {
             if (!confirm('Delete this event?')) return;
-            await api(`/api/admin/events/${id}`, 'DELETE');
-            loadEvents();
+            try {
+                await api(`/api/admin/events/${id}`, 'DELETE');
+                loadEvents();
+            } catch (e) {
+                alert('Ошибка удаления ивента: ' + (e.message || e));
+                console.error('deleteEvent error:', e);
+            }
         }
 
         // ==================== UI ====================

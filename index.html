@@ -5908,7 +5908,7 @@
             widget.innerHTML = `
                 <span class="streak-fire">${streak > 0 ? '🔥' : '❄️'}</span>
                 <span class="streak-num">${streak}</span>
-                <span class="streak-label">дн. подряд</span>
+                <span class="streak-label">дн. подряд${streak > 0 ? ' (+' + Math.min(streak, 25) + '% XP)' : ''}</span>
                 <span class="daily-goal">Решай задания каждый день!</span>
             `;
             grid.parentNode.insertBefore(widget, grid);
@@ -6736,6 +6736,11 @@
                         renderVerificationText(data.verification) +
                         `\n\n🎉 СПОСОБ #${methodIndex} ЗАСЧИТАН! +${data.xp_earned || 0} XP`;
 
+                    // Show streak boost info if any
+                    if (data.streak_boost_pct && data.streak_boost_pct > 0) {
+                        output.innerText += `\n🔥 Бонус за страйк (${data.streak_boost_pct} дн.): +${data.streak_boost_pct}% XP`;
+                    }
+
                     // Show penalty info if any
                     if (data.attempt_penalty && data.attempt_penalty > 0) {
                         output.innerText += `\n⚠️ Штраф за ${data.failed_attempts} неудачных попыток: -${data.attempt_penalty}%`;
@@ -7139,7 +7144,9 @@
                     ? `${profile.current_rank.badge_emoji || '🌱'} ${profile.current_rank.name_ru || 'Новичок'}`
                     : '🌱 Новичок';
                 document.getElementById('profile-quests').innerText = profile.stats?.total_quests || 0;
-                document.getElementById('profile-streak').innerText = profile.stats?.streak_days || 0;
+                const streakDays = profile.stats?.streak_days || 0;
+                const streakBoost = Math.min(streakDays, 25);
+                document.getElementById('profile-streak').innerText = streakDays + (streakDays > 0 ? ' (+' + streakBoost + '%)' : '');
                 document.getElementById('profile-position').innerText = '#' + (profile.leaderboard_position || 1);
 
                 // XP Breakdown stats

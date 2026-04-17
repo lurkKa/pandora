@@ -1785,23 +1785,21 @@ def process_task_completion(
         if event["bonus_type"] == "xp_multiplier":
             bonus_multiplier *= event["bonus_value"]
     
-    # Streak Bonus
+    # Streak Bonus — hardcoded 1% per streak day, max 25%
     cursor.execute("SELECT streak_days FROM user_stats WHERE user_id = ?", (user_id,))
     streak_row = cursor.fetchone()
     streak_days = streak_row["streak_days"] if streak_row else 0
+    streak_boost_pct = min(streak_days * 1, 25)  # 1% per day, cap 25%
+    bonus_multiplier += streak_boost_pct / 100.0
     
-    if streak_days > 0:
-        for event in events:
-            if event["bonus_type"] == "streak_bonus":
-                bonus_multiplier += (streak_days * event["bonus_value"])
-    
-    # Penalty for multiple failed attempts (-5% per failed attempt, max -50%)
+    # Penalty for many failed attempts — kicks in after 30 fails, max -10%
     cursor.execute(
         "SELECT COUNT(*) as cnt FROM task_attempts WHERE user_id = ? AND task_id = ? AND passed = 0",
         (user_id, task_id)
     )
     failed_attempts = cursor.fetchone()["cnt"]
-    attempt_penalty = min(failed_attempts * 0.05, 0.50)  # Max 50% penalty
+    attempt_penalty_pct = min(max(0, failed_attempts - 30), 10)  # 1% per fail above 30, cap 10%
+    attempt_penalty = attempt_penalty_pct / 100.0
     
     final_xp = int(task_base_xp * method_multiplier * bonus_multiplier * (1.0 - attempt_penalty))
     final_xp = max(1, final_xp)  # Minimum 1 XP
@@ -1897,8 +1895,9 @@ def process_task_completion(
         "new_xp": new_xp,
         "new_level": new_level,
         "bonus_applied": bonus_multiplier > 1.0,
+        "streak_boost_pct": streak_boost_pct,
         "failed_attempts": failed_attempts,
-        "attempt_penalty": round(attempt_penalty * 100),  # as percentage
+        "attempt_penalty": attempt_penalty_pct,  # as percentage
         "new_achievements": new_achievements,
         "method_new": True,
         "method_index": method_index,
