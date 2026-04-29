@@ -7,7 +7,8 @@ __pycache__/
 .ruff_cache/
 .pyre/
 .hypothesis/
-
+.behavior_agent_token
+.pandora_jwt_secret
 # Virtual environments
 venv/
 .venv/

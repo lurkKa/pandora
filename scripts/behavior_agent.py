@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """
-PANDORA Behavior Agent — Local Noise Monitor v2
-================================================
+PANDORA Behavior Agent — Local Noise Monitor v3 (Escalation)
+=============================================================
 
 Captures audio from the microphone, detects disruptive noise
-(screams, banging, whistling, sustained shouting) while ignoring normal speech,
-and sends violation reports to the PANDORA server.
+(screams, banging, whistling, sustained shouting) while ignoring normal speech.
+
+v3 changes (escalation system):
+  - 3-level escalation: пробуждение → предупреждение → напоминание
+  - Audio alerts played at each level from scripts/audio/ folders
+  - Server report sent ONLY at level 3 (напоминание)
+  - Escalation resets after 2 minutes of silence
 
 v2 changes:
-  - 250ms frames (was 1s) — catches millisecond-level spikes
-  - Sub-frame peak detection (50ms chunks inside each frame)
-  - Single-frame immediate reporting for loud spikes
-  - Lower thresholds for higher sensitivity
+  - 250ms frames, sub-frame peak detection, single-frame reporting
   - Default server URL: https://pandora-academy.onrender.com
 
 Dependencies: pip install sounddevice numpy scipy requests
@@ -23,11 +25,14 @@ Usage:
 """
 
 import argparse
+import glob
 import json
 import logging
 import os
+import random
 import sys
 import time
+import wave
 from collections import deque
 from pathlib import Path
 
@@ -59,8 +64,15 @@ SAMPLE_RATE = 16000       # 16kHz — sufficient for voice/noise
 FRAME_DURATION = 0.25     # 250ms per analysis frame (was 1s — now 4x faster)
 CHANNELS = 1
 WINDOW_SIZE = 20          # 20 frames × 0.25s = 5 seconds total window
-COOLDOWN_SECONDS = 25     # Min gap between reports
+COOLDOWN_SECONDS = 25     # Min gap between escalations
 SUBFRAME_MS = 50          # Sub-frame peak detection: 50ms chunks
+
+# --- Escalation ---
+ESCALATION_LEVELS = 3              # пробуждение(1) → предупреждение(2) → напоминание(3)
+ESCALATION_RESET_SECONDS = 120     # Reset after 2 min of silence
+ESCALATION_NAMES = {1: "пробуждение", 2: "предупреждение", 3: "напоминание"}
+ESCALATION_ICONS = {1: "🟡", 2: "🟠", 3: "🔴"}
+AUDIO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audio")
 
 # --- Thresholds (tuned for classroom — ignores speech, catches screams/banging) ---
 RMS_QUIET = 0.015         # Below this = silence
@@ -312,26 +324,149 @@ def send_report(server_url: str, token: str, severity: str, noise_level: float, 
         return False
 
 
+# ==================== AUDIO PLAYBACK ====================
+
+def play_alert_audio(level: int):
+    """
+    Play a random audio file from the escalation level folder.
+    Falls back to a generated tone if no files are found.
+    """
+    level_name = ESCALATION_NAMES.get(level, "пробуждение")
+    level_dir = os.path.join(AUDIO_DIR, level_name)
+
+    # Find .wav files in the level folder
+    wav_files = sorted(glob.glob(os.path.join(level_dir, "*.wav")))
+
+    if wav_files:
+        chosen = random.choice(wav_files)
+        log.info("🔈 Playing: %s", os.path.basename(chosen))
+        try:
+            with wave.open(chosen, 'rb') as wf:
+                sr = wf.getframerate()
+                n_channels = wf.getnchannels()
+                n_frames = wf.getnframes()
+                raw = wf.readframes(n_frames)
+                audio_data = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+                if n_channels > 1:
+                    audio_data = audio_data[::n_channels]  # Take first channel
+            sd.play(audio_data, samplerate=sr, blocking=True)
+        except Exception as e:
+            log.warning("Could not play %s: %s — using fallback tone", chosen, e)
+            _play_fallback_tone(level)
+    else:
+        log.info("🔈 No audio files in %s — using fallback tone", level_dir)
+        _play_fallback_tone(level)
+
+
+def _play_fallback_tone(level: int):
+    """Generate and play a simple tone based on escalation level."""
+    sr = 44100
+    if level == 1:
+        freqs, durs, vols = [523, 659], [0.25, 0.35], [0.25, 0.30]
+    elif level == 2:
+        freqs, durs, vols = [392, 494, 587], [0.2, 0.2, 0.3], [0.45, 0.50, 0.55]
+    else:
+        freqs, durs, vols = [440, 554, 659, 880], [0.15, 0.15, 0.15, 0.25], [0.5, 0.55, 0.6, 0.7]
+
+    parts = []
+    for f, d, v in zip(freqs, durs, vols):
+        t = np.linspace(0, d, int(sr * d), endpoint=False)
+        tone = (v * np.sin(2 * np.pi * f * t)).astype(np.float32)
+        parts.append(tone)
+        parts.append(np.zeros(int(sr * 0.04), dtype=np.float32))  # gap
+    audio_data = np.concatenate(parts)
+    sd.play(audio_data, samplerate=sr, blocking=True)
+
+
+# ==================== ESCALATION MANAGER ====================
+
+class EscalationManager:
+    """
+    Manages 3-level escalation:
+      Level 1 (пробуждение)    — play soft audio, NO server report
+      Level 2 (предупреждение) — play firm audio, NO server report
+      Level 3 (напоминание)    — play urgent audio + SEND server report
+
+    Resets to level 0 after ESCALATION_RESET_SECONDS of no incidents.
+    """
+
+    def __init__(self):
+        self.current_level = 0
+        self.last_incident_time = 0.0
+
+    def should_reset(self) -> bool:
+        """Check if enough silent time has passed to reset escalation."""
+        if self.current_level == 0:
+            return False
+        return (time.time() - self.last_incident_time) > ESCALATION_RESET_SECONDS
+
+    def try_reset(self):
+        """Reset escalation if quiet period has elapsed."""
+        if self.should_reset():
+            old = self.current_level
+            self.current_level = 0
+            log.info("✅ Эскалация сброшена (было: %d) — тишина > %dс",
+                     old, ESCALATION_RESET_SECONDS)
+
+    def escalate(self, severity: str, noise_level: float, description: str,
+                 server_url: str, token: str, dry_run: bool) -> bool:
+        """
+        Raise escalation level. Play audio. Send report only at level 3.
+        Returns True if an action was taken.
+        """
+        self.current_level = min(self.current_level + 1, ESCALATION_LEVELS)
+        self.last_incident_time = time.time()
+        level = self.current_level
+        icon = ESCALATION_ICONS.get(level, "⚪")
+        name = ESCALATION_NAMES.get(level, "?")
+
+        log.warning("%s Эскалация %d/3 [%s]: %s (level=%.2f) — %s",
+                    icon, level, name, severity, noise_level, description)
+
+        # Play audio alert
+        play_alert_audio(level)
+
+        # Send to server ONLY at level 3
+        if level >= ESCALATION_LEVELS:
+            if dry_run:
+                log.info("   [DRY-RUN] Would send report: severity=%s, noise=%.3f",
+                         severity, noise_level)
+            else:
+                log.info("📡 Уровень 3 — отправляю отчёт на сервер...")
+                send_report(server_url, token, severity, noise_level, description)
+            # Reset after full escalation
+            self.current_level = 0
+            return True
+        else:
+            log.info("   ⏳ Отчёт НЕ отправлен (уровень %d/%d)", level, ESCALATION_LEVELS)
+            return True
+
+
 # ==================== MAIN LOOP ====================
 
 def run_monitor(server_url: str, token: str, dry_run: bool = False):
-    """Main monitoring loop."""
+    """Main monitoring loop with 3-level escalation."""
     log.info("=" * 50)
-    log.info("🔊 PANDORA Behavior Agent v2 started")
+    log.info("🔊 PANDORA Behavior Agent v3 (Escalation) started")
     log.info("   Server: %s", server_url if not dry_run else "(dry-run)")
-    log.info("   Sample rate: %d Hz", SAMPLE_RATE)
-    log.info("   Frame: %.0fms, Window: %.1fs, Sub-frame: %dms",
-             FRAME_DURATION * 1000, WINDOW_SIZE * FRAME_DURATION, SUBFRAME_MS)
-    log.info("   Cooldown: %ds between reports", COOLDOWN_SECONDS)
+    log.info("   Escalation: %d levels (%s)",
+             ESCALATION_LEVELS, " → ".join(ESCALATION_NAMES.values()))
+    log.info("   Reset after: %ds of silence", ESCALATION_RESET_SECONDS)
+    log.info("   Cooldown: %ds between escalations", COOLDOWN_SECONDS)
+    log.info("   Audio dir: %s", AUDIO_DIR)
     log.info("=" * 50)
 
     frame_samples = int(SAMPLE_RATE * FRAME_DURATION)
     window = deque(maxlen=WINDOW_SIZE)
-    last_report_time = 0.0
+    last_escalation_time = 0.0
     prev_rms = 0.0
+    escalation = EscalationManager()
 
     while True:
         try:
+            # Check if escalation should reset (quiet period)
+            escalation.try_reset()
+
             # Record one frame (250ms)
             audio = sd.rec(frame_samples, samplerate=SAMPLE_RATE, channels=CHANNELS,
                            dtype='float32', blocking=True)
@@ -342,37 +477,32 @@ def run_monitor(server_url: str, token: str, dry_run: bool = False):
             prev_rms = result.rms
             window.append(result)
 
-            # Status indicator
+            # Status indicator (show current escalation level)
             bar_len = int(min(result.peak_rms * 80, 50))
             bar = "█" * bar_len
             status = "🔴" if result.is_disruptive else "🟢"
+            esc_indicator = f" E:{escalation.current_level}/{ESCALATION_LEVELS}" if escalation.current_level > 0 else ""
             sys.stdout.write(f"\r{status} RMS:{result.rms:.3f} Peak:{result.peak_rms:.3f} "
                              f"C:{result.centroid:.0f}Hz "
-                             f"Score:{result.disruption_score:.2f} "
+                             f"Score:{result.disruption_score:.2f}{esc_indicator} "
                              f"|{bar:<50}|")
             sys.stdout.flush()
 
-            # Check for incident — EVERY frame, not just after N frames
+            # Check for incident
             severity, noise_level, description = determine_severity(window)
 
             if severity:
                 now = time.time()
-                if now - last_report_time >= COOLDOWN_SECONDS:
+                if now - last_escalation_time >= COOLDOWN_SECONDS:
                     print()  # New line after progress bar
-                    log.warning("⚠️  Disruption detected: %s (level=%.2f) — %s",
-                                severity, noise_level, description)
-
-                    if dry_run:
-                        log.info("   [DRY-RUN] Would send: severity=%s, noise=%.3f",
-                                 severity, noise_level)
-                        last_report_time = now
-                        window.clear()
-                    else:
-                        if send_report(server_url, token, severity, noise_level, description):
-                            last_report_time = now
-                            window.clear()  # Reset window after report
+                    escalation.escalate(
+                        severity, noise_level, description,
+                        server_url, token, dry_run
+                    )
+                    last_escalation_time = now
+                    window.clear()
                 else:
-                    remaining = int(COOLDOWN_SECONDS - (now - last_report_time))
+                    remaining = int(COOLDOWN_SECONDS - (now - last_escalation_time))
                     if result.is_disruptive:
                         sys.stdout.write(f" [cooldown {remaining}s]")
 
