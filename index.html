@@ -5677,27 +5677,64 @@
             return null;
         }
 
-        function _applyTaskDetail(detail) {
-            if (!detail || !currentTask || currentTask.id !== detail.id) return;
-            // Merge heavy fields into current task
-            currentTask.description = detail.description;
-            currentTask.initial_code = detail.initial_code;
-            currentTask.resources = detail.resources;
-            currentTask.video_url = detail.video_url;
 
-            // Now populate the UI with the loaded data
+
+
+        async function openQuest(taskId) {
+            currentTask = tasks.find(t => t.id === taskId);
+            if (!currentTask) return;
+
+            // Show modal immediately with roadmap-level data (title, story, description)
+            document.getElementById('modal-title').innerText = currentTask.title;
+            document.getElementById('modal-story').innerText = currentTask.story;
             setQuestInstructions(currentTask);
 
             const editor = document.getElementById('code-editor');
+            const scratchContainer = document.getElementById('scratch-upload-container');
+            const scratchInput = document.getElementById('scratch-file');
+            const runBtn = document.getElementById('run-btn');
             const previewWrap = document.getElementById('frontend-preview-wrap');
             const previewFrame = document.getElementById('frontend-preview-frame');
             const tutorialArea = document.getElementById('tutorial-video-area');
             const tutorialFrame = document.getElementById('tutorial-video-frame');
             const tutorialNotes = document.getElementById('tutorial-notes');
             const editorArea = editor ? editor.closest('.editor-area') : null;
-            const scratchContainer = document.getElementById('scratch-upload-container');
-            const scratchInput = document.getElementById('scratch-file');
-            const runBtn = document.getElementById('run-btn');
+
+            // Reset UI to loading state while fetching heavy fields
+            if (tutorialArea) tutorialArea.classList.add('hidden');
+            if (editorArea) editorArea.classList.remove('hidden');
+            editor.classList.remove('hidden');
+            editor.classList.remove('frontend-mode');
+            scratchContainer.classList.add('hidden');
+            previewWrap.classList.add('hidden');
+            if (previewFrame) previewFrame.srcdoc = '';
+            editor.value = '';
+            editor.disabled = true;
+            if (runBtn) runBtn.disabled = true;
+
+            // Reset hint & history panels
+            const hintContent = document.getElementById('quest-hint-content');
+            const historyList = document.getElementById('quest-history-list');
+            if (hintContent) { hintContent.classList.remove('visible'); hintContent.innerHTML = ''; }
+            if (historyList) { historyList.classList.remove('visible'); historyList.innerHTML = ''; }
+
+            document.getElementById('output-console').innerText = '⏳ Загрузка задачи...';
+            document.getElementById('quest-modal').classList.add('active');
+            setPageContext('tasks');
+
+            // Fetch heavy task details (initial_code, resources, video_url) and apply immediately
+            const detail = await _fetchTaskDetail(taskId);
+            // Guard: user may have closed modal or switched task while awaiting
+            if (!currentTask || currentTask.id !== taskId) return;
+
+            if (detail) {
+                currentTask.initial_code = detail.initial_code;
+                currentTask.resources = detail.resources;
+                currentTask.video_url = detail.video_url;
+            }
+
+            // Re-run instructions to pick up resources from detail
+            setQuestInstructions(currentTask);
 
             const isTutorial = currentTask.task_type === 'tutorial';
 
@@ -5755,69 +5792,12 @@
                 previewWrap.style.pointerEvents = currentTask.locked ? 'none' : '';
             }
 
-            const consoleEl = document.getElementById('output-console');
-            if (consoleEl) {
-                consoleEl.innerText = currentTask.locked
-                    ? ('🔒 Этот квест пока закрыт.\n\n' + formatUnlockInfo(currentTask.unlock))
-                    : isTutorial ? '🎓 Посмотри видео, выполни задание и нажми «Отправить»'
-                        : 'Готово к проверке...';
-            }
+            document.getElementById('output-console').innerText = currentTask.locked
+                ? ('🔒 Этот квест пока закрыт.\n\n' + formatUnlockInfo(currentTask.unlock))
+                : isTutorial ? '🎓 Посмотри видео, выполни задание и нажми «Отправить»'
+                    : 'Готово к проверке...';
 
             if (!isTutorial && currentTask.category !== 'scratch') editor.focus();
-        }
-
-        function openQuest(taskId) {
-            currentTask = tasks.find(t => t.id === taskId);
-            if (!currentTask) return;
-
-            // Show modal immediately with card-level data (title, story)
-            document.getElementById('modal-title').innerText = currentTask.title;
-            document.getElementById('modal-story').innerText = currentTask.story;
-
-            const editor = document.getElementById('code-editor');
-            const scratchContainer = document.getElementById('scratch-upload-container');
-            const runBtn = document.getElementById('run-btn');
-            const previewWrap = document.getElementById('frontend-preview-wrap');
-            const previewFrame = document.getElementById('frontend-preview-frame');
-            const tutorialArea = document.getElementById('tutorial-video-area');
-            const editorArea = editor ? editor.closest('.editor-area') : null;
-
-            // Reset UI to loading state
-            if (tutorialArea) tutorialArea.classList.add('hidden');
-            if (editorArea) editorArea.classList.remove('hidden');
-            editor.classList.remove('hidden');
-            editor.classList.remove('frontend-mode');
-            scratchContainer.classList.add('hidden');
-            previewWrap.classList.add('hidden');
-            if (previewFrame) previewFrame.srcdoc = '';
-            editor.value = '';
-            editor.disabled = true;
-            if (runBtn) runBtn.disabled = true;
-
-            // Reset hint & history panels
-            const hintContent = document.getElementById('quest-hint-content');
-            const historyList = document.getElementById('quest-history-list');
-            if (hintContent) { hintContent.classList.remove('visible'); hintContent.innerHTML = ''; }
-            if (historyList) { historyList.classList.remove('visible'); historyList.innerHTML = ''; }
-
-            document.getElementById('output-console').innerText = '⏳ Загрузка задачи...';
-            document.getElementById('quest-modal').classList.add('active');
-            setPageContext('tasks');
-
-            // Lazy-load heavy task details in background
-            _fetchTaskDetail(taskId).then(detail => {
-                if (detail) {
-                    _applyTaskDetail(detail);
-                } else {
-                    // Fallback: task detail already present (cached from full payload)
-                    if (currentTask.description || currentTask.initial_code) {
-                        _applyTaskDetail(currentTask);
-                    } else {
-                        document.getElementById('output-console').innerText =
-                            '❌ Не удалось загрузить задачу. Попробуйте ещё раз.';
-                    }
-                }
-            });
         }
 
         function showTutorialToast(msg, type = 'success') {

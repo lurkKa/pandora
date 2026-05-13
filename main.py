@@ -4344,8 +4344,9 @@ def public_task(task: dict) -> dict:
 
 def public_task_lite(task: dict) -> dict:
     """Lightweight task payload for board/card rendering (no heavy fields).
-    Heavy fields (description, initial_code, resources, video_url) are loaded
-    on-demand via /api/tasks/{task_id}/detail to reduce initial payload size."""
+    Heavy fields (initial_code, resources, video_url) are loaded
+    on-demand via /api/tasks/{task_id}/detail to reduce initial payload size.
+    Description is included because it is lightweight text needed for modal display."""
     logic = task.get("check_logic") or {}
     cases = logic.get("cases") or []
     return {
@@ -4355,6 +4356,7 @@ def public_task_lite(task: dict) -> dict:
         "xp": task.get("xp"),
         "title": task.get("title"),
         "story": task.get("story"),
+        "description": task.get("description"),
         "topic": task.get("topic", ""),
         "task_type": task.get("task_type", "code"),
         "prerequisites": task.get("prerequisites") or [],
