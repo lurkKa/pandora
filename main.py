@@ -4341,6 +4341,29 @@ def public_task(task: dict) -> dict:
         },
     }
 
+
+def public_task_lite(task: dict) -> dict:
+    """Lightweight task payload for board/card rendering (no heavy fields).
+    Heavy fields (description, initial_code, resources, video_url) are loaded
+    on-demand via /api/tasks/{task_id}/detail to reduce initial payload size."""
+    logic = task.get("check_logic") or {}
+    cases = logic.get("cases") or []
+    return {
+        "id": task.get("id"),
+        "category": task.get("category"),
+        "tier": task.get("tier"),
+        "xp": task.get("xp"),
+        "title": task.get("title"),
+        "story": task.get("story"),
+        "topic": task.get("topic", ""),
+        "task_type": task.get("task_type", "code"),
+        "prerequisites": task.get("prerequisites") or [],
+        "check": {
+            "engine": logic.get("engine"),
+            "case_count": len(cases),
+        },
+    }
+
 TIER_PREV = {"C": "D", "B": "C", "A": "B", "S": "A"}
 DEFAULT_UNLOCK_REQUIREMENTS = {"C": 3, "B": 3, "A": 3, "S": 3}  # 3:1 ratio by default
 
@@ -4885,7 +4908,7 @@ def get_roadmap(user: dict = Depends(require_auth)):
         if is_archived_task_id(tid) and tid not in homework_ids:
             continue
         unlocked, unlock_info = _unlock_state(t, completed_ids, counts)
-        pt = public_task(t)
+        pt = public_task_lite(t)
         pt["completed"] = pt["id"] in completed_ids
         pt["locked"] = not unlocked and not pt["completed"]
         pt["pending_review"] = pt["id"] in pending_ids
@@ -4912,6 +4935,16 @@ def get_roadmap(user: dict = Depends(require_auth)):
         "counts": counts,
         "topic_completion": topic_completion,
     }
+
+
+@app.get("/api/tasks/{task_id}/detail")
+def get_task_detail(task_id: str, user: dict = Depends(require_auth)):
+    """Return full task detail (description, initial_code, resources, video_url) for a single task.
+    Used for lazy-loading task content when opening a quest modal."""
+    task = get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return public_task(task)
 
 
 @app.get("/api/user/homework")
@@ -5871,10 +5904,14 @@ REVIEW_ONLY_MODE = (os.getenv("PANDORA_REVIEW_ONLY_MODE") or "0") == "1"
 FORCE_AUTOCHECK = (os.getenv("PANDORA_FORCE_AUTOCHECK") or "1") == "1"
 MANUAL_REVIEW_FOR_REVIEWABLE_TIERS = (os.getenv("PANDORA_MANUAL_REVIEW_FOR_REVIEWABLE_TIERS") or "0") == "1"
 try:
-    EXTRA_REVIEW_SAMPLE_RATE = float(os.getenv("PANDORA_EXTRA_REVIEW_SAMPLE_RATE", "0.25"))
+    _BASE_REVIEW_RATE = float(os.getenv("PANDORA_EXTRA_REVIEW_SAMPLE_RATE", "0.25"))
 except (TypeError, ValueError):
-    EXTRA_REVIEW_SAMPLE_RATE = 0.25
-EXTRA_REVIEW_SAMPLE_RATE = max(0.0, min(1.0, EXTRA_REVIEW_SAMPLE_RATE))
+    _BASE_REVIEW_RATE = 0.25
+_BASE_REVIEW_RATE = max(0.0, min(1.0, _BASE_REVIEW_RATE))
+# Add a random 5-10% boost on top of the base rate (re-rolled each server start)
+_REVIEW_BOOST = random.uniform(0.05, 0.10)
+EXTRA_REVIEW_SAMPLE_RATE = min(1.0, _BASE_REVIEW_RATE + _REVIEW_BOOST)
+logger.info("Review sample rate: base=%.2f + boost=%.2f => %.2f", _BASE_REVIEW_RATE, _REVIEW_BOOST, EXTRA_REVIEW_SAMPLE_RATE)
 
 
 def _manual_verification_placeholder(reason: str) -> dict:
