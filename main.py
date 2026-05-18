@@ -4090,7 +4090,7 @@ def download_sqlite_backup(admin: dict = Depends(require_admin)):
 
 # ==================== TASK ROUTES ====================
 
-_TASKS_CACHE: dict = {"mtime": None, "legacy_mtime": None, "data": None}
+_TASKS_CACHE: dict = {"mtime": None, "legacy_mtime": None, "external_mtime": None, "data": None}
 
 ARCHIVED_TASK_ID_PREFIXES: tuple[str, ...] = (
     # Legacy packs: generic/duplicate content and (historically) mixed schemas.
@@ -4269,19 +4269,31 @@ def resources_for_task(task: dict) -> dict:
     return {"docs": _dedupe_resources(docs), "videos": _dedupe_resources(videos)}
 
 def load_tasks() -> dict:
-    """Load tasks.json (+ optional tasks_legacy.json) with a simple mtime-based cache."""
+    """Load tasks with priority: tasks_external_all_available.json (contains all
+    original + Codewars/LeetCode tasks) > tasks.json > empty.
+    Also merges optional tasks_legacy.json.
+    Uses a simple mtime-based cache."""
+    external_path = Path("tasks_external_all_available.json")
     tasks_path = Path("tasks.json")
     legacy_path = Path("tasks_legacy.json")
     try:
-        mtime = tasks_path.stat().st_mtime
+        # Prefer the external-all file if it exists (superset of tasks.json)
+        if external_path.exists():
+            primary_path = external_path
+        else:
+            primary_path = tasks_path
+
+        mtime = primary_path.stat().st_mtime
         legacy_mtime = legacy_path.stat().st_mtime if legacy_path.exists() else None
+        external_mtime = external_path.stat().st_mtime if external_path.exists() else None
 
         if (
             _TASKS_CACHE["data"] is None
             or _TASKS_CACHE["mtime"] != mtime
             or _TASKS_CACHE["legacy_mtime"] != legacy_mtime
+            or _TASKS_CACHE["external_mtime"] != external_mtime
         ):
-            curated = json.loads(tasks_path.read_text(encoding="utf-8"))
+            curated = json.loads(primary_path.read_text(encoding="utf-8"))
             curated_tasks = curated.get("tasks", []) if isinstance(curated, dict) else []
 
             legacy_tasks = []
@@ -4302,12 +4314,14 @@ def load_tasks() -> dict:
             _TASKS_CACHE["data"] = combined
             _TASKS_CACHE["mtime"] = mtime
             _TASKS_CACHE["legacy_mtime"] = legacy_mtime
+            _TASKS_CACHE["external_mtime"] = external_mtime
+            logger.info("Loaded %d tasks from %s", len(combined["tasks"]), primary_path.name)
 
         return _TASKS_CACHE["data"] or {"meta": {}, "categories": [], "tasks": []}
     except FileNotFoundError:
         return {"meta": {}, "categories": [], "tasks": []}
     except Exception as e:
-        log_error("Failed to load tasks.json", e)
+        log_error("Failed to load tasks", e)
         return {"meta": {}, "categories": [], "tasks": []}
 
 def get_task(task_id: str) -> Optional[dict]:
@@ -4335,6 +4349,8 @@ def public_task(task: dict) -> dict:
         "video_url": task.get("video_url", ""),
         "resources": resources_for_task(task),
         "prerequisites": task.get("prerequisites") or [],
+        "source_platform": task.get("source_platform", ""),
+        "tags": task.get("tags") or [],
         "check": {
             "engine": logic.get("engine"),
             "case_count": len(cases),
@@ -4360,6 +4376,7 @@ def public_task_lite(task: dict) -> dict:
         "topic": task.get("topic", ""),
         "task_type": task.get("task_type", "code"),
         "prerequisites": task.get("prerequisites") or [],
+        "source_platform": task.get("source_platform", ""),
         "check": {
             "engine": logic.get("engine"),
             "case_count": len(cases),

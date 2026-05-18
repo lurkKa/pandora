@@ -467,6 +467,56 @@
             background: linear-gradient(135deg, rgba(248, 113, 113, 0.26) 0%, rgba(127, 29, 29, 0.26) 100%);
         }
 
+        .tab-btn.codewars-tab {
+            border-color: rgba(187, 63, 63, 0.6);
+            color: #ffc4c4;
+            background: linear-gradient(135deg, rgba(187, 63, 63, 0.18) 0%, rgba(120, 30, 30, 0.18) 100%);
+            font-weight: 700;
+        }
+
+        .tab-btn.codewars-tab:hover {
+            border-color: rgba(220, 90, 90, 0.9);
+            color: #ffe0e0;
+            background: linear-gradient(135deg, rgba(220, 90, 90, 0.26) 0%, rgba(140, 40, 40, 0.26) 100%);
+        }
+
+        .tab-btn.leetcode-tab {
+            border-color: rgba(255, 161, 22, 0.6);
+            color: #ffe4a8;
+            background: linear-gradient(135deg, rgba(255, 161, 22, 0.18) 0%, rgba(140, 80, 0, 0.18) 100%);
+            font-weight: 700;
+        }
+
+        .tab-btn.leetcode-tab:hover {
+            border-color: rgba(255, 190, 70, 0.9);
+            color: #fff0cc;
+            background: linear-gradient(135deg, rgba(255, 190, 70, 0.26) 0%, rgba(160, 100, 10, 0.26) 100%);
+        }
+
+        .platform-badge {
+            position: absolute;
+            top: 6px;
+            right: 36px;
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            z-index: 2;
+            line-height: 1.2;
+        }
+
+        .platform-badge.codewars {
+            background: rgba(187, 63, 63, 0.85);
+            color: #fff;
+        }
+
+        .platform-badge.leetcode {
+            background: rgba(255, 161, 22, 0.85);
+            color: #1a1a2e;
+        }
+
         .tab-icon {
             font-size: 16px;
         }
@@ -3046,6 +3096,12 @@
                 <button class="tab-btn" role="tab" aria-selected="false" onclick="filterCategory('scratch', this)">
                     <span class="tab-icon">🐱</span> Scratch
                 </button>
+                <button class="tab-btn codewars-tab" role="tab" aria-selected="false" onclick="filterCategory('codewars', this)">
+                    <span class="tab-icon">🏆</span> Codewars
+                </button>
+                <button class="tab-btn leetcode-tab" role="tab" aria-selected="false" onclick="filterCategory('leetcode', this)">
+                    <span class="tab-icon">💻</span> LeetCode
+                </button>
                 <button class="tab-btn homework-tab" role="tab" aria-selected="false"
                     onclick="filterCategory('homework', this)">
                     <span class="tab-icon">📌</span> ДЗ
@@ -5312,6 +5368,9 @@
             const isHomework = Boolean(hw);
             const hwDeadline = hw ? `Дедлайн: ${new Date(hw.deadline_at).toLocaleString()}` : '';
             const tutorialBadge = isTutorial ? `<div class="tutorial-card-badge">🎓 Туториал</div>` : '';
+            const platform = task.source_platform || '';
+            const platformBadge = platform === 'codewars' ? `<div class="platform-badge codewars">CW</div>`
+                : platform === 'leetcode' ? `<div class="platform-badge leetcode">LC</div>` : '';
             return `
                 <article class="quest-card ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${isPending ? 'pending' : ''} ${isHomework ? 'homework' : ''} ${isTutorial ? 'tutorial-card' : ''}" 
                          ${methodsAttr}
@@ -5323,6 +5382,7 @@
                     ${isLocked ? `<div class="quest-lock" aria-hidden="true">🔒</div>` : ``}
                     ${isCompleted ? `<div class="quest-complete-badge" aria-label="Выполнено">✓</div>` : ``}
                     ${tutorialBadge}
+                    ${platformBadge}
                     <div class="quest-card-content">
                         <div class="quest-icon">${isTutorial ? '🎓' : (icons[task.category] || '📜')}</div>
                         <h3 class="quest-title">${task.title}</h3>
@@ -5363,6 +5423,12 @@
             // Apply current filter
             if (currentFilter === 'homework') {
                 limitedTasks = tasks.filter(t => Boolean(homeworkByTask[t.id]));
+            } else if (currentFilter === 'codewars') {
+                // Platform-based filter: show all codewars tasks across categories
+                limitedTasks = tasks.filter(t => t.source_platform === 'codewars');
+            } else if (currentFilter === 'leetcode') {
+                // Platform-based filter: show all leetcode tasks across categories
+                limitedTasks = tasks.filter(t => t.source_platform === 'leetcode');
             } else if (currentFilter !== 'all') {
                 limitedTasks = limitedTasks.filter(t => t.category === currentFilter);
             }
@@ -5387,7 +5453,7 @@
             }
 
             const completedIds = new Set(currentUser.completed_tasks || []);
-            const icons = { python: '🐍', javascript: '⚡', frontend: '🎨', scratch: '🐱' };
+            const icons = { python: '🐍', javascript: '⚡', frontend: '🎨', scratch: '🐱', codewars: '🏆', leetcode: '💻' };
 
             // Check if any tasks have topic assigned
             const hasTopic = filtered.some(t => t.topic);
@@ -7592,7 +7658,7 @@
                     return;
                 }
 
-                const icons = { python: '🐍', javascript: '⚡', frontend: '🎨', scratch: '🐱' };
+                const icons = { python: '🐍', javascript: '⚡', frontend: '🎨', scratch: '🐱', codewars: '🏆', leetcode: '💻' };
                 container.innerHTML = myCompletionsData.map((c, i) => {
                     const icon = icons[c.task_category] || '📜';
                     const date = new Date(c.completed_at).toLocaleDateString('ru-RU');
@@ -9667,7 +9733,7 @@
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const d = await res.json();
 
-                const catIcons = { python: '🐍', javascript: '⚡', frontend: '🎨', scratch: '🐱' };
+                const catIcons = { python: '🐍', javascript: '⚡', frontend: '🎨', scratch: '🐱', codewars: '🏆', leetcode: '💻' };
 
                 // Activity chart (last 30 days as bar chart)
                 const maxTasks = Math.max(1, ...d.daily_activity.map(a => a.tasks));
