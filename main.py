@@ -10744,10 +10744,10 @@ def _select_quiz_questions(count: int) -> list[dict]:
 
 def _cleanup_stale_quiz_sessions(cursor):
     """Expire sessions inactive for > 5 minutes."""
-    cutoff = (datetime.now() - timedelta(seconds=QUIZ_SESSION_TIMEOUT_SEC)).isoformat()
     cursor.execute(
-        "UPDATE quiz_sessions SET status = 'expired' WHERE status IN ('lobby', 'approved', 'active') AND last_activity < ?",
-        (cutoff,)
+        "UPDATE quiz_sessions SET status = 'expired' WHERE status IN ('lobby', 'approved', 'active') "
+        "AND last_activity < datetime('now', ?)",
+        (f'-{QUIZ_SESSION_TIMEOUT_SEC} seconds',)
     )
 
 def _get_quiz_daily_count(cursor) -> int:
