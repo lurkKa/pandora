@@ -3086,9 +3086,6 @@
 
         <nav class="category-nav" aria-label="Quest categories">
             <div class="category-tabs" role="tablist">
-                <button class="tab-btn active" role="tab" aria-selected="true" onclick="filterCategory('all', this)">
-                    <span class="tab-icon">🌟</span> All
-                </button>
                 <button class="tab-btn" role="tab" aria-selected="false" onclick="filterCategory('python', this)">
                     <span class="tab-icon">🐍</span> Python
                 </button>
@@ -3098,7 +3095,7 @@
                 <button class="tab-btn" role="tab" aria-selected="false" onclick="filterCategory('frontend', this)">
                     <span class="tab-icon">🎨</span> Frontend
                 </button>
-                <button class="tab-btn" role="tab" aria-selected="false" onclick="filterCategory('scratch', this)">
+                <button class="tab-btn active" role="tab" aria-selected="true" onclick="filterCategory('scratch', this)">
                     <span class="tab-icon">🐱</span> Scratch
                 </button>
                 <button class="tab-btn codewars-tab" role="tab" aria-selected="false" onclick="filterCategory('codewars', this)">
@@ -4927,7 +4924,7 @@
         let homeworkByTask = {};
         let homeworkPenaltyShown = new Set();
         let currentTask = null;
-        let currentFilter = 'all';
+        let currentFilter = 'scratch';
         let previewRenderTimer = null;
         let dashboardSyncInterval = null;
         let dashboardSyncInFlight = false;
@@ -5314,6 +5311,36 @@
                 }
 
                 await loadHomework(false);
+
+                // Auto-select category with most completed tasks
+                if (currentUser && currentUser.completed_tasks && currentUser.completed_tasks.length > 0) {
+                    const completedSet = new Set(currentUser.completed_tasks);
+                    const catCounts = {};
+                    const validCats = ['python', 'javascript', 'frontend', 'scratch'];
+                    for (const t of tasks) {
+                        if (completedSet.has(t.id) && validCats.includes(t.category)) {
+                            catCounts[t.category] = (catCounts[t.category] || 0) + 1;
+                        }
+                    }
+                    let bestCat = 'scratch';
+                    let bestCount = 0;
+                    for (const [cat, cnt] of Object.entries(catCounts)) {
+                        if (cnt > bestCount) { bestCount = cnt; bestCat = cat; }
+                    }
+                    currentFilter = bestCat;
+                    // Highlight the correct tab button
+                    document.querySelectorAll('.tab-btn').forEach(b => {
+                        const match = b.getAttribute('onclick') || '';
+                        if (match.includes(`'${bestCat}'`)) {
+                            b.classList.add('active');
+                            b.setAttribute('aria-selected', 'true');
+                        } else {
+                            b.classList.remove('active');
+                            b.setAttribute('aria-selected', 'false');
+                        }
+                    });
+                }
+
                 renderQuests();
                 renderStreakWidget();
             } catch (e) {
@@ -5435,7 +5462,11 @@
                 // Platform-based filter: show all leetcode tasks across categories
                 limitedTasks = tasks.filter(t => t.source_platform === 'leetcode');
             } else if (currentFilter !== 'all') {
-                limitedTasks = limitedTasks.filter(t => t.category === currentFilter);
+                // Category filter (python, javascript, etc) — hide codewars/leetcode tasks
+                limitedTasks = limitedTasks.filter(t => {
+                    if (t.source_platform === 'codewars' || t.source_platform === 'leetcode') return false;
+                    return t.category === currentFilter;
+                });
             } else {
                 // "All" tab: hide Python, JavaScript, Codewars, LeetCode — show only via their buttons
                 const hiddenCategories = new Set(['python', 'javascript']);
@@ -7128,6 +7159,21 @@
                     const mvpBadge = user.is_most_active ? '<span class="most-active-badge">🏅 MVP +5%</span>' : '';
                     const allBadges = [mvpBadge, titleBadges].filter(b => b).join('');
                     const topClass = user.position === 1 ? 'leader-gold' : user.position === 2 ? 'leader-silver' : user.position === 3 ? 'leader-bronze' : '';
+
+                    // Star rating from admin reviews
+                    let starHtml = '';
+                    if (user.review_count > 0 && user.avg_review_score > 0) {
+                        const score = user.avg_review_score;
+                        const full = Math.floor(score);
+                        const half = (score - full) >= 0.5 ? 1 : 0;
+                        const empty = 10 - full - half;
+                        starHtml = `<div style="display:flex;align-items:center;gap:4px;margin-top:2px;">
+                            <span style="font-size:10px;letter-spacing:-1px;line-height:1;">${'★'.repeat(full)}${half ? '⯪' : ''}${'☆'.repeat(empty)}</span>
+                            <span style="font-size:10px;color:var(--accent);font-weight:700;min-width:24px;text-align:right">${score.toFixed(1)}</span>
+                            <span style="font-size:9px;color:rgba(255,255,255,0.3)">(${user.review_count})</span>
+                        </div>`;
+                    }
+
                     list.innerHTML += `
                         <div class="leader-item ${topClass}" onclick="openPublicProfile(${user.id})" style="cursor:pointer;">
                             <div class="leader-position ${posClass}">${user.position}</div>
@@ -7138,6 +7184,7 @@
                                 <div class="leader-name">${user.display_name}${guildTag}</div>
                                 ${allBadges ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:2px;">${allBadges}</div>` : ''}
                                 <div class="leader-rank">${user.rank_badge} ${user.rank_name}</div>
+                                ${starHtml}
                             </div>
                             <div class="leader-xp">${user.xp.toLocaleString()} XP</div>
                             ${inviteBtn}

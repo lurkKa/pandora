@@ -3103,10 +3103,25 @@ def get_leaderboard(limit: int = Query(20, le=100)):
         # Get most active student
         most_active_id = _get_most_active_student_id(cursor)
 
+        # Get average review scores per user (from admin-scored submissions)
+        cursor.execute("""
+            SELECT user_id, AVG(score) as avg_score, COUNT(score) as review_count
+            FROM submissions
+            WHERE score IS NOT NULL AND status = 'approved'
+            GROUP BY user_id
+        """)
+        review_scores = {}
+        for r in cursor.fetchall():
+            review_scores[r["user_id"]] = {
+                "avg_score": round(float(r["avg_score"]), 1),
+                "review_count": int(r["review_count"]),
+            }
+
         leaders = []
         for i, row in enumerate(rows, 1):
             uid = row["id"]
             is_alex = row["username"] == "Alex"
+            rs = review_scores.get(uid, {"avg_score": 0, "review_count": 0})
             entry = {
                 "position": i,
                 "id": uid,
@@ -3124,6 +3139,8 @@ def get_leaderboard(limit: int = Query(20, le=100)):
                 "alex_boost": is_alex,
                 "is_most_active": uid == most_active_id,
                 "active_titles": user_titles.get(uid, []),
+                "avg_review_score": rs["avg_score"],
+                "review_count": rs["review_count"],
             }
             leaders.append(entry)
     return {"leaderboard": leaders}
