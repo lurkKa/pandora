@@ -1,0 +1,36 @@
+{
+  "schema_version": "standalone_quiz_bank.v2",
+  "root": {
+    "meta": "описание набора",
+    "items": "массив quiz items"
+  },
+  "item_model": {
+    "id": "уникальный id",
+    "domain": "python | javascript | frontend | scratch",
+    "language": "ru",
+    "topic": "тема внутри домена",
+    "type": "purpose | syntax | output | debug | scenario | system | concept | access | specificity | box",
+    "format": "single_choice",
+    "difficulty": "beginner | easy | medium | hard | expert",
+    "tier": "D | C | B | A | S",
+    "question": "самодостаточный текст вопроса",
+    "code": "опциональный кодовый фрагмент",
+    "context": "опциональный сценарий или Scratch-последовательность",
+    "options": "ровно 4 варианта ответа",
+    "answer_index": "индекс правильного ответа, 0..3",
+    "answer": "строка, равная options[answer_index]",
+    "explanation": "объяснение",
+    "time_limit_sec": "рекомендуемый лимит времени",
+    "points": "очки",
+    "tags": "теги",
+    "standalone": "true"
+  },
+  "constraints": [
+    "options.length == 4",
+    "answer == options[answer_index]",
+    "single correct answer",
+    "нет полей происхождения исходного задания",
+    "вопрос не требует чтения исходного задания",
+    "нет формата с пропущенным фрагментом кода"
+  ]
+}

@@ -1,0 +1,3393 @@
+{
+  "meta": {
+    "description": "120 sample questions from standalone bank",
+    "sample_size": 120
+  },
+  "items": [
+    {
+      "id": "py_quiz_00001",
+      "domain": "python",
+      "language": "ru",
+      "topic": "strings",
+      "type": "syntax",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Квест знаний: выбери смысл синтаксиса `f'Hi {name}'`.",
+      "options": [
+        "обычная строка без подстановки",
+        "импорт",
+        "f-строка с подстановкой значения",
+        "регулярное выражение"
+      ],
+      "answer_index": 2,
+      "answer": "f-строка с подстановкой значения",
+      "explanation": "f-строка с подстановкой значения",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "python",
+        "strings",
+        "syntax"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00002",
+      "domain": "python",
+      "language": "ru",
+      "topic": "lists",
+      "type": "debug",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Тренировка перед боссом: Почему items[3] может вызвать IndexError? В каком варианте ответ точнее?",
+      "options": [
+        "3 зарезервировано",
+        "индексы нельзя использовать",
+        "в списке может не быть элемента с индексом 3",
+        "индексы начинаются с 1"
+      ],
+      "answer_index": 2,
+      "answer": "в списке может не быть элемента с индексом 3",
+      "explanation": "в списке может не быть элемента с индексом 3",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "python",
+        "lists",
+        "debug"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00003",
+      "domain": "python",
+      "language": "ru",
+      "topic": "strings",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Разбор без подсказок: что выведет Python-код?",
+      "options": [
+        "yth",
+        "3",
+        "python",
+        "ytho"
+      ],
+      "answer_index": 0,
+      "answer": "yth",
+      "explanation": "Код выводит `yth`.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "python",
+        "strings",
+        "output"
+      ],
+      "standalone": true,
+      "code": "word = 'python'\nprint(word[1:4])"
+    },
+    {
+      "id": "py_quiz_00004",
+      "domain": "python",
+      "language": "ru",
+      "topic": "lists",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Ревью решения: что выведет Python-код?",
+      "options": [
+        "18",
+        "16",
+        "8",
+        "10"
+      ],
+      "answer_index": 3,
+      "answer": "10",
+      "explanation": "Код выводит `10`.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "python",
+        "lists",
+        "output"
+      ],
+      "standalone": true,
+      "code": "nums = [10, 16, 18, 8, 11]\nprint(sorted(nums)[1])"
+    },
+    {
+      "id": "py_quiz_00005",
+      "domain": "python",
+      "language": "ru",
+      "topic": "strings",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Проверка понимания: выбери верное описание для `s.lower()`.",
+      "options": [
+        "переводит строку в нижний регистр",
+        "сравнивает строки",
+        "переводит вверх",
+        "удаляет буквы"
+      ],
+      "answer_index": 0,
+      "answer": "переводит строку в нижний регистр",
+      "explanation": "переводит строку в нижний регистр",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "python",
+        "strings",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00006",
+      "domain": "python",
+      "language": "ru",
+      "topic": "strings",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Проверка понимания: как объяснить новичку `s.replace(a,b)`?",
+      "options": [
+        "делит строку",
+        "возвращает строку с заменёнными фрагментами",
+        "меняет строку на месте",
+        "удаляет числа"
+      ],
+      "answer_index": 1,
+      "answer": "возвращает строку с заменёнными фрагментами",
+      "explanation": "возвращает строку с заменёнными фрагментами",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "python",
+        "strings",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00007",
+      "domain": "python",
+      "language": "ru",
+      "topic": "strings",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Проверка понимания: что выведет Python-код?",
+      "options": [
+        "Linus",
+        "Hi Linus",
+        "Hi, Linus!",
+        "Hi, {name}!"
+      ],
+      "answer_index": 2,
+      "answer": "Hi, Linus!",
+      "explanation": "Код выводит `Hi, Linus!`.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "python",
+        "strings",
+        "output"
+      ],
+      "standalone": true,
+      "code": "name = 'Linus'\nprint(f'Hi, {name}!')"
+    },
+    {
+      "id": "py_quiz_00008",
+      "domain": "python",
+      "language": "ru",
+      "topic": "functions",
+      "type": "scenario",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Раунд на внимательность: Нужно переиспользовать расчёт урона. Что выбрать? Ситуация: в тренажёре.",
+      "options": [
+        "comment",
+        "function",
+        "literal",
+        "package name"
+      ],
+      "answer_index": 1,
+      "answer": "function",
+      "explanation": "function",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "python",
+        "functions",
+        "scenario"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00009",
+      "domain": "python",
+      "language": "ru",
+      "topic": "loops",
+      "type": "syntax",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Мини-квиз: что означает `continue` в Python?",
+      "options": [
+        "создание цикла",
+        "переход к следующей итерации",
+        "выход из цикла",
+        "возврат функции"
+      ],
+      "answer_index": 1,
+      "answer": "переход к следующей итерации",
+      "explanation": "переход к следующей итерации",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "python",
+        "loops",
+        "syntax"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00010",
+      "domain": "python",
+      "language": "ru",
+      "topic": "if_else",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Раунд на внимательность: что делает `all(flags)` в проверке ответа?",
+      "options": [
+        "True для любого непустого списка",
+        "True, если все элементы истинные",
+        "считает True",
+        "переворачивает список"
+      ],
+      "answer_index": 1,
+      "answer": "True, если все элементы истинные",
+      "explanation": "True, если все элементы истинные",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "python",
+        "if_else",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00011",
+      "domain": "python",
+      "language": "ru",
+      "topic": "modules",
+      "type": "system",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Разбор без подсказок: Что означает if __name__ == '__main__'?",
+      "options": [
+        "код выполняется только при импорте",
+        "код внутри выполняется при прямом запуске файла",
+        "создаётся главный класс",
+        "код становится приватным"
+      ],
+      "answer_index": 1,
+      "answer": "код внутри выполняется при прямом запуске файла",
+      "explanation": "код внутри выполняется при прямом запуске файла",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "python",
+        "modules",
+        "system"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00012",
+      "domain": "python",
+      "language": "ru",
+      "topic": "dicts",
+      "type": "debug",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Тренировка перед боссом: Почему hero['mana'] может вызвать KeyError?",
+      "options": [
+        "ключи обязаны быть числами",
+        "ключа mana может не быть в словаре",
+        "словарь нельзя индексировать",
+        "mana должна быть переменной"
+      ],
+      "answer_index": 1,
+      "answer": "ключа mana может не быть в словаре",
+      "explanation": "ключа mana может не быть в словаре",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "python",
+        "dicts",
+        "debug"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00013",
+      "domain": "python",
+      "language": "ru",
+      "topic": "strings",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Квест знаний: что делает `s.lower()` в прототипе?",
+      "options": [
+        "удаляет буквы",
+        "переводит вверх",
+        "сравнивает строки",
+        "переводит строку в нижний регистр"
+      ],
+      "answer_index": 3,
+      "answer": "переводит строку в нижний регистр",
+      "explanation": "переводит строку в нижний регистр",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "python",
+        "strings",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00014",
+      "domain": "python",
+      "language": "ru",
+      "topic": "loops",
+      "type": "syntax",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Вопрос наставника: какая роль у `break`?",
+      "options": [
+        "перезапуск цикла",
+        "досрочный выход из ближайшего цикла",
+        "выход из Python",
+        "пропуск итерации"
+      ],
+      "answer_index": 1,
+      "answer": "досрочный выход из ближайшего цикла",
+      "explanation": "досрочный выход из ближайшего цикла",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "python",
+        "loops",
+        "syntax"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00015",
+      "domain": "python",
+      "language": "ru",
+      "topic": "classes",
+      "type": "scenario",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Тренировка перед боссом: Нужно описать героя с hp и методом attack(). Что выбрать?",
+      "options": [
+        "except",
+        "set",
+        "range",
+        "class"
+      ],
+      "answer_index": 3,
+      "answer": "class",
+      "explanation": "class",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "python",
+        "classes",
+        "scenario"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00016",
+      "domain": "python",
+      "language": "ru",
+      "topic": "dicts",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Квест знаний: выбери верное описание для `dict()`.",
+      "options": [
+        "печатает данные",
+        "создаёт список",
+        "делает строку заглавной",
+        "создаёт пустой словарь"
+      ],
+      "answer_index": 3,
+      "answer": "создаёт пустой словарь",
+      "explanation": "создаёт пустой словарь",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "python",
+        "dicts",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00017",
+      "domain": "python",
+      "language": "ru",
+      "topic": "file_io",
+      "type": "scenario",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Быстрый раунд: Нужно безопасно прочитать файл настроек. Что выбрать? В каком варианте ответ точнее?",
+      "options": [
+        "with open(...)",
+        "print(...)",
+        "dir(...)",
+        "break"
+      ],
+      "answer_index": 0,
+      "answer": "with open(...)",
+      "explanation": "with open(...)",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "python",
+        "file_io",
+        "scenario"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00018",
+      "domain": "python",
+      "language": "ru",
+      "topic": "math_ops",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Ревью решения: зачем обычно используют `round(x,2)`?",
+      "options": [
+        "сравнивает с 2",
+        "округляет число до заданного количества знаков",
+        "возводит в степень",
+        "обрезает строку"
+      ],
+      "answer_index": 1,
+      "answer": "округляет число до заданного количества знаков",
+      "explanation": "округляет число до заданного количества знаков",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "python",
+        "math_ops",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00019",
+      "domain": "python",
+      "language": "ru",
+      "topic": "loops",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Код-дуэль: что выведет Python-код?",
+      "options": [
+        "6",
+        "3",
+        "2",
+        "7"
+      ],
+      "answer_index": 0,
+      "answer": "6",
+      "explanation": "Код выводит `6`.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "python",
+        "loops",
+        "output"
+      ],
+      "standalone": true,
+      "code": "nums = list(range(2, 7, 2))\nprint(nums[-1])"
+    },
+    {
+      "id": "py_quiz_00020",
+      "domain": "python",
+      "language": "ru",
+      "topic": "lists",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Быстрый раунд: что выведет Python-код?",
+      "options": [
+        "ошибка выполнения",
+        "3",
+        "2",
+        "27"
+      ],
+      "answer_index": 1,
+      "answer": "3",
+      "explanation": "Код выводит `3`.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "python",
+        "lists",
+        "output"
+      ],
+      "standalone": true,
+      "code": "nums = [2, 27, 21, 4, 3]\nprint(sorted(nums)[1])"
+    },
+    {
+      "id": "py_quiz_00021",
+      "domain": "python",
+      "language": "ru",
+      "topic": "exceptions",
+      "type": "syntax",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Тренировка перед боссом: выбери смысл синтаксиса `try/except`.",
+      "options": [
+        "ускорение функции",
+        "проверка типов компилятором",
+        "обработка исключений",
+        "создание теста"
+      ],
+      "answer_index": 2,
+      "answer": "обработка исключений",
+      "explanation": "обработка исключений",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "python",
+        "exceptions",
+        "syntax"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00022",
+      "domain": "python",
+      "language": "ru",
+      "topic": "classes",
+      "type": "scenario",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Тренировка перед боссом: Нужно описать героя с hp и методом attack(). Что выбрать? Ситуация: в личном кабинете.",
+      "options": [
+        "range",
+        "except",
+        "set",
+        "class"
+      ],
+      "answer_index": 3,
+      "answer": "class",
+      "explanation": "class",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "python",
+        "classes",
+        "scenario"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00023",
+      "domain": "python",
+      "language": "ru",
+      "topic": "if_else",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Проверка понимания: что выведет Python-код?",
+      "options": [
+        "odd",
+        "1",
+        "even",
+        "True"
+      ],
+      "answer_index": 0,
+      "answer": "odd",
+      "explanation": "Код выводит `odd`.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "python",
+        "if_else",
+        "output"
+      ],
+      "standalone": true,
+      "code": "n = 1\nprint('even' if n % 2 == 0 else 'odd')"
+    },
+    {
+      "id": "py_quiz_00024",
+      "domain": "python",
+      "language": "ru",
+      "topic": "system",
+      "type": "system",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Вопрос наставника: Что делает pip install requests? Ситуация: в учебном проекте.",
+      "options": [
+        "форматирует код",
+        "устанавливает пакет requests в Python-окружение",
+        "создаёт виртуальную машину",
+        "запускает requests.py"
+      ],
+      "answer_index": 1,
+      "answer": "устанавливает пакет requests в Python-окружение",
+      "explanation": "устанавливает пакет requests в Python-окружение",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "python",
+        "system",
+        "system"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00025",
+      "domain": "python",
+      "language": "ru",
+      "topic": "loops",
+      "type": "debug",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Проверка понимания: Чем опасен while True без выхода? Ситуация: в интерактивном уроке.",
+      "options": [
+        "удалит переменные",
+        "может получиться бесконечный цикл",
+        "выполнится один раз",
+        "станет async"
+      ],
+      "answer_index": 1,
+      "answer": "может получиться бесконечный цикл",
+      "explanation": "может получиться бесконечный цикл",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "python",
+        "loops",
+        "debug"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00026",
+      "domain": "python",
+      "language": "ru",
+      "topic": "if_else",
+      "type": "syntax",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Разбор без подсказок: выбери смысл синтаксиса `==`.",
+      "options": [
+        "присваивание",
+        "проверка ключа",
+        "сравнение типов",
+        "сравнение значений"
+      ],
+      "answer_index": 3,
+      "answer": "сравнение значений",
+      "explanation": "сравнение значений",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "python",
+        "if_else",
+        "syntax"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00027",
+      "domain": "python",
+      "language": "ru",
+      "topic": "strings",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Раунд на внимательность: как объяснить новичку `s.strip()`?",
+      "options": [
+        "удаляет все пробелы внутри",
+        "делает число",
+        "сортирует символы",
+        "убирает пробелы по краям строки"
+      ],
+      "answer_index": 3,
+      "answer": "убирает пробелы по краям строки",
+      "explanation": "убирает пробелы по краям строки",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "python",
+        "strings",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00028",
+      "domain": "python",
+      "language": "ru",
+      "topic": "lists",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Квест знаний: что выведет Python-код?",
+      "options": [
+        "ошибка выполнения",
+        "29",
+        "11",
+        "6"
+      ],
+      "answer_index": 2,
+      "answer": "11",
+      "explanation": "Код выводит `11`.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "python",
+        "lists",
+        "output"
+      ],
+      "standalone": true,
+      "code": "nums = [12, 6, 11, 29, 20]\nprint(sorted(nums)[1])"
+    },
+    {
+      "id": "py_quiz_00029",
+      "domain": "python",
+      "language": "ru",
+      "topic": "loops",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Ревью решения: как объяснить новичку `range(5)`?",
+      "options": [
+        "даёт числа от 0 до 4",
+        "даёт числа от 1 до 5",
+        "создаёт строки",
+        "сразу печатает числа"
+      ],
+      "answer_index": 0,
+      "answer": "даёт числа от 0 до 4",
+      "explanation": "даёт числа от 0 до 4",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "python",
+        "loops",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "py_quiz_00030",
+      "domain": "python",
+      "language": "ru",
+      "topic": "math_ops",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Быстрый раунд: зачем обычно используют `max(values)`?",
+      "options": [
+        "сортирует на месте",
+        "считает среднее",
+        "возвращает наибольшее значение",
+        "возвращает индекс"
+      ],
+      "answer_index": 2,
+      "answer": "возвращает наибольшее значение",
+      "explanation": "возвращает наибольшее значение",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "python",
+        "math_ops",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00001",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "system",
+      "type": "system",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Квест знаний: Когда срабатывает DOMContentLoaded? Представь, что это используется в интерактивном уроке.",
+      "options": [
+        "после каждого клика",
+        "до получения HTML",
+        "после закрытия вкладки",
+        "когда HTML разобран, но картинки могут ещё грузиться"
+      ],
+      "answer_index": 3,
+      "answer": "когда HTML разобран, но картинки могут ещё грузиться",
+      "explanation": "когда HTML разобран, но картинки могут ещё грузиться",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "javascript",
+        "system",
+        "system"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00002",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "math_ops",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Тренировка перед боссом: выбери верное описание для `Math.round(x)`.",
+      "options": [
+        "возвращает дробь",
+        "всегда вниз",
+        "округляет к ближайшему целому",
+        "всегда вверх"
+      ],
+      "answer_index": 2,
+      "answer": "округляет к ближайшему целому",
+      "explanation": "округляет к ближайшему целому",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "javascript",
+        "math_ops",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00003",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "system",
+      "type": "system",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Код-дуэль: Что делает npm install? Представь, что это используется в тренажёре.",
+      "options": [
+        "устанавливает зависимости проекта",
+        "форматирует CSS",
+        "запускает HTML",
+        "удаляет node_modules"
+      ],
+      "answer_index": 0,
+      "answer": "устанавливает зависимости проекта",
+      "explanation": "устанавливает зависимости проекта",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "javascript",
+        "system",
+        "system"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00004",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "strings",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Проверка понимания: что выведет JavaScript-код?",
+      "options": [
+        "ошибка выполнения",
+        "2",
+        "js",
+        "undefined"
+      ],
+      "answer_index": 2,
+      "answer": "js",
+      "explanation": "Код выводит `js`.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "javascript",
+        "strings",
+        "output"
+      ],
+      "standalone": true,
+      "code": "const text = 'js';\nconsole.log(text.toLowerCase());"
+    },
+    {
+      "id": "ja_quiz_00005",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "arrays",
+      "type": "scenario",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Быстрый раунд: Нужно получить массив цен со скидкой. Что выбрать?",
+      "options": [
+        "map",
+        "forEach без push",
+        "JSON.parse",
+        "filter"
+      ],
+      "answer_index": 0,
+      "answer": "map",
+      "explanation": "map",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "javascript",
+        "arrays",
+        "scenario"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00006",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "arrays",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Вопрос наставника: выбери верное описание для `items.filter(fn)`.",
+      "options": [
+        "создаёт массив той же длины всегда",
+        "создаёт новый массив элементов по условию",
+        "возвращает первый элемент",
+        "считает сумму"
+      ],
+      "answer_index": 1,
+      "answer": "создаёт новый массив элементов по условию",
+      "explanation": "создаёт новый массив элементов по условию",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "javascript",
+        "arrays",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00007",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "strings",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Раунд на внимательность: что выведет JavaScript-код?",
+      "options": [
+        "undefined",
+        "2",
+        "ошибка выполнения",
+        "js"
+      ],
+      "answer_index": 3,
+      "answer": "js",
+      "explanation": "Код выводит `js`.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "javascript",
+        "strings",
+        "output"
+      ],
+      "standalone": true,
+      "code": "const text = 'js';\nconsole.log(text.toLowerCase());"
+    },
+    {
+      "id": "ja_quiz_00008",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "types",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Быстрый раунд: выбери верное описание для `typeof value`.",
+      "options": [
+        "копирует объект",
+        "возвращает строку с типом значения",
+        "проверяет свойство",
+        "преобразует к числу"
+      ],
+      "answer_index": 1,
+      "answer": "возвращает строку с типом значения",
+      "explanation": "возвращает строку с типом значения",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "javascript",
+        "types",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00009",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "arrays",
+      "type": "debug",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Вопрос наставника: Почему forEach неудобен для нового массива?",
+      "options": [
+        "forEach не возвращает итоговый массив",
+        "forEach нельзя с массивами",
+        "forEach только Node",
+        "forEach сортирует"
+      ],
+      "answer_index": 0,
+      "answer": "forEach не возвращает итоговый массив",
+      "explanation": "forEach не возвращает итоговый массив",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "javascript",
+        "arrays",
+        "debug"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00010",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "system",
+      "type": "system",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Квест знаний: Что такое package.json? В каком варианте ответ точнее?",
+      "options": [
+        "замена консоли",
+        "HTML-разметка",
+        "скомпилированный JS",
+        "файл с метаданными, скриптами и зависимостями проекта"
+      ],
+      "answer_index": 3,
+      "answer": "файл с метаданными, скриптами и зависимостями проекта",
+      "explanation": "файл с метаданными, скриптами и зависимостями проекта",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "javascript",
+        "system",
+        "system"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00011",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "math_ops",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Разбор без подсказок: что выведет JavaScript-код?",
+      "options": [
+        "18",
+        "-7",
+        "9",
+        "8"
+      ],
+      "answer_index": 2,
+      "answer": "9",
+      "explanation": "Код выводит `9`.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "javascript",
+        "math_ops",
+        "output"
+      ],
+      "standalone": true,
+      "code": "console.log(1 + 8);"
+    },
+    {
+      "id": "ja_quiz_00012",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "if_else",
+      "type": "debug",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Мини-квиз: Почему часто лучше ===, чем ==?",
+      "options": [
+        "=== только для строк",
+        "=== всегда быстрее в 100 раз",
+        "== не работает",
+        "=== не делает неожиданное приведение типов"
+      ],
+      "answer_index": 3,
+      "answer": "=== не делает неожиданное приведение типов",
+      "explanation": "=== не делает неожиданное приведение типов",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "javascript",
+        "if_else",
+        "debug"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00013",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "strings",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Ревью решения: что выведет JavaScript-код?",
+      "options": [
+        "49",
+        "9",
+        "NaN",
+        "13"
+      ],
+      "answer_index": 0,
+      "answer": "49",
+      "explanation": "Код выводит `49`.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "javascript",
+        "strings",
+        "output"
+      ],
+      "standalone": true,
+      "code": "console.log('4' + 9);"
+    },
+    {
+      "id": "ja_quiz_00014",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "dom",
+      "type": "debug",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Квест знаний: Почему querySelector('.card') может вернуть null? В каком варианте ответ точнее?",
+      "options": [
+        "card зарезервирован",
+        "точка запрещена",
+        "querySelector возвращает массив",
+        "элемент может отсутствовать в DOM"
+      ],
+      "answer_index": 3,
+      "answer": "элемент может отсутствовать в DOM",
+      "explanation": "элемент может отсутствовать в DOM",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "javascript",
+        "dom",
+        "debug"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00015",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "system",
+      "type": "system",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Вопрос наставника: Что делает npm install? Ситуация: в мини-игре.",
+      "options": [
+        "запускает HTML",
+        "устанавливает зависимости проекта",
+        "удаляет node_modules",
+        "форматирует CSS"
+      ],
+      "answer_index": 1,
+      "answer": "устанавливает зависимости проекта",
+      "explanation": "устанавливает зависимости проекта",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "javascript",
+        "system",
+        "system"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00016",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "strings",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Разбор без подсказок: выбери верное описание для `text.includes(part)`.",
+      "options": [
+        "проверяет наличие подстроки",
+        "возвращает последний индекс",
+        "разбивает строку",
+        "заменяет part"
+      ],
+      "answer_index": 0,
+      "answer": "проверяет наличие подстроки",
+      "explanation": "проверяет наличие подстроки",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "javascript",
+        "strings",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00017",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "system",
+      "type": "system",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Мини-квиз: Что такое Promise? Ситуация: в прототипе.",
+      "options": [
+        "массив DOM",
+        "CSS-переход",
+        "синхронная функция",
+        "объект будущего результата асинхронной операции"
+      ],
+      "answer_index": 3,
+      "answer": "объект будущего результата асинхронной операции",
+      "explanation": "объект будущего результата асинхронной операции",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "javascript",
+        "system",
+        "system"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00018",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "objects",
+      "type": "syntax",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Быстрый раунд: что означает `value ?? fallback` в JavaScript?",
+      "options": [
+        "fallback только для null или undefined",
+        "сравнение типов",
+        "fallback для любого false",
+        "создание объекта"
+      ],
+      "answer_index": 0,
+      "answer": "fallback только для null или undefined",
+      "explanation": "fallback только для null или undefined",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "javascript",
+        "objects",
+        "syntax"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00019",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "math_ops",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Проверка понимания: что выведет JavaScript-код?",
+      "options": [
+        "7",
+        "NaN",
+        "81",
+        "9"
+      ],
+      "answer_index": 0,
+      "answer": "7",
+      "explanation": "Код выводит `7`.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "javascript",
+        "math_ops",
+        "output"
+      ],
+      "standalone": true,
+      "code": "console.log('8' - 1);"
+    },
+    {
+      "id": "ja_quiz_00020",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "async",
+      "type": "scenario",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Вопрос наставника: Нужно запросить данные с сервера. Что выбрать?",
+      "options": [
+        "items.map(url)",
+        "document.createElement(url)",
+        "Number(url)",
+        "fetch(url)"
+      ],
+      "answer_index": 3,
+      "answer": "fetch(url)",
+      "explanation": "fetch(url)",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "javascript",
+        "async",
+        "scenario"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00021",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "variables",
+      "type": "syntax",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Вопрос наставника: выбери смысл синтаксиса `var`.",
+      "options": [
+        "старое объявление с function scope",
+        "тип данных",
+        "блочный scope как let",
+        "константа"
+      ],
+      "answer_index": 0,
+      "answer": "старое объявление с function scope",
+      "explanation": "старое объявление с function scope",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "javascript",
+        "variables",
+        "syntax"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00022",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "strings",
+      "type": "debug",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Квест знаний: Почему '5' + 2 даёт строку?",
+      "options": [
+        "строки всегда NaN",
+        "JS не складывает числа",
+        "2 становится boolean",
+        "+ со строкой выполняет конкатенацию"
+      ],
+      "answer_index": 3,
+      "answer": "+ со строкой выполняет конкатенацию",
+      "explanation": "+ со строкой выполняет конкатенацию",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "javascript",
+        "strings",
+        "debug"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00023",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "objects",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Мини-квиз: что выведет JavaScript-код?",
+      "options": [
+        "4",
+        "7",
+        "undefined",
+        "mana"
+      ],
+      "answer_index": 0,
+      "answer": "4",
+      "explanation": "Код выводит `4`.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "javascript",
+        "objects",
+        "output"
+      ],
+      "standalone": true,
+      "code": "const hero = {\"hp\": 7, \"mana\": 4};\nconsole.log(hero.mana);"
+    },
+    {
+      "id": "ja_quiz_00024",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "arrays",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Мини-квиз: зачем обычно используют `items.every(fn)`?",
+      "options": [
+        "проверяет хотя бы один",
+        "сортирует",
+        "True, если все элементы подходят",
+        "возвращает последний"
+      ],
+      "answer_index": 2,
+      "answer": "True, если все элементы подходят",
+      "explanation": "True, если все элементы подходят",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "javascript",
+        "arrays",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00025",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "system",
+      "type": "system",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Быстрый раунд: Когда срабатывает DOMContentLoaded? Ситуация: в командном челлендже.",
+      "options": [
+        "после закрытия вкладки",
+        "после каждого клика",
+        "до получения HTML",
+        "когда HTML разобран, но картинки могут ещё грузиться"
+      ],
+      "answer_index": 3,
+      "answer": "когда HTML разобран, но картинки могут ещё грузиться",
+      "explanation": "когда HTML разобран, но картинки могут ещё грузиться",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "javascript",
+        "system",
+        "system"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00026",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "dom",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Быстрый раунд: зачем обычно используют `addEventListener('click', handler)`?",
+      "options": [
+        "удаляет элемент",
+        "подписывает обработчик на клик",
+        "вызывает handler бесконечно",
+        "создаёт класс"
+      ],
+      "answer_index": 1,
+      "answer": "подписывает обработчик на клик",
+      "explanation": "подписывает обработчик на клик",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "javascript",
+        "dom",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00027",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "objects",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Тренировка перед боссом: что выведет JavaScript-код?",
+      "options": [
+        "15",
+        "hp",
+        "undefined",
+        "11"
+      ],
+      "answer_index": 0,
+      "answer": "15",
+      "explanation": "Код выводит `15`.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "javascript",
+        "objects",
+        "output"
+      ],
+      "standalone": true,
+      "code": "const hero = {\"hp\": 15, \"mana\": 11};\nconsole.log(hero.hp);"
+    },
+    {
+      "id": "ja_quiz_00028",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "arrays",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Вопрос наставника: выбери верное описание для `items.every(fn)`.",
+      "options": [
+        "возвращает последний",
+        "сортирует",
+        "True, если все элементы подходят",
+        "проверяет хотя бы один"
+      ],
+      "answer_index": 2,
+      "answer": "True, если все элементы подходят",
+      "explanation": "True, если все элементы подходят",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "javascript",
+        "arrays",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00029",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "arrays",
+      "type": "scenario",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Вопрос наставника: Нужно посчитать сумму массива. Что выбрать?",
+      "options": [
+        "reduce",
+        "querySelector",
+        "push",
+        "split"
+      ],
+      "answer_index": 0,
+      "answer": "reduce",
+      "explanation": "reduce",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "javascript",
+        "arrays",
+        "scenario"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "ja_quiz_00030",
+      "domain": "javascript",
+      "language": "ru",
+      "topic": "arrays",
+      "type": "debug",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Быстрый раунд: Почему map не заменяет filter? Представь, что это используется в учебном проекте.",
+      "options": [
+        "filter только для строк",
+        "map удаляет false",
+        "map всегда меняет исходный",
+        "map преобразует каждый элемент и сохраняет длину"
+      ],
+      "answer_index": 3,
+      "answer": "map преобразует каждый элемент и сохраняет длину",
+      "explanation": "map преобразует каждый элемент и сохраняет длину",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "javascript",
+        "arrays",
+        "debug"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00001",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "colors_bg",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Ревью решения: выбери верное описание для `color`.",
+      "options": [
+        "подключение шрифта",
+        "задаёт цвет текста",
+        "цвет фона",
+        "ширину блока"
+      ],
+      "answer_index": 1,
+      "answer": "задаёт цвет текста",
+      "explanation": "задаёт цвет текста",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "frontend",
+        "colors_bg",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00002",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "system",
+      "type": "system",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Код-дуэль: Зачем alt-текст у изображения? В каком варианте ответ точнее?",
+      "options": [
+        "подключить форму",
+        "ускорить CSS",
+        "для доступности и описания, если картинка не загрузилась",
+        "изменить размер"
+      ],
+      "answer_index": 2,
+      "answer": "для доступности и описания, если картинка не загрузилась",
+      "explanation": "для доступности и описания, если картинка не загрузилась",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "frontend",
+        "system",
+        "system"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00003",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "layout",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Квест знаний: что делает `z-index` в код-ревью?",
+      "options": [
+        "управляет порядком наложения positioned-элементов",
+        "числом колонок",
+        "масштабом картинки",
+        "скоростью анимации"
+      ],
+      "answer_index": 0,
+      "answer": "управляет порядком наложения positioned-элементов",
+      "explanation": "управляет порядком наложения positioned-элементов",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "frontend",
+        "layout",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00004",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "responsive",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Ревью решения: сколько колонок будет у .grid?",
+      "options": [
+        "правило не применится никогда",
+        "2 колонки",
+        "4 колонки",
+        "браузер выберет случайно"
+      ],
+      "answer_index": 1,
+      "answer": "2 колонки",
+      "explanation": "Media query работает, когда viewport не меньше min-width.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "frontend",
+        "responsive",
+        "output"
+      ],
+      "standalone": true,
+      "code": ".grid { display:grid; grid-template-columns: repeat(2,1fr); }\n@media (min-width:768px) { .grid { grid-template-columns: repeat(4,1fr); } }\n/* viewport: 360px */"
+    },
+    {
+      "id": "fe_quiz_00005",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "accessibility",
+      "type": "access",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Разбор без подсказок: Как связать подпись с input?",
+      "options": [
+        "div без текста",
+        "подпись картинкой",
+        "label for плюс совпадающий id у input",
+        "только placeholder"
+      ],
+      "answer_index": 2,
+      "answer": "label for плюс совпадающий id у input",
+      "explanation": "label for плюс совпадающий id у input",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "frontend",
+        "accessibility",
+        "access"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00006",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "text_styling",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Раунд на внимательность: как объяснить новичку `font-size`?",
+      "options": [
+        "жирность",
+        "задаёт размер шрифта",
+        "высоту строки",
+        "семантику"
+      ],
+      "answer_index": 1,
+      "answer": "задаёт размер шрифта",
+      "explanation": "задаёт размер шрифта",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "frontend",
+        "text_styling",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00007",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "forms",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Раунд на внимательность: выбери верное описание для `<input type='email'>`.",
+      "options": [
+        "только числа",
+        "поле email с базовой проверкой",
+        "кнопка перехода",
+        "изображение"
+      ],
+      "answer_index": 1,
+      "answer": "поле email с базовой проверкой",
+      "explanation": "поле email с базовой проверкой",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "frontend",
+        "forms",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00008",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "responsive",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Вопрос наставника: сколько колонок будет у .grid?",
+      "options": [
+        "браузер выберет случайно",
+        "правило не применится никогда",
+        "ошибка выполнения",
+        "2 колонки"
+      ],
+      "answer_index": 3,
+      "answer": "2 колонки",
+      "explanation": "Media query работает, когда viewport не меньше min-width.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "frontend",
+        "responsive",
+        "output"
+      ],
+      "standalone": true,
+      "code": ".grid { display:grid; grid-template-columns: repeat(2,1fr); }\n@media (min-width:480px) { .grid { grid-template-columns: repeat(2,1fr); } }\n/* viewport: 360px */"
+    },
+    {
+      "id": "fe_quiz_00009",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "accessibility",
+      "type": "access",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Раунд на внимательность: Какой текст ссылки лучше?",
+      "options": [
+        "только нажми сюда",
+        "понятный текст действия, например Скачать отчёт",
+        "только emoji",
+        "пустая ссылка"
+      ],
+      "answer_index": 1,
+      "answer": "понятный текст действия, например Скачать отчёт",
+      "explanation": "понятный текст действия, например Скачать отчёт",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "frontend",
+        "accessibility",
+        "access"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00010",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "selectors",
+      "type": "specificity",
+      "format": "single_choice",
+      "difficulty": "hard",
+      "tier": "A",
+      "question": "Проверка понимания: какой цвет получит текст Quest?",
+      "options": [
+        "красный",
+        "синий",
+        "цвет будет унаследован",
+        "фиолетовый"
+      ],
+      "answer_index": 0,
+      "answer": "красный",
+      "explanation": "ID-селектор имеет больший вес.",
+      "time_limit_sec": 40,
+      "points": 80,
+      "tags": [
+        "frontend",
+        "selectors",
+        "specificity"
+      ],
+      "standalone": true,
+      "code": "<h1 id=\"hero\" class=\"title\">Quest</h1>\n<style>\nh1 { color: blue; }\n.title { color: purple; }\n#hero { color: red; }\n</style>"
+    },
+    {
+      "id": "fe_quiz_00011",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "colors_bg",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Вопрос наставника: выбери верное описание для `color`.",
+      "options": [
+        "подключение шрифта",
+        "ширину блока",
+        "цвет фона",
+        "задаёт цвет текста"
+      ],
+      "answer_index": 3,
+      "answer": "задаёт цвет текста",
+      "explanation": "задаёт цвет текста",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "frontend",
+        "colors_bg",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00012",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "layout",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Ревью решения: что делает `align-items` в учебном проекте?",
+      "options": [
+        "задаёт внешний отступ",
+        "создаёт анимацию",
+        "меняет URL",
+        "выравнивает по поперечной оси"
+      ],
+      "answer_index": 3,
+      "answer": "выравнивает по поперечной оси",
+      "explanation": "выравнивает по поперечной оси",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "frontend",
+        "layout",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00013",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "system",
+      "type": "system",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Разбор без подсказок: Зачем нужен meta viewport? В каком варианте ответ точнее?",
+      "options": [
+        "создать кнопку",
+        "для корректного масштабирования на мобильных",
+        "проверить email",
+        "подключить шрифт"
+      ],
+      "answer_index": 1,
+      "answer": "для корректного масштабирования на мобильных",
+      "explanation": "для корректного масштабирования на мобильных",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "frontend",
+        "system",
+        "system"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00014",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "selectors",
+      "type": "syntax",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Тренировка перед боссом: что означает `#hero` в CSS/HTML?",
+      "options": [
+        "атрибут hero",
+        "элемент с id hero",
+        "класс hero",
+        "все h1"
+      ],
+      "answer_index": 1,
+      "answer": "элемент с id hero",
+      "explanation": "элемент с id hero",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "frontend",
+        "selectors",
+        "syntax"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00015",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "system",
+      "type": "system",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Ревью решения: Что делает CSS cascade? Представь, что это используется в учебном проекте.",
+      "options": [
+        "грузит картинки",
+        "создаёт события",
+        "решает, какие правила применятся при конфликте",
+        "сжимает HTML"
+      ],
+      "answer_index": 2,
+      "answer": "решает, какие правила применятся при конфликте",
+      "explanation": "решает, какие правила применятся при конфликте",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "frontend",
+        "system",
+        "system"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00016",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "selectors",
+      "type": "syntax",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Раунд на внимательность: какая роль у `#hero`?",
+      "options": [
+        "элемент с id hero",
+        "все h1",
+        "класс hero",
+        "атрибут hero"
+      ],
+      "answer_index": 0,
+      "answer": "элемент с id hero",
+      "explanation": "элемент с id hero",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "frontend",
+        "selectors",
+        "syntax"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00017",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "system",
+      "type": "system",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Ревью решения: Что означает DOM? В каком варианте ответ точнее?",
+      "options": [
+        "дерево объектов HTML-документа в браузере",
+        "формат анимации",
+        "серверный язык",
+        "графический формат"
+      ],
+      "answer_index": 0,
+      "answer": "дерево объектов HTML-документа в браузере",
+      "explanation": "дерево объектов HTML-документа в браузере",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "frontend",
+        "system",
+        "system"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00018",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "layout",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Квест знаний: как объяснить новичку `display: grid`?",
+      "options": [
+        "скрывает overflow",
+        "создаёт форму",
+        "включает CSS Grid layout",
+        "удаляет элемент"
+      ],
+      "answer_index": 2,
+      "answer": "включает CSS Grid layout",
+      "explanation": "включает CSS Grid layout",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "frontend",
+        "layout",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00019",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "html_elements",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Тренировка перед боссом: зачем обычно используют `<nav>`?",
+      "options": [
+        "блок навигационных ссылок",
+        "ячейка таблицы",
+        "поле пароля",
+        "главный заголовок"
+      ],
+      "answer_index": 0,
+      "answer": "блок навигационных ссылок",
+      "explanation": "блок навигационных ссылок",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "frontend",
+        "html_elements",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00020",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "system",
+      "type": "system",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Быстрый раунд: Что делает CSS cascade? В каком варианте ответ точнее?",
+      "options": [
+        "создаёт события",
+        "сжимает HTML",
+        "грузит картинки",
+        "решает, какие правила применятся при конфликте"
+      ],
+      "answer_index": 3,
+      "answer": "решает, какие правила применятся при конфликте",
+      "explanation": "решает, какие правила применятся при конфликте",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "frontend",
+        "system",
+        "system"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00021",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "colors_bg",
+      "type": "scenario",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Раунд на внимательность: Нужно поменять фон блока. Что выбрать? Ситуация: в домашней практике.",
+      "options": [
+        "justify-content",
+        "background-color",
+        "font-size",
+        "alt"
+      ],
+      "answer_index": 1,
+      "answer": "background-color",
+      "explanation": "background-color",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "frontend",
+        "colors_bg",
+        "scenario"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00022",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "forms",
+      "type": "scenario",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Раунд на внимательность: Нужно поле пароля. Что выбрать? Ситуация: в учебном проекте.",
+      "options": [
+        "<input kind='secret'>",
+        "<password>",
+        "<input type='password'>",
+        "<text password>"
+      ],
+      "answer_index": 2,
+      "answer": "<input type='password'>",
+      "explanation": "<input type='password'>",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "frontend",
+        "forms",
+        "scenario"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00023",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "accessibility",
+      "type": "scenario",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Быстрый раунд: Нужно описать картинку для screen reader. Что добавить? Представь, что это используется в командном челлендже.",
+      "options": [
+        "target",
+        "alt",
+        "href",
+        "z-index"
+      ],
+      "answer_index": 1,
+      "answer": "alt",
+      "explanation": "alt",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "frontend",
+        "accessibility",
+        "scenario"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00024",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "html_elements",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Мини-квиз: как объяснить новичку `<a href='...'>`?",
+      "options": [
+        "картинка",
+        "ссылка на URL или якорь",
+        "строка таблицы",
+        "кнопка отправки всегда"
+      ],
+      "answer_index": 1,
+      "answer": "ссылка на URL или якорь",
+      "explanation": "ссылка на URL или якорь",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "frontend",
+        "html_elements",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00025",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "responsive",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Вопрос наставника: сколько колонок будет у .grid?",
+      "options": [
+        "2 колонки",
+        "правило не применится никогда",
+        "браузер выберет случайно",
+        "4 колонки"
+      ],
+      "answer_index": 0,
+      "answer": "2 колонки",
+      "explanation": "Media query работает, когда viewport не меньше min-width.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "frontend",
+        "responsive",
+        "output"
+      ],
+      "standalone": true,
+      "code": ".grid { display:grid; grid-template-columns: repeat(2,1fr); }\n@media (min-width:900px) { .grid { grid-template-columns: repeat(4,1fr); } }\n/* viewport: 360px */"
+    },
+    {
+      "id": "fe_quiz_00026",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "layout",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Быстрый раунд: как объяснить новичку `box-sizing: border-box`?",
+      "options": [
+        "запрещает flex",
+        "скрывает блок",
+        "добавляет margin внутрь",
+        "включает padding и border в width/height"
+      ],
+      "answer_index": 3,
+      "answer": "включает padding и border в width/height",
+      "explanation": "включает padding и border в width/height",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "frontend",
+        "layout",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00027",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "layout",
+      "type": "box",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Мини-квиз: какова внешняя ширина .card?",
+      "options": [
+        "220px",
+        "212px",
+        "180px",
+        "200px"
+      ],
+      "answer_index": 0,
+      "answer": "220px",
+      "explanation": "content-box добавляет padding/border к width; border-box включает их внутрь width.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "frontend",
+        "layout",
+        "box"
+      ],
+      "standalone": true,
+      "code": ".card {\n  box-sizing: content-box;\n  width: 180px;\n  padding: 16px;\n  border: 4px solid black;\n}"
+    },
+    {
+      "id": "fe_quiz_00028",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "layout",
+      "type": "scenario",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Квест знаний: Нужно расположить карточки в строку и центрировать. Что выбрать? В каком варианте ответ точнее?",
+      "options": [
+        "color:center",
+        "тег center",
+        "display:flex с justify-content и align-items",
+        "alt='center'"
+      ],
+      "answer_index": 2,
+      "answer": "display:flex с justify-content и align-items",
+      "explanation": "display:flex с justify-content и align-items",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "frontend",
+        "layout",
+        "scenario"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "fe_quiz_00029",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "layout",
+      "type": "box",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Ревью решения: какова внешняя ширина .card?",
+      "options": [
+        "192px",
+        "160px",
+        "180px",
+        "200px"
+      ],
+      "answer_index": 1,
+      "answer": "160px",
+      "explanation": "content-box добавляет padding/border к width; border-box включает их внутрь width.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "frontend",
+        "layout",
+        "box"
+      ],
+      "standalone": true,
+      "code": ".card {\n  box-sizing: border-box;\n  width: 160px;\n  padding: 16px;\n  border: 4px solid black;\n}"
+    },
+    {
+      "id": "fe_quiz_00030",
+      "domain": "frontend",
+      "language": "ru",
+      "topic": "animations",
+      "type": "scenario",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Мини-квиз: Нужно плавно менять цвет при hover. Что выбрать? Представь, что это используется в тренажёре.",
+      "options": [
+        "meta viewport",
+        "transition",
+        "srcset",
+        "table"
+      ],
+      "answer_index": 1,
+      "answer": "transition",
+      "explanation": "transition",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "frontend",
+        "animations",
+        "scenario"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00001",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "motion",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Раунд на внимательность: выбери верное описание для `изменить y на 10`.",
+      "options": [
+        "сдвигает спрайт по вертикали",
+        "меняет костюм",
+        "по горизонтали",
+        "считает очки"
+      ],
+      "answer_index": 0,
+      "answer": "сдвигает спрайт по вертикали",
+      "explanation": "сдвигает спрайт по вертикали",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "scratch",
+        "motion",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00002",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "platform_system",
+      "type": "system",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Ревью решения: Что значит Remix? В каком варианте ответ точнее?",
+      "options": [
+        "автопубликация",
+        "перевод в Python",
+        "создание своей версии на основе чужого проекта",
+        "удаление исходника"
+      ],
+      "answer_index": 2,
+      "answer": "создание своей версии на основе чужого проекта",
+      "explanation": "создание своей версии на основе чужого проекта",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "scratch",
+        "platform_system",
+        "system"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00003",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "control",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Мини-квиз: выбери верное описание для `ждать 1 секунд`.",
+      "options": [
+        "двигает на 1",
+        "ускоряет спрайт",
+        "делает паузу",
+        "меняет громкость"
+      ],
+      "answer_index": 2,
+      "answer": "делает паузу",
+      "explanation": "делает паузу",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "scratch",
+        "control",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00004",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "motion",
+      "type": "concept",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Квест знаний: За что отвечает координата x? В каком варианте ответ точнее?",
+      "options": [
+        "за горизонтальное положение",
+        "за громкость",
+        "за костюм",
+        "за вертикаль"
+      ],
+      "answer_index": 0,
+      "answer": "за горизонтальное положение",
+      "explanation": "за горизонтальное положение",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "scratch",
+        "motion",
+        "concept"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00005",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "sensing",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Код-дуэль: выбери верное описание для `касание указателя мыши?`.",
+      "options": [
+        "проверяет касание спрайтом мыши",
+        "показывает координаты",
+        "создаёт сообщение",
+        "перемещает к мыши"
+      ],
+      "answer_index": 0,
+      "answer": "проверяет касание спрайтом мыши",
+      "explanation": "проверяет касание спрайтом мыши",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "scratch",
+        "sensing",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00006",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "motion",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Проверка понимания: какая координата x будет у спрайта?",
+      "options": [
+        "72",
+        "52",
+        "120",
+        "172"
+      ],
+      "answer_index": 3,
+      "answer": "172",
+      "explanation": "Ответ получается пошаговым выполнением блоков.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "scratch",
+        "motion",
+        "output"
+      ],
+      "standalone": true,
+      "context": "1) установить x в 52\n2) повторить 6 раз: изменить x на 20"
+    },
+    {
+      "id": "sc_quiz_00007",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "operators",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Разбор без подсказок: что показывает проверка?",
+      "options": [
+        "нечётное",
+        "число равно нулю",
+        "число отрицательное",
+        "чётное"
+      ],
+      "answer_index": 0,
+      "answer": "нечётное",
+      "explanation": "Ответ получается пошаговым выполнением блоков.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "scratch",
+        "operators",
+        "output"
+      ],
+      "standalone": true,
+      "context": "проверка: остаток от деления 5 на 2 равен 0?"
+    },
+    {
+      "id": "sc_quiz_00008",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "control",
+      "type": "concept",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Разбор без подсказок: Чем repeat отличается от forever? В каком варианте ответ точнее?",
+      "options": [
+        "repeat только звук",
+        "forever 10 раз",
+        "они одинаковы",
+        "repeat конечный, forever бесконечный"
+      ],
+      "answer_index": 3,
+      "answer": "repeat конечный, forever бесконечный",
+      "explanation": "repeat конечный, forever бесконечный",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "scratch",
+        "control",
+        "concept"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00009",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "sensing",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Быстрый раунд: выбери верное описание для `касание указателя мыши?`.",
+      "options": [
+        "перемещает к мыши",
+        "показывает координаты",
+        "проверяет касание спрайтом мыши",
+        "создаёт сообщение"
+      ],
+      "answer_index": 2,
+      "answer": "проверяет касание спрайтом мыши",
+      "explanation": "проверяет касание спрайтом мыши",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "scratch",
+        "sensing",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00010",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "sensing",
+      "type": "scenario",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Разбор без подсказок: Нужно получить имя игрока. Какие блоки? В каком варианте ответ точнее?",
+      "options": [
+        "громкость в имя",
+        "изменить x на имя",
+        "следующий фон",
+        "спросить ... и ждать, затем ответ"
+      ],
+      "answer_index": 3,
+      "answer": "спросить ... и ждать, затем ответ",
+      "explanation": "спросить ... и ждать, затем ответ",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "scratch",
+        "sensing",
+        "scenario"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00011",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "platform_system",
+      "type": "system",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Мини-квиз: Зачем кнопка Stop? Представь, что это используется в тренажёре.",
+      "options": [
+        "создать спрайт",
+        "остановить выполнение скриптов",
+        "сохранить видео",
+        "удалить блоки"
+      ],
+      "answer_index": 1,
+      "answer": "остановить выполнение скриптов",
+      "explanation": "остановить выполнение скриптов",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "scratch",
+        "platform_system",
+        "system"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00012",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "variables",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Вопрос наставника: какое значение будет у lives?",
+      "options": [
+        "3",
+        "ошибка выполнения",
+        "0",
+        "вернёт None"
+      ],
+      "answer_index": 2,
+      "answer": "0",
+      "explanation": "Ответ получается пошаговым выполнением блоков.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "scratch",
+        "variables",
+        "output"
+      ],
+      "standalone": true,
+      "context": "1) задать lives значение 3\n2) повторить 3 раз: изменить lives на -1"
+    },
+    {
+      "id": "sc_quiz_00013",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "events",
+      "type": "concept",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Мини-квиз: Зачем broadcast?",
+      "options": [
+        "стереть сцену",
+        "поменять размер окна",
+        "чтобы один скрипт запускал реакцию в другом",
+        "ускорить интернет"
+      ],
+      "answer_index": 2,
+      "answer": "чтобы один скрипт запускал реакцию в другом",
+      "explanation": "чтобы один скрипт запускал реакцию в другом",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "scratch",
+        "events",
+        "concept"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00014",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "events",
+      "type": "concept",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Ревью решения: Что делает зелёный флаг? В каком варианте ответ точнее?",
+      "options": [
+        "публикует проект",
+        "создаёт переменные",
+        "запускает скрипты с этим стартовым блоком",
+        "удаляет спрайты"
+      ],
+      "answer_index": 2,
+      "answer": "запускает скрипты с этим стартовым блоком",
+      "explanation": "запускает скрипты с этим стартовым блоком",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "scratch",
+        "events",
+        "concept"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00015",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "control",
+      "type": "concept",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Мини-квиз: Чем repeat отличается от forever? В каком варианте ответ точнее?",
+      "options": [
+        "repeat только звук",
+        "forever 10 раз",
+        "они одинаковы",
+        "repeat конечный, forever бесконечный"
+      ],
+      "answer_index": 3,
+      "answer": "repeat конечный, forever бесконечный",
+      "explanation": "repeat конечный, forever бесконечный",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "scratch",
+        "control",
+        "concept"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00016",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "operators",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Код-дуэль: какой текст получится?",
+      "options": [
+        "12",
+        "5 7",
+        "35",
+        "57"
+      ],
+      "answer_index": 3,
+      "answer": "57",
+      "explanation": "Ответ получается пошаговым выполнением блоков.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "scratch",
+        "operators",
+        "output"
+      ],
+      "standalone": true,
+      "context": "оператор: соединить «5» и «7»"
+    },
+    {
+      "id": "sc_quiz_00017",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "events",
+      "type": "scenario",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Проверка понимания: Нужно запустить музыку после start. Что использовать? В каком варианте ответ точнее?",
+      "options": [
+        "изменить x на start",
+        "размер в start",
+        "клавиша start",
+        "когда я получу start"
+      ],
+      "answer_index": 3,
+      "answer": "когда я получу start",
+      "explanation": "когда я получу start",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "scratch",
+        "events",
+        "scenario"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00018",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "platform_system",
+      "type": "system",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Мини-квиз: Что такое фон сцены? Ситуация: в тренажёре.",
+      "options": [
+        "клон",
+        "изображение заднего плана сцены",
+        "переменная",
+        "оператор"
+      ],
+      "answer_index": 1,
+      "answer": "изображение заднего плана сцены",
+      "explanation": "изображение заднего плана сцены",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "scratch",
+        "platform_system",
+        "system"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00019",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "control",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Мини-квиз: как объяснить новичку `повторить 10`?",
+      "options": [
+        "ждёт 10 секунд",
+        "повторяет звук",
+        "бесконечно",
+        "выполняет блоки заданное число раз"
+      ],
+      "answer_index": 3,
+      "answer": "выполняет блоки заданное число раз",
+      "explanation": "выполняет блоки заданное число раз",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "scratch",
+        "control",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00020",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "motion",
+      "type": "debug",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Код-дуэль: Почему спрайт не идёт вправо при изменении y?",
+      "options": [
+        "y отвечает за вертикаль, вправо меняют x",
+        "Scratch не двигает вправо",
+        "y отвечает за скорость",
+        "x и y одинаковы"
+      ],
+      "answer_index": 0,
+      "answer": "y отвечает за вертикаль, вправо меняют x",
+      "explanation": "y отвечает за вертикаль, вправо меняют x",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "scratch",
+        "motion",
+        "debug"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00021",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "platform_system",
+      "type": "system",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Код-дуэль: Что такое фон сцены?",
+      "options": [
+        "клон",
+        "оператор",
+        "переменная",
+        "изображение заднего плана сцены"
+      ],
+      "answer_index": 3,
+      "answer": "изображение заднего плана сцены",
+      "explanation": "изображение заднего плана сцены",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "scratch",
+        "platform_system",
+        "system"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00022",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "clones",
+      "type": "debug",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Вопрос наставника: Почему клоны тормозят проект? В каком варианте ответ точнее?",
+      "options": [
+        "клонов нет",
+        "флаг создаёт клоны всегда",
+        "клоны создаются, но не удаляются",
+        "клоны нельзя удалять"
+      ],
+      "answer_index": 2,
+      "answer": "клоны создаются, но не удаляются",
+      "explanation": "клоны создаются, но не удаляются",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "scratch",
+        "clones",
+        "debug"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00023",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "motion",
+      "type": "concept",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Ревью решения: Где точка x:0 y:0 на сцене Scratch? Ситуация: в домашней практике.",
+      "options": [
+        "за сценой",
+        "в левом верхнем углу",
+        "в правом нижнем",
+        "в центре сцены"
+      ],
+      "answer_index": 3,
+      "answer": "в центре сцены",
+      "explanation": "в центре сцены",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "scratch",
+        "motion",
+        "concept"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00024",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "looks",
+      "type": "scenario",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Разбор без подсказок: Нужно показать реплику на 2 секунды. Что использовать? Представь, что это используется в личном кабинете.",
+      "options": [
+        "сказать ... 2 секунд",
+        "остаток",
+        "ждать до",
+        "изменить x на 2"
+      ],
+      "answer_index": 0,
+      "answer": "сказать ... 2 секунд",
+      "explanation": "сказать ... 2 секунд",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "scratch",
+        "looks",
+        "scenario"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00025",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "sound",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Проверка понимания: как объяснить новичку `играть звук до конца`?",
+      "options": [
+        "запускает звук и ждёт окончания",
+        "меняет координату",
+        "создаёт клон",
+        "идёт дальше сразу"
+      ],
+      "answer_index": 0,
+      "answer": "запускает звук и ждёт окончания",
+      "explanation": "запускает звук и ждёт окончания",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "scratch",
+        "sound",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00026",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "sensing",
+      "type": "concept",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Тренировка перед боссом: Где хранится ввод после спросить и ждать? Ситуация: в личном кабинете.",
+      "options": [
+        "в блоке ответ",
+        "в x",
+        "в громкости",
+        "в костюме"
+      ],
+      "answer_index": 0,
+      "answer": "в блоке ответ",
+      "explanation": "в блоке ответ",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "scratch",
+        "sensing",
+        "concept"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00027",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "motion",
+      "type": "output",
+      "format": "single_choice",
+      "difficulty": "medium",
+      "tier": "B",
+      "question": "Мини-квиз: какая координата x будет у спрайта?",
+      "options": [
+        "-30",
+        "-60",
+        "10",
+        "30"
+      ],
+      "answer_index": 0,
+      "answer": "-30",
+      "explanation": "Ответ получается пошаговым выполнением блоков.",
+      "time_limit_sec": 30,
+      "points": 55,
+      "tags": [
+        "scratch",
+        "motion",
+        "output"
+      ],
+      "standalone": true,
+      "context": "1) установить x в 30\n2) повторить 3 раз: изменить x на -20"
+    },
+    {
+      "id": "sc_quiz_00028",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "motion",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Код-дуэль: как объяснить новичку `перейти в x:0 y:0`?",
+      "options": [
+        "создаёт фон",
+        "рисует линию",
+        "перемещает спрайт в центр сцены",
+        "очищает список"
+      ],
+      "answer_index": 2,
+      "answer": "перемещает спрайт в центр сцены",
+      "explanation": "перемещает спрайт в центр сцены",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "scratch",
+        "motion",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00029",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "control",
+      "type": "purpose",
+      "format": "single_choice",
+      "difficulty": "beginner",
+      "tier": "D",
+      "question": "Тренировка перед боссом: зачем обычно используют `всегда`?",
+      "options": [
+        "останавливает",
+        "один раз",
+        "повторяет блоки бесконечно",
+        "создаёт клон"
+      ],
+      "answer_index": 2,
+      "answer": "повторяет блоки бесконечно",
+      "explanation": "повторяет блоки бесконечно",
+      "time_limit_sec": 20,
+      "points": 20,
+      "tags": [
+        "scratch",
+        "control",
+        "purpose"
+      ],
+      "standalone": true
+    },
+    {
+      "id": "sc_quiz_00030",
+      "domain": "scratch",
+      "language": "ru",
+      "topic": "platform_system",
+      "type": "system",
+      "format": "single_choice",
+      "difficulty": "easy",
+      "tier": "C",
+      "question": "Вопрос наставника: Что такое спрайт? Ситуация: в мини-игре.",
+      "options": [
+        "только фон",
+        "объект/персонаж со скриптами и костюмами",
+        "переменная score",
+        "расширение браузера"
+      ],
+      "answer_index": 1,
+      "answer": "объект/персонаж со скриптами и костюмами",
+      "explanation": "объект/персонаж со скриптами и костюмами",
+      "time_limit_sec": 25,
+      "points": 35,
+      "tags": [
+        "scratch",
+        "platform_system",
+        "system"
+      ],
+      "standalone": true
+    }
+  ]
+}

@@ -920,6 +920,9 @@
                 <li class="nav-item" onclick="showSection('behavior')" tabindex="0" role="button">
                     <span class="icon">🔊</span> Поведение
                 </li>
+                <li class="nav-item" onclick="showSection('quiz')" tabindex="0" role="button">
+                    <span class="icon">🧠</span> Квизы
+                </li>
             </ul>
             <div class="admin-info">
                 <div class="admin-avatar">S</div>
@@ -1544,6 +1547,21 @@
                             </tr>
                         </thead>
                         <tbody id="behavior-table"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Quiz Section -->
+            <section id="section-quiz" class="section">
+                <div class="page-header">
+                    <h2>🧠 Квиз-сессии</h2>
+                    <p>Одобрение лобби и управление квизами · <span id="quiz-daily-counter">0/3 сегодня</span></p>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>Активные сессии</h3></div>
+                    <table>
+                        <thead><tr><th>Код</th><th>Создатель</th><th>Игроки</th><th>Статус</th><th>Создано</th><th>Действия</th></tr></thead>
+                        <tbody id="quiz-sessions-table"></tbody>
                     </table>
                 </div>
             </section>
@@ -2821,6 +2839,42 @@
             if (name === 'settings') loadPhraseSettings();
             if (name === 'mini-admins') loadMiniAdmins();
             if (name === 'behavior') loadBehaviorIncidents('pending');
+            if (name === 'quiz') loadQuizSessions();
+        }
+
+        // ==================== QUIZ MANAGEMENT ====================
+
+        async function loadQuizSessions() {
+            try {
+                const data = await api('/api/admin/quiz/sessions');
+                document.getElementById('quiz-daily-counter').textContent = `${data.daily_count}/${data.daily_limit} сегодня`;
+                const tbody = document.getElementById('quiz-sessions-table');
+                const statusMap = {lobby:'🟡 Лобби',approved:'🟢 Одобрено',active:'🔵 Активен',finished:'✅ Завершён',expired:'⚫ Истёк'};
+                tbody.innerHTML = data.sessions.map(s => `<tr>
+                    <td><code style="font-size:16px;font-weight:700;color:var(--accent)">${s.id}</code></td>
+                    <td>${s.creator_name || '?'}</td>
+                    <td>${s.participant_count || 0}</td>
+                    <td>${statusMap[s.status] || s.status}</td>
+                    <td>${s.created_at ? new Date(s.created_at).toLocaleTimeString('ru') : '-'}</td>
+                    <td>${s.status === 'lobby' ? `<button class="btn btn-small" style="background:var(--green);color:#fff;padding:6px 14px;border:none;border-radius:8px;cursor:pointer;font-size:12px" onclick="approveQuiz('${s.id}')">✅ Одобрить</button> ` : ''}${['lobby','approved','active'].includes(s.status) ? `<button class="btn btn-small" style="background:var(--red);color:#fff;padding:6px 14px;border:none;border-radius:8px;cursor:pointer;font-size:12px;margin-left:4px" onclick="cancelQuiz('${s.id}')">❌ Отмена</button>` : ''}</td>
+                </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:24px">Нет квиз-сессий</td></tr>';
+            } catch(e) { console.error('loadQuizSessions error:', e); }
+        }
+
+        async function approveQuiz(code) {
+            try {
+                await api(`/api/admin/quiz/approve/${code}`, 'POST');
+                alert('Квиз одобрен и запущен!');
+                loadQuizSessions();
+            } catch(e) { alert('Ошибка: ' + (e.message || e)); }
+        }
+
+        async function cancelQuiz(code) {
+            if (!confirm('Отменить этот квиз?')) return;
+            try {
+                await api(`/api/admin/quiz/cancel/${code}`, 'POST');
+                loadQuizSessions();
+            } catch(e) { alert('Ошибка: ' + (e.message || e)); }
         }
 
         // ==================== MINI-ADMIN MANAGEMENT ====================

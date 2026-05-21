@@ -1,0 +1,158 @@
+{
+  "generated_at": "2026-05-20T00:00:00+05:00",
+  "files": {
+    "quiz_bank": "kahoot_quiz_bank_4_domains_20000.json",
+    "data_model_spec": "quiz_data_model_spec.json",
+    "zip_package": "quiz_pack_4_domains_20000.zip"
+  },
+  "validation": {
+    "items_total": 20000,
+    "duplicate_id_count": 0,
+    "invalid_option_count": 0,
+    "answer_mismatch_count": 0,
+    "cloze_template_errors": 0,
+    "errors": []
+  },
+  "counts": {
+    "total_items": 20000,
+    "by_domain": {
+      "python": 5000,
+      "javascript": 5000,
+      "frontend": 5000,
+      "scratch": 5000
+    },
+    "by_type_by_domain": {
+      "python": {
+        "syntax_flashcard_mc": 651,
+        "function_name_mc": 702,
+        "task_title_match_mc": 156,
+        "test_case_output_mc": 1816,
+        "code_cloze_mc": 950,
+        "task_goal_mc": 304,
+        "topic_identification_mc": 255,
+        "variable_name_mc": 83,
+        "variable_value_mc": 83
+      },
+      "javascript": {
+        "syntax_flashcard_mc": 650,
+        "task_title_match_mc": 150,
+        "task_goal_mc": 300,
+        "function_name_mc": 700,
+        "code_cloze_mc": 971,
+        "test_case_output_mc": 1850,
+        "topic_identification_mc": 250,
+        "variable_value_mc": 71,
+        "variable_name_mc": 58
+      },
+      "frontend": {
+        "syntax_flashcard_mc": 500,
+        "code_cloze_mc": 1500,
+        "task_title_match_mc": 200,
+        "topic_identification_mc": 300,
+        "selector_exists_mc": 750,
+        "content_expectation_mc": 500,
+        "task_goal_mc": 300,
+        "css_rule_mc": 950
+      },
+      "scratch": {
+        "scratch_block_mc": 1500,
+        "manual_rubric_mc": 900,
+        "scratch_cloze_mc": 1000,
+        "task_goal_mc": 400,
+        "syntax_flashcard_mc": 600,
+        "topic_identification_mc": 400,
+        "task_title_match_mc": 200
+      }
+    },
+    "by_topic_by_domain": {
+      "python": {
+        "variables": 253,
+        "math_ops": 255,
+        "functions": 167,
+        "if_else": 581,
+        "loops": 116,
+        "strings": 1148,
+        "lists": 1335,
+        "dicts": 556,
+        "classes": 213,
+        "regex": 161,
+        "algorithms": 214,
+        "file_io": 1
+      },
+      "javascript": {
+        "variables": 200,
+        "math_ops": 335,
+        "functions": 219,
+        "if_else": 942,
+        "loops": 119,
+        "strings": 1334,
+        "arrays": 806,
+        "objects": 420,
+        "classes": 113,
+        "regex": 347,
+        "algorithms": 164,
+        "file_io": 1
+      },
+      "frontend": {
+        "html_elements": 600,
+        "text_styling": 388,
+        "colors_bg": 357,
+        "layout": 1403,
+        "selectors": 291,
+        "animations": 526,
+        "responsive": 954,
+        "forms": 481
+      },
+      "scratch": {
+        "motion": 715,
+        "looks": 494,
+        "sound": 280,
+        "events": 439,
+        "control": 631,
+        "sensing": 492,
+        "operators": 453,
+        "variables": 1226,
+        "my_blocks": 270
+      }
+    },
+    "source_task_coverage": {
+      "python": {
+        "source_tasks_total": 3859,
+        "source_tasks_represented": 3859,
+        "coverage_ratio": 1.0
+      },
+      "javascript": {
+        "source_tasks_total": 4187,
+        "source_tasks_represented": 4187,
+        "coverage_ratio": 1.0
+      },
+      "frontend": {
+        "source_tasks_total": 1833,
+        "source_tasks_represented": 1833,
+        "coverage_ratio": 1.0
+      },
+      "scratch": {
+        "source_tasks_total": 1852,
+        "source_tasks_represented": 1852,
+        "coverage_ratio": 1.0
+      }
+    }
+  },
+  "source": {
+    "version": "full-20260308",
+    "categories": [
+      "python",
+      "javascript",
+      "frontend",
+      "scratch",
+      "alextype"
+    ],
+    "tasks_total": 11733,
+    "domain_task_counts": {
+      "python": 3859,
+      "javascript": 4187,
+      "frontend": 1833,
+      "scratch": 1852
+    }
+  }
+}

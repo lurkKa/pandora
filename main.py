@@ -1137,6 +1137,55 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_mini_admin_xp_actions_status ON mini_admin_xp_actions(status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_mini_admin_xp_actions_admin ON mini_admin_xp_actions(mini_admin_id)")
 
+        # ── Quiz (Kahoot) tables ──
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS quiz_sessions (
+                id TEXT PRIMARY KEY,
+                creator_id INTEGER NOT NULL,
+                status TEXT DEFAULT 'lobby',
+                current_question INTEGER DEFAULT -1,
+                total_questions INTEGER DEFAULT 0,
+                questions_json TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                approved_at TIMESTAMP,
+                started_at TIMESTAMP,
+                finished_at TIMESTAMP,
+                last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                approved_by INTEGER,
+                FOREIGN KEY (creator_id) REFERENCES users(id)
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS quiz_participants (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                user_id INTEGER NOT NULL,
+                display_name TEXT,
+                score INTEGER DEFAULT 0,
+                correct_count INTEGER DEFAULT 0,
+                current_answer INTEGER DEFAULT -1,
+                answer_time_ms INTEGER DEFAULT 0,
+                is_ready INTEGER DEFAULT 0,
+                joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                xp_earned INTEGER DEFAULT 0,
+                finished INTEGER DEFAULT 0,
+                FOREIGN KEY (session_id) REFERENCES quiz_sessions(id),
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                UNIQUE(session_id, user_id)
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS quiz_daily_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT NOT NULL,
+                session_count INTEGER DEFAULT 0,
+                UNIQUE(date)
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_quiz_sessions_status ON quiz_sessions(status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_quiz_participants_session ON quiz_participants(session_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_quiz_participants_user ON quiz_participants(user_id)")
+
         conn.commit()
         
         # Sync guild achievements (tables now exist)
@@ -1626,6 +1675,9 @@ except (TypeError, ValueError):
     METHOD_SIMHASH_DISTANCE_THRESHOLD = 8
 METHOD_SIMHASH_DISTANCE_THRESHOLD = max(0, min(64, METHOD_SIMHASH_DISTANCE_THRESHOLD))
 
+# Maximum number of unique solution methods per task per user
+MAX_METHODS_PER_TASK = 180
+
 
 def _solution_method_simhash(solution: str, code_simhash: str, code_language: Optional[str]) -> str:
     provided = str(code_simhash or "").strip().lower()
@@ -1771,6 +1823,22 @@ def process_task_completion(
             }
 
         method_index = existing_count + 1
+
+        # Enforce hard cap on re-solves
+        if existing_count >= MAX_METHODS_PER_TASK:
+            cursor.execute("SELECT xp, level FROM users WHERE id = ?", (user_id,))
+            user_row = cursor.fetchone() or {"xp": 0, "level": 1}
+            return {
+                "status": "methods_limit_reached",
+                "xp_earned": 0,
+                "new_xp": int(user_row["xp"] or 0),
+                "new_level": int(user_row["level"] or 1),
+                "method_new": False,
+                "method_index": existing_count,
+                "methods_count": existing_count,
+                "methods_limit": MAX_METHODS_PER_TASK,
+                "new_achievements": [],
+            }
 
     methods_count = method_index
     method_multiplier = 1.0 + METHOD_XP_STEP * max(0, method_index - 1)
@@ -2436,6 +2504,18 @@ def serve_exam_slash():
 @app.get("/exam.html", include_in_schema=False)
 def serve_exam_html():
     return FileResponse("exam.html")
+
+@app.get("/kahoot", include_in_schema=False)
+def serve_kahoot():
+    return FileResponse("kahoot.html")
+
+@app.get("/kahoot/", include_in_schema=False)
+def serve_kahoot_slash():
+    return FileResponse("kahoot.html")
+
+@app.get("/kahoot.html", include_in_schema=False)
+def serve_kahoot_html():
+    return FileResponse("kahoot.html")
 
 @app.get("/api/status")
 def status():
@@ -10590,6 +10670,549 @@ def admin_resolve_behavior_incident(incident_id: int, data: BehaviorResolveReque
         "xp_applied": xp_to_apply,
         "students_affected": affected
     }
+
+
+# ==================== KAHOOT QUIZ SYSTEM ====================
+
+import random as _random
+import string as _string
+
+# ── In-memory quiz bank ──
+_QUIZ_BANK: list[dict] = []
+_QUIZ_BANK_BY_DIFFICULTY: dict[int, list[dict]] = {1: [], 2: [], 3: [], 4: [], 5: []}
+
+def _load_quiz_bank():
+    """Load quiz_bank.json into memory once."""
+    global _QUIZ_BANK
+    bank_path = os.path.join(os.path.dirname(__file__), "quiz_bank.json")
+    if not os.path.exists(bank_path):
+        print("⚠️  quiz_bank.json not found – quiz system disabled")
+        return
+    try:
+        with open(bank_path, encoding="utf-8") as f:
+            data = json.load(f)
+        _QUIZ_BANK = data.get("items", [])
+        for item in _QUIZ_BANK:
+            d = int(item.get("difficulty", 2))
+            if d in _QUIZ_BANK_BY_DIFFICULTY:
+                _QUIZ_BANK_BY_DIFFICULTY[d].append(item)
+        print(f"✓ Quiz bank loaded: {len(_QUIZ_BANK)} questions")
+    except Exception as e:
+        print(f"⚠️  Failed to load quiz bank: {e}")
+
+# Load on import
+_load_quiz_bank()
+
+QUIZ_SESSION_TIMEOUT_SEC = 300  # 5 minutes inactivity
+QUIZ_MAX_DAILY_SESSIONS = 3
+QUIZ_MIN_PARTICIPANTS = 3
+QUIZ_QUESTION_RANGE = (12, 15)
+
+def _generate_quiz_code() -> str:
+    """Generate a 6-char alphanumeric code."""
+    return "".join(_random.choices(_string.ascii_uppercase + _string.digits, k=6))
+
+def _select_quiz_questions(count: int) -> list[dict]:
+    """Select questions with progressive difficulty."""
+    count = max(QUIZ_QUESTION_RANGE[0], min(QUIZ_QUESTION_RANGE[1], count))
+    # Split: ~35% easy (1-2), ~35% medium (3), ~30% hard (4-5)
+    n_easy = max(1, int(count * 0.35))
+    n_medium = max(1, int(count * 0.35))
+    n_hard = max(1, count - n_easy - n_medium)
+
+    easy_pool = _QUIZ_BANK_BY_DIFFICULTY.get(1, []) + _QUIZ_BANK_BY_DIFFICULTY.get(2, [])
+    medium_pool = _QUIZ_BANK_BY_DIFFICULTY.get(3, [])
+    hard_pool = _QUIZ_BANK_BY_DIFFICULTY.get(4, []) + _QUIZ_BANK_BY_DIFFICULTY.get(5, [])
+
+    selected = []
+    if easy_pool:
+        selected.extend(_random.sample(easy_pool, min(n_easy, len(easy_pool))))
+    if medium_pool:
+        selected.extend(_random.sample(medium_pool, min(n_medium, len(medium_pool))))
+    if hard_pool:
+        selected.extend(_random.sample(hard_pool, min(n_hard, len(hard_pool))))
+
+    # Ensure we have enough
+    while len(selected) < count and _QUIZ_BANK:
+        extra = _random.choice(_QUIZ_BANK)
+        if extra not in selected:
+            selected.append(extra)
+
+    # Sort by difficulty (progressive)
+    selected.sort(key=lambda q: q.get("difficulty", 2))
+    return selected[:count]
+
+def _cleanup_stale_quiz_sessions(cursor):
+    """Expire sessions inactive for > 5 minutes."""
+    cutoff = (datetime.now() - timedelta(seconds=QUIZ_SESSION_TIMEOUT_SEC)).isoformat()
+    cursor.execute(
+        "UPDATE quiz_sessions SET status = 'expired' WHERE status IN ('lobby', 'approved', 'active') AND last_activity < ?",
+        (cutoff,)
+    )
+
+def _get_quiz_daily_count(cursor) -> int:
+    today = datetime.now().date().isoformat()
+    cursor.execute("SELECT session_count FROM quiz_daily_log WHERE date = ?", (today,))
+    row = cursor.fetchone()
+    return int(row["session_count"]) if row else 0
+
+def _increment_quiz_daily_count(cursor):
+    today = datetime.now().date().isoformat()
+    cursor.execute(
+        "INSERT INTO quiz_daily_log (date, session_count) VALUES (?, 1) ON CONFLICT(date) DO UPDATE SET session_count = session_count + 1",
+        (today,)
+    )
+
+def _compute_quiz_xp(place: int, total_questions: int, avg_difficulty: float) -> int:
+    """Compute real XP reward based on placement and quiz params."""
+    base_map = {1: 4500, 2: 3000, 3: 2000}
+    base = base_map.get(place, 1250)
+    scale = (total_questions / 12.0) * (avg_difficulty / 3.0)
+    xp = int(base * max(0.5, min(2.0, scale)))
+    return max(1500, min(5000, xp))
+
+
+# ── Student endpoints ──
+
+@app.post("/api/quiz/create")
+def quiz_create(user: dict = Depends(require_auth)):
+    """Create a quiz lobby. Returns the lobby code."""
+    if not _QUIZ_BANK:
+        raise HTTPException(status_code=503, detail="Quiz bank not loaded")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        _cleanup_stale_quiz_sessions(cursor)
+
+        # Check daily limit
+        daily = _get_quiz_daily_count(cursor)
+        if daily >= QUIZ_MAX_DAILY_SESSIONS:
+            raise HTTPException(status_code=429, detail=f"Лимит квизов на сегодня исчерпан ({QUIZ_MAX_DAILY_SESSIONS}/день)")
+
+        # Check user not already in active session
+        cursor.execute(
+            "SELECT qp.session_id FROM quiz_participants qp JOIN quiz_sessions qs ON qs.id = qp.session_id "
+            "WHERE qp.user_id = ? AND qs.status IN ('lobby', 'approved', 'active')", (user["id"],)
+        )
+        if cursor.fetchone():
+            raise HTTPException(status_code=409, detail="Вы уже в активном квизе")
+
+        code = _generate_quiz_code()
+        # Ensure unique
+        while True:
+            cursor.execute("SELECT id FROM quiz_sessions WHERE id = ?", (code,))
+            if not cursor.fetchone():
+                break
+            code = _generate_quiz_code()
+
+        # Select questions
+        n_questions = _random.randint(*QUIZ_QUESTION_RANGE)
+        questions = _select_quiz_questions(n_questions)
+
+        cursor.execute(
+            "INSERT INTO quiz_sessions (id, creator_id, total_questions, questions_json, status) VALUES (?, ?, ?, ?, 'lobby')",
+            (code, user["id"], len(questions), json.dumps(questions, ensure_ascii=False))
+        )
+        # Creator auto-joins
+        cursor.execute(
+            "INSERT INTO quiz_participants (session_id, user_id, display_name) VALUES (?, ?, ?)",
+            (code, user["id"], user.get("display_name", "Player"))
+        )
+        conn.commit()
+
+    return {"code": code, "total_questions": len(questions)}
+
+
+@app.post("/api/quiz/join")
+def quiz_join(data: dict, user: dict = Depends(require_auth)):
+    """Join a quiz lobby by code."""
+    code = str(data.get("code", "")).strip().upper()
+    if not code or len(code) != 6:
+        raise HTTPException(status_code=400, detail="Неверный код лобби")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM quiz_sessions WHERE id = ? AND status IN ('lobby', 'approved')", (code,))
+        session = cursor.fetchone()
+        if not session:
+            raise HTTPException(status_code=404, detail="Лобби не найдено или уже начато")
+
+        # Check user not already in another active session
+        cursor.execute(
+            "SELECT qp.session_id FROM quiz_participants qp JOIN quiz_sessions qs ON qs.id = qp.session_id "
+            "WHERE qp.user_id = ? AND qs.status IN ('lobby', 'approved', 'active') AND qp.session_id != ?",
+            (user["id"], code)
+        )
+        if cursor.fetchone():
+            raise HTTPException(status_code=409, detail="Вы уже в другом активном квизе")
+
+        try:
+            cursor.execute(
+                "INSERT INTO quiz_participants (session_id, user_id, display_name) VALUES (?, ?, ?)",
+                (code, user["id"], user.get("display_name", "Player"))
+            )
+        except Exception:
+            raise HTTPException(status_code=409, detail="Вы уже в этом лобби")
+
+        cursor.execute("UPDATE quiz_sessions SET last_activity = CURRENT_TIMESTAMP WHERE id = ?", (code,))
+        conn.commit()
+
+    return {"status": "joined", "code": code}
+
+
+@app.get("/api/quiz/session/{code}")
+def quiz_get_session(code: str, user: dict = Depends(require_auth)):
+    """Poll session state. Returns everything the client needs to render."""
+    code = code.strip().upper()
+    with get_db() as conn:
+        cursor = conn.cursor()
+        _cleanup_stale_quiz_sessions(cursor)
+        conn.commit()
+
+        cursor.execute("SELECT * FROM quiz_sessions WHERE id = ?", (code,))
+        session = cursor.fetchone()
+        if not session:
+            raise HTTPException(status_code=404, detail="Сессия не найдена")
+
+        session = dict(session)
+
+        # Get participants
+        cursor.execute(
+            "SELECT qp.*, u.display_name as user_display_name FROM quiz_participants qp "
+            "JOIN users u ON u.id = qp.user_id WHERE qp.session_id = ? ORDER BY qp.score DESC",
+            (code,)
+        )
+        participants = [dict(r) for r in cursor.fetchall()]
+
+        result = {
+            "code": code,
+            "status": session["status"],
+            "creator_id": session["creator_id"],
+            "current_question": session["current_question"],
+            "total_questions": session["total_questions"],
+            "participants": [
+                {
+                    "user_id": p["user_id"],
+                    "display_name": p["user_display_name"] or p["display_name"],
+                    "score": p["score"],
+                    "correct_count": p["correct_count"],
+                    "is_ready": bool(p["is_ready"]),
+                    "has_answered": p["current_answer"] != -1,
+                    "xp_earned": p["xp_earned"],
+                }
+                for p in participants
+            ],
+            "participant_count": len(participants),
+            "my_score": 0,
+            "my_correct": 0,
+        }
+
+        # Find current user's data
+        for p in participants:
+            if p["user_id"] == user["id"]:
+                result["my_score"] = p["score"]
+                result["my_correct"] = p["correct_count"]
+                result["my_answered"] = p["current_answer"] != -1
+                result["my_ready"] = bool(p["is_ready"])
+                result["my_xp_earned"] = p["xp_earned"]
+                break
+
+        # If active and there's a current question, include it (without answer)
+        if session["status"] == "active" and session["current_question"] >= 0:
+            try:
+                questions = json.loads(session["questions_json"] or "[]")
+                qi = session["current_question"]
+                if 0 <= qi < len(questions):
+                    q = questions[qi]
+                    result["question"] = {
+                        "index": qi,
+                        "question": q["question"],
+                        "options": q["options"],
+                        "difficulty": q["difficulty"],
+                        "time_limit_sec": q.get("time_limit_sec", 20),
+                        "domain": q.get("domain", ""),
+                    }
+            except Exception:
+                pass
+
+        # If finished, include final results with XP
+        if session["status"] == "finished":
+            result["final_results"] = sorted(
+                result["participants"], key=lambda p: p["score"], reverse=True
+            )
+
+    return result
+
+
+@app.post("/api/quiz/answer/{code}")
+def quiz_answer(code: str, data: dict, user: dict = Depends(require_auth)):
+    """Submit answer for current question."""
+    code = code.strip().upper()
+    answer_index = int(data.get("answer_index", -1))
+    time_ms = int(data.get("time_ms", 0))
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM quiz_sessions WHERE id = ? AND status = 'active'", (code,))
+        session = cursor.fetchone()
+        if not session:
+            raise HTTPException(status_code=404, detail="Сессия не активна")
+
+        cursor.execute(
+            "SELECT * FROM quiz_participants WHERE session_id = ? AND user_id = ?",
+            (code, user["id"])
+        )
+        participant = cursor.fetchone()
+        if not participant:
+            raise HTTPException(status_code=403, detail="Вы не в этом квизе")
+        if participant["current_answer"] != -1:
+            return {"status": "already_answered"}
+
+        # Get correct answer
+        questions = json.loads(session["questions_json"] or "[]")
+        qi = session["current_question"]
+        if qi < 0 or qi >= len(questions):
+            raise HTTPException(status_code=400, detail="Нет текущего вопроса")
+
+        q = questions[qi]
+        correct_index = int(q.get("answer_index", 0))
+        is_correct = answer_index == correct_index
+        time_limit = int(q.get("time_limit_sec", 20)) * 1000  # ms
+
+        # Calculate score
+        points = 0
+        if is_correct:
+            diff = int(q.get("difficulty", 2))
+            base_points = diff * 100
+            time_bonus = max(0, (time_limit - time_ms) / time_limit) * 0.5 * base_points
+            points = int(base_points + time_bonus)
+
+        # Update participant
+        new_score = int(participant["score"]) + points
+        new_correct = int(participant["correct_count"]) + (1 if is_correct else 0)
+        cursor.execute(
+            "UPDATE quiz_participants SET current_answer = ?, answer_time_ms = ?, score = ?, correct_count = ? "
+            "WHERE session_id = ? AND user_id = ?",
+            (answer_index, time_ms, new_score, new_correct, code, user["id"])
+        )
+        cursor.execute("UPDATE quiz_sessions SET last_activity = CURRENT_TIMESTAMP WHERE id = ?", (code,))
+        conn.commit()
+
+        # Check if all participants answered → auto-transition to waiting_ready
+        cursor.execute(
+            "SELECT COUNT(*) as total, SUM(CASE WHEN current_answer != -1 THEN 1 ELSE 0 END) as answered "
+            "FROM quiz_participants WHERE session_id = ?", (code,)
+        )
+        counts = cursor.fetchone()
+        all_answered = counts["total"] == counts["answered"]
+
+        return {
+            "status": "correct" if is_correct else "wrong",
+            "correct_index": correct_index,
+            "points_earned": points,
+            "total_score": new_score,
+            "explanation": q.get("explanation", ""),
+            "all_answered": all_answered,
+        }
+
+
+@app.post("/api/quiz/ready/{code}")
+def quiz_ready(code: str, user: dict = Depends(require_auth)):
+    """Mark as ready for next question."""
+    code = code.strip().upper()
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM quiz_sessions WHERE id = ? AND status = 'active'", (code,))
+        session = cursor.fetchone()
+        if not session:
+            raise HTTPException(status_code=404, detail="Сессия не активна")
+
+        cursor.execute(
+            "UPDATE quiz_participants SET is_ready = 1 WHERE session_id = ? AND user_id = ?",
+            (code, user["id"])
+        )
+        cursor.execute("UPDATE quiz_sessions SET last_activity = CURRENT_TIMESTAMP WHERE id = ?", (code,))
+
+        # Check if ALL participants are ready → advance to next question
+        cursor.execute(
+            "SELECT COUNT(*) as total, SUM(CASE WHEN is_ready = 1 THEN 1 ELSE 0 END) as ready "
+            "FROM quiz_participants WHERE session_id = ?", (code,)
+        )
+        counts = cursor.fetchone()
+        all_ready = counts["total"] == counts["ready"] and counts["total"] > 0
+
+        if all_ready:
+            next_q = int(session["current_question"]) + 1
+            if next_q >= int(session["total_questions"]):
+                # Quiz finished! Award XP
+                _finish_quiz(cursor, code, session)
+            else:
+                # Reset answers and ready flags, advance question
+                cursor.execute(
+                    "UPDATE quiz_participants SET current_answer = -1, answer_time_ms = 0, is_ready = 0 WHERE session_id = ?",
+                    (code,)
+                )
+                cursor.execute(
+                    "UPDATE quiz_sessions SET current_question = ?, last_activity = CURRENT_TIMESTAMP WHERE id = ?",
+                    (next_q, code)
+                )
+
+        conn.commit()
+
+    return {"status": "ready", "all_ready": all_ready}
+
+
+def _finish_quiz(cursor, code: str, session):
+    """Finalize quiz: compute XP, award to users, assign title."""
+    cursor.execute(
+        "SELECT * FROM quiz_participants WHERE session_id = ? ORDER BY score DESC",
+        (code,)
+    )
+    participants = [dict(r) for r in cursor.fetchall()]
+
+    # Compute avg difficulty
+    try:
+        questions = json.loads(session["questions_json"] or "[]")
+        avg_diff = sum(q.get("difficulty", 2) for q in questions) / max(1, len(questions))
+    except Exception:
+        avg_diff = 2.5
+
+    total_q = int(session["total_questions"])
+
+    # Award XP to each participant
+    for i, p in enumerate(participants):
+        place = i + 1
+        xp = _compute_quiz_xp(place, total_q, avg_diff)
+        cursor.execute(
+            "UPDATE quiz_participants SET xp_earned = ? WHERE session_id = ? AND user_id = ?",
+            (xp, code, p["user_id"])
+        )
+        # Apply real XP
+        apply_xp_change(cursor, p["user_id"], xp, "quiz_reward", f"quiz_{code}_place_{place}")
+
+    # Award "Мастер тестов" title to winner
+    if participants:
+        winner_id = participants[0]["user_id"]
+        # Expire previous quiz master titles
+        cursor.execute(
+            "UPDATE guild_member_titles SET expires_at = CURRENT_TIMESTAMP "
+            "WHERE title_text = '🧠 Мастер тестов' AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)"
+        )
+        # Insert new title for the winner
+        try:
+            cursor.execute(
+                "INSERT INTO guild_member_titles (from_guild_id, to_user_id, title_text, effect_type, effect_value, effect_meta, expires_at) "
+                "VALUES (0, ?, '🧠 Мастер тестов', 'xp_bonus', 0.05, 'quiz_master', NULL)",
+                (winner_id,)
+            )
+        except Exception:
+            pass  # table may not have all columns on first run
+
+    cursor.execute(
+        "UPDATE quiz_sessions SET status = 'finished', finished_at = CURRENT_TIMESTAMP, last_activity = CURRENT_TIMESTAMP WHERE id = ?",
+        (code,)
+    )
+
+
+@app.post("/api/quiz/leave/{code}")
+def quiz_leave(code: str, user: dict = Depends(require_auth)):
+    """Leave a quiz session."""
+    code = code.strip().upper()
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM quiz_participants WHERE session_id = ? AND user_id = ?", (code, user["id"]))
+        # If no participants left, expire the session
+        cursor.execute("SELECT COUNT(*) as cnt FROM quiz_participants WHERE session_id = ?", (code,))
+        if cursor.fetchone()["cnt"] == 0:
+            cursor.execute("UPDATE quiz_sessions SET status = 'expired' WHERE id = ?", (code,))
+        conn.commit()
+    return {"status": "left"}
+
+
+# ── Admin quiz endpoints ──
+
+@app.get("/api/admin/quiz/sessions")
+def admin_quiz_sessions(admin: dict = Depends(require_admin)):
+    """List all quiz sessions for admin panel."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        _cleanup_stale_quiz_sessions(cursor)
+        conn.commit()
+
+        cursor.execute(
+            "SELECT qs.*, u.display_name as creator_name, "
+            "(SELECT COUNT(*) FROM quiz_participants WHERE session_id = qs.id) as participant_count "
+            "FROM quiz_sessions qs JOIN users u ON u.id = qs.creator_id "
+            "ORDER BY CASE qs.status WHEN 'lobby' THEN 0 WHEN 'approved' THEN 1 WHEN 'active' THEN 2 ELSE 3 END, "
+            "qs.created_at DESC LIMIT 50"
+        )
+        sessions = [dict(r) for r in cursor.fetchall()]
+
+        daily = _get_quiz_daily_count(cursor)
+
+    return {"sessions": sessions, "daily_count": daily, "daily_limit": QUIZ_MAX_DAILY_SESSIONS}
+
+
+@app.post("/api/admin/quiz/approve/{code}")
+def admin_quiz_approve(code: str, admin: dict = Depends(require_admin)):
+    """Approve a lobby → quiz starts."""
+    code = code.strip().upper()
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM quiz_sessions WHERE id = ? AND status = 'lobby'", (code,))
+        session = cursor.fetchone()
+        if not session:
+            raise HTTPException(status_code=404, detail="Лобби не найдено или уже одобрено")
+
+        # Check min participants
+        cursor.execute("SELECT COUNT(*) as cnt FROM quiz_participants WHERE session_id = ?", (code,))
+        count = cursor.fetchone()["cnt"]
+        if count < QUIZ_MIN_PARTICIPANTS:
+            raise HTTPException(status_code=400, detail=f"Нужно минимум {QUIZ_MIN_PARTICIPANTS} участника (сейчас {count})")
+
+        # Check daily limit
+        daily = _get_quiz_daily_count(cursor)
+        if daily >= QUIZ_MAX_DAILY_SESSIONS:
+            raise HTTPException(status_code=429, detail=f"Лимит квизов на сегодня исчерпан ({QUIZ_MAX_DAILY_SESSIONS}/день)")
+
+        # Start the quiz
+        cursor.execute(
+            "UPDATE quiz_sessions SET status = 'active', current_question = 0, approved_at = CURRENT_TIMESTAMP, "
+            "started_at = CURRENT_TIMESTAMP, last_activity = CURRENT_TIMESTAMP, approved_by = ? WHERE id = ?",
+            (admin["id"], code)
+        )
+        # Reset all participants
+        cursor.execute(
+            "UPDATE quiz_participants SET current_answer = -1, is_ready = 0, score = 0, correct_count = 0 WHERE session_id = ?",
+            (code,)
+        )
+        _increment_quiz_daily_count(cursor)
+        conn.commit()
+
+    return {"status": "approved", "code": code}
+
+
+@app.post("/api/admin/quiz/cancel/{code}")
+def admin_quiz_cancel(code: str, admin: dict = Depends(require_admin)):
+    """Cancel/expire a quiz session."""
+    code = code.strip().upper()
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE quiz_sessions SET status = 'expired', last_activity = CURRENT_TIMESTAMP WHERE id = ? AND status IN ('lobby', 'approved', 'active')",
+            (code,)
+        )
+        conn.commit()
+    return {"status": "cancelled"}
+
+
+@app.get("/api/quiz/daily-info")
+def quiz_daily_info(user: dict = Depends(require_auth)):
+    """Get daily quiz count and limit."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        daily = _get_quiz_daily_count(cursor)
+    return {"daily_count": daily, "daily_limit": QUIZ_MAX_DAILY_SESSIONS, "quiz_available": bool(_QUIZ_BANK)}
 
 
 # ==================== STARTUP ====================
