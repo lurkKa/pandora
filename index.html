@@ -4925,6 +4925,8 @@
         let homeworkPenaltyShown = new Set();
         let currentTask = null;
         let currentFilter = 'scratch';
+        let categoryAutoSelectDone = false;
+        let categoryAutoSelectDisabled = false;
         let previewRenderTimer = null;
         let dashboardSyncInterval = null;
         let dashboardSyncInFlight = false;
@@ -4967,6 +4969,40 @@
             if (!statusEl) return;
             statusEl.className = `login-status ${state}`;
             statusEl.innerText = message;
+        }
+
+        const CATEGORY_FILTERS = new Set(['python', 'javascript', 'frontend', 'scratch', 'codewars', 'leetcode', 'homework', 'all']);
+
+        function categoryPreferenceKey() {
+            const userKey = currentUser?.id || currentUser?.username || currentUser?.display_name || 'anonymous';
+            return `pandora_category_filter_${userKey}`;
+        }
+
+        function setActiveCategoryTab(category, preferredButton = null) {
+            const buttons = document.querySelectorAll('.tab-btn');
+            let activeButton = preferredButton || null;
+            if (!activeButton) {
+                activeButton = Array.from(buttons).find(button => {
+                    const handler = button.getAttribute('onclick') || '';
+                    return handler.includes(`'${category}'`);
+                });
+            }
+            buttons.forEach(button => {
+                const isActive = button === activeButton;
+                button.classList.toggle('active', isActive);
+                button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            });
+        }
+
+        function restoreCategoryPreference() {
+            try {
+                const saved = localStorage.getItem(categoryPreferenceKey());
+                if (!saved || !CATEGORY_FILTERS.has(saved)) return;
+                currentFilter = saved;
+                categoryAutoSelectDone = true;
+                categoryAutoSelectDisabled = true;
+                setActiveCategoryTab(saved);
+            } catch (_e) { }
         }
 
         async function fetchJsonWithTimeout(url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
@@ -5113,6 +5149,7 @@
             document.getElementById('player-name').innerText = currentUser.display_name;
             updateXPDisplay();
             loadProfile(); // also updates avatar + rank
+            restoreCategoryPreference();
             loadRoadmap();
             loadHomework(true);
             loadLeaderboard(); // Load world leaderboard
@@ -5312,8 +5349,9 @@
 
                 await loadHomework(false);
 
-                // Auto-select category with most completed tasks
-                if (currentUser && currentUser.completed_tasks && currentUser.completed_tasks.length > 0) {
+                // Auto-select the student's strongest category only once per session.
+                // Manual tab choices are sticky and never overwritten by background refreshes.
+                if (!categoryAutoSelectDone && !categoryAutoSelectDisabled && currentUser && currentUser.completed_tasks && currentUser.completed_tasks.length > 0) {
                     const completedSet = new Set(currentUser.completed_tasks);
                     const catCounts = {};
                     const validCats = ['python', 'javascript', 'frontend', 'scratch'];
@@ -5327,18 +5365,12 @@
                     for (const [cat, cnt] of Object.entries(catCounts)) {
                         if (cnt > bestCount) { bestCount = cnt; bestCat = cat; }
                     }
+                    categoryAutoSelectDone = true;
                     currentFilter = bestCat;
-                    // Highlight the correct tab button
-                    document.querySelectorAll('.tab-btn').forEach(b => {
-                        const match = b.getAttribute('onclick') || '';
-                        if (match.includes(`'${bestCat}'`)) {
-                            b.classList.add('active');
-                            b.setAttribute('aria-selected', 'true');
-                        } else {
-                            b.classList.remove('active');
-                            b.setAttribute('aria-selected', 'false');
-                        }
-                    });
+                    selectedTopicFilter = null;
+                    setActiveCategoryTab(bestCat);
+                } else if (!categoryAutoSelectDone) {
+                    categoryAutoSelectDone = true;
                 }
 
                 renderQuests();
@@ -5354,19 +5386,42 @@
         }
 
         function filterCategory(category, btn) {
+            categoryAutoSelectDone = true;
+            categoryAutoSelectDisabled = true;
             currentFilter = category;
             selectedTopicFilter = null;
-            document.querySelectorAll('.tab-btn').forEach(t => {
-                t.classList.remove('active');
-                t.setAttribute('aria-selected', 'false');
-            });
-            btn.classList.add('active');
-            btn.setAttribute('aria-selected', 'true');
+            try {
+                if (CATEGORY_FILTERS.has(category)) {
+                    localStorage.setItem(categoryPreferenceKey(), category);
+                }
+            } catch (_e) { }
+            setActiveCategoryTab(category, btn);
             renderQuests();
         }
 
         function openAlextype() {
             window.open('/alextype', '_blank', 'noopener,noreferrer');
+        }
+
+        function formatUnlockInfo(unlock) {
+            if (!unlock) return 'Выполни предыдущие задания, чтобы открыть этот квест.';
+            if (unlock.message_ru) return unlock.message_ru;
+            if (unlock.type === 'explicit') {
+                const missing = Array.isArray(unlock.missing) ? unlock.missing : [];
+                return missing.length ? `Нужно выполнить: ${missing.join(', ')}` : 'Предусловия выполнены.';
+            }
+            if (unlock.type === 'tier_gate') {
+                const req = unlock.requires || {};
+                const progress = unlock.progress || {};
+                return `Нужно решить ${req.count || 0} заданий ранга ${req.tier || '?'}: ${progress.count || 0}/${req.count || 0}.`;
+            }
+            if (Array.isArray(unlock.requires)) {
+                return unlock.requires.map(r => {
+                    if (r.all_solved) return `${r.tier}: всё решено`;
+                    return `${r.tier}: ${r.have || 0}/${r.count || 0}`;
+                }).join(', ');
+            }
+            return 'Квест пока закрыт.';
         }
 
         function buildMethodBadges(methodsCount) {

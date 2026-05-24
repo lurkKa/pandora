@@ -16,6 +16,7 @@ KAHOOT_2 = os.path.join(ROOT, "kahoot_2.json")
 OUTPUT   = os.path.join(ROOT, "quiz_bank.json")
 
 SAMPLE_RATIO_1 = 0.20  # 20% from kahoot_1
+RANDOM_SEED = 20260524
 
 
 def _normalize_difficulty(raw) -> int:
@@ -42,18 +43,47 @@ def _normalize_item(item: dict, source: str) -> dict:
     """Convert to unified schema."""
     diff = _normalize_difficulty(item.get("difficulty", 2))
     time_limit = int(item.get("time_limit_sec") or (15 + diff * 3))  # 18-30 sec
-    return {
+    normalized = {
         "id": item.get("id", ""),
         "domain": item.get("domain", ""),
         "topic": item.get("topic", ""),
         "difficulty": diff,
+        "type": item.get("type", ""),
         "question": item.get("question", ""),
         "options": _normalize_options(item.get("options")),
         "answer_index": int(item.get("answer_index", 0)),
         "explanation": item.get("explanation", ""),
         "time_limit_sec": time_limit,
-        "source": source,
+        "source_file": source,
     }
+    source_info = item.get("source")
+    normalized["source"] = source_info if isinstance(source_info, dict) else source
+
+    passthrough_fields = (
+        "code",
+        "context",
+        "source_task_id",
+        "source_task_title",
+        "source_task_reference_code",
+        "source_task_reference_code_role",
+        "source_task_solution_code",
+        "source_task_solution_code_role",
+        "reference_code",
+        "reference_code_role",
+        "answer",
+        "tags",
+        "tier",
+        "platform",
+    )
+    for field in passthrough_fields:
+        value = item.get(field)
+        if value not in (None, ""):
+            normalized[field] = value
+
+    if isinstance(source_info, dict):
+        normalized.setdefault("source_task_id", source_info.get("task_id"))
+        normalized.setdefault("source_task_title", source_info.get("task_title"))
+    return normalized
 
 
 def main():
@@ -69,7 +99,8 @@ def main():
 
     # Sample 20% from kahoot_1
     sample_count = int(len(items1) * SAMPLE_RATIO_1)
-    sampled_1 = random.sample(items1, sample_count)
+    rng = random.Random(RANDOM_SEED)
+    sampled_1 = rng.sample(items1, sample_count)
     print(f"  kahoot_1: {len(items1)} total → sampled {len(sampled_1)} ({SAMPLE_RATIO_1*100:.0f}%)")
     print(f"  kahoot_2: {len(items2)} total → 100%")
 
@@ -81,7 +112,7 @@ def main():
         unified.append(_normalize_item(item, "kahoot_2"))
 
     # Shuffle
-    random.shuffle(unified)
+    rng.shuffle(unified)
 
     # Stats
     diff_dist = {}
@@ -94,6 +125,7 @@ def main():
         "meta": {
             "total": len(unified),
             "generated_at": datetime.now(timezone.utc).isoformat(),
+            "random_seed": RANDOM_SEED,
             "sources": {"kahoot_1_sampled": len(sampled_1), "kahoot_2_full": len(items2)},
             "difficulty_distribution": diff_dist,
             "domain_distribution": domain_dist,

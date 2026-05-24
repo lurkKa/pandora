@@ -58,7 +58,8 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .q-timer.urgent{color:var(--red);animation:shake .3s infinite}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
 .q-domain{font-size:12px;padding:4px 12px;border-radius:8px;background:rgba(139,92,246,0.12);color:var(--accent);margin-bottom:16px;display:inline-block}
-.q-text{font-size:20px;font-weight:600;text-align:center;max-width:600px;line-height:1.5;margin-bottom:28px;min-height:60px}
+.q-text{font-size:20px;font-weight:600;text-align:center;max-width:600px;line-height:1.5;margin-bottom:16px;min-height:60px}
+.q-code{width:100%;max-width:600px;max-height:220px;overflow:auto;white-space:pre-wrap;text-align:left;font-family:'Cascadia Code','Fira Code','SFMono-Regular',Consolas,monospace;font-size:14px;line-height:1.45;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:0 0 20px;color:#dbeafe}
 .options-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:600px}
 .opt-btn{padding:20px 16px;border-radius:16px;border:2px solid transparent;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s;text-align:center;min-height:70px;display:flex;align-items:center;justify-content:center;line-height:1.3}
 .opt-btn:nth-child(1){background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.3);color:#fca5a5}
@@ -149,6 +150,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
   <div class="q-timer" id="q-timer">20</div>
   <div class="q-domain" id="q-domain">Python</div>
   <div class="q-text" id="q-text">Загрузка вопроса...</div>
+  <pre class="q-code hidden" id="q-code"></pre>
   <div class="options-grid" id="q-options"></div>
 </div>
 
@@ -216,11 +218,14 @@ async function api(endpoint, method = 'GET', body = null) {
 async function loadDailyInfo() {
   try {
     const d = await api('/api/quiz/daily-info');
+    const unlimited = d.unlimited || d.daily_limit === null || d.daily_limit === undefined;
+    const limitText = unlimited ? `${d.daily_count} квизов · без лимита` : `${d.daily_count}/${d.daily_limit} квизов`;
+    const limitReached = !unlimited && d.daily_count >= d.daily_limit;
     document.getElementById('daily-info').innerHTML =
-      `Сегодня: ${d.daily_count}/${d.daily_limit} квизов` +
-      (d.daily_count >= d.daily_limit ? ' <span style="color:var(--red)">· Лимит исчерпан</span>' : '') +
+      `Сегодня: ${limitText}` +
+      (limitReached ? ' <span style="color:var(--red)">· Лимит исчерпан</span>' : '') +
       (!d.quiz_available ? ' <span style="color:var(--red)">· База вопросов не загружена</span>' : '');
-    document.getElementById('btn-create').disabled = d.daily_count >= d.daily_limit || !d.quiz_available;
+    document.getElementById('btn-create').disabled = limitReached || !d.quiz_available;
   } catch(e) { document.getElementById('daily-info').textContent = 'Ошибка загрузки'; }
 }
 
@@ -322,6 +327,15 @@ function renderQuestion(s) {
   const domainMap = {python:'🐍 Python', javascript:'⚡ JavaScript', frontend:'🎨 Frontend', scratch:'🐱 Scratch'};
   document.getElementById('q-domain').textContent = domainMap[q.domain] || q.domain;
   document.getElementById('q-text').textContent = q.question;
+  const codeEl = document.getElementById('q-code');
+  const snippet = (q.code || q.context || '').trim();
+  if (snippet) {
+    codeEl.textContent = snippet;
+    codeEl.classList.remove('hidden');
+  } else {
+    codeEl.textContent = '';
+    codeEl.classList.add('hidden');
+  }
 
   const grid = document.getElementById('q-options');
   grid.innerHTML = q.options.map((o, i) => `

@@ -2847,7 +2847,9 @@
         async function loadQuizSessions() {
             try {
                 const data = await api('/api/admin/quiz/sessions');
-                document.getElementById('quiz-daily-counter').textContent = `${data.daily_count}/${data.daily_limit} сегодня`;
+                document.getElementById('quiz-daily-counter').textContent = data.unlimited
+                    ? `${data.daily_count} сегодня · без лимита`
+                    : `${data.daily_count}/${data.daily_limit} сегодня`;
                 const tbody = document.getElementById('quiz-sessions-table');
                 const statusMap = {lobby:'🟡 Лобби',approved:'🟢 Одобрено',active:'🔵 Активен',finished:'✅ Завершён',expired:'⚫ Истёк'};
                 tbody.innerHTML = data.sessions.map(s => `<tr>

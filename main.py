@@ -4480,11 +4480,28 @@ def public_task_lite(task: dict) -> dict:
         },
     }
 
+EXTERNAL_TASK_PLATFORMS = {"codewars", "leetcode"}
+TASK_TIER_ORDER = ("D", "C", "B", "A", "S")
 TIER_PREV = {"C": "D", "B": "C", "A": "B", "S": "A"}
-DEFAULT_UNLOCK_REQUIREMENTS = {"C": 3, "B": 3, "A": 3, "S": 3}  # 3:1 ratio by default
+DEFAULT_UNLOCK_REQUIREMENTS = {"C": 2, "B": 2, "A": 2, "S": 2}
+DAILY_ADVANCED_TIER_REQUIREMENTS = {
+    "A": ("C", "B"),
+    "S": ("C", "B", "A"),
+}
+EXTERNAL_PLATFORM_REQUIREMENTS = {"A": 2, "S": 2}
 
 def _completed_task_ids(cursor, user_id: int) -> set:
     cursor.execute("SELECT task_id FROM completed_tasks WHERE user_id = ? AND is_valid != 0", (user_id,))
+    return {row["task_id"] for row in cursor.fetchall()}
+
+def _completed_task_ids_today(cursor, user_id: int) -> set:
+    cursor.execute(
+        """
+        SELECT task_id FROM completed_tasks
+        WHERE user_id = ? AND is_valid != 0 AND DATE(completed_at) = DATE('now')
+        """,
+        (user_id,),
+    )
     return {row["task_id"] for row in cursor.fetchall()}
 
 def _methods_count_by_task(cursor, user_id: int, completed_ids: Optional[set] = None) -> dict:
@@ -4506,41 +4523,197 @@ def _methods_count_by_task(cursor, user_id: int, completed_ids: Optional[set] = 
             out.setdefault(str(tid), 1)
     return out
 
-def _counts_by_category_and_tier(tasks_by_id: dict, completed_ids: set) -> dict:
+def _is_external_platform_task(task: dict) -> bool:
+    platform = str(task.get("source_platform") or "").strip().lower()
+    if platform in EXTERNAL_TASK_PLATFORMS:
+        return True
+    tags = task.get("tags") if isinstance(task.get("tags"), list) else []
+    platform_tags = {f"platform:{p}" for p in EXTERNAL_TASK_PLATFORMS}
+    return any(str(tag).lower() in platform_tags for tag in tags)
+
+def _counts_by_category_and_tier(tasks_by_id: dict, completed_ids: set, include_external: bool = False) -> dict:
     counts: dict = {}
     for tid in completed_ids:
         t = tasks_by_id.get(tid) or {}
+        if not include_external and _is_external_platform_task(t):
+            continue
         cat = t.get("category") or "unknown"
-        tier = t.get("tier") or "D"
+        tier = (t.get("tier") or "D").upper()
         counts.setdefault(cat, {})
         counts[cat][tier] = counts[cat].get(tier, 0) + 1
     return counts
 
-def _unlock_state(task: dict, completed_ids: set, counts: dict) -> tuple[bool, dict]:
+def _task_totals_by_category_and_tier(tasks_by_id: dict, include_external: bool = False) -> dict:
+    totals: dict = {}
+    for task in tasks_by_id.values():
+        if not isinstance(task, dict):
+            continue
+        if is_archived_task_id(task.get("id")):
+            continue
+        if not include_external and _is_external_platform_task(task):
+            continue
+        cat = task.get("category") or "unknown"
+        tier = (task.get("tier") or "D").upper()
+        totals.setdefault(cat, {})
+        totals[cat][tier] = totals[cat].get(tier, 0) + 1
+    return totals
+
+def _tier_count(source: dict | None, category: str, tier: str) -> int:
+    if not source:
+        return 0
+    return int((source.get(category) or {}).get(tier, 0) or 0)
+
+def _tier_requirement_status(
+    category: str,
+    tier: str,
+    need: int,
+    counts: dict,
+    totals: dict | None,
+    daily_counts: dict | None = None,
+    daily: bool = False,
+) -> dict:
+    total = _tier_count(totals, category, tier) if totals is not None else 0
+    completed_total = _tier_count(counts, category, tier)
+    all_solved = totals is not None and total > 0 and completed_total >= total
+    if all_solved:
+        return {
+            "tier": tier,
+            "count": need,
+            "have": max(need, completed_total),
+            "total": total,
+            "ok": True,
+            "all_solved": True,
+        }
+    if totals is not None and total == 0:
+        return {
+            "tier": tier,
+            "count": need,
+            "have": 0,
+            "total": 0,
+            "ok": True,
+            "all_solved": True,
+            "empty_tier": True,
+        }
+    have = _tier_count(daily_counts if daily else counts, category, tier)
+    return {
+        "tier": tier,
+        "count": need,
+        "have": have,
+        "total": total,
+        "ok": have >= (min(need, total) if totals is not None else need),
+        "all_solved": False,
+    }
+
+def _all_tiers_completed(category: str, tiers: tuple[str, ...], counts: dict, totals: dict | None) -> bool:
+    has_any = False
+    for tier in tiers:
+        total = _tier_count(totals, category, tier)
+        if total <= 0:
+            continue
+        has_any = True
+        if _tier_count(counts, category, tier) < total:
+            return False
+    return has_any
+
+def _unlock_message(requirements: list[dict], daily: bool = False) -> str:
+    parts = []
+    for req in requirements:
+        if req.get("all_solved"):
+            parts.append(f"{req['tier']}: всё решено")
+        else:
+            parts.append(f"{req['tier']}: {req.get('have', 0)}/{req.get('count', 0)}")
+    prefix = "Сегодня нужно решить" if daily else "Нужно решить"
+    return f"{prefix}: " + ", ".join(parts)
+
+def _unlock_state(
+    task: dict,
+    completed_ids: set,
+    counts: dict,
+    tasks_by_id: dict | None = None,
+    daily_counts: dict | None = None,
+    totals: dict | None = None,
+) -> tuple[bool, dict]:
     """Return (unlocked, info)."""
+    task_id = task.get("id")
+    if task_id in completed_ids:
+        return True, {"type": "completed", "requirement": None}
+
     prereq = task.get("prerequisites") or []
     if prereq:
         missing = [p for p in prereq if p not in completed_ids]
         return (len(missing) == 0), {"type": "explicit", "missing": missing}
 
-    tier = task.get("tier") or "D"
+    tier = (task.get("tier") or "D").upper()
+    category = task.get("category") or "unknown"
+    if totals is None and tasks_by_id is not None:
+        totals = _task_totals_by_category_and_tier(tasks_by_id)
+
+    if _is_external_platform_task(task):
+        requirements = [
+            _tier_requirement_status(category, req_tier, need, counts, totals)
+            for req_tier, need in EXTERNAL_PLATFORM_REQUIREMENTS.items()
+        ]
+        unlocked = all(req["ok"] for req in requirements)
+        return unlocked, {
+            "type": "external_platform_gate",
+            "category": category,
+            "platform": task.get("source_platform") or "external",
+            "requires": requirements,
+            "message_ru": (
+                "Codewars/LeetCode открыты: A/S-порог пройден."
+                if unlocked
+                else _unlock_message(requirements, daily=False)
+            ),
+        }
+
     if tier == "D":
         return True, {"type": "tier_gate", "requirement": None}
+
+    if tier in {"A", "S"}:
+        if _all_tiers_completed(category, ("D", "C", "B"), counts, totals):
+            return True, {
+                "type": "permanent_advanced_gate",
+                "category": category,
+                "tier": tier,
+                "message_ru": "Все задания до A-ранга закрыты, A/S ранги открыты навсегда.",
+            }
+
+        need = int(DEFAULT_UNLOCK_REQUIREMENTS.get(tier, 2))
+        requirements = [
+            _tier_requirement_status(category, req_tier, need, counts, totals, daily_counts, daily=True)
+            for req_tier in DAILY_ADVANCED_TIER_REQUIREMENTS.get(tier, ())
+        ]
+        unlocked = all(req["ok"] for req in requirements)
+        return unlocked, {
+            "type": "daily_advanced_tier_gate",
+            "category": category,
+            "tier": tier,
+            "requires": requirements,
+            "message_ru": (
+                f"{tier}-ранг открыт на сегодня."
+                if unlocked
+                else _unlock_message(requirements, daily=True)
+            ),
+        }
 
     prev = TIER_PREV.get(tier)
     if not prev:
         return True, {"type": "tier_gate", "requirement": None}
 
-    category = task.get("category") or "unknown"
     need = int(DEFAULT_UNLOCK_REQUIREMENTS.get(tier, 0))
-    have = int(counts.get(category, {}).get(prev, 0))
-    unlocked = have >= need
+    req = _tier_requirement_status(category, prev, need, counts, totals)
+    unlocked = bool(req["ok"])
     return unlocked, {
         "type": "tier_gate",
         "category": category,
         "tier": tier,
         "requires": {"tier": prev, "count": need},
-        "progress": {"count": have},
+        "progress": {"count": req["have"], "total": req["total"], "all_solved": req["all_solved"]},
+        "message_ru": (
+            f"{tier}-ранг открыт."
+            if unlocked
+            else _unlock_message([req], daily=False)
+        ),
     }
 
 
@@ -4584,6 +4757,8 @@ def _smart_select_homework_tasks(
     user_level: int,
     count: int = 4,
     tasks_by_id: dict | None = None,
+    daily_counts: dict | None = None,
+    totals: dict | None = None,
 ) -> list[str]:
     """
     Personalized homework per student.
@@ -4599,6 +4774,7 @@ def _smart_select_homework_tasks(
         tasks_by_id = {t.get("id"): t for t in tasks_raw if t.get("id")}
 
     counts = _counts_by_category_and_tier(tasks_by_id, completed_ids)
+    totals = totals or _task_totals_by_category_and_tier(tasks_by_id)
     tier_order = {"D": 0, "C": 1, "B": 2, "A": 3, "S": 4}
 
     # Filter: uncompleted + unlocked for this student
@@ -4612,7 +4788,7 @@ def _smart_select_homework_tasks(
         cat = t.get("category")
         if cat not in ("python", "javascript", "frontend", "scratch"):
             continue
-        unlocked, _ = _unlock_state(t, completed_ids, counts)
+        unlocked, _ = _unlock_state(t, completed_ids, counts, tasks_by_id, daily_counts, totals)
         if unlocked:
             candidates.append(t)
 
@@ -4709,7 +4885,10 @@ def _auto_generate_homework_for_user(
     auto_hw_ids = [row["id"] for row in cursor.fetchall()]
 
     completed_ids = _completed_task_ids(cursor, user_id)
+    completed_today_ids = _completed_task_ids_today(cursor, user_id)
     counts = _counts_by_category_and_tier(tasks_by_id, completed_ids)
+    daily_counts = _counts_by_category_and_tier(tasks_by_id, completed_today_ids)
+    totals = _task_totals_by_category_and_tier(tasks_by_id)
 
     for hw_id in auto_hw_ids:
         cursor.execute(
@@ -4722,7 +4901,7 @@ def _auto_generate_homework_for_user(
         for tid in hw_task_ids:
             task = tasks_by_id.get(tid)
             if task:
-                unlocked, _ = _unlock_state(task, completed_ids, counts)
+                unlocked, _ = _unlock_state(task, completed_ids, counts, tasks_by_id, daily_counts, totals)
                 if not unlocked:
                     has_locked = True
                     break
@@ -4751,7 +4930,15 @@ def _auto_generate_homework_for_user(
     user_level = int(row["level"]) if row else 1
 
     # Smart select tasks
-    task_ids = _smart_select_homework_tasks(tasks_raw, completed_ids, user_level, count=4, tasks_by_id=tasks_by_id)
+    task_ids = _smart_select_homework_tasks(
+        tasks_raw,
+        completed_ids,
+        user_level,
+        count=4,
+        tasks_by_id=tasks_by_id,
+        daily_counts=daily_counts,
+        totals=totals,
+    )
     if len(task_ids) < 3:
         return False  # Not enough uncompleted tasks
 
@@ -4993,6 +5180,7 @@ def get_roadmap(user: dict = Depends(require_auth)):
     with get_db() as conn:
         cursor = conn.cursor()
         completed_ids = _completed_task_ids(cursor, user["id"])
+        completed_today_ids = _completed_task_ids_today(cursor, user["id"])
         method_counts = _methods_count_by_task(cursor, user["id"], completed_ids)
         
         # Get pending review task IDs
@@ -5017,13 +5205,15 @@ def get_roadmap(user: dict = Depends(require_auth)):
         homework_ids = {str(row["task_id"]) for row in cursor.fetchall()}
 
     counts = _counts_by_category_and_tier(tasks_by_id, completed_ids)
+    daily_counts = _counts_by_category_and_tier(tasks_by_id, completed_today_ids)
+    totals = _task_totals_by_category_and_tier(tasks_by_id)
 
     tasks = []
     for t in tasks_raw:
         tid = str(t.get("id") or "")
         if is_archived_task_id(tid) and tid not in homework_ids:
             continue
-        unlocked, unlock_info = _unlock_state(t, completed_ids, counts)
+        unlocked, unlock_info = _unlock_state(t, completed_ids, counts, tasks_by_id, daily_counts, totals)
         pt = public_task_lite(t)
         pt["completed"] = pt["id"] in completed_ids
         pt["locked"] = not unlocked and not pt["completed"]
@@ -5049,6 +5239,7 @@ def get_roadmap(user: dict = Depends(require_auth)):
         "categories": data.get("categories", []),
         "tasks": tasks,
         "counts": counts,
+        "daily_counts": daily_counts,
         "topic_completion": topic_completion,
     }
 
@@ -6116,8 +6307,11 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
     with get_db() as conn:
         cursor = conn.cursor()
         completed_ids = _completed_task_ids(cursor, user["id"])
+        completed_today_ids = _completed_task_ids_today(cursor, user["id"])
         counts = _counts_by_category_and_tier(tasks_by_id, completed_ids)
-        unlocked, unlock_info = _unlock_state(task, completed_ids, counts)
+        daily_counts = _counts_by_category_and_tier(tasks_by_id, completed_today_ids)
+        totals = _task_totals_by_category_and_tier(tasks_by_id)
+        unlocked, unlock_info = _unlock_state(task, completed_ids, counts, tasks_by_id, daily_counts, totals)
         last_attempt_age = _seconds_since_last_task_attempt(cursor, user["id"], data.task_id)
         if (
             ATTEMPT_COOLDOWN_S > 0
@@ -6412,8 +6606,11 @@ def attempt_scratch_task(
     with get_db() as conn:
         cursor = conn.cursor()
         completed_ids = _completed_task_ids(cursor, user["id"])
+        completed_today_ids = _completed_task_ids_today(cursor, user["id"])
         counts = _counts_by_category_and_tier(tasks_by_id, completed_ids)
-        unlocked, unlock_info = _unlock_state(task, completed_ids, counts)
+        daily_counts = _counts_by_category_and_tier(tasks_by_id, completed_today_ids)
+        totals = _task_totals_by_category_and_tier(tasks_by_id)
+        unlocked, unlock_info = _unlock_state(task, completed_ids, counts, tasks_by_id, daily_counts, totals)
         existing_pending = _pending_submission_for_task(cursor, user["id"], task_id)
         if existing_pending:
             return {
@@ -6539,8 +6736,11 @@ async def attempt_scratch_task_fast(
     with get_db() as conn:
         cursor = conn.cursor()
         completed_ids = _completed_task_ids(cursor, user["id"])
+        completed_today_ids = _completed_task_ids_today(cursor, user["id"])
         counts = _counts_by_category_and_tier(tasks_by_id, completed_ids)
-        unlocked, unlock_info = _unlock_state(task, completed_ids, counts)
+        daily_counts = _counts_by_category_and_tier(tasks_by_id, completed_today_ids)
+        totals = _task_totals_by_category_and_tier(tasks_by_id)
+        unlocked, unlock_info = _unlock_state(task, completed_ids, counts, tasks_by_id, daily_counts, totals)
         existing_pending = _pending_submission_for_task(cursor, user["id"], task_id)
         if existing_pending:
             return {
@@ -10697,23 +10897,25 @@ import string as _string
 # ── In-memory quiz bank ──
 _QUIZ_BANK: list[dict] = []
 _QUIZ_BANK_BY_DIFFICULTY: dict[int, list[dict]] = {1: [], 2: [], 3: [], 4: [], 5: []}
+QUIZ_BANK_FILENAME = "kahoot_1_2.json"
 
 def _load_quiz_bank():
-    """Load quiz_bank.json into memory once."""
-    global _QUIZ_BANK
-    bank_path = os.path.join(os.path.dirname(__file__), "quiz_bank.json")
+    """Load the active Kahoot quiz bank into memory once."""
+    global _QUIZ_BANK, _QUIZ_BANK_BY_DIFFICULTY
+    bank_path = os.path.join(os.path.dirname(__file__), QUIZ_BANK_FILENAME)
     if not os.path.exists(bank_path):
-        print("⚠️  quiz_bank.json not found – quiz system disabled")
+        print(f"⚠️  {QUIZ_BANK_FILENAME} not found – quiz system disabled")
         return
     try:
         with open(bank_path, encoding="utf-8") as f:
             data = json.load(f)
         _QUIZ_BANK = data.get("items", [])
+        _QUIZ_BANK_BY_DIFFICULTY = {1: [], 2: [], 3: [], 4: [], 5: []}
         for item in _QUIZ_BANK:
             d = int(item.get("difficulty", 2))
             if d in _QUIZ_BANK_BY_DIFFICULTY:
                 _QUIZ_BANK_BY_DIFFICULTY[d].append(item)
-        print(f"✓ Quiz bank loaded: {len(_QUIZ_BANK)} questions")
+        print(f"✓ Quiz bank loaded from {QUIZ_BANK_FILENAME}: {len(_QUIZ_BANK)} questions")
     except Exception as e:
         print(f"⚠️  Failed to load quiz bank: {e}")
 
@@ -10721,7 +10923,7 @@ def _load_quiz_bank():
 _load_quiz_bank()
 
 QUIZ_SESSION_TIMEOUT_SEC = 300  # 5 minutes inactivity
-QUIZ_MAX_DAILY_SESSIONS = 3
+QUIZ_MAX_DAILY_SESSIONS = None  # None = unlimited; admin approval is still required.
 QUIZ_MIN_PARTICIPANTS = 3
 QUIZ_QUESTION_RANGE = (12, 15)
 
@@ -10800,11 +11002,6 @@ def quiz_create(user: dict = Depends(require_auth)):
     with get_db() as conn:
         cursor = conn.cursor()
         _cleanup_stale_quiz_sessions(cursor)
-
-        # Check daily limit
-        daily = _get_quiz_daily_count(cursor)
-        if daily >= QUIZ_MAX_DAILY_SESSIONS:
-            raise HTTPException(status_code=429, detail=f"Лимит квизов на сегодня исчерпан ({QUIZ_MAX_DAILY_SESSIONS}/день)")
 
         # Check user not already in active session
         cursor.execute(
@@ -10944,6 +11141,8 @@ def quiz_get_session(code: str, user: dict = Depends(require_auth)):
                     result["question"] = {
                         "index": qi,
                         "question": q["question"],
+                        "code": q.get("code") or None,
+                        "context": q.get("context") or None,
                         "options": q["options"],
                         "difficulty": q["difficulty"],
                         "time_limit_sec": q.get("time_limit_sec", 20),
@@ -11167,7 +11366,7 @@ def admin_quiz_sessions(admin: dict = Depends(require_admin)):
 
         daily = _get_quiz_daily_count(cursor)
 
-    return {"sessions": sessions, "daily_count": daily, "daily_limit": QUIZ_MAX_DAILY_SESSIONS}
+    return {"sessions": sessions, "daily_count": daily, "daily_limit": QUIZ_MAX_DAILY_SESSIONS, "unlimited": True}
 
 
 @app.post("/api/admin/quiz/approve/{code}")
@@ -11186,11 +11385,6 @@ def admin_quiz_approve(code: str, admin: dict = Depends(require_admin)):
         count = cursor.fetchone()["cnt"]
         if count < QUIZ_MIN_PARTICIPANTS:
             raise HTTPException(status_code=400, detail=f"Нужно минимум {QUIZ_MIN_PARTICIPANTS} участника (сейчас {count})")
-
-        # Check daily limit
-        daily = _get_quiz_daily_count(cursor)
-        if daily >= QUIZ_MAX_DAILY_SESSIONS:
-            raise HTTPException(status_code=429, detail=f"Лимит квизов на сегодня исчерпан ({QUIZ_MAX_DAILY_SESSIONS}/день)")
 
         # Start the quiz
         cursor.execute(
@@ -11229,7 +11423,13 @@ def quiz_daily_info(user: dict = Depends(require_auth)):
     with get_db() as conn:
         cursor = conn.cursor()
         daily = _get_quiz_daily_count(cursor)
-    return {"daily_count": daily, "daily_limit": QUIZ_MAX_DAILY_SESSIONS, "quiz_available": bool(_QUIZ_BANK)}
+    return {
+        "daily_count": daily,
+        "daily_limit": QUIZ_MAX_DAILY_SESSIONS,
+        "unlimited": True,
+        "quiz_available": bool(_QUIZ_BANK),
+        "source_file": QUIZ_BANK_FILENAME,
+    }
 
 
 # ==================== STARTUP ====================
