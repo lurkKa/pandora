@@ -4930,6 +4930,7 @@
         let previewRenderTimer = null;
         let dashboardSyncInterval = null;
         let dashboardSyncInFlight = false;
+        let runCodeInFlight = false;
         let dashboardSyncTick = 0;
         let frontendHintsExpanded = false;
         const SCRATCH_CLIENT_MAX_MB = 10;
@@ -6791,6 +6792,7 @@
 
         async function runCode() {
             const output = document.getElementById('output-console');
+            const runBtn = document.getElementById('run-btn');
 
             if (!currentTask) {
                 output.innerText = '❌ Квест не выбран';
@@ -6800,19 +6802,25 @@
                 output.innerText = '🔒 Этот квест пока закрыт.\n\n' + formatUnlockInfo(currentTask.unlock);
                 return;
             }
+            if (runCodeInFlight) {
+                output.innerText = '⏳ Проверка уже идёт. Подожди результат перед повторным запуском.';
+                return;
+            }
+            runCodeInFlight = true;
+            if (runBtn) runBtn.disabled = true;
 
             // Scratch: submit file for manual review
             if (currentTask.category === 'scratch') {
-                const runBtn = document.getElementById('run-btn');
                 const file = getSelectedScratchFile();
                 const validationError = validateScratchUploadFile(file);
                 if (validationError) {
                     output.innerText = `❌ ${validationError}`;
+                    runCodeInFlight = false;
+                    if (runBtn) runBtn.disabled = Boolean(currentTask && currentTask.locked);
                     return;
                 }
 
                 let lastProgress = -1;
-                if (runBtn) runBtn.disabled = true;
                 output.innerText = '⏳ Подготовка отправки...';
 
                 try {
@@ -6839,6 +6847,7 @@
                 } catch (e) {
                     output.innerText = '❌ Ошибка загрузки: ' + (e.message || e);
                 } finally {
+                    runCodeInFlight = false;
                     if (runBtn) runBtn.disabled = Boolean(currentTask && currentTask.locked);
                 }
                 return;
@@ -6998,6 +7007,9 @@
                 output.innerText = safeJson(data);
             } catch (e) {
                 output.innerText = '❌ Ошибка сети: ' + (e.message || e);
+            } finally {
+                runCodeInFlight = false;
+                if (runBtn) runBtn.disabled = Boolean(currentTask && currentTask.locked);
             }
         }
 

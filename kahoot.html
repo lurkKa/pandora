@@ -193,6 +193,8 @@ let pollTimer = null;
 let countdownTimer = null;
 let questionStartTime = 0;
 let answered = false;
+let answerInFlight = false;
+let readyInFlight = false;
 
 function show(viewId) {
   document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
@@ -320,6 +322,8 @@ function renderQuestion(s) {
   const q = s.question;
   window._lastQI = q.index;
   answered = false;
+  answerInFlight = false;
+  readyInFlight = false;
   show('view-question');
 
   document.getElementById('q-counter').textContent = `${q.index + 1}/${s.total_questions}`;
@@ -365,7 +369,8 @@ function startCountdown(seconds) {
 }
 
 async function submitAnswer(idx) {
-  if (answered) return;
+  if (answered || answerInFlight) return;
+  answerInFlight = true;
   answered = true;
   if (countdownTimer) clearInterval(countdownTimer);
 
@@ -387,10 +392,12 @@ async function submitAnswer(idx) {
 
     // Store feedback data
     window._lastFeedback = d;
+    answerInFlight = false;
     // Transition to feedback after brief delay
     setTimeout(() => pollSession(), 1000);
   } catch(e) {
     console.error('Answer error:', e);
+    answerInFlight = false;
     answered = false;
     document.querySelectorAll('.opt-btn').forEach(b => {
       b.disabled = false;
@@ -424,7 +431,8 @@ function renderFeedback(s) {
 }
 
 async function sendReady() {
-  if (!currentCode) return;
+  if (!currentCode || readyInFlight) return;
+  readyInFlight = true;
   const btn = document.getElementById('btn-ready');
   btn.disabled = true;
   btn.textContent = '⏳ Ожидание...';
@@ -433,6 +441,7 @@ async function sendReady() {
     pollSession();
   } catch(e) {
     console.error(e);
+    readyInFlight = false;
     btn.disabled = false;
     btn.textContent = '✅ Готов к следующему!';
     alert(e.message || 'Не удалось отметить готовность');

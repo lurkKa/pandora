@@ -5640,11 +5640,59 @@ RUNNER_CONCURRENCY = int(os.getenv("PANDORA_RUNNER_CONCURRENCY", "1" if LOW_RESO
 ALLOW_UNSAFE_LOCAL_RUNNERS = (os.getenv("PANDORA_ALLOW_UNSAFE_LOCAL_RUNNERS") or "0") == "1"
 
 RUNNER_SEMAPHORE = __import__('threading').Semaphore(max(1, RUNNER_CONCURRENCY))
+ACTIVE_TASK_ATTEMPT_TTL_S = float(os.getenv("PANDORA_ACTIVE_TASK_ATTEMPT_TTL_S", "25.0"))
+_ACTIVE_TASK_ATTEMPTS: dict[tuple[int, str], float] = {}
+_ACTIVE_TASK_ATTEMPTS_LOCK = __import__('threading').Lock()
 _DOCKER_HEALTH_CACHE: dict[str, float | bool] = {"checked_at": 0.0, "ok": False}
 _DOCKER_HEALTH_TTL_S = float(os.getenv("PANDORA_DOCKER_HEALTH_TTL_S", "30"))
 _DOCKER_IMAGE_CACHE: dict[str, dict[str, float | bool]] = {}
 _DOCKER_IMAGE_TTL_S = float(os.getenv("PANDORA_DOCKER_IMAGE_TTL_S", "60"))
 _LOCAL_FALLBACK_WARNED: set[str] = set()
+
+
+def _runner_busy_verification() -> tuple[dict, int]:
+    return (
+        {
+            "passed": False,
+            "exec_error": {
+                "type": "RunnerBusy",
+                "message": "Проверка уже выполняется. Подожди пару секунд и нажми Run ещё раз.",
+                "trace": "",
+            },
+            "stdout": "",
+            "cases": [],
+        },
+        0,
+    )
+
+
+def _begin_active_task_attempt(user_id: int, task_id: str) -> tuple[int, str, float]:
+    key = (int(user_id), str(task_id))
+    now = time.monotonic()
+    ttl = max(1.0, ACTIVE_TASK_ATTEMPT_TTL_S)
+    with _ACTIVE_TASK_ATTEMPTS_LOCK:
+        stale = [k for k, started in _ACTIVE_TASK_ATTEMPTS.items() if now - started > ttl]
+        for k in stale:
+            _ACTIVE_TASK_ATTEMPTS.pop(k, None)
+        started = _ACTIVE_TASK_ATTEMPTS.get(key)
+        if started is not None:
+            wait_for = max(1, int(ttl - (now - started)))
+            raise HTTPException(
+                status_code=429,
+                detail=f"Проверка этой задачи уже идёт. Подожди {wait_for} сек.",
+            )
+        _ACTIVE_TASK_ATTEMPTS[key] = now
+    return key[0], key[1], now
+
+
+def _finish_active_task_attempt(token: tuple[int, str, float] | None) -> None:
+    if token is None:
+        return
+    user_id, task_id, started = token
+    key = (user_id, task_id)
+    with _ACTIVE_TASK_ATTEMPTS_LOCK:
+        if _ACTIVE_TASK_ATTEMPTS.get(key) == started:
+            _ACTIVE_TASK_ATTEMPTS.pop(key, None)
 
 def _docker_available() -> bool:
     return shutil.which("docker") is not None
@@ -6163,11 +6211,19 @@ def verify_task(task: dict, code: str) -> tuple[dict, int]:
     runtime_ms = 0
 
     if engine in ("pyodide", "python"):
-        with RUNNER_SEMAPHORE:
+        if not RUNNER_SEMAPHORE.acquire(blocking=False):
+            return _runner_busy_verification()
+        try:
             result, runtime_ms = verify_python_sync(code, all_cases)
+        finally:
+            RUNNER_SEMAPHORE.release()
     elif engine in ("javascript", "js"):
-        with RUNNER_SEMAPHORE:
+        if not RUNNER_SEMAPHORE.acquire(blocking=False):
+            return _runner_busy_verification()
+        try:
             result, runtime_ms = verify_javascript_sync(code, all_cases)
+        finally:
+            RUNNER_SEMAPHORE.release()
     elif engine in ("iframe", "frontend"):
         return verify_frontend_sync(code, logic)
     else:
@@ -6428,7 +6484,13 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
             )
             runtime_ms = 0
         else:
-            verification, runtime_ms = verify_task(task, code)
+            attempt_token = _begin_active_task_attempt(user["id"], data.task_id)
+            try:
+                verification, runtime_ms = verify_task(task, code)
+            finally:
+                _finish_active_task_attempt(attempt_token)
+            if (verification.get("exec_error") or {}).get("type") == "RunnerBusy":
+                raise HTTPException(status_code=429, detail=verification["exec_error"]["message"])
     passed = bool(verification.get("passed"))
     manual_review_required = bool(verification.get("manual_review_required"))
 
@@ -11254,6 +11316,7 @@ def quiz_answer(code: str, data: dict, user: dict = Depends(require_auth)):
 
     with get_db() as conn:
         cursor = conn.cursor()
+        cursor.execute("BEGIN IMMEDIATE")
         cursor.execute("SELECT * FROM quiz_sessions WHERE id = ? AND status = 'active'", (code,))
         session = cursor.fetchone()
         if not session:
@@ -11323,6 +11386,7 @@ def quiz_ready(code: str, user: dict = Depends(require_auth)):
     code = code.strip().upper()
     with get_db() as conn:
         cursor = conn.cursor()
+        cursor.execute("BEGIN IMMEDIATE")
         cursor.execute("SELECT * FROM quiz_sessions WHERE id = ? AND status = 'active'", (code,))
         session = cursor.fetchone()
         if not session:

@@ -39,6 +39,14 @@ services:
         value: "3"
       - key: PANDORA_LOGIN_RATE_LIMIT
         value: "5/minute"
+      - key: PANDORA_RUNNER_CONCURRENCY
+        value: "1"
+      - key: PANDORA_ACTIVE_TASK_ATTEMPT_TTL_S
+        value: "25"
+      - key: PANDORA_MAX_CODE_CHARS
+        value: "20000"
+      - key: PANDORA_EXTRA_REVIEW_SAMPLE_RATE
+        value: "0"
       - key: PANDORA_QUIZ_BANK_MAX_ITEMS
         value: "2500"
       - key: PANDORA_BOOTSTRAP_ADMIN_USER
