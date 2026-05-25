@@ -10,15 +10,15 @@ services:
       - key: PANDORA_JWT_SECRET
         generateValue: true
       - key: PANDORA_REVIEW_ONLY_MODE
-        value: "1"
-      - key: PANDORA_FORCE_AUTOCHECK
         value: "0"
+      - key: PANDORA_FORCE_AUTOCHECK
+        value: "1"
       - key: PANDORA_RUNNER_MODE
         value: "local"
       - key: PANDORA_STRICT_DOCKER_RUNNERS
         value: "0"
       - key: PANDORA_ALLOW_UNSAFE_LOCAL_RUNNERS
-        value: "0"
+        value: "1"
       - key: PANDORA_LOW_RESOURCE_MODE
         value: "1"
       - key: PANDORA_SKIP_AUTOCHECK_REVIEWABLE_ON_LOW_RESOURCE
