@@ -11032,6 +11032,52 @@ _QUIZ_BANK_LOAD_ERROR = ""
 QUIZ_BANK_FILENAME = "kahoot_1_2.json"
 QUIZ_BANK_MAX_ITEMS = int(os.getenv("PANDORA_QUIZ_BANK_MAX_ITEMS", "2500" if LOW_RESOURCE_MODE else "0"))
 
+def _quiz_difficulty_level(raw, default: int = 2) -> int:
+    """Normalize quiz difficulty from old numeric banks and newer labeled banks."""
+    if raw is None:
+        return default
+    if isinstance(raw, bool):
+        return default
+    if isinstance(raw, (int, float)):
+        return max(1, min(5, int(raw)))
+
+    text = str(raw).strip().lower()
+    if not text:
+        return default
+    try:
+        return max(1, min(5, int(float(text))))
+    except ValueError:
+        pass
+
+    label_map = {
+        "beginner": 1,
+        "easy": 2,
+        "medium": 3,
+        "hard": 4,
+        "expert": 5,
+        "d": 1,
+        "c": 2,
+        "b": 3,
+        "a": 4,
+        "s": 5,
+    }
+    if text in label_map:
+        return label_map[text]
+    for label, level in label_map.items():
+        if len(label) > 1 and text.startswith(label):
+            return level
+    prefix_map = {
+        "beg": 1,
+        "eas": 2,
+        "med": 3,
+        "har": 4,
+        "exp": 5,
+    }
+    for prefix, level in prefix_map.items():
+        if text.startswith(prefix):
+            return level
+    return default
+
 def _load_quiz_bank():
     """Load the active Kahoot quiz bank lazily and keep a bounded in-memory pool."""
     global _QUIZ_BANK, _QUIZ_BANK_BY_DIFFICULTY, _QUIZ_BANK_LOADED, _QUIZ_BANK_LOAD_ERROR
@@ -11052,7 +11098,8 @@ def _load_quiz_bank():
         _QUIZ_BANK = items
         _QUIZ_BANK_BY_DIFFICULTY = {1: [], 2: [], 3: [], 4: [], 5: []}
         for item in _QUIZ_BANK:
-            d = int(item.get("difficulty", 2))
+            d = _quiz_difficulty_level(item.get("difficulty"), default=2)
+            item["_difficulty_level"] = d
             if d in _QUIZ_BANK_BY_DIFFICULTY:
                 _QUIZ_BANK_BY_DIFFICULTY[d].append(item)
         logger.info("Quiz bank loaded from %s: %d questions", QUIZ_BANK_FILENAME, len(_QUIZ_BANK))
@@ -11103,7 +11150,7 @@ def _select_quiz_questions(count: int) -> list[dict]:
             selected.append(extra)
 
     # Sort by difficulty (progressive)
-    selected.sort(key=lambda q: q.get("difficulty", 2))
+    selected.sort(key=lambda q: _quiz_difficulty_level(q.get("_difficulty_level", q.get("difficulty")), default=2))
     return selected[:count]
 
 def _cleanup_stale_quiz_sessions(cursor):
@@ -11346,7 +11393,7 @@ def quiz_answer(code: str, data: dict, user: dict = Depends(require_auth)):
         # Calculate score
         points = 0
         if is_correct:
-            diff = int(q.get("difficulty", 2))
+            diff = _quiz_difficulty_level(q.get("_difficulty_level", q.get("difficulty")), default=2)
             base_points = diff * 100
             time_bonus = max(0, (time_limit - time_ms) / time_limit) * 0.5 * base_points
             points = int(base_points + time_bonus)
@@ -11443,7 +11490,10 @@ def _finish_quiz(cursor, code: str, session):
     # Compute avg difficulty
     try:
         questions = json.loads(session["questions_json"] or "[]")
-        avg_diff = sum(q.get("difficulty", 2) for q in questions) / max(1, len(questions))
+        avg_diff = sum(
+            _quiz_difficulty_level(q.get("_difficulty_level", q.get("difficulty")), default=2)
+            for q in questions
+        ) / max(1, len(questions))
     except Exception:
         avg_diff = 2.5
 
