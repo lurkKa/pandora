@@ -19,6 +19,9 @@ ENV/
 logs/
 uploads/
 backups/
+*.db
+*.db-shm
+*.db-wal
 tasks_full_backup_*.json
 
 # Secrets / local env

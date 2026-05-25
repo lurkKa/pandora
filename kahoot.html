@@ -359,7 +359,7 @@ function startCountdown(seconds) {
     if (remaining <= 5) el.classList.add('urgent');
     if (remaining <= 0) {
       clearInterval(countdownTimer);
-      if (!answered) submitAnswer(-1); // auto-skip
+      if (!answered) submitAnswer(-2); // -1 means "not answered" on the server
     }
   }, 1000);
 }
@@ -389,7 +389,15 @@ async function submitAnswer(idx) {
     window._lastFeedback = d;
     // Transition to feedback after brief delay
     setTimeout(() => pollSession(), 1000);
-  } catch(e) { console.error('Answer error:', e); }
+  } catch(e) {
+    console.error('Answer error:', e);
+    answered = false;
+    document.querySelectorAll('.opt-btn').forEach(b => {
+      b.disabled = false;
+      b.classList.remove('selected');
+    });
+    alert(e.message || 'Не удалось отправить ответ');
+  }
 }
 
 // ── Feedback ──
@@ -417,11 +425,18 @@ function renderFeedback(s) {
 
 async function sendReady() {
   if (!currentCode) return;
+  const btn = document.getElementById('btn-ready');
+  btn.disabled = true;
+  btn.textContent = '⏳ Ожидание...';
   try {
-    const d = await api(`/api/quiz/ready/${currentCode}`, 'POST');
-    document.getElementById('btn-ready').disabled = true;
-    document.getElementById('btn-ready').textContent = '⏳ Ожидание...';
-  } catch(e) { console.error(e); }
+    await api(`/api/quiz/ready/${currentCode}`, 'POST');
+    pollSession();
+  } catch(e) {
+    console.error(e);
+    btn.disabled = false;
+    btn.textContent = '✅ Готов к следующему!';
+    alert(e.message || 'Не удалось отметить готовность');
+  }
 }
 
 // ── Results ──

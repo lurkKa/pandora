@@ -10,21 +10,37 @@ services:
       - key: PANDORA_JWT_SECRET
         generateValue: true
       - key: PANDORA_REVIEW_ONLY_MODE
-        value: "0"
-      - key: PANDORA_FORCE_AUTOCHECK
         value: "1"
+      - key: PANDORA_FORCE_AUTOCHECK
+        value: "0"
       - key: PANDORA_RUNNER_MODE
         value: "local"
       - key: PANDORA_STRICT_DOCKER_RUNNERS
         value: "0"
       - key: PANDORA_ALLOW_UNSAFE_LOCAL_RUNNERS
-        value: "1"
+        value: "0"
       - key: PANDORA_LOW_RESOURCE_MODE
         value: "1"
       - key: PANDORA_SKIP_AUTOCHECK_REVIEWABLE_ON_LOW_RESOURCE
-        value: "0"
+        value: "1"
       - key: PANDORA_MANUAL_REVIEW_FOR_REVIEWABLE_TIERS
         value: "0"
+      - key: PANDORA_STATELESS_AUTH
+        value: "1"
+      - key: PANDORA_SQLITE_TIMEOUT_S
+        value: "30"
+      - key: PANDORA_SQLITE_BUSY_TIMEOUT_MS
+        value: "15000"
+      - key: PANDORA_LOG_MAX_BYTES
+        value: "1048576"
+      - key: PANDORA_LOG_BACKUP_COUNT
+        value: "2"
+      - key: PANDORA_SECURITY_LOG_BACKUP_COUNT
+        value: "3"
+      - key: PANDORA_LOGIN_RATE_LIMIT
+        value: "5/minute"
+      - key: PANDORA_QUIZ_BANK_MAX_ITEMS
+        value: "2500"
       - key: PANDORA_BOOTSTRAP_ADMIN_USER
         value: "admin"
       - key: PANDORA_BOOTSTRAP_ADMIN_DISPLAY

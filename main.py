@@ -61,6 +61,7 @@ JWT_EXPIRE_HOURS = 24
 # Emergency fallback for constrained hosting:
 # skip DB-backed session revocation and rely on JWT expiry only.
 STATELESS_AUTH = (os.getenv("PANDORA_STATELESS_AUTH") or "0") == "1"
+LOW_RESOURCE_MODE = (os.getenv("PANDORA_LOW_RESOURCE_MODE") or "0") == "1"
 
 # Rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -92,20 +93,24 @@ BEHAVIOR_AGENT_TOKEN = _load_behavior_token()
 
 LOG_DIR = "logs"
 os.makedirs(LOG_DIR, exist_ok=True)
+LOG_MAX_BYTES = int(os.getenv("PANDORA_LOG_MAX_BYTES", str((1 if LOW_RESOURCE_MODE else 10) * 1024 * 1024)))
+LOG_BACKUP_COUNT = int(os.getenv("PANDORA_LOG_BACKUP_COUNT", "2" if LOW_RESOURCE_MODE else "5"))
+SECURITY_LOG_BACKUP_COUNT = int(os.getenv("PANDORA_SECURITY_LOG_BACKUP_COUNT", "3" if LOW_RESOURCE_MODE else "20"))
 
 # Main application logger
 logger = logging.getLogger("academy")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 # Security audit logger (separate)
 security_logger = logging.getLogger("academy.security")
 security_logger.setLevel(logging.INFO)
+security_logger.propagate = False
 
-# File handler with rotation (max 10MB, keep 5 backups)
+# File handler with rotation
 file_handler = RotatingFileHandler(
     f"{LOG_DIR}/academy.log",
-    maxBytes=10*1024*1024,  # 10 MB
-    backupCount=5,
+    maxBytes=LOG_MAX_BYTES,
+    backupCount=LOG_BACKUP_COUNT,
     encoding="utf-8"
 )
 file_handler.setLevel(logging.INFO)
@@ -117,8 +122,8 @@ file_handler.setFormatter(logging.Formatter(
 # Security audit log (SIEM-compatible JSON-like format)
 security_handler = RotatingFileHandler(
     f"{LOG_DIR}/security.log",
-    maxBytes=10*1024*1024,
-    backupCount=20,  # Keep more security logs
+    maxBytes=LOG_MAX_BYTES,
+    backupCount=SECURITY_LOG_BACKUP_COUNT,
     encoding="utf-8"
 )
 security_handler.setLevel(logging.INFO)
@@ -221,7 +226,8 @@ def log_action(user_id: int, username: str, action: str, details: str = ""):
 
 def log_error(context: str, error: Exception):
     """Log error with traceback."""
-    logger.error(f"ERROR | {context} | {str(error)}\n{traceback.format_exc()}")
+    tb = "".join(traceback.format_exception(type(error), error, error.__traceback__))
+    logger.error(f"ERROR | {context} | {str(error)}\n{tb}")
 
 def detect_threats(text: str) -> list:
     """Detect potential attack patterns in input."""
@@ -247,14 +253,38 @@ def detect_threats(text: str) -> list:
 # ==================== DATABASE ====================
 
 DATABASE = "academy.db"
-SQLITE_TIMEOUT_S = float(os.getenv("PANDORA_SQLITE_TIMEOUT_S", "8.0"))
-SQLITE_BUSY_TIMEOUT_MS = int(os.getenv("PANDORA_SQLITE_BUSY_TIMEOUT_MS", "3000"))
+SQLITE_TIMEOUT_S = float(os.getenv("PANDORA_SQLITE_TIMEOUT_S", "30.0"))
+SQLITE_BUSY_TIMEOUT_MS = int(os.getenv("PANDORA_SQLITE_BUSY_TIMEOUT_MS", "15000"))
+SQLITE_RETRY_ATTEMPTS = int(os.getenv("PANDORA_SQLITE_RETRY_ATTEMPTS", "5"))
+SQLITE_RETRY_BASE_SLEEP_S = float(os.getenv("PANDORA_SQLITE_RETRY_BASE_SLEEP_S", "0.08"))
 AUTH_TRACE = (os.getenv("PANDORA_AUTH_TRACE") or "0") == "1"
 
 
 def _auth_trace(message: str, *args):
     if AUTH_TRACE:
         logger.warning("AUTH_TRACE " + message, *args)
+
+
+def _is_sqlite_busy_error(error: Exception) -> bool:
+    message = str(error).lower()
+    return isinstance(error, sqlite3.OperationalError) and (
+        "locked" in message or "busy" in message
+    )
+
+
+def _sqlite_busy_detail() -> str:
+    return "Database is busy. Retry in a few seconds."
+
+
+def _retry_sqlite_busy(operation):
+    attempts = max(1, SQLITE_RETRY_ATTEMPTS)
+    for attempt in range(attempts):
+        try:
+            return operation()
+        except sqlite3.OperationalError as e:
+            if not _is_sqlite_busy_error(e) or attempt >= attempts - 1:
+                raise
+            time.sleep(SQLITE_RETRY_BASE_SLEEP_S * (2 ** attempt))
 
 @contextmanager
 def get_db():
@@ -852,6 +882,7 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_stats_user ON user_stats(user_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_completed_tasks_user ON completed_tasks(user_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_completed_tasks_valid ON completed_tasks(user_id, is_valid)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_completed_tasks_user_completed_at ON completed_tasks(user_id, completed_at)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_solution_methods_user_task ON task_solution_methods(user_id, task_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_solution_methods_simhash ON task_solution_methods(task_id, method_simhash)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_submissions_user_task_status ON submissions(user_id, task_id, status)")
@@ -1993,8 +2024,7 @@ def check_achievements(cursor, user_id: int, task_id: str, total_xp: int, total_
     completed_tasks = [row["task_id"] for row in cursor.fetchall()]
     
     # Load tasks to check categories
-    tasks_data = load_tasks()
-    tasks_map = {t["id"]: t for t in tasks_data.get("tasks", [])}
+    tasks_map = _tasks_by_id()
     
     category_counts = {"python": 0, "javascript": 0, "frontend": 0, "scratch": 0}
     tier_counts = Counter()
@@ -2134,7 +2164,6 @@ def verify_token(authorization: Optional[str] = Header(None)):
             _auth_trace("verify_token done user_found=%s", bool(user))
             return dict(user) if user else None
     except sqlite3.OperationalError as e:
-        message = str(e).lower()
         logger.error("verify_token sqlite operational error: %s", e)
         if STATELESS_AUTH:
             # Last-resort fallback: trust JWT claims to avoid full platform outage.
@@ -2148,8 +2177,8 @@ def verify_token(authorization: Optional[str] = Header(None)):
                 "level": 1,
                 "avatar_key": None,
             }
-        if "locked" in message or "busy" in message:
-            raise HTTPException(status_code=503, detail="Database is busy. Retry in a few seconds.")
+        if _is_sqlite_busy_error(e):
+            raise HTTPException(status_code=503, detail=_sqlite_busy_detail())
         raise
 
 def require_auth(authorization: Optional[str] = Header(None)):
@@ -2332,6 +2361,17 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 # Serve safe static assets (avatars, icons, etc.)
 Path("static").mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.exception_handler(sqlite3.OperationalError)
+def sqlite_exception_handler(request: Request, exc: sqlite3.OperationalError):
+    """Return a retryable response for transient SQLite lock pressure."""
+    if _is_sqlite_busy_error(exc):
+        logger.warning("SQLite busy on %s %s from %s: %s", request.method, request.url.path, get_client_ip(request), exc)
+        return JSONResponse(status_code=503, content={"detail": _sqlite_busy_detail()})
+    log_error(f"SQLite operational error on {request.method} {request.url.path} from {get_client_ip(request)}", exc)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
 
 @app.exception_handler(Exception)
 def global_exception_handler(request: Request, exc: Exception):
@@ -2532,6 +2572,7 @@ def ping():
     )
 
 @app.post("/api/auth/login")
+@limiter.limit(os.getenv("PANDORA_LOGIN_RATE_LIMIT", "5/minute"))
 def login(request: Request, data: LoginRequest):
     """Authenticate user and return JWT token. Rate limited to 5 attempts/minute."""
     t0 = time.monotonic()
@@ -2638,10 +2679,9 @@ def login(request: Request, data: LoginRequest):
                 }
             }
     except sqlite3.OperationalError as e:
-        message = str(e).lower()
         logger.error("LOGIN sqlite operational error for username=%s: %s", data.username, e)
-        if "locked" in message or "busy" in message:
-            raise HTTPException(status_code=503, detail="Database is busy. Retry in a few seconds.")
+        if _is_sqlite_busy_error(e):
+            raise HTTPException(status_code=503, detail=_sqlite_busy_detail())
         raise
 
 @app.post("/api/auth/logout")
@@ -2908,8 +2948,7 @@ def get_user_achievements(user: dict = Depends(require_auth)):
 @app.get("/api/achievements/status")
 def get_achievement_status(user: dict = Depends(require_auth)):
     """Get all achievements with unlocked state + per-achievement progress for the current user."""
-    tasks_data = load_tasks()
-    tasks_map = {t.get("id"): t for t in tasks_data.get("tasks", []) if t.get("id")}
+    tasks_map = _tasks_by_id()
     category_totals = Counter((t.get("category") or "") for t in tasks_map.values())
     tier_totals = Counter((t.get("tier") or "").upper() for t in tasks_map.values())
 
@@ -3406,22 +3445,58 @@ MISSION_TYPES = [
     {"type": "complete_category", "name": "Фокус силы", "name_ru": "Фокус силы", "target": 2, "xp": 20, "description": "Выполни 2 квеста в одной категории"},
     {"type": "streak_login", "name": "Стойкость", "name_ru": "Стойкость", "target": 1, "xp": 10, "description": "Войди в систему сегодня"},
 ]
+_TASK_CATEGORY_MAP_CACHE = {"tasks_data_id": None, "categories": {}}
+
+
+def _task_category_by_id() -> dict:
+    tasks_data = load_tasks()
+    tasks_data_id = id(tasks_data)
+    if _TASK_CATEGORY_MAP_CACHE["tasks_data_id"] != tasks_data_id:
+        _TASK_CATEGORY_MAP_CACHE["categories"] = {
+            t.get("id"): (t.get("category") or "unknown")
+            for t in tasks_data.get("tasks", [])
+            if t.get("id")
+        }
+        _TASK_CATEGORY_MAP_CACHE["tasks_data_id"] = tasks_data_id
+    return _TASK_CATEGORY_MAP_CACHE["categories"]
+
+
+def _daily_missions_progress_snapshot(cursor, user_id: int, today: str) -> dict:
+    """Read canonical progress without writing to daily_missions."""
+    cursor.execute(
+        """
+        SELECT task_id
+        FROM completed_tasks
+        WHERE user_id = ? AND DATE(completed_at) = ? AND is_valid != 0
+        """,
+        (user_id, today),
+    )
+    todays_task_ids = [row["task_id"] for row in cursor.fetchall()]
+    total_today = len(todays_task_ids)
+
+    max_in_category = 0
+    if todays_task_ids:
+        task_categories = _task_category_by_id()
+        cat_counts = Counter()
+        for tid in todays_task_ids:
+            cat_counts[task_categories.get(tid, "unknown")] += 1
+        max_in_category = max(cat_counts.values()) if cat_counts else 0
+
+    return {
+        "complete_any": total_today,
+        "complete_category": max_in_category,
+        "streak_login": 1,
+    }
+
 
 def _generate_daily_missions(cursor, user_id: int, today: str):
     """Generate new daily missions for user if needed."""
-    cursor.execute(
-        "SELECT COUNT(*) FROM daily_missions WHERE user_id = ? AND date = ?",
-        (user_id, today)
-    )
-    if cursor.fetchone()[0] > 0:
-        return  # Already generated
-    
-    # Create 3 missions for today
-    for mission in MISSION_TYPES:
-        cursor.execute("""
+    cursor.executemany("""
             INSERT OR IGNORE INTO daily_missions (user_id, date, mission_type, progress, target, claimed, xp_reward)
             VALUES (?, ?, ?, 0, ?, 0, ?)
-        """, (user_id, today, mission["type"], mission["target"], mission["xp"]))
+        """,
+        [(user_id, today, mission["type"], mission["target"], mission["xp"]) for mission in MISSION_TYPES],
+    )
 
 def _update_mission_progress(cursor, user_id: int, mission_type: str, increment: int = 1):
     """Update progress for a specific mission type."""
@@ -3437,123 +3512,110 @@ def _sync_daily_missions_progress(cursor, user_id: int):
     """Recompute daily mission progress from canonical data (completions + login)."""
     today = datetime.now().strftime("%Y-%m-%d")
     _generate_daily_missions(cursor, user_id, today)
+    progress_by_type = _daily_missions_progress_snapshot(cursor, user_id, today)
 
-    cursor.execute(
-        """
-        SELECT task_id
-        FROM completed_tasks
-        WHERE user_id = ? AND DATE(completed_at) = DATE('now') AND is_valid != 0
-        """,
-        (user_id,),
-    )
-    todays_task_ids = [row["task_id"] for row in cursor.fetchall()]
-    total_today = len(todays_task_ids)
+    for mission_type, progress in progress_by_type.items():
+        cursor.execute(
+            """
+            UPDATE daily_missions
+            SET progress = MIN(target, ?)
+            WHERE user_id = ? AND date = ? AND mission_type = ? AND claimed = 0
+              AND progress != MIN(target, ?)
+            """,
+            (progress, user_id, today, mission_type, progress),
+        )
 
-    # complete_any: absolute count today
-    cursor.execute(
-        """
-        UPDATE daily_missions
-        SET progress = MIN(target, ?)
-        WHERE user_id = ? AND date = ? AND mission_type = 'complete_any' AND claimed = 0
-        """,
-        (total_today, user_id, today),
-    )
 
-    # streak_login: completed when user has reached the app today.
-    cursor.execute(
-        """
-        UPDATE daily_missions
-        SET progress = 1
-        WHERE user_id = ? AND date = ? AND mission_type = 'streak_login' AND claimed = 0
-        """,
-        (user_id, today),
-    )
-
-    # complete_category: max number of completed tasks today within any one category.
-    max_in_category = 0
-    if todays_task_ids:
-        tasks_data = load_tasks()
-        tasks_map = {t.get("id"): t for t in tasks_data.get("tasks", []) if t.get("id")}
-        cat_counts = Counter()
-        for tid in todays_task_ids:
-            cat = (tasks_map.get(tid) or {}).get("category") or "unknown"
-            cat_counts[cat] += 1
-        max_in_category = max(cat_counts.values()) if cat_counts else 0
-
-    cursor.execute(
-        """
-        UPDATE daily_missions
-        SET progress = MIN(target, ?)
-        WHERE user_id = ? AND date = ? AND mission_type = 'complete_category' AND claimed = 0
-        """,
-        (max_in_category, user_id, today),
-    )
+def _format_daily_missions(rows, progress_by_type: dict) -> list:
+    rows_by_type = {row["mission_type"]: row for row in rows}
+    missions = []
+    for mission_info in MISSION_TYPES:
+        mission_type = mission_info["type"]
+        row = rows_by_type.get(mission_type)
+        target = int((row["target"] if row else mission_info["target"]) or 0)
+        claimed = bool(row["claimed"]) if row else False
+        if claimed and row:
+            progress = int(row["progress"] or 0)
+        else:
+            progress = min(target, int(progress_by_type.get(mission_type, 0)))
+        missions.append({
+            "type": mission_type,
+            "name": mission_info.get("name_ru", mission_type),
+            "description": mission_info.get("description", ""),
+            "progress": progress,
+            "target": target,
+            "completed": progress >= target,
+            "claimed": claimed,
+            "xp_reward": int((row["xp_reward"] if row else mission_info["xp"]) or 0),
+        })
+    return missions
 
 @app.get("/api/missions/daily")
 def get_daily_missions(user: dict = Depends(require_auth)):
     """Get today's daily missions for current user."""
     today = datetime.now().strftime("%Y-%m-%d")
-    
-    with get_db() as conn:
-        cursor = conn.cursor()
-        _sync_daily_missions_progress(cursor, user["id"])
-        conn.commit()
-        
-        cursor.execute("""
-            SELECT mission_type, progress, target, claimed, xp_reward
-            FROM daily_missions WHERE user_id = ? AND date = ?
-        """, (user["id"], today))
-        
-        missions = []
-        for row in cursor.fetchall():
-            mission_info = next((m for m in MISSION_TYPES if m["type"] == row["mission_type"]), {})
-            missions.append({
-                "type": row["mission_type"],
-                "name": mission_info.get("name_ru", row["mission_type"]),
-                "description": mission_info.get("description", ""),
-                "progress": row["progress"],
-                "target": row["target"],
-                "completed": row["progress"] >= row["target"],
-                "claimed": bool(row["claimed"]),
-                "xp_reward": row["xp_reward"]
-            })
-    
+
+    try:
+        def _load_missions():
+            with get_db() as conn:
+                cursor = conn.cursor()
+                progress_by_type = _daily_missions_progress_snapshot(cursor, user["id"], today)
+                cursor.execute("""
+                    SELECT mission_type, progress, target, claimed, xp_reward
+                    FROM daily_missions WHERE user_id = ? AND date = ?
+                """, (user["id"], today))
+                return _format_daily_missions(cursor.fetchall(), progress_by_type)
+
+        missions = _retry_sqlite_busy(_load_missions)
+    except sqlite3.OperationalError as e:
+        if _is_sqlite_busy_error(e):
+            raise HTTPException(status_code=503, detail=_sqlite_busy_detail())
+        raise
+
     return {"missions": missions, "date": today}
 
 @app.post("/api/missions/claim/{mission_type}")
 def claim_mission_reward(mission_type: str, user: dict = Depends(require_auth)):
     """Claim XP reward for a completed daily mission."""
     today = datetime.now().strftime("%Y-%m-%d")
-    
-    with get_db() as conn:
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT id, progress, target, claimed, xp_reward
-            FROM daily_missions 
-            WHERE user_id = ? AND date = ? AND mission_type = ?
-        """, (user["id"], today, mission_type))
-        
-        mission = cursor.fetchone()
-        if not mission:
-            raise HTTPException(status_code=404, detail="Mission not found")
-        
-        if mission["claimed"]:
-            raise HTTPException(status_code=400, detail="Already claimed")
-        
-        if mission["progress"] < mission["target"]:
-            raise HTTPException(status_code=400, detail="Mission not completed")
-        
-        # Award XP
-        xp_reward = mission["xp_reward"]
-        new_xp, new_level = apply_xp_change(cursor, user["id"], int(xp_reward or 0), f"daily_mission:{mission_type}")
-        cursor.execute(
-            "UPDATE daily_missions SET claimed = 1 WHERE id = ?",
-            (mission["id"],)
-        )
-        conn.commit()
-    
-    return {"message": "Reward claimed", "xp_awarded": xp_reward, "new_xp": new_xp, "new_level": new_level}
+
+    try:
+        def _claim():
+            with get_db() as conn:
+                cursor = conn.cursor()
+                cursor.execute("BEGIN IMMEDIATE")
+                _sync_daily_missions_progress(cursor, user["id"])
+
+                cursor.execute("""
+                    SELECT id, progress, target, claimed, xp_reward
+                    FROM daily_missions
+                    WHERE user_id = ? AND date = ? AND mission_type = ?
+                """, (user["id"], today, mission_type))
+
+                mission = cursor.fetchone()
+                if not mission:
+                    raise HTTPException(status_code=404, detail="Mission not found")
+
+                if mission["claimed"]:
+                    raise HTTPException(status_code=400, detail="Already claimed")
+
+                if mission["progress"] < mission["target"]:
+                    raise HTTPException(status_code=400, detail="Mission not completed")
+
+                xp_reward = mission["xp_reward"]
+                new_xp, new_level = apply_xp_change(cursor, user["id"], int(xp_reward or 0), f"daily_mission:{mission_type}")
+                cursor.execute(
+                    "UPDATE daily_missions SET claimed = 1 WHERE id = ?",
+                    (mission["id"],)
+                )
+                conn.commit()
+                return {"message": "Reward claimed", "xp_awarded": xp_reward, "new_xp": new_xp, "new_level": new_level}
+
+        return _retry_sqlite_busy(_claim)
+    except sqlite3.OperationalError as e:
+        if _is_sqlite_busy_error(e):
+            raise HTTPException(status_code=503, detail=_sqlite_busy_detail())
+        raise
 
 # ==================== BONUS QUESTS ====================
 
@@ -4188,6 +4250,7 @@ def download_sqlite_backup(admin: dict = Depends(require_admin)):
 # ==================== TASK ROUTES ====================
 
 _TASKS_CACHE: dict = {"mtime": None, "legacy_mtime": None, "external_mtime": None, "data": None}
+_TASKS_BY_ID_CACHE: dict = {"tasks_data_id": None, "data": {}}
 
 ARCHIVED_TASK_ID_PREFIXES: tuple[str, ...] = (
     # Legacy packs: generic/duplicate content and (historically) mixed schemas.
@@ -4422,11 +4485,20 @@ def load_tasks() -> dict:
         return {"meta": {}, "categories": [], "tasks": []}
 
 def get_task(task_id: str) -> Optional[dict]:
+    return _tasks_by_id().get(task_id)
+
+
+def _tasks_by_id() -> dict:
     data = load_tasks()
-    for t in data.get("tasks", []):
-        if t.get("id") == task_id:
-            return t
-    return None
+    tasks_data_id = id(data)
+    if _TASKS_BY_ID_CACHE["tasks_data_id"] != tasks_data_id:
+        _TASKS_BY_ID_CACHE["data"] = {
+            t.get("id"): t
+            for t in data.get("tasks", [])
+            if t.get("id")
+        }
+        _TASKS_BY_ID_CACHE["tasks_data_id"] = tasks_data_id
+    return _TASKS_BY_ID_CACHE["data"]
 
 def public_task(task: dict) -> dict:
     """Return a safe task payload for students (no expected answers)."""
@@ -5553,7 +5625,6 @@ RUNNER_MODE = (os.getenv("PANDORA_RUNNER_MODE") or "docker").lower()  # docker|l
 PY_RUNNER_IMAGE = os.getenv("PANDORA_PY_RUNNER_IMAGE", "python:3.11-slim")
 JS_RUNNER_IMAGE = os.getenv("PANDORA_JS_RUNNER_IMAGE", "node:24-slim")
 STRICT_DOCKER_RUNNERS = (os.getenv("PANDORA_STRICT_DOCKER_RUNNERS") or "0") == "1"
-LOW_RESOURCE_MODE = (os.getenv("PANDORA_LOW_RESOURCE_MODE") or "0") == "1"
 SKIP_AUTOCHECK_REVIEWABLE_ON_LOW_RESOURCE = (os.getenv("PANDORA_SKIP_AUTOCHECK_REVIEWABLE_ON_LOW_RESOURCE") or "0") == "1"
 
 _default_runner_timeout = "4.5" if LOW_RESOURCE_MODE else "12.0"
@@ -6302,8 +6373,7 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
         raise HTTPException(status_code=413, detail=f"Code too large (max {MAX_CODE_CHARS} chars)")
 
     # Unlock enforcement + already-completed check
-    tasks_data = load_tasks()
-    tasks_by_id = {t.get("id"): t for t in tasks_data.get("tasks", []) if t.get("id")}
+    tasks_by_id = _tasks_by_id()
     with get_db() as conn:
         cursor = conn.cursor()
         completed_ids = _completed_task_ids(cursor, user["id"])
@@ -6601,8 +6671,7 @@ def attempt_scratch_task(
     tier = task.get("tier") or "D"
 
     # Unlock enforcement + already-completed check
-    tasks_data = load_tasks()
-    tasks_by_id = {t.get("id"): t for t in tasks_data.get("tasks", []) if t.get("id")}
+    tasks_by_id = _tasks_by_id()
     with get_db() as conn:
         cursor = conn.cursor()
         completed_ids = _completed_task_ids(cursor, user["id"])
@@ -6731,8 +6800,7 @@ async def attempt_scratch_task_fast(
     tier = task.get("tier") or "D"
 
     # Unlock enforcement + already-completed check
-    tasks_data = load_tasks()
-    tasks_by_id = {t.get("id"): t for t in tasks_data.get("tasks", []) if t.get("id")}
+    tasks_by_id = _tasks_by_id()
     with get_db() as conn:
         cursor = conn.cursor()
         completed_ids = _completed_task_ids(cursor, user["id"])
@@ -10897,30 +10965,44 @@ import string as _string
 # ── In-memory quiz bank ──
 _QUIZ_BANK: list[dict] = []
 _QUIZ_BANK_BY_DIFFICULTY: dict[int, list[dict]] = {1: [], 2: [], 3: [], 4: [], 5: []}
+_QUIZ_BANK_LOADED = False
+_QUIZ_BANK_LOAD_ERROR = ""
 QUIZ_BANK_FILENAME = "kahoot_1_2.json"
+QUIZ_BANK_MAX_ITEMS = int(os.getenv("PANDORA_QUIZ_BANK_MAX_ITEMS", "2500" if LOW_RESOURCE_MODE else "0"))
 
 def _load_quiz_bank():
-    """Load the active Kahoot quiz bank into memory once."""
-    global _QUIZ_BANK, _QUIZ_BANK_BY_DIFFICULTY
+    """Load the active Kahoot quiz bank lazily and keep a bounded in-memory pool."""
+    global _QUIZ_BANK, _QUIZ_BANK_BY_DIFFICULTY, _QUIZ_BANK_LOADED, _QUIZ_BANK_LOAD_ERROR
+    if _QUIZ_BANK_LOADED:
+        return bool(_QUIZ_BANK)
+    _QUIZ_BANK_LOADED = True
     bank_path = os.path.join(os.path.dirname(__file__), QUIZ_BANK_FILENAME)
     if not os.path.exists(bank_path):
-        print(f"⚠️  {QUIZ_BANK_FILENAME} not found – quiz system disabled")
-        return
+        _QUIZ_BANK_LOAD_ERROR = f"{QUIZ_BANK_FILENAME} not found"
+        logger.warning("%s - quiz system disabled", _QUIZ_BANK_LOAD_ERROR)
+        return False
     try:
         with open(bank_path, encoding="utf-8") as f:
             data = json.load(f)
-        _QUIZ_BANK = data.get("items", [])
+        items = data.get("items", [])
+        if QUIZ_BANK_MAX_ITEMS > 0 and len(items) > QUIZ_BANK_MAX_ITEMS:
+            items = _random.sample(items, QUIZ_BANK_MAX_ITEMS)
+        _QUIZ_BANK = items
         _QUIZ_BANK_BY_DIFFICULTY = {1: [], 2: [], 3: [], 4: [], 5: []}
         for item in _QUIZ_BANK:
             d = int(item.get("difficulty", 2))
             if d in _QUIZ_BANK_BY_DIFFICULTY:
                 _QUIZ_BANK_BY_DIFFICULTY[d].append(item)
-        print(f"✓ Quiz bank loaded from {QUIZ_BANK_FILENAME}: {len(_QUIZ_BANK)} questions")
+        logger.info("Quiz bank loaded from %s: %d questions", QUIZ_BANK_FILENAME, len(_QUIZ_BANK))
+        return bool(_QUIZ_BANK)
     except Exception as e:
-        print(f"⚠️  Failed to load quiz bank: {e}")
+        _QUIZ_BANK_LOAD_ERROR = str(e)
+        logger.warning("Failed to load quiz bank: %s", e)
+        return False
 
-# Load on import
-_load_quiz_bank()
+
+def _quiz_bank_available() -> bool:
+    return bool(_QUIZ_BANK) or os.path.exists(os.path.join(os.path.dirname(__file__), QUIZ_BANK_FILENAME))
 
 QUIZ_SESSION_TIMEOUT_SEC = 300  # 5 minutes inactivity
 QUIZ_MAX_DAILY_SESSIONS = None  # None = unlimited; admin approval is still required.
@@ -10933,6 +11015,7 @@ def _generate_quiz_code() -> str:
 
 def _select_quiz_questions(count: int) -> list[dict]:
     """Select questions with progressive difficulty."""
+    _load_quiz_bank()
     count = max(QUIZ_QUESTION_RANGE[0], min(QUIZ_QUESTION_RANGE[1], count))
     # Split: ~35% easy (1-2), ~35% medium (3), ~30% hard (4-5)
     n_easy = max(1, int(count * 0.35))
@@ -10996,7 +11079,7 @@ def _compute_quiz_xp(place: int, total_questions: int, avg_difficulty: float) ->
 @app.post("/api/quiz/create")
 def quiz_create(user: dict = Depends(require_auth)):
     """Create a quiz lobby. Returns the lobby code."""
-    if not _QUIZ_BANK:
+    if not _load_quiz_bank():
         raise HTTPException(status_code=503, detail="Quiz bank not loaded")
 
     with get_db() as conn:
@@ -11165,6 +11248,8 @@ def quiz_answer(code: str, data: dict, user: dict = Depends(require_auth)):
     """Submit answer for current question."""
     code = code.strip().upper()
     answer_index = int(data.get("answer_index", -1))
+    if answer_index == -1:
+        answer_index = -2
     time_ms = int(data.get("time_ms", 0))
 
     with get_db() as conn:
@@ -11244,7 +11329,12 @@ def quiz_ready(code: str, user: dict = Depends(require_auth)):
             raise HTTPException(status_code=404, detail="Сессия не активна")
 
         cursor.execute(
-            "UPDATE quiz_participants SET is_ready = 1 WHERE session_id = ? AND user_id = ?",
+            """
+            UPDATE quiz_participants
+            SET is_ready = 1,
+                current_answer = CASE WHEN current_answer = -1 THEN -2 ELSE current_answer END
+            WHERE session_id = ? AND user_id = ?
+            """,
             (code, user["id"])
         )
         cursor.execute("UPDATE quiz_sessions SET last_activity = CURRENT_TIMESTAMP WHERE id = ?", (code,))
@@ -11427,7 +11517,7 @@ def quiz_daily_info(user: dict = Depends(require_auth)):
         "daily_count": daily,
         "daily_limit": QUIZ_MAX_DAILY_SESSIONS,
         "unlimited": True,
-        "quiz_available": bool(_QUIZ_BANK),
+        "quiz_available": _quiz_bank_available(),
         "source_file": QUIZ_BANK_FILENAME,
     }
 
