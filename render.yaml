@@ -22,7 +22,7 @@ services:
       - key: PANDORA_LOW_RESOURCE_MODE
         value: "1"
       - key: PANDORA_SKIP_AUTOCHECK_REVIEWABLE_ON_LOW_RESOURCE
-        value: "1"
+        value: "0"
       - key: PANDORA_MANUAL_REVIEW_FOR_REVIEWABLE_TIERS
         value: "0"
       - key: PANDORA_STATELESS_AUTH
