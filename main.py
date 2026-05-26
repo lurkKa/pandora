@@ -5316,6 +5316,26 @@ def get_roadmap(user: dict = Depends(require_auth)):
     }
 
 
+@app.get("/api/roadmap/status")
+def get_roadmap_status(user: dict = Depends(require_auth)):
+    """Return lightweight per-task state for background UI refreshes."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        completed_ids = {str(tid) for tid in _completed_task_ids(cursor, user["id"])}
+        method_counts = _methods_count_by_task(cursor, user["id"], completed_ids)
+        cursor.execute(
+            "SELECT task_id FROM submissions WHERE user_id = ? AND status = 'pending'",
+            (user["id"],)
+        )
+        pending_ids = {str(row["task_id"]) for row in cursor.fetchall()}
+
+    return {
+        "completed_ids": sorted(completed_ids),
+        "pending_ids": sorted(pending_ids),
+        "methods": {str(k): int(v or 0) for k, v in method_counts.items()},
+    }
+
+
 @app.get("/api/tasks/{task_id}/detail")
 def get_task_detail(task_id: str, user: dict = Depends(require_auth)):
     """Return full task detail (description, initial_code, resources, video_url) for a single task.

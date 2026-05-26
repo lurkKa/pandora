@@ -5179,7 +5179,8 @@
                 dashboardSyncTick += 1;
                 const profilePanel = document.getElementById('profile-panel');
                 const profileOpen = Boolean(profilePanel && profilePanel.classList.contains('open'));
-                const shouldRefreshRoadmap = forceRoadmap || (dashboardSyncTick % 2 === 0);
+                const shouldRefreshRoadmap = forceRoadmap || tasks.length === 0;
+                const shouldRefreshTaskStatus = !shouldRefreshRoadmap && dashboardSyncTick % 2 === 0;
 
                 const jobs = [
                     loadProfile(),
@@ -5187,7 +5188,8 @@
                 ];
 
                 if (shouldRefreshRoadmap) jobs.push(loadRoadmap());
-                if (forceRoadmap || dashboardSyncTick % 2 === 0) jobs.push(loadHomework(false));
+                else if (shouldRefreshTaskStatus) jobs.push(loadTaskStatus());
+                if (!shouldRefreshRoadmap && (forceRoadmap || dashboardSyncTick % 2 === 0)) jobs.push(loadHomework(false));
                 if (forceRoadmap || dashboardSyncTick % 4 === 0) jobs.push(loadActiveEvents());
                 if (profileOpen) {
                     jobs.push(loadMySubmissions());
@@ -5214,7 +5216,7 @@
 
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
-                syncDashboardData({ forceRoadmap: true });
+                syncDashboardData();
             }
         });
 
@@ -5264,10 +5266,42 @@
         }
 
         let selectedTopicFilter = null; // null = show all tasks in category
+        let questBoardRenderDeferred = false;
+        let questBoardLayoutKey = '';
+        let questBoardChipsHtml = '';
+        let questCardSignatures = new Map();
+
+        function isQuestModalOpen() {
+            const modal = document.getElementById('quest-modal');
+            return Boolean(modal && modal.classList.contains('active'));
+        }
+
+        function refreshQuestBoard({ includeStreak = false, deferWhenModalOpen = true } = {}) {
+            if (deferWhenModalOpen && isQuestModalOpen()) {
+                questBoardRenderDeferred = true;
+                return;
+            }
+            questBoardRenderDeferred = false;
+            renderQuests();
+            if (includeStreak) renderStreakWidget();
+        }
+
+        function flushDeferredQuestBoardRender() {
+            if (!questBoardRenderDeferred) return;
+            questBoardRenderDeferred = false;
+            renderQuests();
+            renderStreakWidget();
+        }
+
+        function resetQuestBoardRenderCache() {
+            questBoardLayoutKey = '';
+            questBoardChipsHtml = '';
+            questCardSignatures = new Map();
+        }
 
         function selectTopicChip(topic) {
             selectedTopicFilter = (selectedTopicFilter === topic) ? null : topic;
-            renderQuests();
+            refreshQuestBoard();
         }
 
         async function loadHomework(showPenaltyToast = false) {
@@ -5308,7 +5342,7 @@
                 }
 
                 // Re-render quests if homework tab is active so tasks show up
-                if (currentFilter === 'homework') renderQuests();
+                if (currentFilter === 'homework') refreshQuestBoard();
             } catch (e) {
                 console.warn('Failed to load homework:', e);
             }
@@ -5374,10 +5408,71 @@
                     categoryAutoSelectDone = true;
                 }
 
-                renderQuests();
-                renderStreakWidget();
+                refreshQuestBoard({ includeStreak: true });
             } catch (e) {
                 console.error('Failed to load tasks:', e);
+            }
+        }
+
+        function applyTaskStatusUpdate(statusData) {
+            if (!statusData || !Array.isArray(tasks) || tasks.length === 0) return false;
+
+            const completedIds = new Set((statusData.completed_ids || []).map(id => String(id)));
+            const pendingIds = new Set((statusData.pending_ids || []).map(id => String(id)));
+            const methods = statusData.methods || {};
+
+            let changed = false;
+            let unlockStateMayChange = false;
+            for (const task of tasks) {
+                const id = String(task.id || '');
+                const nextCompleted = completedIds.has(id);
+                const nextPending = pendingIds.has(id);
+                const nextMethods = Number(methods[id] || 0);
+
+                if (Boolean(task.completed) !== nextCompleted) {
+                    unlockStateMayChange = true;
+                    task.completed = nextCompleted;
+                    changed = true;
+                }
+                if (Boolean(task.pending_review) !== nextPending) {
+                    task.pending_review = nextPending;
+                    changed = true;
+                }
+                if (Number(task.methods_count || 0) !== nextMethods) {
+                    task.methods_count = nextMethods;
+                    changed = true;
+                }
+            }
+
+            if (currentTask) {
+                const id = String(currentTask.id || '');
+                currentTask.completed = completedIds.has(id);
+                currentTask.pending_review = pendingIds.has(id);
+                currentTask.methods_count = Number(methods[id] || currentTask.methods_count || 0);
+            }
+            if (currentUser) {
+                currentUser.completed_tasks = Array.from(completedIds);
+            }
+            if (changed) {
+                refreshQuestBoard({ includeStreak: unlockStateMayChange });
+            }
+            return unlockStateMayChange;
+        }
+
+        async function loadTaskStatus() {
+            try {
+                const resp = await fetchJsonWithTimeout(`${API_URL}/api/roadmap/status`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (!resp?.res?.ok) return false;
+                const completionChanged = applyTaskStatusUpdate(resp.data || {});
+                if (completionChanged) {
+                    setTimeout(() => loadRoadmap(), 350);
+                }
+                return true;
+            } catch (e) {
+                console.warn('Failed to load task status:', e);
+                return false;
             }
         }
 
@@ -5397,7 +5492,7 @@
                 }
             } catch (_e) { }
             setActiveCategoryTab(category, btn);
-            renderQuests();
+            refreshQuestBoard();
         }
 
         function openAlextype() {
@@ -5441,7 +5536,8 @@
         }
 
         function renderQuestCard(task, completedIds, icons) {
-            const isCompleted = task.completed || completedIds.has(task.id);
+            const taskId = String(task.id || '');
+            const isCompleted = task.completed || completedIds.has(task.id) || completedIds.has(taskId);
             const isLocked = Boolean(task.locked) && !isCompleted;
             const isPending = Boolean(task.pending_review) && !isCompleted;
             const isTutorial = task.task_type === 'tutorial';
@@ -5481,6 +5577,96 @@
                     ${methodsBadge}
                 </article>
             `;
+        }
+
+        function getQuestCardSignature(task, completedIds) {
+            const id = String(task.id || '');
+            const isCompleted = Boolean(task.completed || completedIds.has(task.id) || completedIds.has(id));
+            const isLocked = Boolean(task.locked) && !isCompleted;
+            const isPending = Boolean(task.pending_review) && !isCompleted;
+            const rawMethodsCount = Number(task.methods_count || 0);
+            const methodsCount = isCompleted ? Math.max(1, rawMethodsCount) : Math.max(0, rawMethodsCount);
+            const hw = homeworkByTask[id];
+            return JSON.stringify([
+                id,
+                task.category || '',
+                task.tier || '',
+                task.xp || 0,
+                task.task_type || 'code',
+                task.source_platform || '',
+                isCompleted,
+                isLocked,
+                isPending,
+                methodsCount,
+                Boolean(hw),
+                hw ? hw.deadline_at : '',
+                hw ? Boolean(hw.overdue) : false,
+                hw ? Boolean(hw.completed) : false,
+            ]);
+        }
+
+        function htmlToElement(html) {
+            const template = document.createElement('template');
+            template.innerHTML = String(html || '').trim();
+            return template.content.firstElementChild;
+        }
+
+        function renderQuestBoard(grid, displayTasks, completedIds, icons, chipsHtml = '') {
+            const layoutKey = [
+                chipsHtml ? 'topics' : 'flat',
+                currentFilter,
+                selectedTopicFilter || '',
+                displayTasks.map(t => String(t.id || '')).join('|')
+            ].join('::');
+
+            const cardSignatures = new Map();
+            for (const task of displayTasks) {
+                cardSignatures.set(String(task.id || ''), getQuestCardSignature(task, completedIds));
+            }
+
+            const cards = Array.from(grid.querySelectorAll('.quest-card'));
+            const canPatchCards = (
+                questBoardLayoutKey === layoutKey &&
+                cards.length === displayTasks.length
+            );
+
+            if (!canPatchCards) {
+                grid.innerHTML = chipsHtml + displayTasks.map(task => renderQuestCard(task, completedIds, icons)).join('');
+                questBoardLayoutKey = layoutKey;
+                questBoardChipsHtml = chipsHtml;
+                questCardSignatures = cardSignatures;
+                return;
+            }
+
+            if (chipsHtml && chipsHtml !== questBoardChipsHtml) {
+                const first = grid.firstElementChild;
+                if (first && first.classList.contains('topic-chips-bar')) {
+                    first.outerHTML = chipsHtml;
+                } else {
+                    grid.insertAdjacentHTML('afterbegin', chipsHtml);
+                }
+                questBoardChipsHtml = chipsHtml;
+            }
+
+            for (let i = 0; i < displayTasks.length; i += 1) {
+                const task = displayTasks[i];
+                const id = String(task.id || '');
+                const nextSignature = cardSignatures.get(id);
+                if (questCardSignatures.get(id) === nextSignature) continue;
+
+                const nextCard = htmlToElement(renderQuestCard(task, completedIds, icons));
+                if (!nextCard || !cards[i]) {
+                    grid.innerHTML = chipsHtml + displayTasks.map(t => renderQuestCard(t, completedIds, icons)).join('');
+                    questBoardLayoutKey = layoutKey;
+                    questBoardChipsHtml = chipsHtml;
+                    questCardSignatures = cardSignatures;
+                    return;
+                }
+                cards[i].replaceWith(nextCard);
+            }
+
+            questBoardLayoutKey = layoutKey;
+            questCardSignatures = cardSignatures;
         }
 
         function renderQuests() {
@@ -5542,6 +5728,7 @@
             });
 
             if (filtered.length === 0) {
+                resetQuestBoardRenderCache();
                 grid.innerHTML = `
                     <div class="empty-state">
                         <div class="icon">🔍</div>
@@ -5561,7 +5748,7 @@
             // "all" category or homework or no topics → flat grid, no chips
             if (!hasTopic || currentFilter === 'homework' || currentFilter === 'all' || currentFilter === 'codewars' || currentFilter === 'leetcode') {
                 selectedTopicFilter = null;
-                grid.innerHTML = filtered.map(task => renderQuestCard(task, completedIds, icons)).join('');
+                renderQuestBoard(grid, filtered, completedIds, icons);
                 return;
             }
 
@@ -5611,8 +5798,7 @@
                 ? filtered.filter(t => t.topic === selectedTopicFilter)
                 : filtered;
 
-            // Render: chips + flat grid
-            grid.innerHTML = chipsHtml + displayTasks.map(task => renderQuestCard(task, completedIds, icons)).join('');
+            renderQuestBoard(grid, displayTasks, completedIds, icons, chipsHtml);
         }
 
         // ==================== QUEST MODAL ====================
@@ -6172,7 +6358,7 @@
                         consoleEl.innerText = '✅ Отправлено на проверку! Мастер скоро проверит.';
                         showTutorialToast('✅ Отправлено на проверку! Мастер скоро проверит.', 'success');
                     }
-                    syncDashboardData({ forceRoadmap: true });
+                    loadTaskStatus();
                 } else if (data.status === 'completed') {
                     consoleEl.innerText = '✅ Задание завершено! +' + (data.xp_earned || 0) + ' XP';
                     showTutorialToast('✅ Задание завершено! +' + (data.xp_earned || 0) + ' XP', 'success');
@@ -6206,6 +6392,7 @@
                 clearTimeout(previewRenderTimer);
                 previewRenderTimer = null;
             }
+            flushDeferredQuestBoardRender();
         }
 
         // ==================== PASTE PROTECTION & AUTO-INDENT ====================
@@ -6843,7 +7030,7 @@
                     } else {
                         output.innerText = '📤 Отправлено на проверку мастеру!';
                     }
-                    setTimeout(() => syncDashboardData({ forceRoadmap: true }), 500);
+                    setTimeout(() => loadTaskStatus(), 500);
                 } catch (e) {
                     output.innerText = '❌ Ошибка загрузки: ' + (e.message || e);
                 } finally {
@@ -6903,7 +7090,7 @@
                         const v = data.verification || {};
                         setFrontendPreviewStatus(v.passed ? 'PASSED' : 'FAILED');
                     }
-                    setTimeout(() => syncDashboardData({ forceRoadmap: true }), 500);
+                    setTimeout(() => loadTaskStatus(), 500);
                     return;
                 }
 
@@ -6935,7 +7122,7 @@
                         currentTask.completed = true;
                         currentTask.methods_count = Math.max(Number(currentTask.methods_count || 0), methodsCount);
                     }
-                    renderQuests();
+                    refreshQuestBoard();
                     output.innerText =
                         renderVerificationText(data.verification) +
                         `\n\n♻️ Способ #${methodIndex} уже засчитан.` +
@@ -6966,7 +7153,7 @@
                     }
 
                     updateXPDisplay();
-                    renderQuests();
+                    refreshQuestBoard();
 
                     output.innerText =
                         renderVerificationText(data.verification) +
@@ -6998,7 +7185,6 @@
                     // Refresh lists
                     setTimeout(() => loadRoadmap(), 600);
                     setTimeout(() => loadAchievements(), 900);
-                    setTimeout(() => syncDashboardData({ forceRoadmap: true }), 1000);
                     if (currentTask.category === 'frontend') setFrontendPreviewStatus('PASSED');
                     appendNextTaskButton(output);
                     return;
@@ -7093,7 +7279,7 @@
                 }
 
                 setTimeout(() => {
-                    renderQuests();
+                    refreshQuestBoard();
                 }, 1000);
             } catch (e) {
                 console.error('Failed to save progress:', e);
@@ -7545,7 +7731,7 @@
                 loadXPChart();
                 loadChatMessages();
                 startChatRefresh();
-                syncDashboardData({ forceRoadmap: true });
+                syncDashboardData();
             } else if (chatRefreshInterval) {
                 clearInterval(chatRefreshInterval);
                 chatRefreshInterval = null;
@@ -8517,7 +8703,7 @@
                 });
                 btn.classList.add('active');
                 btn.setAttribute('aria-selected', 'true');
-                renderQuests();
+                refreshQuestBoard();
             };
             window.filterCategory = function (category, btn) {
                 hideCampaignMap();
