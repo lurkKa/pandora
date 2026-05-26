@@ -2558,13 +2558,13 @@ def serve_kahoot_html():
     return FileResponse("kahoot.html")
 
 @app.get("/api/status")
-def status():
+async def status():
     """Machine-readable status endpoint."""
     return {"name": "Академия Pandora", "version": "3.0.0", "status": "online"}
 
 @app.api_route("/ping", methods=["GET", "HEAD", "OPTIONS"])
 @app.api_route("/health", methods=["GET", "HEAD", "OPTIONS"], include_in_schema=False)
-def ping():
+async def ping():
     """Auto-discovery/health endpoint."""
     return JSONResponse(
         content={"status": "online", "server": "PANDORA", "version": "3.0.0"},
