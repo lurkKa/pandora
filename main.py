@@ -4555,7 +4555,7 @@ def public_task_lite(task: dict) -> dict:
 EXTERNAL_TASK_PLATFORMS = {"codewars", "leetcode"}
 TASK_TIER_ORDER = ("D", "C", "B", "A", "S")
 TIER_PREV = {"C": "D", "B": "C", "A": "B", "S": "A"}
-DEFAULT_UNLOCK_REQUIREMENTS = {"C": 2, "B": 2, "A": 2, "S": 2}
+DEFAULT_UNLOCK_REQUIREMENTS = {"C": 2, "B": 2, "A": 1, "S": 1}
 DAILY_ADVANCED_TIER_REQUIREMENTS = {
     "A": ("C", "B"),
     "S": ("C", "B", "A"),
