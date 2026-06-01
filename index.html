@@ -2996,6 +2996,105 @@
             font-size: 12px;
             white-space: nowrap;
         }
+
+        /* ========== QUIZ BUTTON GATE ========== */
+        .header-btn.quiz-locked {
+            opacity: 0.35;
+            cursor: not-allowed;
+            position: relative;
+        }
+        .header-btn.quiz-locked:hover::after {
+            content: attr(data-lock-reason);
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-elevated);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            z-index: 1000;
+            pointer-events: none;
+        }
+
+        /* ========== INACTIVITY NOTIFICATION ========== */
+        .inactivity-notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-200%);
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            border: 2px solid #e94560;
+            border-radius: 18px;
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            z-index: 1001;
+            box-shadow: 0 8px 40px rgba(233, 69, 96, 0.35), 0 0 80px rgba(233, 69, 96, 0.12);
+            opacity: 0;
+            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            max-width: 520px;
+            width: 90vw;
+        }
+        .inactivity-notification.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+        .inactivity-icon {
+            font-size: 42px;
+            animation: inactivity-pulse 1.5s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+        @keyframes inactivity-pulse {
+            0%, 100% { transform: scale(1) rotate(0deg); }
+            25% { transform: scale(1.15) rotate(-5deg); }
+            75% { transform: scale(1.1) rotate(5deg); }
+        }
+        .inactivity-text {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+            min-width: 0;
+        }
+        .inactivity-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2.5px;
+            color: #e94560;
+            font-weight: 700;
+        }
+        .inactivity-quote {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-bright, #e0e0e0);
+            line-height: 1.45;
+            font-style: italic;
+        }
+        .inactivity-dismiss {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.06);
+            color: var(--text-secondary, #888);
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+        .inactivity-dismiss:hover {
+            background: rgba(233, 69, 96, 0.2);
+            border-color: #e94560;
+            color: #e94560;
+        }
     </style>
 </head>
 
@@ -3062,7 +3161,7 @@
                         style="display:none;">0</span></button>
                 <button class="header-btn" onclick="toggleGuildRankings()" title="Рейтинг гильдий">⚔️</button>
                 <button class="header-btn" onclick="toggleChatPanel()" title="Чат">💬</button>
-                <button class="header-btn" onclick="window.open('/kahoot','_blank')" title="Квиз">🧠</button>
+                <button class="header-btn" id="kahoot-btn" onclick="tryOpenQuiz()" title="Квиз">🧠</button>
                 <span class="logo-icon" aria-hidden="true">💎</span>
                 <span class="logo-text">Академия Pandora</span>
             </div>
@@ -3133,6 +3232,16 @@
             <div class="ach-name" id="ach-notif-name">First Steps</div>
             <div class="ach-bonus" id="ach-notif-bonus">+5 XP</div>
         </div>
+    </div>
+
+    <!-- Inactivity Motivational Quote Popup -->
+    <div class="inactivity-notification" id="inactivity-notification">
+        <div class="inactivity-icon">⚡</div>
+        <div class="inactivity-text">
+            <div class="inactivity-label">Эй, самурай!</div>
+            <div class="inactivity-quote" id="inactivity-quote"></div>
+        </div>
+        <button class="inactivity-dismiss" onclick="dismissInactivityQuote()" title="Закрыть">✕</button>
     </div>
 
     <!-- Floating Report Button -->
@@ -10811,6 +10920,226 @@
                 loadMyGuild();
             } catch (e) { alert('Ошибка'); }
         }
+
+        // ==================== QUIZ BUTTON GATE (min 4 completed tasks) ====================
+        const QUIZ_MIN_TASKS = 4;
+
+        function updateQuizButtonState() {
+            const btn = document.getElementById('kahoot-btn');
+            if (!btn) return;
+            const completedCount = (currentUser && currentUser.completed_tasks) ? currentUser.completed_tasks.length : 0;
+            if (completedCount < QUIZ_MIN_TASKS) {
+                btn.classList.add('quiz-locked');
+                btn.setAttribute('data-lock-reason', `Выполни минимум ${QUIZ_MIN_TASKS} задания (сейчас: ${completedCount})`);
+            } else {
+                btn.classList.remove('quiz-locked');
+                btn.removeAttribute('data-lock-reason');
+            }
+        }
+
+        function tryOpenQuiz() {
+            const completedCount = (currentUser && currentUser.completed_tasks) ? currentUser.completed_tasks.length : 0;
+            if (completedCount < QUIZ_MIN_TASKS) {
+                showInactivityQuote(`Квиз откроется после выполнения ${QUIZ_MIN_TASKS} заданий. Осталось: ${QUIZ_MIN_TASKS - completedCount}`, '🔒');
+                return;
+            }
+            window.open('/kahoot', '_blank');
+        }
+
+        // ==================== INACTIVITY MOTIVATIONAL QUOTES ====================
+        const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+        let _inactivityTimer = null;
+        let _inactivityActive = false;
+
+        const MOTIVATIONAL_QUOTES = [
+            // Самурайские / философские
+            "Самурай идёт ради пути, а не результата. Но путь начинается с одного задания.",
+            "Лень — это ржавчина ума. Даже самый острый клинок тупеет без дела.",
+            "Кто не двигается вперёд — тот откатывается назад. Это не я придумал, это физика.",
+            "Дисциплина — это мост между целями и достижениями.",
+            "Путь в тысячу ли начинается с одного клика по заданию.",
+            "Мастер провалил больше раз, чем новичок попробовал.",
+            "Бамбук гнётся, но не ломается. Будь как бамбук — не ломайся от задачки.",
+            "Тот, кто боится поражений, никогда не одержит победу.",
+            "Падение — это часть тренировки. Самурай встаёт и пробует снова.",
+            "Сила не в том, чтобы не падать, а в том, чтобы подниматься каждый раз.",
+            // Юмористические
+            "Кофе остывает, код не пишется сам, а ты тут сидишь. Совпадение?",
+            "Твой компьютер скучает. Он буквально создан для того, чтобы ты на нём кодил.",
+            "Прокрастинация — это как кредитная карта: весело, пока не приходит счёт.",
+            "Если бы лень была олимпийским видом спорта, ты бы даже на него опоздал.",
+            "Код не пишется сам. Поверь, я проверял. Каждый день. 10 минут назад тоже.",
+            "Знаешь что общего у тебя и бага? Вы оба сидите и ничего не делаете.",
+            "Даже ChatGPT работает больше тебя прямо сейчас. Это обидно, подумай об этом.",
+            "Твоя клавиатура забыла, как ты выглядишь. Напомни ей.",
+            "Одно задание = один шаг к величию. Ноль заданий = ноль шагов. Математика жестока.",
+            "Где-то плачет массив, которого ты так и не отсортировал.",
+            // Вдохновляющие
+            "Великие дела не делаются импульсивно, а чередой маленьких.",
+            "Неважно как медленно ты идёшь, главное — не останавливайся.",
+            "Сложность — это просто расстояние между тобой и навыком.",
+            "Каждый эксперт когда-то был новичком.",
+            "Ты уже здесь — полдела сделано. Осталось начать.",
+            "Успех — это сумма маленьких усилий, повторяемых день за днём.",
+            "Не жди идеального момента. Возьми момент и сделай его идеальным.",
+            "Программирование — это суперсила. Но даже супергерои тренируются.",
+            "Ты на 10 минут ближе к дедлайну, чем когда открыл эту страницу.",
+            "Будущий ты скажет спасибо, если ты начнёшь сейчас.",
+            // Дерзкие
+            "Лень не должна побеждать. Ты же не для этого логинился.",
+            "10 минут без кода? Это официально больше, чем мой перерыв.",
+            "Если ты читаешь это — значит, ты мог бы уже решить задание.",
+            "Экран ждёт. Задания ждут. Вселенная ждёт. Ты один не торопишься.",
+            "Тик-так. Это звук твоего потенциала, утекающего в никуда.",
+            "Мотивация приходит после начала, а не до.",
+            "Через год ты пожалеешь, что не начал сегодня.",
+            "Пока ты думаешь — кто-то уже решает.",
+            "Трудности — это цена за вход на уровень выше.",
+            "Ты не устал. Ты просто ещё не увидел результат.",
+            // Про код и программирование
+            "Баги не исправляются сами. Задания тоже не решаются сами.",
+            "Каждая строка кода — это маленькая победа.",
+            "Даже Hello World когда-то был вершиной мастерства.",
+            "Код — это поэзия, понятная машинам. Напиши стихотворение.",
+            "Stack Overflow не поможет, если ты даже не пытаешься.",
+            "Лучший код — тот, который ты написал сам, без чужих подсказок.",
+            "Один решённый баг стоит тысячи прочитанных туториалов.",
+            "Программист — это тот, кто решает проблемы, о которых ты не знал, способами, которые ты не понимаешь.",
+            "Ctrl+Z не работает в жизни. Начни кодить прямо сейчас.",
+            "Компилятор не кусается. Попробуй.",
+            // Жизненные
+            "Жизнь слишком коротка, чтобы тратить её на прокрастинацию.",
+            "Дисциплина — это когда делаешь то, что нужно, даже когда не хочется.",
+            "Привычка побеждает мотивацию. Каждый раз.",
+            "Маленький прогресс каждый день складывается в большие результаты.",
+            "Не бойся быть медленным, бойся стоять на месте.",
+            "Разница между мечтой и целью — действие.",
+            "Удача — это когда подготовка встречает возможность.",
+            "Ты не должен быть великим, чтобы начать. Но должен начать, чтобы стать великим.",
+            "Единственный способ предсказать будущее — создать его.",
+            "Инвестируй в себя. Это единственная инвестиция с гарантированной доходностью.",
+            // Игровые
+            "AFK 10 минут? В рейде бы тебя уже кикнули.",
+            "XP сами себя не нафармят. Вперёд, воин!",
+            "Босс-квест не победится, если сидеть в таверне.",
+            "Твой персонаж деградирует от безделья. Буквально.",
+            "Легендарный лут не падает с мобов, которых ты не бьёшь.",
+            "Respawn через 3... 2... 1... Давай, начинай квест!",
+            "Ты на паузе уже 10 минут. Это не пауза — это Game Over.",
+            "Рейтинг сам себя не поднимет. За дело!",
+            "Пока ты AFK, другие фармят XP. Справедливо? Не думаю.",
+            "Каждый квест — это мини-босс. Не убегай.",
+            // Философские
+            "Знание без практики — бесполезно. Практика без знания — опасна.",
+            "Река не пробивает камень силой, а постоянством.",
+            "Падающая вода точит камень. Падающий программист точит скилл.",
+            "Тот, кто спрашивает — глупец пять минут. Тот, кто не спрашивает — глупец всю жизнь.",
+            "Мудрость — это знать, что ты ничего не знаешь. И начать учиться.",
+            "Семь раз упади — восемь раз встань.",
+            "Даже самый длинный путь начинается с первого шага.",
+            "Настоящая ошибка — та, из которой ты не извлёк урок.",
+            "Тишина ума — враг прогресса. Шуми клавишами!",
+            "Учение — свет, а неучение — 10 минут пустого экрана.",
+            // Шуточные IT
+            "В IT есть 10 типов людей: те, кто кодят, и те, кто сидят 10 минут без дела.",
+            "404: Мотивация не найдена. Но ты можешь создать её сам.",
+            "git commit -m 'наконец-то начал работать'",
+            "Твой код не зарефакторится сам. Как и твоя лень.",
+            "sudo apt-get install motivation",
+            "while (idle) { doTask(); break; } // вот тебе подсказка",
+            "Даже NaN лучше undefined. А undefined лучше, чем ничего не делать.",
+            "Try { решить_задание(); } catch (лень) { всё_равно_решить(); }",
+            "rm -rf /прокрастинация — и вперёд!",
+            "console.log('Хватит читать консоль, иди решай квест!')",
+            // Мотивационные цитаты великих
+            "'Делай что можешь, с тем что имеешь, там где находишься.' — Рузвельт",
+            "'Будь тем изменением, которое хочешь видеть в мире.' — Ганди",
+            "'Сначала они игнорируют тебя, потом смеются, потом борются, потом ты побеждаешь.' — Ганди",
+            "'Я не потерпел неудачу. Я нашёл 10 000 способов, которые не работают.' — Эдисон",
+            "'Гений — это 1% таланта и 99% труда.' — Эдисон",
+            "'Секрет успеха — начать.' — Марк Твен",
+            "'Если вы думаете, что вы слишком малы, чтобы что-то изменить, попробуйте заснуть с комаром.' — Далай-лама",
+            "'Не тот велик, кто никогда не падал, а тот, кто падал и вставал.' — Конфуций",
+            "'Действие — основной ключ к успеху.' — Пабло Пикассо",
+            "'Не откладывай на завтра то, что можно сделать сегодня.' — Бенджамин Франклин",
+        ];
+
+        function _resetInactivityTimer() {
+            if (_inactivityTimer) clearTimeout(_inactivityTimer);
+            _inactivityActive = false;
+            _inactivityTimer = setTimeout(_onInactivityTimeout, INACTIVITY_TIMEOUT_MS);
+        }
+
+        function _onInactivityTimeout() {
+            if (!authToken || !currentUser) return; // not logged in
+            if (document.visibilityState === 'hidden') return; // tab not visible
+            _inactivityActive = true;
+            const quote = MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
+            showInactivityQuote(quote);
+        }
+
+        function showInactivityQuote(text, icon) {
+            const notif = document.getElementById('inactivity-notification');
+            if (!notif) return;
+            const quoteEl = document.getElementById('inactivity-quote');
+            const iconEl = notif.querySelector('.inactivity-icon');
+            const labelEl = notif.querySelector('.inactivity-label');
+
+            const icons = ['⚡', '🔥', '⚔️', '🗡️', '🎯', '💪', '🧠', '🚀', '👊', '⏰'];
+            iconEl.textContent = icon || icons[Math.floor(Math.random() * icons.length)];
+            labelEl.textContent = icon === '🔒' ? 'Квиз заблокирован' : 'Эй, самурай!';
+            quoteEl.textContent = text;
+
+            // Remove then re-add to re-trigger animation
+            notif.classList.remove('show');
+            void notif.offsetWidth; // force reflow
+            setTimeout(() => notif.classList.add('show'), 30);
+
+            // Auto-hide after 8 seconds
+            clearTimeout(notif._autoHide);
+            notif._autoHide = setTimeout(() => {
+                notif.classList.remove('show');
+            }, 8000);
+        }
+
+        function dismissInactivityQuote() {
+            const notif = document.getElementById('inactivity-notification');
+            if (notif) {
+                notif.classList.remove('show');
+                clearTimeout(notif._autoHide);
+            }
+            _resetInactivityTimer();
+        }
+
+        // Start inactivity tracking on user interaction events
+        function _initInactivityTracker() {
+            const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
+            events.forEach(evt => {
+                document.addEventListener(evt, () => {
+                    if (_inactivityActive) {
+                        dismissInactivityQuote();
+                    }
+                    _resetInactivityTimer();
+                }, { passive: true });
+            });
+            _resetInactivityTimer();
+        }
+
+        // Hook into enterApp to start tracker and update quiz button
+        const _originalEnterApp = enterApp;
+        enterApp = function() {
+            _originalEnterApp();
+            updateQuizButtonState();
+            _initInactivityTracker();
+        };
+
+        // Hook into syncDashboardData to keep quiz button updated
+        const _originalSyncDashboard = syncDashboardData;
+        syncDashboardData = async function(opts) {
+            const result = await _originalSyncDashboard(opts);
+            updateQuizButtonState();
+            return result;
+        };
 
         // ==================== START ====================
         window.addEventListener('load', init);
