@@ -1245,6 +1245,47 @@
             color: var(--warning);
         }
 
+        /* Featured Task Multiplier Badge */
+        .quest-featured-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 5;
+            padding: 3px 9px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            line-height: 1.3;
+            pointer-events: none;
+            animation: featured-pulse 2.5s ease-in-out infinite;
+        }
+        .quest-featured-badge.x2 {
+            background: rgba(6, 182, 212, 0.18);
+            color: #22d3ee;
+            border: 1px solid rgba(6, 182, 212, 0.35);
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.20);
+        }
+        .quest-featured-badge.x3 {
+            background: rgba(139, 92, 246, 0.18);
+            color: #a78bfa;
+            border: 1px solid rgba(139, 92, 246, 0.35);
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.20);
+        }
+        .quest-featured-badge.x5 {
+            background: rgba(245, 158, 11, 0.18);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.40);
+            box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
+        }
+        @keyframes featured-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        /* Completed/locked cards should not show featured badge */
+        .quest-card.completed .quest-featured-badge,
+        .quest-card.locked .quest-featured-badge { display: none; }
+
         /* Empty State */
         .empty-state {
             grid-column: 1 / -1;
@@ -5276,6 +5317,7 @@
                 injectMissionsWidget();
                 loadDailyMissions();
                 checkBonusQuest();
+                loadFeaturedTask();
             }, 500);
         }
 
@@ -5300,6 +5342,7 @@
                 else if (shouldRefreshTaskStatus) jobs.push(loadTaskStatus());
                 if (!shouldRefreshRoadmap && (forceRoadmap || dashboardSyncTick % 2 === 0)) jobs.push(loadHomework(false));
                 if (forceRoadmap || dashboardSyncTick % 4 === 0) jobs.push(loadActiveEvents());
+                if (forceRoadmap || dashboardSyncTick % 5 === 0) jobs.push(loadFeaturedTask());
                 if (profileOpen) {
                     jobs.push(loadMySubmissions());
                     jobs.push(loadDailyMissions());
@@ -5664,6 +5707,14 @@
             const platform = task.source_platform || '';
             const platformBadge = platform === 'codewars' ? `<div class="platform-badge codewars">CW</div>`
                 : platform === 'leetcode' ? `<div class="platform-badge leetcode">LC</div>` : '';
+            // Featured task multiplier badge
+            const isFeatured = featuredTask && featuredTask.active && featuredTask.task_id === task.id && !isCompleted && !isLocked;
+            const featuredBadge = isFeatured
+                ? `<div class="quest-featured-badge x${featuredTask.multiplier}">×${featuredTask.multiplier} XP</div>`
+                : '';
+            const featuredReward = isFeatured
+                ? `⭐ ${task.xp} × ${featuredTask.multiplier} = ${task.xp * featuredTask.multiplier} XP`
+                : `⭐ ${task.xp} XP`;
             return `
                 <article class="quest-card ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${isPending ? 'pending' : ''} ${isHomework ? 'homework' : ''} ${isTutorial ? 'tutorial-card' : ''}" 
                          ${methodsAttr}
@@ -5676,12 +5727,13 @@
                     ${isCompleted ? `<div class="quest-complete-badge" aria-label="Выполнено">✓</div>` : ``}
                     ${tutorialBadge}
                     ${platformBadge}
+                    ${featuredBadge}
                     <div class="quest-card-content">
                         <div class="quest-icon">${isTutorial ? '🎓' : (icons[task.category] || '📜')}</div>
                         <h3 class="quest-title">${task.title}</h3>
                         <p class="quest-story">${task.story}</p>
                         ${isHomework ? `<div class="quest-homework-note">📌 ДЗ • ${hwDeadline}</div>` : ``}
-                        <div class="quest-reward">⭐ ${task.xp} XP${isPending ? ' (на проверке)' : ''}</div>
+                        <div class="quest-reward">${featuredReward}${isPending ? ' (на проверке)' : ''}</div>
                     </div>
                     ${methodsBadge}
                 </article>
@@ -5696,6 +5748,7 @@
             const rawMethodsCount = Number(task.methods_count || 0);
             const methodsCount = isCompleted ? Math.max(1, rawMethodsCount) : Math.max(0, rawMethodsCount);
             const hw = homeworkByTask[id];
+            const isFeatured = featuredTask && featuredTask.active && featuredTask.task_id === task.id;
             return JSON.stringify([
                 id,
                 task.category || '',
@@ -5711,6 +5764,7 @@
                 hw ? hw.deadline_at : '',
                 hw ? Boolean(hw.overdue) : false,
                 hw ? Boolean(hw.completed) : false,
+                isFeatured ? featuredTask.multiplier : 0,
             ]);
         }
 
@@ -9269,6 +9323,26 @@
                 }
             } catch (e) {
                 console.error('Failed to claim mission:', e);
+            }
+        }
+
+        // ==================== FEATURED TASK (Random XP Multiplier) ====================
+        let featuredTask = null; // {active, task_id, multiplier}
+
+        async function loadFeaturedTask() {
+            try {
+                const res = await fetch(`${API_URL}/api/featured-task`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json();
+                const changed = JSON.stringify(featuredTask) !== JSON.stringify(data);
+                featuredTask = data;
+                if (changed) {
+                    resetQuestBoardRenderCache();
+                    refreshQuestBoard();
+                }
+            } catch (e) {
+                console.warn('Failed to load featured task:', e);
             }
         }
 

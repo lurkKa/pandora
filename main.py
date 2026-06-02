@@ -26,6 +26,9 @@ import io
 import tokenize
 import keyword
 import time
+import threading as _threading
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import html
 import tempfile
 from collections import Counter
@@ -37,7 +40,8 @@ from logging.handlers import RotatingFileHandler
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Header, Query, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import FileResponse, JSONResponse, Response
 from starlette.background import BackgroundTask
 from pydantic import BaseModel, validator
 import bcrypt
@@ -51,6 +55,19 @@ import zipfile
 import uuid
 import hashlib
 from pathlib import Path
+
+# orjson is ~10x faster than stdlib json for large payloads (38MB roadmap).
+# Falls back to stdlib json if not installed.
+try:
+    import orjson as _orjson
+    def _fast_json_bytes(obj) -> bytes:
+        """Serialize to compact JSON bytes using orjson (C extension, ~10x faster)."""
+        return _orjson.dumps(obj, option=_orjson.OPT_NON_STR_KEYS)
+    _HAS_ORJSON = True
+except ImportError:
+    _HAS_ORJSON = False
+    def _fast_json_bytes(obj) -> bytes:
+        return json.dumps(obj, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
 
 # ==================== SECURITY CONFIG ====================
 
@@ -295,12 +312,22 @@ def get_db():
         conn.execute("PRAGMA foreign_keys = ON")
         conn.execute(f"PRAGMA busy_timeout = {max(500, SQLITE_BUSY_TIMEOUT_MS)}")
     except sqlite3.Error:
-        # Best-effort; don't fail app startup for PRAGMA issues.
         pass
     try:
         yield conn
     finally:
         conn.close()
+
+def _enable_wal_mode():
+    """Enable WAL journal mode (once, at startup). WAL allows concurrent reads
+    without blocking writers — critical for polling endpoints like quiz sessions."""
+    try:
+        conn = sqlite3.connect(DATABASE, timeout=5.0)
+        mode = conn.execute("PRAGMA journal_mode = WAL").fetchone()[0]
+        conn.close()
+        logger.info("SQLite journal_mode = %s", mode)
+    except Exception as e:
+        logger.warning("Failed to enable WAL mode: %s", e)
 
 def _sync_ranks(cursor):
     """Replace ranks table with full professional progression (30 tiers, up to level 1000).
@@ -1227,17 +1254,31 @@ def init_db():
             log_error("Guild achievement sync failed", e)
         
         # Populate / sync ranks (always update to latest progression)
-        _sync_ranks(cursor)
-        conn.commit()
+        try:
+            _sync_ranks(cursor)
+            conn.commit()
+        except Exception as e:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            log_error("Ranks sync failed (non-fatal, will retry next startup)", e)
 
         # Migration: recalculate all user levels with progressive formula
-        import math as _math
-        cursor.execute("SELECT id, xp FROM users")
-        for u in cursor.fetchall():
-            new_lvl = compute_level(u["xp"])
-            cursor.execute("UPDATE users SET level = ? WHERE id = ? AND level != ?", (new_lvl, u["id"], new_lvl))
-        conn.commit()
-        print("✓ Ranks synced")
+        try:
+            import math as _math
+            cursor.execute("SELECT id, xp FROM users")
+            for u in cursor.fetchall():
+                new_lvl = compute_level(u["xp"])
+                cursor.execute("UPDATE users SET level = ? WHERE id = ? AND level != ?", (new_lvl, u["id"], new_lvl))
+            conn.commit()
+            print("✓ Ranks synced")
+        except Exception as e:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            log_error("Level migration failed (non-fatal)", e)
         
         # Create bootstrap admin if none exists (first run).
         # Prefer setting PANDORA_BOOTSTRAP_ADMIN_PASSWORD in production.
@@ -1292,6 +1333,15 @@ def verify_password(password: str, hashed: str) -> bool:
         ok = hashlib.sha256(password.encode()).hexdigest() == hashed
         _auth_trace("verify_password legacy_sha256 ok=%s", ok)
         return ok
+
+# Dedicated thread pool for CPU-bound work (bcrypt, heavy JSON serialization).
+# Sized to 2 to prevent bcrypt from consuming all CPU on single-core Render.
+_cpu_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="pandora_cpu")
+
+async def verify_password_async(password: str, hashed: str) -> bool:
+    """Non-blocking bcrypt verification. Runs in a thread pool to keep the event loop free."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(_cpu_executor, verify_password, password, hashed)
 
 def compute_level(total_xp: int) -> int:
     """Compute level from total XP using progressive curve.
@@ -1899,8 +1949,14 @@ def process_task_completion(
     failed_attempts = cursor.fetchone()["cnt"]
     attempt_penalty_pct = min(max(0, failed_attempts - 30), 10)  # 1% per fail above 30, cap 10%
     attempt_penalty = attempt_penalty_pct / 100.0
+
+    # Featured task multiplier (random x2/x3/x5 boost)
+    featured_multiplier = 1.0
+    featured = _featured_tasks.get(user_id)
+    if featured and featured["task_id"] == task_id and featured["expires_at"] > time.monotonic():
+        featured_multiplier = featured["multiplier"]
     
-    final_xp = int(task_base_xp * method_multiplier * bonus_multiplier * (1.0 - attempt_penalty))
+    final_xp = int(task_base_xp * method_multiplier * bonus_multiplier * featured_multiplier * (1.0 - attempt_penalty))
     final_xp = max(1, final_xp)  # Minimum 1 XP
 
     # Apply XP (keeps level consistent) + audit log
@@ -2354,6 +2410,10 @@ app.add_middleware(
     expose_headers=["X-Server-Type"],
 )
 
+# GZip: compress responses >500 bytes. Reduces 38MB roadmap → ~3-4MB.
+# Minimum 500 bytes ensures /ping stays uncompressed for speed.
+app.add_middleware(GZipMiddleware, minimum_size=500)
+
 # Serve uploads directory statically
 Path("uploads").mkdir(exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
@@ -2410,7 +2470,15 @@ async def _startup() -> None:
             logger.warning("Failed to persist JWT secret; tokens will reset on restart (%s)", e)
 
     init_db()
-    logger.info("SERVER STARTUP | PANDORA Sensei Node v3.0")
+    logger.info("SERVER STARTUP | PANDORA Sensei Node v3.0 | orjson=%s", _HAS_ORJSON)
+
+    # Warm-up heavy caches at startup to eliminate cold-start latency on first request.
+    # Without this, the first /api/tasks request takes ~810ms to build the cache.
+    try:
+        _get_preserialized_tasks_response()
+        logger.info("✓ Tasks cache warmed up at startup")
+    except Exception as e:
+        logger.warning("Tasks cache warm-up failed (non-fatal): %s", e)
 
 @app.api_route("/", methods=["GET", "HEAD", "OPTIONS"], include_in_schema=False)
 def serve_index():
@@ -2425,8 +2493,8 @@ def serve_alextype():
 # AlexType last-reward timestamps per user (in-memory cooldown)
 _alextype_last_reward: dict[int, float] = {}
 _ALEXTYPE_COOLDOWN_S = 30
-_ALEXTYPE_DIFFICULTY_MULT = {"D": 0.50, "C": 0.70, "B": 1.00, "A": 1.29, "S": 2.00}
-_ALEXTYPE_MAX_XP = {"D": 30, "C": 60, "B": 120, "A": 165, "S": 250}  # Per-rank caps (15% reduction + S>A fix)
+_ALEXTYPE_DIFFICULTY_MULT = {"D": 2.00, "C": 2.80, "B": 4.00, "A": 5.16, "S": 8.00}   # x4 boost
+_ALEXTYPE_MAX_XP = {"D": 120, "C": 240, "B": 480, "A": 660, "S": 1000}  # x4 boost
 
 @app.post("/api/alextype/complete")
 def alextype_complete(data: AlexTypeCompleteRequest, user: dict = Depends(require_auth)):
@@ -2573,7 +2641,7 @@ async def ping():
 
 @app.post("/api/auth/login")
 @limiter.limit(os.getenv("PANDORA_LOGIN_RATE_LIMIT", "5/minute"))
-def login(request: Request, data: LoginRequest):
+async def login(request: Request, data: LoginRequest):
     """Authenticate user and return JWT token. Rate limited to 5 attempts/minute."""
     t0 = time.monotonic()
     _auth_trace("login start username=%s", data.username)
@@ -2594,7 +2662,7 @@ def login(request: Request, data: LoginRequest):
             t_user_loaded = time.monotonic()
             _auth_trace("login user_fetch done found=%s", bool(user))
             
-            if not user or not verify_password(data.password, user["password_hash"]):
+            if not user or not await verify_password_async(data.password, user["password_hash"]):
                 log_security_event(
                     SecurityEvent.LOGIN_FAILED, request,
                     username=data.username,
@@ -3691,6 +3759,67 @@ def get_active_bonus_quest(user: dict = Depends(require_auth)):
             }
         }
 
+# ==================== FEATURED TASK (Random XP Multiplier) ====================
+
+# In-memory cache: user_id -> {task_id, multiplier, expires_at (monotonic)}
+_featured_tasks: dict[int, dict] = {}
+_FEATURED_MULTIPLIERS = [2, 3, 5]
+_FEATURED_WEIGHTS = [60, 30, 10]  # x2=60%, x3=30%, x5=10%
+_FEATURED_TTL_S = 3600  # 1 hour
+
+@app.get("/api/featured-task")
+def get_featured_task(user: dict = Depends(require_auth)):
+    """Return a single random uncompleted task with an XP multiplier (x2/x3/x5).
+    
+    The selection is cached per-user for 1 hour.  If the featured task gets
+    completed before the TTL expires, a new one is picked on next call.
+    """
+    uid = int(user["id"])
+    now = time.monotonic()
+
+    # Check cached featured task
+    cached = _featured_tasks.get(uid)
+    if cached and cached["expires_at"] > now:
+        # Verify the task is still uncompleted
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT 1 FROM completed_tasks WHERE user_id = ? AND task_id = ? AND is_valid != 0",
+                (uid, cached["task_id"]),
+            )
+            if not cursor.fetchone():
+                return {"active": True, "task_id": cached["task_id"], "multiplier": cached["multiplier"]}
+        # Task was completed — fall through to pick a new one
+
+    # Pick a new featured task from open (uncompleted, unlocked) tasks
+    with get_db() as conn:
+        cursor = conn.cursor()
+        completed_ids = _completed_task_ids(cursor, uid)
+
+    tasks_data = load_tasks()
+    all_tasks = tasks_data.get("tasks", [])
+    available = [
+        t for t in all_tasks
+        if t.get("id") not in completed_ids
+        and not t.get("locked")
+        and t.get("category") != "scratch"  # No manual-review tasks
+    ]
+
+    if not available:
+        _featured_tasks.pop(uid, None)
+        return {"active": False, "task_id": None, "multiplier": 1}
+
+    chosen = random.choice(available)
+    multiplier = random.choices(_FEATURED_MULTIPLIERS, weights=_FEATURED_WEIGHTS, k=1)[0]
+
+    _featured_tasks[uid] = {
+        "task_id": chosen["id"],
+        "multiplier": multiplier,
+        "expires_at": now + _FEATURED_TTL_S,
+    }
+
+    return {"active": True, "task_id": chosen["id"], "multiplier": multiplier}
+
 @app.get("/api/profile")
 def get_profile(user: dict = Depends(require_auth)):
     """Get current user's full profile with stats."""
@@ -4251,6 +4380,40 @@ def download_sqlite_backup(admin: dict = Depends(require_admin)):
 
 _TASKS_CACHE: dict = {"mtime": None, "legacy_mtime": None, "external_mtime": None, "data": None}
 _TASKS_BY_ID_CACHE: dict = {"tasks_data_id": None, "data": {}}
+
+# Pre-serialized JSON cache for heavy endpoints.
+# Instead of re-serializing 24-38MB of JSON on every request (blocking the event
+# loop for ~1.2s per request), we cache the serialized bytes and serve them
+# directly via fastapi.responses.Response.  Cache is keyed on tasks_data_id
+# (the id() of the loaded dict) so it auto-invalidates when tasks.json reloads.
+import gzip as _gzip_mod
+
+_PRESERIALIZED_TASKS_CACHE: dict = {"tasks_data_id": None, "json_bytes": b"", "gzip_bytes": b"", "etag": ""}
+_PRESERIALIZED_TASKS_LOCK = __import__('threading').Lock()
+
+def _get_preserialized_tasks_response() -> tuple[bytes, bytes, str]:
+    """Return (json_bytes, gzip_bytes, etag) for the full unfiltered /api/tasks response."""
+    data = load_tasks()
+    data_id = id(data)
+    with _PRESERIALIZED_TASKS_LOCK:
+        if _PRESERIALIZED_TASKS_CACHE["tasks_data_id"] == data_id and _PRESERIALIZED_TASKS_CACHE["json_bytes"]:
+            return _PRESERIALIZED_TASKS_CACHE["json_bytes"], _PRESERIALIZED_TASKS_CACHE["gzip_bytes"], _PRESERIALIZED_TASKS_CACHE["etag"]
+
+    # Build outside lock (CPU-bound serialization).
+    tasks_public = [public_task(t) for t in data.get("tasks", []) if not is_archived_task_id(t.get("id"))]
+    payload = {"meta": data.get("meta", {}), "categories": data.get("categories", []), "tasks": tasks_public}
+    json_bytes = _fast_json_bytes(payload)
+    gzip_bytes = _gzip_mod.compress(json_bytes, compresslevel=6)
+    etag = hashlib.md5(json_bytes[:4096] + len(json_bytes).to_bytes(8, 'little')).hexdigest()[:16]
+
+    with _PRESERIALIZED_TASKS_LOCK:
+        _PRESERIALIZED_TASKS_CACHE["tasks_data_id"] = data_id
+        _PRESERIALIZED_TASKS_CACHE["json_bytes"] = json_bytes
+        _PRESERIALIZED_TASKS_CACHE["gzip_bytes"] = gzip_bytes
+        _PRESERIALIZED_TASKS_CACHE["etag"] = etag
+
+    logger.info("Pre-serialized /api/tasks cache built: %d bytes (gzip: %d), etag=%s", len(json_bytes), len(gzip_bytes), etag)
+    return json_bytes, gzip_bytes, etag
 
 ARCHIVED_TASK_ID_PREFIXES: tuple[str, ...] = (
     # Legacy packs: generic/duplicate content and (historically) mixed schemas.
@@ -5242,12 +5405,62 @@ def get_task_history(task_id: str, user: dict = Depends(require_auth)):
     history.sort(key=lambda x: x["completed_at"] or "", reverse=True)
     return {"history": history[:10]}
 
-@app.get("/api/roadmap")
-def get_roadmap(user: dict = Depends(require_auth)):
-    """Return tasks annotated with completion + unlock state for the current user."""
+# Pre-cached base lite tasks (reusable across all users, invalidated on tasks.json change).
+_ROADMAP_BASE_CACHE: dict = {"tasks_data_id": None, "base_tasks": [], "meta": {}, "categories": [], "tasks_by_id": {}, "totals": {}}
+_ROADMAP_BASE_LOCK = __import__('threading').Lock()
+
+def _get_roadmap_base():
+    """Return cached (base_lite_tasks, meta, categories, tasks_by_id, totals)."""
     data = load_tasks()
+    data_id = id(data)
+    with _ROADMAP_BASE_LOCK:
+        if _ROADMAP_BASE_CACHE["tasks_data_id"] == data_id and _ROADMAP_BASE_CACHE["base_tasks"]:
+            return (
+                _ROADMAP_BASE_CACHE["base_tasks"],
+                _ROADMAP_BASE_CACHE["meta"],
+                _ROADMAP_BASE_CACHE["categories"],
+                _ROADMAP_BASE_CACHE["tasks_by_id"],
+                _ROADMAP_BASE_CACHE["totals"],
+            )
+
     tasks_raw = data.get("tasks", [])
     tasks_by_id = {t.get("id"): t for t in tasks_raw if t.get("id")}
+    totals = _task_totals_by_category_and_tier(tasks_by_id)
+
+    base_tasks = []
+    for t in tasks_raw:
+        tid = str(t.get("id") or "")
+        pt = public_task_lite(t)
+        pt["_tid"] = tid
+        pt["_archived"] = is_archived_task_id(tid)
+        pt["_raw"] = t  # keep ref for _unlock_state
+        base_tasks.append(pt)
+
+    meta = data.get("meta", {})
+    categories = data.get("categories", [])
+
+    with _ROADMAP_BASE_LOCK:
+        _ROADMAP_BASE_CACHE["tasks_data_id"] = data_id
+        _ROADMAP_BASE_CACHE["base_tasks"] = base_tasks
+        _ROADMAP_BASE_CACHE["meta"] = meta
+        _ROADMAP_BASE_CACHE["categories"] = categories
+        _ROADMAP_BASE_CACHE["tasks_by_id"] = tasks_by_id
+        _ROADMAP_BASE_CACHE["totals"] = totals
+
+    logger.info("Roadmap base cache built: %d tasks", len(base_tasks))
+    return base_tasks, meta, categories, tasks_by_id, totals
+
+
+@app.get("/api/roadmap")
+def get_roadmap(request: Request, user: dict = Depends(require_auth)):
+    """Return tasks annotated with completion + unlock state for the current user.
+
+    Optimized: base task list is cached globally; only per-user overlay
+    (completed/locked/pending/methods) is computed per request.  Final JSON
+    is serialized once with compact separators and returned as raw bytes
+    to bypass FastAPI's slow jsonable_encoder on large payloads.
+    """
+    base_tasks, meta, categories, tasks_by_id, totals = _get_roadmap_base()
 
     with get_db() as conn:
         cursor = conn.cursor()
@@ -5278,15 +5491,17 @@ def get_roadmap(user: dict = Depends(require_auth)):
 
     counts = _counts_by_category_and_tier(tasks_by_id, completed_ids)
     daily_counts = _counts_by_category_and_tier(tasks_by_id, completed_today_ids)
-    totals = _task_totals_by_category_and_tier(tasks_by_id)
 
     tasks = []
-    for t in tasks_raw:
-        tid = str(t.get("id") or "")
-        if is_archived_task_id(tid) and tid not in homework_ids:
+    for pt_base in base_tasks:
+        tid = pt_base["_tid"]
+        if pt_base["_archived"] and tid not in homework_ids:
             continue
-        unlocked, unlock_info = _unlock_state(t, completed_ids, counts, tasks_by_id, daily_counts, totals)
-        pt = public_task_lite(t)
+        raw_task = pt_base["_raw"]
+        unlocked, unlock_info = _unlock_state(raw_task, completed_ids, counts, tasks_by_id, daily_counts, totals)
+        # Shallow-copy the base and add per-user overlay (avoids rebuilding
+        # 11733 public_task_lite dicts per request).
+        pt = {k: v for k, v in pt_base.items() if k[0] != '_'}
         pt["completed"] = pt["id"] in completed_ids
         pt["locked"] = not unlocked and not pt["completed"]
         pt["pending_review"] = pt["id"] in pending_ids
@@ -5306,14 +5521,26 @@ def get_roadmap(user: dict = Depends(require_auth)):
         if t.get("completed"):
             topic_completion[key]["completed"] += 1
 
-    return {
-        "meta": data.get("meta", {}),
-        "categories": data.get("categories", []),
+    # Serialize once with compact separators and return as raw bytes.
+    # This bypasses FastAPI's jsonable_encoder which is extremely slow on
+    # large payloads (it walks every dict/list recursively to sanitize types).
+    result = {
+        "meta": meta,
+        "categories": categories,
         "tasks": tasks,
         "counts": counts,
         "daily_counts": daily_counts,
         "topic_completion": topic_completion,
     }
+    json_bytes = _fast_json_bytes(result)
+    # Serve pre-compressed gzip if client accepts it (bypasses GZipMiddleware
+    # re-compressing 38MB per request, saving ~300ms of CPU per call).
+    accept_enc = request.headers.get("accept-encoding") or ""
+    if "gzip" in accept_enc:
+        gzip_bytes = _gzip_mod.compress(json_bytes, compresslevel=1)
+        return Response(content=gzip_bytes, media_type="application/json",
+                        headers={"Content-Encoding": "gzip", "Vary": "Accept-Encoding"})
+    return Response(content=json_bytes, media_type="application/json")
 
 
 @app.get("/api/roadmap/status")
@@ -6306,11 +6533,40 @@ def verify_task(task: dict, code: str) -> tuple[dict, int]:
 
 @app.get("/api/tasks")
 def get_tasks(
+    request: Request,
     category: Optional[str] = Query(None),
     tier: Optional[str] = Query(None),
     shuffle: bool = Query(False)
 ):
-    """Get all tasks with optional filtering (public payload)."""
+    """Get all tasks with optional filtering (public payload).
+
+    Optimized: when no filters are applied, serves pre-serialized cached JSON
+    bytes directly (avoids re-serializing 24MB per request which blocks the
+    event loop for ~1.2s and kills health checks under concurrent load).
+    """
+    # Fast path: no filters → serve pre-serialized bytes + ETag
+    if not category and not tier and not shuffle:
+        json_bytes, gzip_bytes, etag = _get_preserialized_tasks_response()
+        # ETag / 304 support: avoid sending 24MB if client already has it
+        client_etag = (request.headers.get("if-none-match") or "").strip('" ')
+        if client_etag and client_etag == etag:
+            return Response(status_code=304)
+        # Serve pre-compressed gzip if client accepts it (bypasses GZipMiddleware)
+        accept_enc = request.headers.get("accept-encoding") or ""
+        if "gzip" in accept_enc and gzip_bytes:
+            return Response(
+                content=gzip_bytes,
+                media_type="application/json",
+                headers={"ETag": f'"{etag}"', "Cache-Control": "private, max-age=30",
+                          "Content-Encoding": "gzip", "Vary": "Accept-Encoding"},
+            )
+        return Response(
+            content=json_bytes,
+            media_type="application/json",
+            headers={"ETag": f'"{etag}"', "Cache-Control": "private, max-age=30"},
+        )
+
+    # Slow path with filters: still needs dynamic serialization
     data = load_tasks()
     tasks = [public_task(t) for t in data.get("tasks", []) if not is_archived_task_id(t.get("id"))]
     
@@ -11138,6 +11394,31 @@ QUIZ_MAX_DAILY_SESSIONS = None  # None = unlimited; admin approval is still requ
 QUIZ_MIN_PARTICIPANTS = 3
 QUIZ_QUESTION_RANGE = (12, 15)
 
+# In-memory cache for parsed quiz session questions.
+# questions_json is immutable per session, so caching avoids json.loads on every
+# poll (8 users × 2s polling = 4 json.loads/s saved).  Bounded to 20 sessions.
+_QUIZ_QUESTIONS_PARSED: dict[str, list[dict]] = {}
+_QUIZ_QUESTIONS_PARSED_MAX = 20
+
+def _get_parsed_quiz_questions(code: str, questions_json: str) -> list[dict]:
+    """Return parsed questions for a session, using cache when available."""
+    if code in _QUIZ_QUESTIONS_PARSED:
+        return _QUIZ_QUESTIONS_PARSED[code]
+    try:
+        parsed = json.loads(questions_json or "[]")
+    except Exception:
+        parsed = []
+    # Evict oldest if cache full
+    if len(_QUIZ_QUESTIONS_PARSED) >= _QUIZ_QUESTIONS_PARSED_MAX:
+        oldest = next(iter(_QUIZ_QUESTIONS_PARSED))
+        del _QUIZ_QUESTIONS_PARSED[oldest]
+    _QUIZ_QUESTIONS_PARSED[code] = parsed
+    return parsed
+
+def _evict_quiz_questions_cache(code: str):
+    """Remove a session from the questions cache (on finish/expire)."""
+    _QUIZ_QUESTIONS_PARSED.pop(code, None)
+
 def _generate_quiz_code() -> str:
     """Generate a 6-char alphanumeric code."""
     return "".join(_random.choices(_string.ascii_uppercase + _string.digits, k=6))
@@ -11174,12 +11455,22 @@ def _select_quiz_questions(count: int) -> list[dict]:
     return selected[:count]
 
 def _cleanup_stale_quiz_sessions(cursor):
-    """Expire sessions inactive for > 5 minutes."""
+    """Expire sessions inactive for > 5 minutes.
+
+    Throttled: runs at most once per 30 seconds to avoid hammering SQLite
+    on every poll request (8 users × 2s polling = 4 calls/sec without throttle).
+    """
+    now = time.monotonic()
+    if now - _cleanup_stale_quiz_sessions._last_run < 30.0:
+        return
+    _cleanup_stale_quiz_sessions._last_run = now
     cursor.execute(
         "UPDATE quiz_sessions SET status = 'expired' WHERE status IN ('lobby', 'approved', 'active') "
         "AND last_activity < datetime('now', ?)",
         (f'-{QUIZ_SESSION_TIMEOUT_SEC} seconds',)
     )
+
+_cleanup_stale_quiz_sessions._last_run = 0.0
 
 def _get_quiz_daily_count(cursor) -> int:
     today = datetime.now().date().isoformat()
@@ -11288,12 +11579,19 @@ def quiz_join(data: dict, user: dict = Depends(require_auth)):
 
 @app.get("/api/quiz/session/{code}")
 def quiz_get_session(code: str, user: dict = Depends(require_auth)):
-    """Poll session state. Returns everything the client needs to render."""
+    """Poll session state. Returns everything the client needs to render.
+
+    Optimized: cleanup is throttled (once/30s), questions are parsed from cache,
+    and no commit is issued on the read-only fast path.
+    """
     code = code.strip().upper()
     with get_db() as conn:
         cursor = conn.cursor()
         _cleanup_stale_quiz_sessions(cursor)
-        conn.commit()
+        # Only commit if cleanup actually ran (it writes UPDATE).
+        # The throttle makes this rare (~once/30s instead of every poll).
+        if conn.in_transaction:
+            conn.commit()
 
         cursor.execute("SELECT * FROM quiz_sessions WHERE id = ?", (code,))
         session = cursor.fetchone()
@@ -11345,23 +11643,20 @@ def quiz_get_session(code: str, user: dict = Depends(require_auth)):
 
         # If active and there's a current question, include it (without answer)
         if session["status"] == "active" and session["current_question"] >= 0:
-            try:
-                questions = json.loads(session["questions_json"] or "[]")
-                qi = session["current_question"]
-                if 0 <= qi < len(questions):
-                    q = questions[qi]
-                    result["question"] = {
-                        "index": qi,
-                        "question": q["question"],
-                        "code": q.get("code") or None,
-                        "context": q.get("context") or None,
-                        "options": q["options"],
-                        "difficulty": q["difficulty"],
-                        "time_limit_sec": q.get("time_limit_sec", 20),
-                        "domain": q.get("domain", ""),
-                    }
-            except Exception:
-                pass
+            questions = _get_parsed_quiz_questions(code, session["questions_json"])
+            qi = session["current_question"]
+            if 0 <= qi < len(questions):
+                q = questions[qi]
+                result["question"] = {
+                    "index": qi,
+                    "question": q["question"],
+                    "code": q.get("code") or None,
+                    "context": q.get("context") or None,
+                    "options": q["options"],
+                    "difficulty": q["difficulty"],
+                    "time_limit_sec": q.get("time_limit_sec", 20),
+                    "domain": q.get("domain", ""),
+                }
 
         # If finished, include final results with XP
         if session["status"] == "finished":
@@ -11400,7 +11695,7 @@ def quiz_answer(code: str, data: dict, user: dict = Depends(require_auth)):
             return {"status": "already_answered"}
 
         # Get correct answer
-        questions = json.loads(session["questions_json"] or "[]")
+        questions = _get_parsed_quiz_questions(code, session["questions_json"])
         qi = session["current_question"]
         if qi < 0 or qi >= len(questions):
             raise HTTPException(status_code=400, detail="Нет текущего вопроса")
@@ -11509,7 +11804,7 @@ def _finish_quiz(cursor, code: str, session):
 
     # Compute avg difficulty
     try:
-        questions = json.loads(session["questions_json"] or "[]")
+        questions = _get_parsed_quiz_questions(code, session["questions_json"])
         avg_diff = sum(
             _quiz_difficulty_level(q.get("_difficulty_level", q.get("difficulty")), default=2)
             for q in questions
@@ -11552,6 +11847,8 @@ def _finish_quiz(cursor, code: str, session):
         "UPDATE quiz_sessions SET status = 'finished', finished_at = CURRENT_TIMESTAMP, last_activity = CURRENT_TIMESTAMP WHERE id = ?",
         (code,)
     )
+    # Evict parsed questions from cache — session is done, no more polls expected.
+    _evict_quiz_questions_cache(code)
 
 
 @app.post("/api/quiz/leave/{code}")
