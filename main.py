@@ -1757,7 +1757,7 @@ except (TypeError, ValueError):
 METHOD_SIMHASH_DISTANCE_THRESHOLD = max(0, min(64, METHOD_SIMHASH_DISTANCE_THRESHOLD))
 
 # Maximum number of unique solution methods per task per user
-MAX_METHODS_PER_TASK = 180
+MAX_METHODS_PER_TASK = 50
 
 
 def _solution_method_simhash(solution: str, code_simhash: str, code_language: Optional[str]) -> str:
