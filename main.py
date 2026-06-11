@@ -2480,6 +2480,12 @@ async def _startup() -> None:
     except Exception as e:
         logger.warning("Tasks cache warm-up failed (non-fatal): %s", e)
 
+    # Reclaim transient memory from JSON parsing / cache building.
+    # On the 512MB Render free tier this can free 15-30MB of unreachable objects.
+    import gc as _gc
+    _gc.collect()
+    logger.info("✓ Post-startup GC completed")
+
 @app.api_route("/", methods=["GET", "HEAD", "OPTIONS"], include_in_schema=False)
 def serve_index():
     """Serve the student UI (same-origin hosting is optional; file:// works too)."""
@@ -5433,7 +5439,17 @@ def _get_roadmap_base():
         pt = public_task_lite(t)
         pt["_tid"] = tid
         pt["_archived"] = is_archived_task_id(tid)
-        pt["_raw"] = t  # keep ref for _unlock_state
+        # Keep only the fields needed by _unlock_state to avoid holding
+        # the entire task dict (with check_logic/cases) in the roadmap cache.
+        pt["_raw"] = {
+            "id": t.get("id"),
+            "category": t.get("category"),
+            "tier": t.get("tier"),
+            "topic": t.get("topic"),
+            "prerequisites": t.get("prerequisites"),
+            "source_platform": t.get("source_platform"),
+            "tags": t.get("tags"),
+        }
         base_tasks.append(pt)
 
     meta = data.get("meta", {})
@@ -5735,7 +5751,7 @@ def _python_features(code: str) -> list[str]:
                 tokens.append(tok.string if tok.string in keyword.kwlist else "ID")
             else:
                 tokens.append(tok.string)
-    except tokenize.TokenError:
+    except (tokenize.TokenError, SyntaxError):
         # Fall back to raw text fingerprinting if tokenization fails
         tokens = re.findall(r"[A-Za-z_][A-Za-z0-9_]*|\\d+|\\S", code or "")
 
@@ -6939,6 +6955,18 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
                 "method_multiplier": float(result.get("method_multiplier") or 1.0),
                 "message": "Этот способ уже засчитан. Попробуй семантически другой подход для доп. XP.",
             }
+        if result["status"] == "methods_limit_reached":
+            conn.commit()
+            return {
+                "status": "methods_limit_reached",
+                "attempt_id": attempt_id,
+                "verification": verification,
+                "xp": result.get("new_xp", 0),
+                "level": result.get("new_level", 1),
+                "methods_count": int(result.get("methods_count") or 0),
+                "methods_limit": int(result.get("methods_limit") or MAX_METHODS_PER_TASK),
+                "message": "Достигнут лимит способов решения для этой задачи.",
+            }
 
         proposed_bonus = propose_comment_bonus(task_xp, code, code_language) if result.get("is_first_completion") else 0
         if proposed_bonus > 0:
@@ -6976,7 +7004,7 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
             "xp": result["new_xp"],
             "level": result["new_level"],
             "xp_earned": result["xp_earned"],
-            "bonus_applied": result["bonus_applied"],
+            "bonus_applied": result.get("bonus_applied", False),
             "failed_attempts": result.get("failed_attempts", 0),
             "attempt_penalty": result.get("attempt_penalty", 0),
             "comment_bonus_proposed": proposed_bonus,
@@ -11306,7 +11334,7 @@ _QUIZ_BANK_BY_DIFFICULTY: dict[int, list[dict]] = {1: [], 2: [], 3: [], 4: [], 5
 _QUIZ_BANK_LOADED = False
 _QUIZ_BANK_LOAD_ERROR = ""
 QUIZ_BANK_FILENAME = "kahoot_1_2.json"
-QUIZ_BANK_MAX_ITEMS = int(os.getenv("PANDORA_QUIZ_BANK_MAX_ITEMS", "2500" if LOW_RESOURCE_MODE else "0"))
+QUIZ_BANK_MAX_ITEMS = int(os.getenv("PANDORA_QUIZ_BANK_MAX_ITEMS", "1500" if LOW_RESOURCE_MODE else "0"))
 
 def _quiz_difficulty_level(raw, default: int = 2) -> int:
     """Normalize quiz difficulty from old numeric banks and newer labeled banks."""
@@ -11423,8 +11451,50 @@ def _generate_quiz_code() -> str:
     """Generate a 6-char alphanumeric code."""
     return "".join(_random.choices(_string.ascii_uppercase + _string.digits, k=6))
 
+# Ring buffer of recently used question IDs across sessions.
+# Sized to ~3x the max questions per session so consecutive sessions avoid repeats.
+_QUIZ_RECENTLY_USED_IDS: list[str] = []
+_QUIZ_RECENTLY_USED_MAX = QUIZ_QUESTION_RANGE[1] * 4  # ~60 IDs
+
+def _quiz_mark_used(question_ids: list[str]) -> None:
+    """Record question IDs as recently used."""
+    _QUIZ_RECENTLY_USED_IDS.extend(question_ids)
+    # Trim to max size
+    overflow = len(_QUIZ_RECENTLY_USED_IDS) - _QUIZ_RECENTLY_USED_MAX
+    if overflow > 0:
+        del _QUIZ_RECENTLY_USED_IDS[:overflow]
+
+_QUIZ_MAX_SAME_TEXT = 2  # Max questions with identical question text per session
+
+def _diverse_sample(pool: list[dict], n: int, used_ids: set[str],
+                    text_counts: dict[str, int]) -> list[dict]:
+    """Sample up to `n` items from pool, skipping recently-used IDs and
+    limiting questions with the same text to _QUIZ_MAX_SAME_TEXT."""
+    if not pool:
+        return []
+    shuffled = list(pool)
+    _random.shuffle(shuffled)
+    picked: list[dict] = []
+    for q in shuffled:
+        if len(picked) >= n:
+            break
+        qid = str(q.get("id", ""))
+        qtext = str(q.get("question", ""))
+        # Skip if recently used in another session
+        if qid and qid in used_ids:
+            continue
+        # Skip if too many questions with same text already selected
+        if text_counts.get(qtext, 0) >= _QUIZ_MAX_SAME_TEXT:
+            continue
+        picked.append(q)
+        if qid:
+            used_ids.add(qid)
+        text_counts[qtext] = text_counts.get(qtext, 0) + 1
+    return picked
+
 def _select_quiz_questions(count: int) -> list[dict]:
-    """Select questions with progressive difficulty."""
+    """Select questions with progressive difficulty, diverse texts,
+    and cross-session freshness."""
     _load_quiz_bank()
     count = max(QUIZ_QUESTION_RANGE[0], min(QUIZ_QUESTION_RANGE[1], count))
     # Split: ~35% easy (1-2), ~35% medium (3), ~30% hard (4-5)
@@ -11436,19 +11506,23 @@ def _select_quiz_questions(count: int) -> list[dict]:
     medium_pool = _QUIZ_BANK_BY_DIFFICULTY.get(3, [])
     hard_pool = _QUIZ_BANK_BY_DIFFICULTY.get(4, []) + _QUIZ_BANK_BY_DIFFICULTY.get(5, [])
 
-    selected = []
-    if easy_pool:
-        selected.extend(_random.sample(easy_pool, min(n_easy, len(easy_pool))))
-    if medium_pool:
-        selected.extend(_random.sample(medium_pool, min(n_medium, len(medium_pool))))
-    if hard_pool:
-        selected.extend(_random.sample(hard_pool, min(n_hard, len(hard_pool))))
+    # Track recently used IDs and text counts for diversity
+    recently_used = set(_QUIZ_RECENTLY_USED_IDS)
+    text_counts: dict[str, int] = {}
 
-    # Ensure we have enough
-    while len(selected) < count and _QUIZ_BANK:
-        extra = _random.choice(_QUIZ_BANK)
-        if extra not in selected:
-            selected.append(extra)
+    selected: list[dict] = []
+    selected.extend(_diverse_sample(easy_pool, n_easy, recently_used, text_counts))
+    selected.extend(_diverse_sample(medium_pool, n_medium, recently_used, text_counts))
+    selected.extend(_diverse_sample(hard_pool, n_hard, recently_used, text_counts))
+
+    # Backfill if not enough (relax recently-used constraint)
+    if len(selected) < count and _QUIZ_BANK:
+        remaining = [q for q in _QUIZ_BANK if q not in selected]
+        selected.extend(_diverse_sample(remaining, count - len(selected),
+                                        set(), text_counts))
+
+    # Record selected IDs for cross-session freshness
+    _quiz_mark_used([str(q.get("id", "")) for q in selected if q.get("id")])
 
     # Sort by difficulty (progressive)
     selected.sort(key=lambda q: _quiz_difficulty_level(q.get("_difficulty_level", q.get("difficulty")), default=2))

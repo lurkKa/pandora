@@ -23,7 +23,7 @@ backups/
 *.db-shm
 *.db-wal
 tasks_full_backup_*.json
-
+render_logs.txt
 # Secrets / local env
 .pandora_jwt_secret
 .env
