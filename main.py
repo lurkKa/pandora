@@ -6745,6 +6745,21 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
         if not unlocked:
             raise HTTPException(status_code=403, detail={"status": "locked", "unlock": unlock_info})
 
+        # Early guard: reject if user already exhausted all solution methods
+        # for this task. Prevents running the expensive sandbox verifier for nothing.
+        if is_retry:
+            cursor.execute(
+                "SELECT COUNT(*) as cnt FROM task_solution_methods WHERE user_id = ? AND task_id = ?",
+                (user["id"], data.task_id),
+            )
+            methods_count = int(cursor.fetchone()["cnt"])
+            if methods_count >= MAX_METHODS_PER_TASK:
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"Достигнут лимит способов решения ({MAX_METHODS_PER_TASK}). "
+                           f"Следующие решения не принимаются, спасибо за понимание.",
+                )
+
     # Verification (sandboxed runner).
     # Hard stop for untouched templates to prevent accidental auto-completion.
     force_pending_review = False
