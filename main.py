@@ -69,6 +69,370 @@ except ImportError:
     def _fast_json_bytes(obj) -> bytes:
         return json.dumps(obj, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
 
+# ==================== MEMORY FORTRESS (512MB Render Protection) ====================
+# 8-layer defense against OOM kills from flood attacks (hey.exe -n 10000 -c 1000).
+# Layers: RSS Sentinel, Concurrency Limiter, Flood Shield, Body Size Guard,
+#         Response Memory Guard, Cache Eviction, Uvicorn limits, resource.setrlimit.
+
+import gc as _gc
+import resource as _resource
+
+# --- Configuration ---
+_MEM_TOTAL_MB = int(os.getenv("PANDORA_MEM_TOTAL_MB", "512"))
+_MEM_WARN_PCT = float(os.getenv("PANDORA_MEM_WARN_PCT", "0.70"))   # 70% → GC
+_MEM_HIGH_PCT = float(os.getenv("PANDORA_MEM_HIGH_PCT", "0.80"))   # 80% → evict caches
+_MEM_CRIT_PCT = float(os.getenv("PANDORA_MEM_CRIT_PCT", "0.90"))   # 90% → shed mode (503)
+_MEM_SENTINEL_INTERVAL_S = float(os.getenv("PANDORA_MEM_SENTINEL_INTERVAL_S", "2.0"))
+_MAX_CONCURRENT_REQUESTS = int(os.getenv("PANDORA_MAX_CONCURRENT_REQUESTS", "50"))
+_FLOOD_LIMIT_PER_MINUTE = int(os.getenv("PANDORA_FLOOD_LIMIT_PER_MINUTE", "100"))
+_FLOOD_IP_TABLE_MAX = 2048
+_MAX_REQUEST_BODY_BYTES = int(os.getenv("PANDORA_MAX_REQUEST_BODY_BYTES", str(1 * 1024 * 1024)))  # 1MB
+
+# --- Global state ---
+_memory_shed_active = False  # When True, all new requests get 503
+_memory_last_rss_mb: float = 0.0
+_memory_sentinel_stats = {"gc_runs": 0, "cache_evictions": 0, "shed_activations": 0, "requests_shed": 0}
+
+def _get_rss_mb() -> float:
+    """Read current RSS in MB from /proc/self/status (zero-dependency, Linux-only)."""
+    try:
+        with open('/proc/self/status', 'r') as f:
+            for line in f:
+                if line.startswith('VmRSS:'):
+                    return int(line.split()[1]) / 1024.0  # kB → MB
+    except Exception:
+        pass
+    # Fallback via resource module (less accurate but cross-platform)
+    try:
+        usage = _resource.getrusage(_resource.RUSAGE_SELF)
+        return usage.ru_maxrss / 1024.0  # Linux: kB → MB
+    except Exception:
+        return 0.0
+
+def _evict_caches_for_pressure():
+    """Drop optional in-memory caches to free RAM under memory pressure."""
+    global _memory_sentinel_stats
+    freed_items = 0
+
+    # 1. Preserialized tasks cache (~30MB)
+    try:
+        from main import _PRESERIALIZED_TASKS_CACHE, _PRESERIALIZED_TASKS_LOCK
+        with _PRESERIALIZED_TASKS_LOCK:
+            if _PRESERIALIZED_TASKS_CACHE.get("json_bytes"):
+                _PRESERIALIZED_TASKS_CACHE["json_bytes"] = b""
+                _PRESERIALIZED_TASKS_CACHE["gzip_bytes"] = b""
+                _PRESERIALIZED_TASKS_CACHE["tasks_data_id"] = None
+                freed_items += 1
+    except Exception:
+        pass
+
+    # 2. Roadmap base cache (~40MB)
+    try:
+        from main import _ROADMAP_BASE_CACHE, _ROADMAP_BASE_LOCK
+        with _ROADMAP_BASE_LOCK:
+            if _ROADMAP_BASE_CACHE.get("base_tasks"):
+                _ROADMAP_BASE_CACHE["base_tasks"] = []
+                _ROADMAP_BASE_CACHE["tasks_by_id"] = {}
+                _ROADMAP_BASE_CACHE["tasks_data_id"] = None
+                freed_items += 1
+    except Exception:
+        pass
+
+    # 3. Quiz questions parsed cache
+    try:
+        from main import _QUIZ_QUESTIONS_PARSED
+        if _QUIZ_QUESTIONS_PARSED:
+            _QUIZ_QUESTIONS_PARSED.clear()
+            freed_items += 1
+    except Exception:
+        pass
+
+    _memory_sentinel_stats["cache_evictions"] += 1
+    _gc.collect(2)  # Full collection including cyclic garbage
+    return freed_items
+
+
+class _MemorySentinel(_threading.Thread):
+    """Background daemon that monitors RSS and triggers defensive actions.
+
+    Thresholds (default for 512MB):
+        70% (358MB) → gc.collect(), log warning
+        80% (409MB) → evict optional caches
+        90% (460MB) → shed mode (all new requests → 503)
+        <70%        → disable shed mode
+    """
+
+    def __init__(self):
+        super().__init__(daemon=True, name="memory-sentinel")
+        self._stop_event = _threading.Event()
+        self._warn_mb = _MEM_TOTAL_MB * _MEM_WARN_PCT
+        self._high_mb = _MEM_TOTAL_MB * _MEM_HIGH_PCT
+        self._crit_mb = _MEM_TOTAL_MB * _MEM_CRIT_PCT
+        self._last_level = "ok"  # ok, warn, high, crit
+
+    def run(self):
+        global _memory_shed_active, _memory_last_rss_mb, _memory_sentinel_stats
+        _sentinel_logger = logging.getLogger("academy.memory")
+        _sentinel_logger.setLevel(logging.INFO)
+        if not _sentinel_logger.handlers:
+            _sentinel_logger.addHandler(logging.StreamHandler())
+            _sentinel_logger.propagate = False
+
+        while not self._stop_event.is_set():
+            try:
+                rss = _get_rss_mb()
+                _memory_last_rss_mb = rss
+
+                if rss >= self._crit_mb:
+                    if self._last_level != "crit":
+                        _sentinel_logger.critical(
+                            "🔴 MEMORY CRITICAL: %.0fMB / %dMB (%.0f%%) — SHED MODE ACTIVE",
+                            rss, _MEM_TOTAL_MB, rss / _MEM_TOTAL_MB * 100
+                        )
+                        _memory_sentinel_stats["shed_activations"] += 1
+                    _memory_shed_active = True
+                    _evict_caches_for_pressure()
+                    _gc.collect(2)
+                    _memory_sentinel_stats["gc_runs"] += 1
+                    self._last_level = "crit"
+
+                elif rss >= self._high_mb:
+                    if self._last_level not in ("high", "crit"):
+                        _sentinel_logger.warning(
+                            "🟠 MEMORY HIGH: %.0fMB / %dMB (%.0f%%) — evicting caches",
+                            rss, _MEM_TOTAL_MB, rss / _MEM_TOTAL_MB * 100
+                        )
+                    _memory_shed_active = False
+                    _evict_caches_for_pressure()
+                    _memory_sentinel_stats["gc_runs"] += 1
+                    self._last_level = "high"
+
+                elif rss >= self._warn_mb:
+                    if self._last_level not in ("warn", "high", "crit"):
+                        _sentinel_logger.warning(
+                            "🟡 MEMORY WARN: %.0fMB / %dMB (%.0f%%) — running GC",
+                            rss, _MEM_TOTAL_MB, rss / _MEM_TOTAL_MB * 100
+                        )
+                    _memory_shed_active = False
+                    _gc.collect()
+                    _memory_sentinel_stats["gc_runs"] += 1
+                    self._last_level = "warn"
+
+                else:
+                    if self._last_level != "ok" and self._last_level != "":
+                        _sentinel_logger.info(
+                            "🟢 MEMORY OK: %.0fMB / %dMB (%.0f%%) — normal operation",
+                            rss, _MEM_TOTAL_MB, rss / _MEM_TOTAL_MB * 100
+                        )
+                    _memory_shed_active = False
+                    self._last_level = "ok"
+
+            except Exception:
+                pass  # Sentinel must never crash
+
+            self._stop_event.wait(_MEM_SENTINEL_INTERVAL_S)
+
+    def stop(self):
+        self._stop_event.set()
+
+
+# --- ASGI Middlewares (raw ASGI for minimal overhead) ---
+
+async def _send_error_response(send, status: int, body: bytes, content_type: bytes = b"application/json"):
+    """Send a minimal HTTP error response via raw ASGI."""
+    await send({"type": "http.response.start", "status": status, "headers": [
+        [b"content-type", content_type],
+        [b"content-length", str(len(body)).encode()],
+        [b"retry-after", b"5"],
+    ]})
+    await send({"type": "http.response.body", "body": body})
+
+
+class MemoryShieldMiddleware:
+    """ASGI middleware combining concurrency limiter + shed mode check.
+
+    - Hard cap on simultaneous in-flight requests (_MAX_CONCURRENT_REQUESTS).
+    - When _memory_shed_active is True, immediately returns 503.
+    - Minimal allocation: no request parsing, no framework overhead.
+    """
+
+    __slots__ = ("app", "_sem", "_in_flight", "_rejected")
+
+    def __init__(self, app):
+        self.app = app
+        self._sem = asyncio.Semaphore(_MAX_CONCURRENT_REQUESTS)
+        self._in_flight = 0
+        self._rejected = 0
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        # Layer 0: Shed mode — memory critical, reject everything
+        if _memory_shed_active:
+            _memory_sentinel_stats["requests_shed"] += 1
+            await _send_error_response(send, 503, b'{"detail":"Server under memory pressure. Retry later."}')
+            return
+
+        # Layer 2: Concurrency limiter — fast rejection without acquiring
+        if self._sem._value <= 0:
+            self._rejected += 1
+            await _send_error_response(send, 503, b'{"detail":"Server busy. Too many concurrent requests."}')
+            return
+
+        try:
+            async with self._sem:
+                self._in_flight += 1
+                try:
+                    await self.app(scope, receive, send)
+                finally:
+                    self._in_flight -= 1
+        except Exception:
+            self._in_flight = max(0, self._in_flight - 1)
+            raise
+
+
+class FloodShieldMiddleware:
+    """ASGI middleware: per-IP rate limiting (sliding window, 100 req/min default).
+
+    Uses a bounded dict (max 2048 IPs). Oldest entries evicted on overflow.
+    Health/ping endpoints are exempt to avoid blocking Render health checks.
+    """
+
+    __slots__ = ("app", "_ip_windows", "_limit", "_window_s")
+
+    _EXEMPT_PATHS = {b"/ping", b"/health", b"/api/status"}
+
+    def __init__(self, app):
+        self.app = app
+        self._ip_windows: dict[str, list[float]] = {}
+        self._limit = _FLOOD_LIMIT_PER_MINUTE
+        self._window_s = 60.0
+
+    def _get_ip(self, scope) -> str:
+        """Extract client IP from ASGI scope, respecting proxy headers."""
+        headers = dict(scope.get("headers", []))
+        forwarded = headers.get(b"x-forwarded-for", b"").decode()
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        client = scope.get("client")
+        return client[0] if client else "unknown"
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        # Exempt health checks
+        path = scope.get("path", "").encode() if isinstance(scope.get("path"), str) else scope.get("raw_path", b"")
+        if path in self._EXEMPT_PATHS:
+            await self.app(scope, receive, send)
+            return
+
+        ip = self._get_ip(scope)
+        now = time.monotonic()
+        cutoff = now - self._window_s
+
+        # Get or create window for this IP
+        window = self._ip_windows.get(ip)
+        if window is None:
+            # Evict oldest IPs if table is full
+            if len(self._ip_windows) >= _FLOOD_IP_TABLE_MAX:
+                # Remove ~25% oldest entries
+                to_remove = list(self._ip_windows.keys())[:_FLOOD_IP_TABLE_MAX // 4]
+                for k in to_remove:
+                    del self._ip_windows[k]
+            window = []
+            self._ip_windows[ip] = window
+
+        # Prune expired timestamps
+        while window and window[0] < cutoff:
+            window.pop(0)
+
+        if len(window) >= self._limit:
+            await _send_error_response(send, 429, b'{"detail":"Rate limit exceeded. Slow down."}')
+            return
+
+        window.append(now)
+        await self.app(scope, receive, send)
+
+
+class RequestBodyLimitMiddleware:
+    """ASGI middleware: reject requests with Content-Length > _MAX_REQUEST_BODY_BYTES.
+
+    GET/HEAD/OPTIONS are exempt (no body expected).
+    Prevents memory bombs from huge POST payloads.
+    """
+
+    __slots__ = ("app",)
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        method = scope.get("method", "GET").upper()
+        if method in ("GET", "HEAD", "OPTIONS"):
+            await self.app(scope, receive, send)
+            return
+
+        headers = dict(scope.get("headers", []))
+        content_length = headers.get(b"content-length", b"0")
+        try:
+            length = int(content_length)
+        except (ValueError, TypeError):
+            length = 0
+
+        if length > _MAX_REQUEST_BODY_BYTES:
+            await _send_error_response(send, 413, b'{"detail":"Request body too large."}')
+            return
+
+        # Also guard against chunked transfer with no Content-Length:
+        # wrap the receive callable to count bytes
+        total_received = 0
+        limit = _MAX_REQUEST_BODY_BYTES
+
+        async def _guarded_receive():
+            nonlocal total_received
+            msg = await receive()
+            if msg.get("type") == "http.request":
+                body = msg.get("body", b"")
+                total_received += len(body)
+                if total_received > limit:
+                    raise HTTPException(status_code=413, detail="Request body too large.")
+            return msg
+
+        await self.app(scope, _guarded_receive, send)
+
+
+def _setup_resource_limits():
+    """Set hard RSS limit via resource.setrlimit as OOM safety net (Layer 8).
+
+    If Python tries to allocate beyond ~480MB, it gets MemoryError instead of
+    the OS OOM-killing the entire process.
+    """
+    limit_mb = int(_MEM_TOTAL_MB * 0.94)  # ~480MB for 512MB total
+    limit_bytes = limit_mb * 1024 * 1024
+    try:
+        soft, hard = _resource.getrlimit(_resource.RLIMIT_AS)
+        # Only set if not already more restrictive
+        if hard == _resource.RLIM_INFINITY or hard > limit_bytes:
+            _resource.setrlimit(_resource.RLIMIT_AS, (limit_bytes, limit_bytes))
+            logging.getLogger("academy").info(
+                "✓ Resource RLIMIT_AS set to %dMB (hard OOM safety net)", limit_mb
+            )
+        else:
+            logging.getLogger("academy").info(
+                "Resource RLIMIT_AS already set to %dMB, keeping", hard // (1024 * 1024)
+            )
+    except (ValueError, OSError) as e:
+        logging.getLogger("academy").warning("Could not set RLIMIT_AS: %s", e)
+
+
 # ==================== SECURITY CONFIG ====================
 
 # IMPORTANT: Use a stable secret across restarts (env var recommended).
@@ -2414,6 +2778,13 @@ app.add_middleware(
 # Minimum 500 bytes ensures /ping stays uncompressed for speed.
 app.add_middleware(GZipMiddleware, minimum_size=500)
 
+# ── Memory Fortress ASGI middlewares (outermost = first to execute) ──
+# Order matters: Shield → Flood → BodyLimit → GZip → CORS → FastAPI
+# add_middleware wraps inner, so last added = outermost.
+app.add_middleware(RequestBodyLimitMiddleware)   # Layer 4: reject huge bodies
+app.add_middleware(FloodShieldMiddleware)         # Layer 3: per-IP rate limit
+app.add_middleware(MemoryShieldMiddleware)        # Layer 2+0: concurrency + shed mode
+
 # Serve uploads directory statically
 Path("uploads").mkdir(exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
@@ -2482,9 +2853,19 @@ async def _startup() -> None:
 
     # Reclaim transient memory from JSON parsing / cache building.
     # On the 512MB Render free tier this can free 15-30MB of unreachable objects.
-    import gc as _gc
     _gc.collect()
     logger.info("✓ Post-startup GC completed")
+
+    # ── Memory Fortress: start sentinel and set hard limits ──
+    _setup_resource_limits()
+    _sentinel = _MemorySentinel()
+    _sentinel.start()
+    rss = _get_rss_mb()
+    logger.info(
+        "✓ Memory Fortress ACTIVE: RSS=%.0fMB / %dMB | max_concurrent=%d | flood_limit=%d/min | body_limit=%dKB",
+        rss, _MEM_TOTAL_MB, _MAX_CONCURRENT_REQUESTS, _FLOOD_LIMIT_PER_MINUTE,
+        _MAX_REQUEST_BODY_BYTES // 1024
+    )
 
 @app.api_route("/", methods=["GET", "HEAD", "OPTIONS"], include_in_schema=False)
 def serve_index():
@@ -2639,9 +3020,21 @@ async def status():
 @app.api_route("/ping", methods=["GET", "HEAD", "OPTIONS"])
 @app.api_route("/health", methods=["GET", "HEAD", "OPTIONS"], include_in_schema=False)
 async def ping():
-    """Auto-discovery/health endpoint."""
+    """Auto-discovery/health endpoint with memory diagnostics."""
+    rss = _get_rss_mb()
     return JSONResponse(
-        content={"status": "online", "server": "PANDORA", "version": "3.0.0"},
+        content={
+            "status": "online",
+            "server": "PANDORA",
+            "version": "3.0.0",
+            "memory": {
+                "rss_mb": round(rss, 1),
+                "total_mb": _MEM_TOTAL_MB,
+                "pct": round(rss / _MEM_TOTAL_MB * 100, 1) if _MEM_TOTAL_MB else 0,
+                "shed_active": _memory_shed_active,
+                "sentinel": _memory_sentinel_stats,
+            },
+        },
         headers={"X-Server-Type": "SenseiNode"}
     )
 
