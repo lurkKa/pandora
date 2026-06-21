@@ -203,7 +203,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font);display:flex;h
 
 <script>
 const API=location.origin;
-let TOKEN=localStorage.getItem('pandora_token')||'';
+let TOKEN=localStorage.getItem('auth_token')||'';
 let ROOM=null,POLL_ID=null,IS_ADMIN=false,LAST_CODE='',LAST_SYNC='',USER=null;
 let idleTimer=0,isIdle=false,tabVisible=true,xpCountdown=60,consoleLines=0;
 
@@ -212,7 +212,7 @@ async function api(path,opts={}){
  const h={'Authorization':'Bearer '+TOKEN,...(opts.headers||{})};
  try{
   const r=await fetch(API+path,{...opts,headers:h});
-  if(r.status===401){TOKEN='';localStorage.removeItem('pandora_token');location.href='/';return null}
+  if(r.status===401){TOKEN='';localStorage.removeItem('auth_token');location.href='/';return null}
   if(r.status===429){toast('⏳ Подожди немного...','warn');return null}
   return r.json();
  }catch(e){return null}
