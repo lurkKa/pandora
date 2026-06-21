@@ -286,8 +286,39 @@ class MemoryShieldMiddleware:
                 self._in_flight += 1
                 try:
                     await self.app(scope, receive, send)
+                except MemoryError:
+                    # GZipMiddleware or response serialization ran out of memory.
+                    # Emergency: evict caches, force GC, return 503.
+                    self._in_flight = max(0, self._in_flight - 1)
+                    _memory_sentinel_stats["requests_shed"] += 1
+                    try:
+                        _evict_caches_for_pressure()
+                    except Exception:
+                        pass
+                    try:
+                        await _send_error_response(
+                            send, 503,
+                            b'{"detail":"Server out of memory. Caches cleared. Retry in a few seconds."}'
+                        )
+                    except Exception:
+                        pass  # Connection may already be dead
+                    return
                 finally:
                     self._in_flight -= 1
+        except MemoryError:
+            self._in_flight = max(0, self._in_flight - 1)
+            try:
+                _evict_caches_for_pressure()
+            except Exception:
+                pass
+            try:
+                await _send_error_response(
+                    send, 503,
+                    b'{"detail":"Server out of memory. Retry later."}'
+                )
+            except Exception:
+                pass
+            return
         except Exception:
             self._in_flight = max(0, self._in_flight - 1)
             raise
@@ -410,27 +441,29 @@ class RequestBodyLimitMiddleware:
 
 
 def _setup_resource_limits():
-    """Set hard RSS limit via resource.setrlimit as OOM safety net (Layer 8).
+    """Configure process resource limits as OOM safety net (Layer 8).
 
-    If Python tries to allocate beyond ~480MB, it gets MemoryError instead of
-    the OS OOM-killing the entire process.
+    NOTE: RLIMIT_AS (virtual address space) is NOT used because Python's
+    virtual memory is always 2-3x larger than RSS due to mmap'd libraries,
+    GC arenas, and memory-mapped files.  Setting it to 480MB causes
+    MemoryError even when RSS is only ~200MB (breaking GZipMiddleware).
+
+    Instead we rely on:
+    - Memory Sentinel (Layer 1) for proactive detection
+    - MemoryShieldMiddleware catches MemoryError and returns 503
+    - Concurrency limiter prevents pile-up
     """
-    limit_mb = int(_MEM_TOTAL_MB * 0.94)  # ~480MB for 512MB total
-    limit_bytes = limit_mb * 1024 * 1024
+    _log = logging.getLogger("academy")
+    # Log current limits for diagnostics
     try:
-        soft, hard = _resource.getrlimit(_resource.RLIMIT_AS)
-        # Only set if not already more restrictive
-        if hard == _resource.RLIM_INFINITY or hard > limit_bytes:
-            _resource.setrlimit(_resource.RLIMIT_AS, (limit_bytes, limit_bytes))
-            logging.getLogger("academy").info(
-                "✓ Resource RLIMIT_AS set to %dMB (hard OOM safety net)", limit_mb
-            )
-        else:
-            logging.getLogger("academy").info(
-                "Resource RLIMIT_AS already set to %dMB, keeping", hard // (1024 * 1024)
-            )
+        soft_as, hard_as = _resource.getrlimit(_resource.RLIMIT_AS)
+        _log.info(
+            "Resource limits: RLIMIT_AS soft=%s hard=%s (NOT modified — virtual != physical)",
+            f"{soft_as // (1024*1024)}MB" if soft_as != _resource.RLIM_INFINITY else "unlimited",
+            f"{hard_as // (1024*1024)}MB" if hard_as != _resource.RLIM_INFINITY else "unlimited",
+        )
     except (ValueError, OSError) as e:
-        logging.getLogger("academy").warning("Could not set RLIMIT_AS: %s", e)
+        _log.warning("Could not read RLIMIT_AS: %s", e)
 
 
 # ==================== SECURITY CONFIG ====================
