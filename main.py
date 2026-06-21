@@ -1641,6 +1641,33 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_quiz_participants_session ON quiz_participants(session_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_quiz_participants_user ON quiz_participants(user_id)")
 
+        # ========== SANDBOX SYSTEM ==========
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS sandbox_rooms (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL DEFAULT 'Новая песочница',
+                language TEXT NOT NULL DEFAULT 'python',
+                code TEXT DEFAULT '',
+                line_authors TEXT DEFAULT '{}',
+                created_by INTEGER NOT NULL,
+                is_saved INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (created_by) REFERENCES users(id)
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS sandbox_presence (
+                user_id INTEGER PRIMARY KEY,
+                room_id INTEGER NOT NULL,
+                cursor_line INTEGER DEFAULT 1,
+                last_heartbeat REAL NOT NULL,
+                last_edit REAL DEFAULT 0,
+                xp_last_tick REAL DEFAULT 0,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        """)
+
         conn.commit()
         
         # Sync guild achievements (tables now exist)
@@ -12468,6 +12495,419 @@ def quiz_daily_info(user: dict = Depends(require_auth)):
     }
 
 
+# ==================== SANDBOX COLLABORATIVE IDE ====================
+
+_SANDBOX_MAX_ROOMS = int(os.getenv("PANDORA_SANDBOX_MAX_ROOMS", "20"))
+_SANDBOX_MAX_CODE_CHARS = int(os.getenv("PANDORA_SANDBOX_MAX_CODE_CHARS", "50000"))
+_SANDBOX_MAX_LINES = 500
+_SANDBOX_MAX_USERS_PER_ROOM = 8
+_SANDBOX_XP_PER_MINUTE = 100
+_SANDBOX_XP_DAILY_CAP = 1000
+_SANDBOX_IDLE_TIMEOUT_S = 60.0
+_SANDBOX_HEARTBEAT_TIMEOUT_S = 15.0
+_SANDBOX_SYNC_COOLDOWN_S = 0.5
+_SANDBOX_ADMIN_MAX_XP_AWARD = 30000
+_SANDBOX_STALE_ROOM_HOURS = 24
+
+_sandbox_sync_timestamps: dict[int, float] = {}  # user_id -> last sync monotonic
+
+_SANDBOX_TEMPLATES: dict[str, dict] = {
+    "py_drawing": {"name": "🎨 Рисование (turtle)", "language": "python", "code": "import turtle\nimport math\n\n# === ГАЙД: Рисование с turtle ===\n# t = turtle.Turtle()     — создать черепашку\n# t.forward(100)          — вперёд на 100\n# t.right(90)             — повернуть направо на 90°\n# t.circle(50)            — нарисовать круг радиусом 50\n# t.color('red')          — сменить цвет\n# t.pensize(3)            — толщина линии\n# t.penup() / t.pendown() — поднять/опустить перо\n# turtle.done()           — завершить\n\nt = turtle.Turtle()\nt.speed(5)\n\n# Нарисуй что-нибудь красивое!\n"},
+    "py_math": {"name": "📐 Математика", "language": "python", "code": "import math\nimport random\n\n# === ГАЙД: Математика ===\n# math.sqrt(x)   — квадратный корень\n# math.pi        — число Пи\n# math.sin(x)    — синус (в радианах)\n# math.factorial(n) — факториал\n# abs(x)         — модуль числа\n# round(x, n)    — округление\n# random.randint(a, b) — случайное целое\n\n# Пример: вычисли гипотенузу\na = 3\nb = 4\nc = math.sqrt(a**2 + b**2)\nprint(f'Гипотенуза: {c}')\n"},
+    "py_game": {"name": "🎮 Мини-Игра", "language": "python", "code": "import random\n\n# === ГАЙД: Создай игру! ===\n# random.randint(a, b) — случайное число от a до b\n# input('Текст: ')     — спросить у игрока\n# print()              — вывести на экран\n# while True:          — бесконечный цикл\n# break                — выйти из цикла\n\nsecret = random.randint(1, 100)\nprint('Я загадал число от 1 до 100!')\n\n# Допиши логику угадывания!\n"},
+    "py_free": {"name": "🆓 Свободная (Python)", "language": "python", "code": "import math\nimport random\nfrom datetime import datetime\n\n# Свободная песочница — пиши что хочешь!\n\n"},
+    "js_dom": {"name": "🌐 DOM (JavaScript)", "language": "javascript", "code": "// === ГАЙД: DOM Манипуляции ===\n// document.querySelector('#id')  — найти элемент\n// el.textContent = 'текст'       — изменить текст\n// el.style.color = 'red'         — изменить стиль\n// el.addEventListener('click', fn) — обработчик\n// document.createElement('div')  — создать элемент\n\nconst heading = document.createElement('h1');\nheading.textContent = 'Привет, мир!';\nheading.style.color = '#a6e22e';\ndocument.body.appendChild(heading);\n"},
+    "js_canvas": {"name": "🎨 Canvas (JavaScript)", "language": "javascript", "code": "// === ГАЙД: Рисование на Canvas ===\nconst canvas = document.createElement('canvas');\ncanvas.width = 400;\ncanvas.height = 300;\ndocument.body.appendChild(canvas);\nconst ctx = canvas.getContext('2d');\n\n// ctx.fillStyle = 'color'   — цвет заливки\n// ctx.fillRect(x,y,w,h)    — прямоугольник\n// ctx.beginPath()           — начать путь\n// ctx.arc(x,y,r,0,Math.PI*2) — круг\n// ctx.fill()                — залить\n\nctx.fillStyle = '#272822';\nctx.fillRect(0, 0, 400, 300);\nctx.fillStyle = '#a6e22e';\nctx.beginPath();\nctx.arc(200, 150, 80, 0, Math.PI * 2);\nctx.fill();\n"},
+    "js_game": {"name": "🎮 Игра на Canvas", "language": "javascript", "code": "// === ГАЙД: Простая игра ===\nconst canvas = document.createElement('canvas');\ncanvas.width = 400; canvas.height = 300;\ndocument.body.appendChild(canvas);\nconst ctx = canvas.getContext('2d');\n\nlet x = 200, y = 150, dx = 2, dy = 2, r = 15;\n\nfunction draw() {\n  ctx.fillStyle = '#272822';\n  ctx.fillRect(0, 0, 400, 300);\n  ctx.fillStyle = '#f92672';\n  ctx.beginPath();\n  ctx.arc(x, y, r, 0, Math.PI * 2);\n  ctx.fill();\n  x += dx; y += dy;\n  if (x < r || x > 400 - r) dx = -dx;\n  if (y < r || y > 300 - r) dy = -dy;\n  requestAnimationFrame(draw);\n}\ndraw();\n"},
+    "html_page": {"name": "📄 Веб-страница", "language": "html", "code": "<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body {\n      font-family: 'Segoe UI', sans-serif;\n      background: #1a1a2e;\n      color: #e0e0e0;\n      display: flex;\n      justify-content: center;\n      align-items: center;\n      min-height: 100vh;\n      margin: 0;\n    }\n    .card {\n      background: rgba(255,255,255,0.06);\n      border: 1px solid rgba(255,255,255,0.1);\n      border-radius: 16px;\n      padding: 32px;\n      text-align: center;\n    }\n    h1 { color: #a6e22e; }\n  </style>\n</head>\n<body>\n  <div class=\"card\">\n    <h1>Привет!</h1>\n    <p>Это твоя веб-страница 🎉</p>\n  </div>\n</body>\n</html>"},
+    "html_form": {"name": "📝 Форма", "language": "html", "code": "<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: sans-serif; background: #272822; color: #f8f8f2; padding: 40px; }\n    input, select { padding: 8px 12px; border-radius: 8px; border: 1px solid #555; background: #1a1a2e; color: #f8f8f2; margin: 4px 0; width: 100%; box-sizing: border-box; }\n    button { padding: 10px 24px; border-radius: 8px; border: none; background: #a6e22e; color: #272822; font-weight: bold; cursor: pointer; margin-top: 12px; }\n    label { display: block; margin-top: 12px; color: #75715e; }\n  </style>\n</head>\n<body>\n  <h2>Регистрация</h2>\n  <form onsubmit=\"event.preventDefault(); alert('Отправлено!')\">\n    <label>Имя</label>\n    <input type=\"text\" placeholder=\"Ваше имя\">\n    <label>Email</label>\n    <input type=\"email\" placeholder=\"email@example.com\">\n    <button type=\"submit\">Отправить</button>\n  </form>\n</body>\n</html>"},
+}
+
+
+def _sandbox_cleanup_stale(cursor):
+    """Remove unsaved rooms older than 24h with no active users."""
+    cursor.execute(
+        "DELETE FROM sandbox_rooms WHERE is_saved = 0 AND updated_at < datetime('now', ?)",
+        (f"-{_SANDBOX_STALE_ROOM_HOURS} hours",)
+    )
+
+
+def _sandbox_online_users(cursor, room_id: int) -> list[dict]:
+    """Get users currently in a room (heartbeat within 15s)."""
+    cutoff = time.monotonic() - _SANDBOX_HEARTBEAT_TIMEOUT_S
+    cursor.execute(
+        "SELECT sp.user_id, sp.cursor_line, u.username, u.display_name, u.avatar_key "
+        "FROM sandbox_presence sp JOIN users u ON u.id = sp.user_id "
+        "WHERE sp.room_id = ? AND sp.last_heartbeat > ?",
+        (room_id, cutoff)
+    )
+    return [
+        {"user_id": r["user_id"], "cursor_line": r["cursor_line"],
+         "username": r["username"], "display_name": r["display_name"],
+         "avatar": r["avatar_key"] or "🧙"}
+        for r in cursor.fetchall()
+    ]
+
+
+@app.get("/sandbox", include_in_schema=False)
+def serve_sandbox():
+    """Serve the Sandbox collaborative IDE."""
+    return FileResponse("sandbox.html")
+
+
+@app.get("/api/sandbox/rooms")
+def sandbox_list_rooms(user: dict = Depends(require_auth)):
+    """List all sandbox rooms."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        _sandbox_cleanup_stale(cursor)
+        conn.commit()
+        cursor.execute(
+            "SELECT id, name, language, is_saved, created_by, created_at, updated_at FROM sandbox_rooms ORDER BY updated_at DESC"
+        )
+        rooms = []
+        for r in cursor.fetchall():
+            online = _sandbox_online_users(cursor, r["id"])
+            rooms.append({
+                "id": r["id"], "name": r["name"], "language": r["language"],
+                "is_saved": bool(r["is_saved"]), "created_by": r["created_by"],
+                "online_count": len(online), "is_active": len(online) > 0,
+                "created_at": r["created_at"], "updated_at": r["updated_at"],
+            })
+    return {"rooms": rooms}
+
+
+@app.post("/api/sandbox/create")
+def sandbox_create_room(
+    request: Request,
+    name: str = Form("Новая песочница"),
+    language: str = Form("python"),
+    template_id: str = Form(""),
+    user: dict = Depends(require_auth),
+):
+    """Create a new sandbox room."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) as cnt FROM sandbox_rooms")
+        if cursor.fetchone()["cnt"] >= _SANDBOX_MAX_ROOMS:
+            _sandbox_cleanup_stale(cursor)
+            conn.commit()
+            cursor.execute("SELECT COUNT(*) as cnt FROM sandbox_rooms")
+            if cursor.fetchone()["cnt"] >= _SANDBOX_MAX_ROOMS:
+                raise HTTPException(status_code=400, detail=f"Максимум {_SANDBOX_MAX_ROOMS} комнат")
+
+        if language not in ("python", "javascript", "html"):
+            language = "python"
+        name = html.escape(name[:60].strip()) or "Новая песочница"
+
+        code = ""
+        if template_id and template_id in _SANDBOX_TEMPLATES:
+            t = _SANDBOX_TEMPLATES[template_id]
+            code = t["code"]
+            language = t["language"]
+            if not name or name == "Новая песочница":
+                name = t["name"]
+
+        cursor.execute(
+            "INSERT INTO sandbox_rooms (name, language, code, created_by) VALUES (?, ?, ?, ?)",
+            (name, language, code, user["id"])
+        )
+        room_id = cursor.lastrowid
+        conn.commit()
+
+    return {"room_id": room_id, "name": name, "language": language}
+
+
+@app.post("/api/sandbox/join")
+def sandbox_join(
+    room_id: int = Form(...),
+    user: dict = Depends(require_auth),
+):
+    """Join a sandbox room."""
+    uid = int(user["id"])
+    now = time.monotonic()
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, language FROM sandbox_rooms WHERE id = ?", (room_id,))
+        room = cursor.fetchone()
+        if not room:
+            raise HTTPException(status_code=404, detail="Комната не найдена")
+
+        online = _sandbox_online_users(cursor, room_id)
+        already_in = any(u["user_id"] == uid for u in online)
+        if not already_in and len(online) >= _SANDBOX_MAX_USERS_PER_ROOM:
+            raise HTTPException(status_code=400, detail=f"Максимум {_SANDBOX_MAX_USERS_PER_ROOM} участников")
+
+        cursor.execute(
+            "INSERT OR REPLACE INTO sandbox_presence (user_id, room_id, cursor_line, last_heartbeat, last_edit, xp_last_tick) "
+            "VALUES (?, ?, 1, ?, 0, 0)",
+            (uid, room_id, now)
+        )
+        conn.commit()
+
+    return {"joined": True, "room_id": room_id}
+
+
+@app.get("/api/sandbox/poll")
+def sandbox_poll(
+    room_id: int = Query(...),
+    user: dict = Depends(require_auth),
+):
+    """Poll current state of a sandbox room. Also acts as heartbeat."""
+    uid = int(user["id"])
+    now = time.monotonic()
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM sandbox_rooms WHERE id = ?", (room_id,))
+        room = cursor.fetchone()
+        if not room:
+            raise HTTPException(status_code=404, detail="Комната не найдена")
+
+        # Update heartbeat
+        cursor.execute(
+            "UPDATE sandbox_presence SET last_heartbeat = ? WHERE user_id = ? AND room_id = ?",
+            (now, uid, room_id)
+        )
+
+        # XP tick: award 100 XP per minute of active participation
+        cursor.execute("SELECT * FROM sandbox_presence WHERE user_id = ?", (uid,))
+        presence = cursor.fetchone()
+        xp_awarded = 0
+        if presence and presence["last_edit"] > 0:
+            time_since_edit = now - presence["last_edit"]
+            time_since_tick = now - (presence["xp_last_tick"] or 0)
+            if time_since_edit < _SANDBOX_IDLE_TIMEOUT_S and time_since_tick >= 60.0:
+                # Check daily cap
+                today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+                cursor.execute(
+                    "SELECT COALESCE(SUM(xp_change), 0) as total FROM xp_log "
+                    "WHERE user_id = ? AND reason LIKE 'Sandbox%' AND logged_at >= ?",
+                    (uid, today)
+                )
+                daily_total = cursor.fetchone()["total"]
+                if daily_total < _SANDBOX_XP_DAILY_CAP:
+                    xp_to_award = min(_SANDBOX_XP_PER_MINUTE, _SANDBOX_XP_DAILY_CAP - daily_total)
+                    if xp_to_award > 0:
+                        apply_xp_change(cursor, uid, xp_to_award, f"Sandbox активность ({room['name']})")
+                        xp_awarded = xp_to_award
+                cursor.execute(
+                    "UPDATE sandbox_presence SET xp_last_tick = ? WHERE user_id = ?",
+                    (now, uid)
+                )
+
+        conn.commit()
+
+        online = _sandbox_online_users(cursor, room_id)
+        line_authors = {}
+        try:
+            line_authors = json.loads(room["line_authors"] or "{}")
+        except Exception:
+            pass
+
+    return {
+        "code": room["code"] or "",
+        "language": room["language"],
+        "name": room["name"],
+        "line_authors": line_authors,
+        "users": online,
+        "is_saved": bool(room["is_saved"]),
+        "xp_awarded": xp_awarded,
+        "updated_at": room["updated_at"],
+    }
+
+
+@app.post("/api/sandbox/sync")
+def sandbox_sync(
+    room_id: int = Form(...),
+    code: str = Form(""),
+    cursor_line: int = Form(1),
+    user: dict = Depends(require_auth),
+):
+    """Sync code changes to a sandbox room."""
+    uid = int(user["id"])
+    now = time.monotonic()
+
+    # Rate limit: 2 req/s per user
+    last_sync = _sandbox_sync_timestamps.get(uid, 0)
+    if now - last_sync < _SANDBOX_SYNC_COOLDOWN_S:
+        raise HTTPException(status_code=429, detail="Слишком часто. Подожди немного.")
+    _sandbox_sync_timestamps[uid] = now
+
+    # Validate code size
+    if len(code) > _SANDBOX_MAX_CODE_CHARS:
+        raise HTTPException(status_code=400, detail=f"Код слишком большой (макс {_SANDBOX_MAX_CODE_CHARS} символов)")
+    lines = code.split("\n")
+    if len(lines) > _SANDBOX_MAX_LINES:
+        raise HTTPException(status_code=400, detail=f"Слишком много строк (макс {_SANDBOX_MAX_LINES})")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, code, line_authors FROM sandbox_rooms WHERE id = ?", (room_id,))
+        room = cursor.fetchone()
+        if not room:
+            raise HTTPException(status_code=404, detail="Комната не найдена")
+
+        # Build line authors map
+        old_authors = {}
+        try:
+            old_authors = json.loads(room["line_authors"] or "{}")
+        except Exception:
+            pass
+
+        old_lines = (room["code"] or "").split("\n")
+        new_lines = code.split("\n")
+
+        # Update author for changed lines
+        username = user.get("display_name") or user.get("username", "?")
+        avatar = user.get("avatar_key") or "🧙"
+        new_authors = {}
+        for i, line in enumerate(new_lines):
+            line_key = str(i + 1)
+            if i < len(old_lines) and line == old_lines[i]:
+                # Line unchanged — keep old author
+                old_key = str(i + 1)
+                if old_key in old_authors:
+                    new_authors[line_key] = old_authors[old_key]
+                else:
+                    new_authors[line_key] = {"uid": uid, "name": username, "avatar": avatar}
+            else:
+                # Line changed — new author
+                new_authors[line_key] = {"uid": uid, "name": username, "avatar": avatar}
+
+        authors_json = json.dumps(new_authors, ensure_ascii=False, separators=(",", ":"))
+
+        cursor.execute(
+            "UPDATE sandbox_rooms SET code = ?, line_authors = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (code, authors_json, room_id)
+        )
+        cursor.execute(
+            "UPDATE sandbox_presence SET cursor_line = ?, last_heartbeat = ?, last_edit = ? WHERE user_id = ?",
+            (cursor_line, now, now, uid)
+        )
+        conn.commit()
+
+    return {"synced": True}
+
+
+@app.post("/api/sandbox/run")
+def sandbox_run_code(
+    room_id: int = Form(...),
+    code: str = Form(""),
+    language: str = Form("python"),
+    run_line: int = Form(0),
+    user: dict = Depends(require_auth),
+):
+    """Execute code from the sandbox. Python runs on server, JS/HTML are client-side."""
+    if language in ("javascript", "html"):
+        return {"output": "", "error": "", "note": "JS/HTML выполняются на клиенте"}
+
+    if len(code) > _SANDBOX_MAX_CODE_CHARS:
+        return {"output": "", "error": "Код слишком большой"}
+
+    # If run_line > 0, extract only that line
+    if run_line > 0:
+        lines = code.split("\n")
+        if 0 < run_line <= len(lines):
+            code = lines[run_line - 1]
+        else:
+            return {"output": "", "error": f"Строка {run_line} не найдена"}
+
+    # Auto-prepend common imports
+    auto_imports = "import math\nimport random\nfrom datetime import datetime\n"
+    if not any(code.strip().startswith(f"import {m}") or f"from {m}" in code for m in ["math", "random", "datetime"]):
+        code = auto_imports + code
+
+    # Run via subprocess with timeout (same as local runner)
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True, text=True,
+            timeout=5.0,
+            cwd=tempfile.gettempdir(),
+        )
+        return {
+            "output": result.stdout[:5000],
+            "error": result.stderr[:2000],
+            "returncode": result.returncode,
+        }
+    except subprocess.TimeoutExpired:
+        return {"output": "", "error": "⏱ Таймаут (5 секунд). Проверь бесконечные циклы.", "returncode": -1}
+    except Exception as e:
+        return {"output": "", "error": str(e)[:500], "returncode": -1}
+
+
+@app.post("/api/sandbox/save")
+def sandbox_save(
+    room_id: int = Form(...),
+    user: dict = Depends(require_auth),
+):
+    """Mark a sandbox room as saved (persisted)."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, created_by FROM sandbox_rooms WHERE id = ?", (room_id,))
+        room = cursor.fetchone()
+        if not room:
+            raise HTTPException(status_code=404, detail="Комната не найдена")
+        # Allow save by creator or admin
+        if room["created_by"] != user["id"] and user.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="Только создатель или админ может сохранить")
+        cursor.execute("UPDATE sandbox_rooms SET is_saved = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (room_id,))
+        conn.commit()
+    return {"saved": True}
+
+
+@app.post("/api/sandbox/admin/award")
+def sandbox_admin_award(
+    room_id: int = Form(...),
+    target_user_id: int = Form(...),
+    xp: int = Form(...),
+    reason: str = Form("Награда в песочнице"),
+    admin: dict = Depends(require_admin),
+):
+    """Admin: award XP to a user in the sandbox (up to 30K)."""
+    if xp < 1 or xp > _SANDBOX_ADMIN_MAX_XP_AWARD:
+        raise HTTPException(status_code=400, detail=f"XP должен быть от 1 до {_SANDBOX_ADMIN_MAX_XP_AWARD}")
+    reason_safe = html.escape(reason[:200].strip()) or "Награда в песочнице"
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, username FROM users WHERE id = ?", (target_user_id,))
+        target = cursor.fetchone()
+        if not target:
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
+
+        new_xp, new_level = apply_xp_change(
+            cursor, target_user_id, xp,
+            f"Sandbox award: {reason_safe} (by {admin.get('username', 'admin')})"
+        )
+        conn.commit()
+
+    log_action(admin["id"], admin.get("username", "admin"), "SANDBOX_AWARD_XP",
+               f"target={target['username']} xp={xp} reason={reason_safe}")
+
+    return {
+        "awarded": True,
+        "target_user_id": target_user_id,
+        "target_username": target["username"],
+        "xp_awarded": xp,
+        "new_total_xp": new_xp,
+        "new_level": new_level,
+    }
+
+
+@app.get("/api/sandbox/templates")
+def sandbox_templates(user: dict = Depends(require_auth)):
+    """List available sandbox templates."""
+    return {
+        "templates": [
+            {"id": tid, "name": t["name"], "language": t["language"]}
+            for tid, t in _SANDBOX_TEMPLATES.items()
+        ]
+    }
+
+
 # ==================== STARTUP ====================
 
 if __name__ == "__main__":
@@ -12495,4 +12935,5 @@ if __name__ == "__main__":
     print("\n" + "═"*60 + "\n")
     
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
  

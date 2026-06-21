@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Песочница — PANDORA IDE</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#272822;--bg2:#1e1f1a;--bg3:#3e3d32;--bg4:#49483e;--fg:#f8f8f2;--comment:#75715e;--kw:#f92672;--str:#e6db74;--fn:#a6e22e;--num:#ae81ff;--cls:#66d9ef;--op:#f92672;--accent:#f59e0b;--accent2:#d97706;--green:#a6e22e;--red:#f92672;--cyan:#66d9ef;--border:rgba(255,255,255,.08);--glow:rgba(166,226,46,.15);--font:'JetBrains Mono','Consolas','Monaco',monospace}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);display:flex;height:100vh;overflow:hidden}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:var(--comment)}
+
+/* === SIDEBAR === */
+.sidebar{width:240px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.sidebar-hdr{padding:16px 18px;border-bottom:1px solid var(--border);font-weight:700;font-size:16px;background:linear-gradient(135deg,rgba(245,158,11,.06),rgba(166,226,46,.04));display:flex;align-items:center;gap:10px}
+.sidebar-hdr .logo{font-size:22px}
+.sidebar-hdr .title{background:linear-gradient(135deg,var(--accent),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.room-list{flex:1;overflow-y:auto;padding:8px}
+.room-item{padding:10px 14px;border-radius:10px;cursor:pointer;margin-bottom:4px;font-size:13px;display:flex;align-items:center;gap:10px;transition:all .2s;border:1px solid transparent;position:relative}
+.room-item:hover{background:var(--bg3)}
+.room-item.active{background:rgba(166,226,46,.08);border-color:rgba(166,226,46,.2)}
+.room-item.has-users{box-shadow:0 0 12px var(--glow),inset 0 0 12px rgba(166,226,46,.03)}
+.room-item.has-users::before{content:'';position:absolute;inset:-1px;border-radius:10px;border:1px solid rgba(166,226,46,.2);animation:room-glow 2s ease-in-out infinite;pointer-events:none}
+@keyframes room-glow{0%,100%{box-shadow:0 0 4px rgba(166,226,46,.15)}50%{box-shadow:0 0 12px rgba(166,226,46,.3)}}
+.room-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.room-dot.live{background:var(--green);box-shadow:0 0 6px var(--green)}
+.room-dot.empty{background:var(--comment)}
+.room-info{flex:1;min-width:0}
+.room-name-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.room-lang{font-size:10px;color:var(--comment);margin-top:2px;display:flex;align-items:center;gap:4px}
+.room-users-count{font-size:11px;color:var(--green);font-weight:600}
+.sidebar-actions{padding:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px}
+
+/* === BUTTONS === */
+.btn{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--fg);cursor:pointer;font-size:12px;font-family:var(--font);transition:all .2s;text-align:center;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:hover{background:rgba(255,255,255,.1);transform:translateY(-1px)}
+.btn:active{transform:translateY(0)}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1a1a2e;border:none;font-weight:700;box-shadow:0 2px 12px rgba(245,158,11,.25)}
+.btn-primary:hover{box-shadow:0 4px 20px rgba(245,158,11,.4)}
+.btn-run{background:rgba(166,226,46,.12);border-color:rgba(166,226,46,.25);color:var(--green);font-weight:600}
+.btn-run:hover{background:rgba(166,226,46,.2);box-shadow:0 0 12px rgba(166,226,46,.2)}
+.btn-save{background:rgba(102,217,239,.1);border-color:rgba(102,217,239,.2);color:var(--cyan)}
+
+/* === MAIN AREA === */
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.admin-bar{background:linear-gradient(90deg,rgba(249,38,114,.06),rgba(166,226,46,.06));padding:8px 16px;font-size:12px;display:none;align-items:center;gap:12px;border-bottom:1px solid var(--border)}
+.admin-bar.show{display:flex}
+.admin-bar .badge{color:var(--accent);font-weight:700;font-size:13px}
+
+/* === TOOLBAR === */
+.toolbar{display:flex;align-items:center;gap:10px;padding:8px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.toolbar select{background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-family:var(--font);font-size:12px;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2375715e' d='M3 4l3 4 3-4z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;padding-right:28px}
+.toolbar .room-title{font-weight:700;font-size:15px;color:var(--fg);margin-right:auto;display:flex;align-items:center;gap:8px}
+.toolbar .room-title .saved{color:var(--cyan);font-size:12px}
+.sync-indicator{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--comment)}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--green);transition:all .3s}
+.sync-dot.syncing{background:var(--accent);animation:pulse .6s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+.toolbar-sep{width:1px;height:24px;background:var(--border)}
+
+/* === EDITOR === */
+.editor-wrap{flex:1;display:flex;overflow:hidden;position:relative}
+.gutter{background:var(--bg2);color:var(--comment);padding:10px 0;font-size:13px;line-height:1.65;user-select:none;overflow:hidden;min-width:90px;border-right:1px solid var(--border)}
+.gutter-line{display:flex;align-items:center;justify-content:flex-end;padding:0 6px 0 4px;gap:3px;height:21.45px;transition:background .1s}
+.gutter-line:hover{background:rgba(255,255,255,.03)}
+.gutter-line.current{background:rgba(255,255,255,.05);color:var(--fg)}
+.gutter-line .av{width:18px;height:18px;border-radius:5px;font-size:9px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);flex-shrink:0;border:1px solid rgba(255,255,255,.06)}
+.gutter-line .ln{min-width:24px;text-align:right;font-size:12px}
+
+.editor-container{flex:1;position:relative;overflow:hidden}
+.code-highlight{position:absolute;top:0;left:0;right:0;padding:10px 16px;font-size:13px;line-height:1.65;white-space:pre;overflow:hidden;pointer-events:none;color:transparent;word-wrap:normal}
+.code-area{position:relative;width:100%;height:100%;background:transparent;color:var(--fg);border:none;outline:none;resize:none;font-family:var(--font);font-size:13px;line-height:1.65;padding:10px 16px;tab-size:4;white-space:pre;overflow:auto;z-index:1;caret-color:var(--fg)}
+.code-area::selection{background:rgba(255,255,255,.12)}
+
+/* Syntax colors in highlight layer */
+.hl-kw{color:var(--kw)}
+.hl-str{color:var(--str)}
+.hl-num{color:var(--num)}
+.hl-fn{color:var(--fn)}
+.hl-cm{color:var(--comment);font-style:italic}
+.hl-cls{color:var(--cls)}
+.hl-op{color:var(--kw)}
+.hl-tag{color:var(--kw)}
+.hl-attr{color:var(--fn)}
+.hl-val{color:var(--str)}
+
+/* Minimap */
+.minimap{width:60px;background:var(--bg2);border-left:1px solid var(--border);overflow:hidden;position:relative;cursor:pointer}
+.minimap canvas{width:100%;opacity:.6}
+
+/* Autocomplete */
+.autocomplete{position:absolute;background:var(--bg2);border:1px solid rgba(255,255,255,.12);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.5);max-height:200px;overflow-y:auto;z-index:50;min-width:200px;display:none;font-size:12px}
+.autocomplete.show{display:block}
+.ac-item{padding:6px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .1s}
+.ac-item:hover,.ac-item.selected{background:rgba(166,226,46,.12)}
+.ac-item .ac-icon{color:var(--cyan);font-size:10px;font-weight:700;min-width:16px}
+.ac-item .ac-label{color:var(--fg)}
+.ac-item .ac-type{color:var(--comment);font-size:10px;margin-left:auto}
+
+/* Bracket error underline */
+.bracket-err{text-decoration:wavy underline var(--red);text-decoration-skip-ink:none}
+
+/* === CONSOLE === */
+.console{height:180px;background:#1a1a1a;border-top:2px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:height .2s}
+.console-hdr{padding:6px 16px;font-size:12px;color:var(--comment);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--bg2);cursor:pointer;user-select:none}
+.console-hdr .tab{color:var(--green);font-weight:700}
+.console-hdr .actions{margin-left:auto;display:flex;gap:6px}
+.console-out{flex:1;overflow-y:auto;padding:10px 16px;font-size:12px;line-height:1.6;white-space:pre-wrap;font-family:var(--font)}
+.console-out .err{color:var(--red)}
+.console-out .ok{color:var(--fg)}
+.console-out .info{color:var(--cyan)}
+.console-out .xp-flash{color:var(--accent);font-weight:700;animation:xp-pop .5s ease-out}
+@keyframes xp-pop{0%{transform:scale(1.5);opacity:0}100%{transform:scale(1);opacity:1}}
+
+/* === STATUSBAR === */
+.statusbar{display:flex;align-items:center;gap:14px;padding:4px 16px;background:linear-gradient(90deg,var(--bg2),rgba(30,31,26,.95));border-top:1px solid var(--border);font-size:11px;color:var(--comment)}
+.statusbar .users{display:flex;gap:6px;align-items:center;margin-left:auto}
+.user-badge{display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.05);padding:2px 8px 2px 4px;border-radius:10px;font-size:11px;border:1px solid rgba(255,255,255,.06)}
+.user-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+.xp-ticker{color:var(--accent);font-weight:600;display:flex;align-items:center;gap:4px}
+
+/* === MODALS === */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:100;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-bg.show{display:flex}
+.modal{background:var(--bg2);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:28px;width:420px;max-width:92vw;box-shadow:0 16px 48px rgba(0,0,0,.5)}
+.modal h3{margin-bottom:18px;font-size:17px;color:var(--accent);display:flex;align-items:center;gap:8px}
+.modal label{display:block;font-size:11px;color:var(--comment);margin:12px 0 4px;text-transform:uppercase;letter-spacing:.5px}
+.modal input,.modal select,.modal textarea{width:100%;padding:8px 14px;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:8px;font-family:var(--font);font-size:13px;transition:border-color .2s}
+.modal input:focus,.modal select:focus{border-color:var(--accent);outline:none}
+.modal .btn{margin-top:16px;width:100%}
+.tpl-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:320px;overflow-y:auto}
+.tpl-item{padding:12px;border-radius:10px;border:1px solid var(--border);cursor:pointer;font-size:12px;transition:all .2s}
+.tpl-item:hover{background:rgba(166,226,46,.08);border-color:rgba(166,226,46,.3);transform:translateY(-1px)}
+.tpl-item .tpl-name{font-weight:600;margin-bottom:4px}
+.tpl-item .tpl-lang{color:var(--comment);font-size:10px}
+
+/* Toast notifications */
+.toast{position:fixed;top:20px;right:20px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 20px;font-size:13px;z-index:200;box-shadow:0 8px 32px rgba(0,0,0,.4);transform:translateX(120%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;align-items:center;gap:10px}
+.toast.show{transform:translateX(0)}
+.toast.xp{border-color:rgba(245,158,11,.3);background:linear-gradient(135deg,var(--bg2),rgba(245,158,11,.08))}
+</style>
+</head>
+<body>
+<!-- SIDEBAR -->
+<div class="sidebar">
+ <div class="sidebar-hdr"><span class="logo">🏖️</span><span class="title">Песочница</span></div>
+ <div class="room-list" id="room-list"><div style="padding:24px 16px;text-align:center;color:var(--comment);font-size:12px">Загрузка...</div></div>
+ <div class="sidebar-actions">
+  <button class="btn btn-primary" onclick="showCreateModal()">＋ Создать комнату</button>
+  <button class="btn" onclick="showTemplates()">📋 Шаблоны</button>
+ </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+ <div class="admin-bar" id="admin-bar"><span class="badge">👑 Admin Mode</span><button class="btn btn-run" onclick="showAwardModal()" style="padding:4px 14px;font-size:11px">⭐ Award XP</button><span style="flex:1"></span><span style="color:var(--comment);font-size:11px">Ctrl+Enter = Run | Shift+Enter = Run Line</span></div>
+ <div class="toolbar" id="toolbar">
+  <span class="room-title" id="room-title">Выберите комнату →</span>
+  <select id="lang-select" onchange="changeLang(this.value)"><option value="python">🐍 Python</option><option value="javascript">⚡ JavaScript</option><option value="html">🌐 HTML+CSS</option></select>
+  <div class="toolbar-sep"></div>
+  <button class="btn btn-run" onclick="runCode()" title="Ctrl+Enter — запустить весь код">▶ Run</button>
+  <button class="btn" onclick="runLine()" title="Shift+Enter — запустить текущую строку">▸ Line</button>
+  <div class="toolbar-sep"></div>
+  <button class="btn btn-save" onclick="saveRoom()" title="Сохранить песочницу">💾</button>
+  <div class="sync-indicator"><div class="sync-dot" id="sync-dot"></div><span id="sync-text">Ready</span></div>
+ </div>
+
+ <div class="editor-wrap">
+  <div class="gutter" id="gutter"></div>
+  <div class="editor-container">
+   <div class="code-highlight" id="highlight"></div>
+   <textarea class="code-area" id="code" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="// Выберите или создайте комнату чтобы начать кодить..." oninput="onCodeInput()" onscroll="syncScroll()" onkeydown="handleKey(event)" onclick="onCursorMove()" onkeyup="onCursorMove()"></textarea>
+   <div class="autocomplete" id="autocomplete"></div>
+  </div>
+  <div class="minimap" id="minimap" onclick="minimapClick(event)"><canvas id="minimap-canvas"></canvas></div>
+ </div>
+
+ <div class="console" id="console-panel">
+  <div class="console-hdr" onclick="toggleConsole()">🖥 <span class="tab">Console</span><span id="console-count" style="color:var(--comment);font-size:10px"></span><div class="actions"><button class="btn" onclick="event.stopPropagation();clearConsole()" style="padding:2px 10px;font-size:10px">Clear</button></div></div>
+  <div class="console-out" id="console-out"><div class="info">Добро пожаловать в Песочницу PANDORA! 🏖️</div></div>
+ </div>
+
+ <div class="statusbar">
+  <span id="cursor-pos">Ln 1, Col 1</span>
+  <span id="char-count">0 chars</span>
+  <span id="lang-indicator"></span>
+  <span class="xp-ticker" id="xp-ticker"></span>
+  <div class="users" id="online-users"></div>
+ </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- MODALS -->
+<div class="modal-bg" id="create-modal"><div class="modal"><h3>＋ Новая песочница</h3><label>Название</label><input id="cr-name" value="Новая песочница" maxlength="60"><label>Язык</label><select id="cr-lang"><option value="python">🐍 Python</option><option value="javascript">⚡ JavaScript</option><option value="html">🌐 HTML+CSS</option></select><button class="btn btn-primary" onclick="createRoom()">Создать</button><button class="btn" onclick="closeModals()" style="margin-top:8px">Отмена</button></div></div>
+<div class="modal-bg" id="tpl-modal"><div class="modal"><h3>📋 Шаблоны</h3><div class="tpl-grid" id="tpl-grid"></div><button class="btn" onclick="closeModals()" style="margin-top:16px">Закрыть</button></div></div>
+<div class="modal-bg" id="award-modal"><div class="modal"><h3>⭐ Наградить XP</h3><label>Игрок</label><select id="aw-user"></select><label>XP (1 — 30 000)</label><input id="aw-xp" type="number" min="1" max="30000" value="500"><label>Причина</label><input id="aw-reason" value="Отличная работа!" maxlength="200"><button class="btn btn-primary" onclick="awardXP()">⭐ Наградить</button><button class="btn" onclick="closeModals()" style="margin-top:8px">Отмена</button></div></div>
+
+<script>
+const API=location.origin;
+let TOKEN=localStorage.getItem('pandora_token')||'';
+let ROOM=null,POLL_ID=null,IS_ADMIN=false,LAST_CODE='',LAST_SYNC='',USER=null;
+let idleTimer=0,isIdle=false,tabVisible=true,xpCountdown=60,consoleLines=0;
+
+// === API HELPERS ===
+async function api(path,opts={}){
+ const h={'Authorization':'Bearer '+TOKEN,...(opts.headers||{})};
+ try{
+  const r=await fetch(API+path,{...opts,headers:h});
+  if(r.status===401){TOKEN='';localStorage.removeItem('pandora_token');location.href='/';return null}
+  if(r.status===429){toast('⏳ Подожди немного...','warn');return null}
+  return r.json();
+ }catch(e){return null}
+}
+async function apiForm(path,data){
+ const fd=new FormData();for(const[k,v]of Object.entries(data))fd.append(k,String(v));
+ return api(path,{method:'POST',body:fd});
+}
+
+// === AUTH ===
+(async()=>{
+ if(!TOKEN){location.href='/';return}
+ const me=await api('/api/auth/me');
+ if(!me||!me.username){location.href='/';return}
+ USER=me;IS_ADMIN=me.role==='admin';
+ if(IS_ADMIN)document.getElementById('admin-bar').classList.add('show');
+ loadRooms();
+})();
+
+// === ROOMS ===
+async function loadRooms(){
+ const d=await api('/api/sandbox/rooms');if(!d)return;
+ const el=document.getElementById('room-list');
+ if(!d.rooms.length){el.innerHTML='<div style="padding:30px 16px;text-align:center;color:var(--comment);font-size:12px;line-height:1.6">Пока нет комнат.<br>Создай первую! 🚀</div>';return}
+ el.innerHTML=d.rooms.map(r=>`
+  <div class="room-item ${ROOM&&ROOM.id===r.id?'active':''} ${r.is_active?'has-users':''}" onclick="joinRoom(${r.id})">
+   <div class="room-dot ${r.is_active?'live':'empty'}"></div>
+   <div class="room-info"><div class="room-name-text">${esc(r.name)}${r.is_saved?' 💾':''}</div><div class="room-lang">${langIcon(r.language)} ${r.language}${r.is_saved?' • сохранено':''}</div></div>
+   ${r.online_count?`<span class="room-users-count">${r.online_count}👤</span>`:''}
+  </div>`).join('');
+}
+function langIcon(l){return l==='python'?'🐍':l==='javascript'?'⚡':'🌐'}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+// === JOIN / POLL ===
+async function joinRoom(id){
+ const d=await apiForm('/api/sandbox/join',{room_id:id});
+ if(!d||!d.joined)return;
+ ROOM={id};LAST_CODE='';LAST_SYNC='';
+ if(POLL_ID)clearInterval(POLL_ID);
+ await pollRoom();
+ POLL_ID=setInterval(pollRoom,1500);
+ loadRooms();
+ document.getElementById('code').focus();
+ appendConsole(`📂 Вошёл в комнату #${id}`,'info');
+}
+
+async function pollRoom(){
+ if(!ROOM)return;
+ const d=await api('/api/sandbox/poll?room_id='+ROOM.id);if(!d)return;
+ ROOM.name=d.name;ROOM.language=d.language;ROOM.is_saved=d.is_saved;
+ document.getElementById('room-title').innerHTML=esc(d.name)+(d.is_saved?' <span class="saved">💾 saved</span>':'');
+ document.getElementById('lang-select').value=d.language;
+ document.getElementById('lang-indicator').textContent=langIcon(d.language)+' '+d.language;
+ const ta=document.getElementById('code');
+ if(d.code!==LAST_SYNC&&d.code!==ta.value){
+  const pos=ta.selectionStart;
+  ta.value=d.code;LAST_CODE=d.code;LAST_SYNC=d.code;
+  ta.selectionStart=ta.selectionEnd=Math.min(pos,d.code.length);
+  highlightCode();
+ }
+ updateGutter(d.line_authors);
+ updateOnline(d.users);
+ updateMinimap();
+ if(d.xp_awarded>0){toast(`✨ +${d.xp_awarded} XP за активность!`,'xp');xpCountdown=60}
+ setSyncState('synced');
+}
+
+// === GUTTER (line numbers + avatars) ===
+function updateGutter(authors){
+ const code=document.getElementById('code').value;
+ const lines=code.split('\n');
+ const el=document.getElementById('gutter');
+ const ta=document.getElementById('code');
+ const curLine=ta.value.substring(0,ta.selectionStart).split('\n').length;
+ let h='';
+ for(let i=0;i<lines.length;i++){
+  const a=authors?authors[String(i+1)]:null;
+  const av=a?`<span class="av" title="${esc(a.name||'')}">${a.avatar||'🧙'}</span>`:'';
+  const cur=i+1===curLine?' current':'';
+  h+=`<div class="gutter-line${cur}">${av}<span class="ln">${i+1}</span></div>`;
+ }
+ el.innerHTML=h;
+}
+
+function updateOnline(users){
+ const el=document.getElementById('online-users');
+ el.innerHTML=users.map(u=>`<span class="user-badge"><span class="dot"></span>${u.avatar||'🧙'} ${esc(u.display_name||u.username)}</span>`).join('');
+}
+
+// === SYNTAX HIGHLIGHTING ===
+const PY_KW=/\b(False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield|print|input|range|len|int|str|float|list|dict|set|tuple|type|self)\b/g;
+const JS_KW=/\b(async|await|break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|false|finally|for|function|if|import|in|instanceof|let|new|null|of|return|super|switch|this|throw|true|try|typeof|undefined|var|void|while|with|yield|console|document|window|Math|Array|Object|String|Number|JSON)\b/g;
+const HTML_TAG=/(&lt;\/?)([\w-]+)/g;
+const HTML_ATTR=/\s([\w-]+)(=)/g;
+const STR_RE=/(["'`])(?:(?!\1|\\).|\\.)*?\1/g;
+const NUM_RE=/\b(\d+\.?\d*)\b/g;
+const PY_COMMENT=/(#.*$)/gm;
+const JS_COMMENT=/(\/\/.*$)/gm;
+const FN_RE=/\b([a-zA-Z_]\w*)\s*\(/g;
+
+function highlightCode(){
+ const ta=document.getElementById('code');
+ const el=document.getElementById('highlight');
+ const lang=ROOM?ROOM.language:'python';
+ let code=ta.value;
+ // Escape HTML first
+ code=code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+ // Comments first (so they override)
+ const comments=[];
+ const cmRe=lang==='python'?PY_COMMENT:JS_COMMENT;
+ if(lang!=='html')code=code.replace(cmRe,m=>{const ph=`__CM${comments.length}__`;comments.push(m);return ph});
+ // Strings
+ const strings=[];
+ code=code.replace(STR_RE,m=>{const ph=`__ST${strings.length}__`;strings.push(m);return ph});
+ // Functions
+ code=code.replace(FN_RE,(m,fn)=>`<span class="hl-fn">${fn}</span>(`);
+ // Keywords
+ if(lang==='python')code=code.replace(PY_KW,'<span class="hl-kw">$1</span>');
+ else if(lang==='javascript')code=code.replace(JS_KW,'<span class="hl-kw">$1</span>');
+ else{code=code.replace(HTML_TAG,'$1<span class="hl-tag">$2</span>');code=code.replace(HTML_ATTR,' <span class="hl-attr">$1</span><span class="hl-op">$2</span>')}
+ // Numbers
+ code=code.replace(NUM_RE,'<span class="hl-num">$1</span>');
+ // Restore strings and comments
+ strings.forEach((s,i)=>{code=code.replace(`__ST${i}__`,`<span class="hl-str">${s}</span>`)});
+ comments.forEach((c,i)=>{code=code.replace(`__CM${i}__`,`<span class="hl-cm">${c}</span>`)});
+ el.innerHTML=code+'\n';
+ el.scrollTop=ta.scrollTop;el.scrollLeft=ta.scrollLeft;
+}
+
+// === MINIMAP ===
+function updateMinimap(){
+ const canvas=document.getElementById('minimap-canvas');
+ const ctx=canvas.getContext('2d');
+ const code=document.getElementById('code').value;
+ const lines=code.split('\n');
+ canvas.width=60;canvas.height=Math.max(lines.length*2,100);
+ ctx.fillStyle='#272822';ctx.fillRect(0,0,60,canvas.height);
+ lines.forEach((line,i)=>{
+  if(!line.trim())return;
+  const w=Math.min(line.length*0.8,55);
+  ctx.fillStyle=line.trimStart().startsWith('#')||line.trimStart().startsWith('//')?'#75715e':'rgba(248,248,242,.25)';
+  ctx.fillRect(3,i*2,w,1.5);
+ });
+}
+function minimapClick(e){
+ const ta=document.getElementById('code');
+ const lines=ta.value.split('\n');
+ const ratio=e.offsetY/e.target.offsetHeight;
+ const targetLine=Math.floor(ratio*lines.length);
+ const charPos=ta.value.split('\n').slice(0,targetLine).join('\n').length;
+ ta.scrollTop=(targetLine/lines.length)*ta.scrollHeight;
+ ta.focus();
+}
+
+// === AUTOCOMPLETE ===
+const COMPLETIONS={
+ python:{
+  'math':['sqrt','sin','cos','tan','pi','e','pow','floor','ceil','log','log2','factorial','gcd','degrees','radians'],
+  'random':['randint','choice','shuffle','random','sample','uniform','randrange','seed'],
+  'str':['upper','lower','split','join','replace','strip','find','startswith','endswith','format','count','index'],
+  'list':['append','extend','insert','remove','pop','sort','reverse','copy','clear','index','count'],
+  'dict':['keys','values','items','get','pop','update','clear','copy','setdefault'],
+  'print':null,'input':null,'range':null,'len':null,'int':null,'float':null,'str':null,'type':null,'abs':null,'max':null,'min':null,'sum':null,'sorted':null,'enumerate':null,'zip':null,'map':null,'filter':null
+ },
+ javascript:{
+  'console':['log','error','warn','info','table','time','timeEnd','clear','dir'],
+  'document':['querySelector','querySelectorAll','getElementById','createElement','body','head','title','addEventListener'],
+  'Math':['sqrt','sin','cos','tan','PI','E','pow','floor','ceil','round','random','abs','max','min','log'],
+  'Array':['from','isArray','of'],
+  'JSON':['parse','stringify'],
+  'window':['alert','confirm','prompt','setTimeout','setInterval','clearTimeout','clearInterval','location','navigator']
+ }
+};
+
+let acVisible=false,acItems=[],acIndex=0;
+function showAutocomplete(prefix,obj){
+ const lang=ROOM?ROOM.language:'python';
+ const db=COMPLETIONS[lang]||{};
+ let items=[];
+ if(obj&&db[obj]){items=db[obj].filter(x=>x&&(!prefix||x.toLowerCase().startsWith(prefix.toLowerCase()))).map(x=>({label:x,type:'method'}))}
+ else{items=Object.keys(db).filter(x=>x.toLowerCase().startsWith(prefix.toLowerCase())).map(x=>({label:x,type:db[x]?'module':'func'}))}
+ if(!items.length){hideAutocomplete();return}
+ acItems=items;acIndex=0;
+ const el=document.getElementById('autocomplete');
+ el.innerHTML=items.map((it,i)=>`<div class="ac-item${i===0?' selected':''}" onmousedown="insertCompletion(${i})" data-i="${i}"><span class="ac-icon">${it.type==='method'?'M':it.type==='module'?'📦':'ƒ'}</span><span class="ac-label">${it.label}</span><span class="ac-type">${it.type}</span></div>`).join('');
+ // Position near cursor
+ const ta=document.getElementById('code');
+ const rect=ta.getBoundingClientRect();
+ const lines=ta.value.substring(0,ta.selectionStart).split('\n');
+ const lineH=21.45;
+ el.style.top=Math.min(rect.top+lines.length*lineH-ta.scrollTop+lineH,rect.bottom-210)+'px';
+ el.style.left=rect.left+80+'px';
+ el.classList.add('show');acVisible=true;
+}
+function hideAutocomplete(){document.getElementById('autocomplete').classList.remove('show');acVisible=false}
+function insertCompletion(i){
+ const item=acItems[i];if(!item)return;
+ const ta=document.getElementById('code');
+ const pos=ta.selectionStart;
+ const before=ta.value.substring(0,pos);
+ const after=ta.value.substring(pos);
+ // Find the prefix to replace
+ const match=before.match(/[a-zA-Z_]\w*$/);
+ const prefixLen=match?match[0].length:0;
+ ta.value=before.substring(0,before.length-prefixLen)+item.label+after;
+ ta.selectionStart=ta.selectionEnd=pos-prefixLen+item.label.length;
+ hideAutocomplete();onCodeInput();ta.focus();
+}
+
+// === BRACKET CHECKER ===
+function checkBrackets(code){
+ const stack=[];const errors=[];
+ const pairs={'(':')','[':']','{':'}'};
+ let inStr=false,strChar='';
+ for(let i=0;i<code.length;i++){
+  const c=code[i];
+  if(inStr){if(c===strChar&&code[i-1]!=='\\')inStr=false;continue}
+  if(c==='"'||c==="'"||c==='`'){inStr=true;strChar=c;continue}
+  if('([{'.includes(c))stack.push({c,i});
+  if(')]}'.includes(c)){
+   const last=stack.pop();
+   if(!last||pairs[last.c]!==c)errors.push(i);
+  }
+ }
+ stack.forEach(s=>errors.push(s.i));
+ return errors;
+}
+
+// === CODE INPUT ===
+let syncTimeout=null;
+function onCodeInput(){
+ idleTimer=0;isIdle=false;
+ updateCursorInfo();
+ highlightCode();
+ updateGutter(null);
+ updateMinimap();
+ // Autocomplete trigger
+ const ta=document.getElementById('code');
+ const pos=ta.selectionStart;
+ const before=ta.value.substring(0,pos);
+ const dotMatch=before.match(/(\w+)\.(\w*)$/);
+ const wordMatch=before.match(/(\w+)$/);
+ if(dotMatch)showAutocomplete(dotMatch[2],dotMatch[1]);
+ else if(wordMatch&&wordMatch[1].length>=2)showAutocomplete(wordMatch[1],null);
+ else hideAutocomplete();
+ // Schedule sync
+ if(syncTimeout)clearTimeout(syncTimeout);
+ syncTimeout=setTimeout(syncCode,600);
+}
+
+async function syncCode(){
+ if(!ROOM)return;
+ const code=document.getElementById('code').value;
+ if(code===LAST_SYNC)return;
+ setSyncState('syncing');
+ const ta=document.getElementById('code');
+ const line=ta.value.substring(0,ta.selectionStart).split('\n').length;
+ const d=await apiForm('/api/sandbox/sync',{room_id:ROOM.id,code,cursor_line:line});
+ if(d&&d.synced){LAST_SYNC=code;setSyncState('synced')}else setSyncState('error');
+}
+
+function setSyncState(state){
+ const dot=document.getElementById('sync-dot');
+ const txt=document.getElementById('sync-text');
+ dot.className='sync-dot'+(state==='syncing'?' syncing':'');
+ txt.textContent=state==='synced'?'Synced':state==='syncing'?'Saving...':'Error';
+}
+
+function syncScroll(){
+ const ta=document.getElementById('code');
+ document.getElementById('gutter').scrollTop=ta.scrollTop;
+ document.getElementById('highlight').scrollTop=ta.scrollTop;
+ document.getElementById('highlight').scrollLeft=ta.scrollLeft;
+}
+
+function onCursorMove(){updateCursorInfo();updateGutter(null)}
+function updateCursorInfo(){
+ const ta=document.getElementById('code');
+ const before=ta.value.substring(0,ta.selectionStart);
+ const ln=before.split('\n').length;
+ const col=before.split('\n').pop().length+1;
+ document.getElementById('cursor-pos').textContent=`Ln ${ln}, Col ${col}`;
+ document.getElementById('char-count').textContent=ta.value.length+' chars, '+ta.value.split('\n').length+' lines';
+}
+
+// === KEY HANDLING ===
+function handleKey(e){
+ const ta=e.target;
+ // Tab indent
+ if(e.key==='Tab'&&!e.shiftKey){e.preventDefault();const s=ta.selectionStart,end=ta.selectionEnd;ta.value=ta.value.substring(0,s)+'    '+ta.value.substring(end);ta.selectionStart=ta.selectionEnd=s+4;onCodeInput();return}
+ // Ctrl+Enter = Run
+ if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();runCode();return}
+ // Shift+Enter = Run line
+ if(e.shiftKey&&e.key==='Enter'){e.preventDefault();runLine();return}
+ // Autocomplete navigation
+ if(acVisible){
+  if(e.key==='ArrowDown'){e.preventDefault();acIndex=Math.min(acIndex+1,acItems.length-1);updateAcSelection();return}
+  if(e.key==='ArrowUp'){e.preventDefault();acIndex=Math.max(acIndex-1,0);updateAcSelection();return}
+  if(e.key==='Enter'||e.key==='Tab'){e.preventDefault();insertCompletion(acIndex);return}
+  if(e.key==='Escape'){hideAutocomplete();return}
+ }
+ // Auto-close brackets
+ const pairs={'(':')','[':']','{':'}','"':'"',"'":"'",'`':'`'};
+ if(pairs[e.key]&&!e.ctrlKey){
+  const s=ta.selectionStart,end=ta.selectionEnd;
+  if(s===end){e.preventDefault();ta.value=ta.value.substring(0,s)+e.key+pairs[e.key]+ta.value.substring(end);ta.selectionStart=ta.selectionEnd=s+1;onCodeInput()}
+ }
+ // Auto-indent on Enter
+ if(e.key==='Enter'&&!e.shiftKey&&!e.ctrlKey&&!acVisible){
+  e.preventDefault();
+  const s=ta.selectionStart;const before=ta.value.substring(0,s);
+  const currentLine=before.split('\n').pop();
+  const indent=currentLine.match(/^\s*/)[0];
+  const extra=(currentLine.trimEnd().endsWith(':')||currentLine.trimEnd().endsWith('{')?'    ':'');
+  ta.value=ta.value.substring(0,s)+'\n'+indent+extra+ta.value.substring(ta.selectionEnd);
+  ta.selectionStart=ta.selectionEnd=s+1+indent.length+extra.length;
+  onCodeInput();
+ }
+}
+function updateAcSelection(){
+ document.querySelectorAll('.ac-item').forEach((el,i)=>el.classList.toggle('selected',i===acIndex));
+ const sel=document.querySelector('.ac-item.selected');if(sel)sel.scrollIntoView({block:'nearest'});
+}
+
+// === CODE EXECUTION ===
+async function runCode(){
+ if(!ROOM){toast('Сначала выбери комнату','warn');return}
+ const code=document.getElementById('code').value;
+ const lang=document.getElementById('lang-select').value;
+ if(lang==='javascript'){runJS(code);return}
+ if(lang==='html'){runHTML(code);return}
+ appendConsole('⏳ Запуск Python...','info');
+ const d=await apiForm('/api/sandbox/run',{room_id:ROOM.id,code,language:lang,run_line:0});
+ if(!d)return;
+ if(d.output)appendConsole(d.output,'ok');
+ if(d.error)appendConsole(d.error,'err');
+ if(!d.output&&!d.error)appendConsole('✓ (нет вывода)','info');
+}
+async function runLine(){
+ if(!ROOM)return;
+ const ta=document.getElementById('code');
+ const ln=ta.value.substring(0,ta.selectionStart).split('\n').length;
+ const lang=document.getElementById('lang-select').value;
+ const line=ta.value.split('\n')[ln-1]||'';
+ appendConsole(`▸ [${ln}] ${line.substring(0,80)}`,'info');
+ if(lang==='javascript'){try{const r=eval(line);if(r!==undefined)appendConsole('→ '+String(r),'ok')}catch(e){appendConsole('❌ '+e.message,'err')}return}
+ if(lang==='html'){appendConsole('HTML выполняется целиком через ▶ Run','info');return}
+ const d=await apiForm('/api/sandbox/run',{room_id:ROOM.id,code:ta.value,language:lang,run_line:ln});
+ if(!d)return;
+ if(d.output)appendConsole(d.output,'ok');
+ if(d.error)appendConsole(d.error,'err');
+}
+function runJS(code){
+ try{const iframe=document.createElement('iframe');iframe.sandbox='allow-scripts';iframe.style.display='none';document.body.appendChild(iframe);
+ const logs=[];iframe.contentWindow.console={log:(...a)=>logs.push(a.map(String).join(' ')),error:(...a)=>logs.push('❌ '+a.map(String).join(' ')),warn:(...a)=>logs.push('⚠ '+a.map(String).join(' '))};
+ iframe.contentWindow.eval(code);appendConsole(logs.join('\n')||'✓ (нет вывода)','ok');document.body.removeChild(iframe);
+ }catch(e){appendConsole('❌ '+e.message,'err')}
+}
+function runHTML(code){
+ appendConsole('🌐 HTML Preview:','info');
+ const co=document.getElementById('console-out');
+ const iframe=document.createElement('iframe');
+ iframe.style.cssText='width:100%;height:130px;border:1px solid rgba(255,255,255,.1);border-radius:8px;background:white;margin-top:6px';
+ iframe.srcdoc=code;co.appendChild(iframe);co.scrollTop=co.scrollHeight;
+}
+
+// === CONSOLE ===
+function appendConsole(text,cls){
+ const co=document.getElementById('console-out');
+ const d=document.createElement('div');d.className=cls||'';d.textContent=text;
+ co.appendChild(d);co.scrollTop=co.scrollHeight;
+ consoleLines++;document.getElementById('console-count').textContent=`(${consoleLines})`;
+}
+function clearConsole(){document.getElementById('console-out').innerHTML='';consoleLines=0;document.getElementById('console-count').textContent=''}
+function toggleConsole(){const p=document.getElementById('console-panel');p.style.height=p.offsetHeight<50?'180px':'30px'}
+
+// === ROOMS CRUD ===
+async function createRoom(){
+ const name=document.getElementById('cr-name').value.trim()||'Новая песочница';
+ const lang=document.getElementById('cr-lang').value;
+ const d=await apiForm('/api/sandbox/create',{name,language:lang,template_id:''});
+ if(d&&d.room_id){closeModals();await loadRooms();joinRoom(d.room_id);toast('🎉 Комната создана!')}
+}
+async function saveRoom(){
+ if(!ROOM){toast('Нет активной комнаты','warn');return}
+ const d=await apiForm('/api/sandbox/save',{room_id:ROOM.id});
+ if(d&&d.saved){toast('💾 Песочница сохранена!');loadRooms()}
+}
+function changeLang(){}
+
+// === TEMPLATES ===
+async function showTemplates(){
+ const d=await api('/api/sandbox/templates');if(!d)return;
+ document.getElementById('tpl-grid').innerHTML=d.templates.map(t=>`
+  <div class="tpl-item" onclick="createFromTpl('${t.id}')"><div class="tpl-name">${t.name}</div><div class="tpl-lang">${langIcon(t.language)} ${t.language}</div></div>`).join('');
+ document.getElementById('tpl-modal').classList.add('show');
+}
+async function createFromTpl(tid){
+ const d=await apiForm('/api/sandbox/create',{name:'',language:'python',template_id:tid});
+ if(d&&d.room_id){closeModals();await loadRooms();joinRoom(d.room_id);toast('📋 Шаблон загружен!')}
+}
+
+// === ADMIN ===
+function showAwardModal(){
+ if(!ROOM)return;
+ document.getElementById('award-modal').classList.add('show');
+ api('/api/sandbox/poll?room_id='+ROOM.id).then(d=>{
+  if(!d)return;
+  document.getElementById('aw-user').innerHTML=d.users.map(u=>`<option value="${u.user_id}">${u.avatar} ${u.display_name||u.username}</option>`).join('');
+ });
+}
+async function awardXP(){
+ const uid=document.getElementById('aw-user').value;
+ const xp=parseInt(document.getElementById('aw-xp').value)||0;
+ const reason=document.getElementById('aw-reason').value;
+ if(!uid||!xp)return;
+ const d=await apiForm('/api/sandbox/admin/award',{room_id:ROOM.id,target_user_id:uid,xp,reason});
+ if(d&&d.awarded){appendConsole(`⭐ AWARD: +${d.xp_awarded} XP → ${d.target_username} (total: ${d.new_total_xp}, level: ${d.new_level})`,'xp-flash');closeModals();toast(`⭐ +${d.xp_awarded} XP → ${d.target_username}`,'xp')}
+}
+
+// === MODALS ===
+function showCreateModal(){document.getElementById('create-modal').classList.add('show')}
+function closeModals(){document.querySelectorAll('.modal-bg').forEach(m=>m.classList.remove('show'))}
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeModals()}));
+
+// === TOAST ===
+function toast(msg,type){
+ const el=document.getElementById('toast');
+ el.textContent=msg;el.className='toast show'+(type==='xp'?' xp':'');
+ setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+// === IDLE / VISIBILITY ===
+document.addEventListener('keydown',()=>{idleTimer=0;isIdle=false});
+document.addEventListener('mousemove',()=>{if(idleTimer>5)idleTimer=0});
+document.addEventListener('visibilitychange',()=>{tabVisible=!document.hidden});
+setInterval(()=>{
+ idleTimer++;
+ if(idleTimer>60&&!isIdle){isIdle=true;document.getElementById('xp-ticker').textContent='💤 AFK — XP на паузе'}
+},1000);
+setInterval(()=>{
+ if(!ROOM||isIdle||!tabVisible)return;
+ xpCountdown--;if(xpCountdown<0)xpCountdown=60;
+ document.getElementById('xp-ticker').textContent=`⏱ +100 XP: ${xpCountdown}с`;
+},1000);
+
+// Keyboard shortcuts info
+document.getElementById('code').addEventListener('focus',()=>{if(!ROOM)document.getElementById('code').placeholder='← Выбери или создай комнату в сайдбаре'});
+</script>
+</body>
+</html>

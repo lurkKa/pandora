@@ -3251,6 +3251,9 @@
                 <button class="tab-btn lextype-tab" role="tab" aria-selected="false" onclick="openAlextype()">
                     <span class="tab-icon">⌨️</span> AlexType
                 </button>
+                <button class="tab-btn sandbox-tab" role="tab" aria-selected="false" onclick="openSandbox()" style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.2)">
+                    <span class="tab-icon">🏖️</span> Песочница
+                </button>
 
             </div>
         </nav>
@@ -5649,6 +5652,10 @@
 
         function openAlextype() {
             window.open('/alextype', '_blank', 'noopener,noreferrer');
+        }
+
+        function openSandbox() {
+            window.open('/sandbox', '_blank', 'noopener,noreferrer');
         }
 
         function formatUnlockInfo(unlock) {
