@@ -83,8 +83,10 @@ _MEM_WARN_PCT = float(os.getenv("PANDORA_MEM_WARN_PCT", "0.70"))   # 70% → GC
 _MEM_HIGH_PCT = float(os.getenv("PANDORA_MEM_HIGH_PCT", "0.80"))   # 80% → evict caches
 _MEM_CRIT_PCT = float(os.getenv("PANDORA_MEM_CRIT_PCT", "0.90"))   # 90% → shed mode (503)
 _MEM_SENTINEL_INTERVAL_S = float(os.getenv("PANDORA_MEM_SENTINEL_INTERVAL_S", "2.0"))
-_MAX_CONCURRENT_REQUESTS = int(os.getenv("PANDORA_MAX_CONCURRENT_REQUESTS", "50"))
-_FLOOD_LIMIT_PER_MINUTE = int(os.getenv("PANDORA_FLOOD_LIMIT_PER_MINUTE", "100"))
+_MAX_CONCURRENT_REQUESTS = int(os.getenv("PANDORA_MAX_CONCURRENT_REQUESTS", "20"))
+_FLOOD_LIMIT_PER_MINUTE = int(os.getenv("PANDORA_FLOOD_LIMIT_PER_MINUTE", "50"))
+_FLOOD_UNAUTH_LIMIT_PER_MINUTE = int(os.getenv("PANDORA_FLOOD_UNAUTH_LIMIT_PER_MINUTE", "30"))
+_FLOOD_GLOBAL_PER_SECOND = int(os.getenv("PANDORA_FLOOD_GLOBAL_PER_SECOND", "200"))
 _FLOOD_IP_TABLE_MAX = 2048
 _MAX_REQUEST_BODY_BYTES = int(os.getenv("PANDORA_MAX_REQUEST_BODY_BYTES", str(1 * 1024 * 1024)))  # 1MB
 
@@ -325,13 +327,17 @@ class MemoryShieldMiddleware:
 
 
 class FloodShieldMiddleware:
-    """ASGI middleware: per-IP rate limiting (sliding window, 100 req/min default).
+    """ASGI middleware: per-IP + global rate limiting.
 
-    Uses a bounded dict (max 2048 IPs). Oldest entries evicted on overflow.
-    Health/ping endpoints are exempt to avoid blocking Render health checks.
+    Layers:
+    - Global rate limit: _FLOOD_GLOBAL_PER_SECOND across ALL IPs (absorbs DDoS/hey.exe)
+    - Per-IP limit: _FLOOD_LIMIT_PER_MINUTE for authenticated, _FLOOD_UNAUTH_LIMIT_PER_MINUTE for unauthenticated
+    - Bounded dict (max 2048 IPs). Oldest entries evicted on overflow.
+    - Health/ping endpoints are exempt to avoid blocking Render health checks.
     """
 
-    __slots__ = ("app", "_ip_windows", "_limit", "_window_s")
+    __slots__ = ("app", "_ip_windows", "_limit", "_unauth_limit", "_window_s",
+                 "_global_window", "_global_limit")
 
     _EXEMPT_PATHS = {b"/ping", b"/health", b"/api/status"}
 
@@ -339,7 +345,10 @@ class FloodShieldMiddleware:
         self.app = app
         self._ip_windows: dict[str, list[float]] = {}
         self._limit = _FLOOD_LIMIT_PER_MINUTE
+        self._unauth_limit = _FLOOD_UNAUTH_LIMIT_PER_MINUTE
         self._window_s = 60.0
+        self._global_window: list[float] = []
+        self._global_limit = _FLOOD_GLOBAL_PER_SECOND
 
     def _get_ip(self, scope) -> str:
         """Extract client IP from ASGI scope, respecting proxy headers."""
@@ -349,6 +358,13 @@ class FloodShieldMiddleware:
             return forwarded.split(",")[0].strip()
         client = scope.get("client")
         return client[0] if client else "unknown"
+
+    def _has_auth_header(self, scope) -> bool:
+        """Quick check for Authorization header presence (no validation)."""
+        for hdr_name, hdr_val in scope.get("headers", []):
+            if hdr_name == b"authorization" and hdr_val.startswith(b"Bearer "):
+                return True
+        return False
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -361,8 +377,21 @@ class FloodShieldMiddleware:
             await self.app(scope, receive, send)
             return
 
-        ip = self._get_ip(scope)
         now = time.monotonic()
+
+        # --- Global rate limit (absorbs hey.exe / DDoS) ---
+        gw = self._global_window
+        g_cutoff = now - 1.0  # 1-second window
+        # Prune old entries (fast: window is sorted)
+        while gw and gw[0] < g_cutoff:
+            gw.pop(0)
+        if len(gw) >= self._global_limit:
+            await _send_error_response(send, 429, b'{"detail":"Server overloaded. Retry later."}')
+            return
+        gw.append(now)
+
+        # --- Per-IP rate limit ---
+        ip = self._get_ip(scope)
         cutoff = now - self._window_s
 
         # Get or create window for this IP
@@ -381,7 +410,11 @@ class FloodShieldMiddleware:
         while window and window[0] < cutoff:
             window.pop(0)
 
-        if len(window) >= self._limit:
+        # Unauthenticated requests get a stricter per-IP limit
+        has_auth = self._has_auth_header(scope)
+        effective_limit = self._limit if has_auth else self._unauth_limit
+
+        if len(window) >= effective_limit:
             await _send_error_response(send, 429, b'{"detail":"Rate limit exceeded. Slow down."}')
             return
 
@@ -1794,13 +1827,21 @@ def compute_level(total_xp: int) -> int:
         level -= 1
     return max(1, level)
 
+# Cached result for _get_most_active_student_id (avoids heavy SQL on every XP change).
+_most_active_cache: dict = {"user_id": None, "expires": 0.0}
+_MOST_ACTIVE_TTL_S = 60.0
+
 def _get_most_active_student_id(cursor) -> int | None:
     """
     Compute the most active student over the last 7 days using weighted time score.
-    
+    Cached for 60s to avoid running heavy aggregate on every apply_xp_change call.
+
     Weights:  task_seconds * 3  +  alextype_seconds * 1.5  +  other_seconds * 1
     (Tasks are most valuable, AlexType mid, idle/blue time cheapest)
     """
+    now = time.monotonic()
+    if _most_active_cache["expires"] > now:
+        return _most_active_cache["user_id"]
     try:
         cursor.execute("""
             SELECT tt.user_id,
@@ -1817,9 +1858,12 @@ def _get_most_active_student_id(cursor) -> int | None:
             LIMIT 1
         """)
         row = cursor.fetchone()
-        if row and row["weighted_score"] and row["weighted_score"] > 0:
-            return row["user_id"]
+        result = row["user_id"] if row and row["weighted_score"] and row["weighted_score"] > 0 else None
+        _most_active_cache["user_id"] = result
+        _most_active_cache["expires"] = now + _MOST_ACTIVE_TTL_S
+        return result
     except Exception:
+        _most_active_cache["expires"] = now + _MOST_ACTIVE_TTL_S
         pass
     return None
 
@@ -1883,12 +1927,10 @@ def apply_xp_change(cursor, user_id: int, delta_xp: int, reason: str, task_id: s
                         meta = _json.loads(mt["effect_meta"] or "{}")
                         blocked_cat = meta.get("category", "")
                         if task_id and blocked_cat:
-                            # Check if this task belongs to the blocked category
-                            tasks_data = load_tasks()
-                            for t in tasks_data.get("tasks", []):
-                                if t.get("id") == task_id and (t.get("category") or "").lower() == blocked_cat.lower():
-                                    delta = 0
-                                    break
+                            # O(1) lookup instead of scanning all tasks
+                            t = get_task(task_id)
+                            if t and (t.get("category") or "").lower() == blocked_cat.lower():
+                                delta = 0
                     except Exception:
                         pass
             # --- Most Active Student bonus (+5%) ---
@@ -2595,7 +2637,12 @@ def check_achievements(cursor, user_id: int, task_id: str, total_xp: int, total_
     return unlocked
 
 def verify_token(authorization: Optional[str] = Header(None)):
-    """Verify JWT token from Authorization header and check session revocation."""
+    """Verify JWT token from Authorization header and check session revocation.
+
+    When STATELESS_AUTH is enabled, skips the DB round-trip entirely and returns
+    JWT claims.  Endpoints that need fresh user data (e.g. /api/auth/me) must
+    re-fetch from DB themselves.
+    """
     if not authorization:
         return None
 
@@ -2609,6 +2656,19 @@ def verify_token(authorization: Optional[str] = Header(None)):
         _auth_trace("verify_token decode failed")
         return None
 
+    # STATELESS mode: trust JWT claims, skip DB connection entirely.
+    if STATELESS_AUTH:
+        _auth_trace("verify_token stateless — returning jwt claims")
+        return {
+            "id": int(payload["sub"]),
+            "username": payload.get("username", "user"),
+            "display_name": payload.get("username", "user"),
+            "role": payload.get("role", "student"),
+            "xp": 0,
+            "level": 1,
+            "avatar_key": None,
+        }
+
     now_epoch = int(datetime.now(timezone.utc).timestamp())
     token_hash = _token_hash(token)
 
@@ -2616,27 +2676,25 @@ def verify_token(authorization: Optional[str] = Header(None)):
         with get_db() as conn:
             cursor = conn.cursor()
 
-            if not STATELESS_AUTH:
-                # Enforce revocation via sessions table (logout deletes session).
-                cursor.execute("SELECT user_id, expires_at FROM sessions WHERE token = ?", (token_hash,))
-                session = cursor.fetchone()
-                if not session:
-                    _auth_trace("verify_token no session")
-                    return None
-                if int(session["user_id"]) != int(payload["sub"]):
-                    _auth_trace("verify_token session mismatch")
-                    return None
-                expires_at = session["expires_at"]
-                try:
-                    if expires_at is not None and now_epoch > int(expires_at):
-                        cursor.execute("DELETE FROM sessions WHERE token = ?", (token_hash,))
-                        conn.commit()
-                        return None
-                except (TypeError, ValueError):
-                    # If an old session row doesn't have a parseable expiry, treat it as invalid.
+            # Enforce revocation via sessions table (logout deletes session).
+            cursor.execute("SELECT user_id, expires_at FROM sessions WHERE token = ?", (token_hash,))
+            session = cursor.fetchone()
+            if not session:
+                _auth_trace("verify_token no session")
+                return None
+            if int(session["user_id"]) != int(payload["sub"]):
+                _auth_trace("verify_token session mismatch")
+                return None
+            expires_at = session["expires_at"]
+            try:
+                if expires_at is not None and now_epoch > int(expires_at):
                     cursor.execute("DELETE FROM sessions WHERE token = ?", (token_hash,))
                     conn.commit()
                     return None
+            except (TypeError, ValueError):
+                cursor.execute("DELETE FROM sessions WHERE token = ?", (token_hash,))
+                conn.commit()
+                return None
 
             # Get fresh user data from DB
             cursor.execute("SELECT * FROM users WHERE id = ?", (int(payload["sub"]),))
@@ -2645,18 +2703,6 @@ def verify_token(authorization: Optional[str] = Header(None)):
             return dict(user) if user else None
     except sqlite3.OperationalError as e:
         logger.error("verify_token sqlite operational error: %s", e)
-        if STATELESS_AUTH:
-            # Last-resort fallback: trust JWT claims to avoid full platform outage.
-            _auth_trace("verify_token fallback to jwt claims due sqlite error")
-            return {
-                "id": int(payload.get("sub")),
-                "username": payload.get("username", "user"),
-                "display_name": payload.get("username", "user"),
-                "role": payload.get("role", "student"),
-                "xp": 0,
-                "level": 1,
-                "avatar_key": None,
-            }
         if _is_sqlite_busy_error(e):
             raise HTTPException(status_code=503, detail=_sqlite_busy_detail())
         raise
@@ -2879,6 +2925,15 @@ async def _startup() -> None:
         logger.info("PANDORA_SKIP_STARTUP set — skipping async startup.")
         return
 
+    # Raise anyio default threadpool for concurrent blocking I/O (bcrypt, sqlite).
+    try:
+        import anyio
+        anyio.to_thread.current_default_thread_limiter().total_tokens = 8
+        logger.info("✓ anyio thread limiter raised to 8")
+    except Exception as e:
+        logger.warning("Could not adjust anyio thread limiter: %s", e)
+        return
+
     global JWT_SECRET
 
     # Ensure stable JWT secret across restarts (env var recommended for production).
@@ -2939,6 +2994,15 @@ def serve_alextype():
 
 # AlexType last-reward timestamps per user (in-memory cooldown)
 _alextype_last_reward: dict[int, float] = {}
+_BOUNDED_DICT_MAX = 256
+
+def _evict_bounded_dict(d: dict, max_size: int = _BOUNDED_DICT_MAX) -> None:
+    """Evict oldest ~25% entries when dict exceeds max_size."""
+    if len(d) < max_size:
+        return
+    to_remove = list(d.keys())[:max_size // 4]
+    for k in to_remove:
+        d.pop(k, None)
 _ALEXTYPE_COOLDOWN_S = 30
 _ALEXTYPE_DIFFICULTY_MULT = {"D": 2.00, "C": 2.80, "B": 4.00, "A": 5.16, "S": 8.00}   # x4 boost
 _ALEXTYPE_MAX_XP = {"D": 120, "C": 240, "B": 480, "A": 660, "S": 1000}  # x4 boost
@@ -3010,6 +3074,7 @@ def alextype_complete(data: AlexTypeCompleteRequest, user: dict = Depends(requir
         )
         conn.commit()
 
+    _evict_bounded_dict(_alextype_last_reward)
     _alextype_last_reward[uid] = now
 
     return {
@@ -3231,6 +3296,13 @@ def get_current_user(user: dict = Depends(require_auth)):
     """Get current user info."""
     with get_db() as conn:
         cursor = conn.cursor()
+        # In STATELESS mode verify_token returns JWT claims (xp=0, level=1).
+        # Re-fetch fresh user data here — this is the only hot-path that needs it.
+        if STATELESS_AUTH:
+            cursor.execute("SELECT * FROM users WHERE id = ?", (user["id"],))
+            db_user = cursor.fetchone()
+            if db_user:
+                user = dict(db_user)
         cursor.execute(
             "SELECT task_id FROM completed_tasks WHERE user_id = ? AND is_valid != 0",
             (user["id"],)
@@ -3239,11 +3311,11 @@ def get_current_user(user: dict = Depends(require_auth)):
     
     return {
         "id": user["id"],
-        "username": user["username"],
-        "display_name": user["display_name"],
-        "role": user["role"],
-        "xp": user["xp"],
-        "level": user["level"],
+        "username": user.get("username", "user"),
+        "display_name": user.get("display_name", user.get("username", "user")),
+        "role": user.get("role", "student"),
+        "xp": user.get("xp", 0),
+        "level": user.get("level", 1),
         "avatar_key": user.get("avatar_key"),
         "completed_tasks": completed
     }
@@ -5093,11 +5165,22 @@ def load_tasks() -> dict:
                 "tasks": (curated_tasks if isinstance(curated_tasks, list) else [])
                 + (legacy_tasks if isinstance(legacy_tasks, list) else []),
             }
+            # P2 RAM optimization: strip check_logic.cases from cached tasks.
+            # Saves ~10-15MB of Python dict overhead on 11k+ tasks.
+            # Verification endpoints use _get_task_with_check_logic() to re-read from disk.
+            for _t in combined.get("tasks", []):
+                _cl = _t.get("check_logic")
+                if _cl and "cases" in _cl:
+                    _cl["case_count"] = len(_cl["cases"])
+                    del _cl["cases"]
+                if _cl and "hidden_cases" in _cl:
+                    _cl["hidden_case_count"] = len(_cl["hidden_cases"])
+                    del _cl["hidden_cases"]
             _TASKS_CACHE["data"] = combined
             _TASKS_CACHE["mtime"] = mtime
             _TASKS_CACHE["legacy_mtime"] = legacy_mtime
             _TASKS_CACHE["external_mtime"] = external_mtime
-            logger.info("Loaded %d tasks from %s", len(combined["tasks"]), primary_path.name)
+            logger.info("Loaded %d tasks from %s (cases stripped from cache)", len(combined["tasks"]), primary_path.name)
 
         return _TASKS_CACHE["data"] or {"meta": {}, "categories": [], "tasks": []}
     except FileNotFoundError:
@@ -5108,6 +5191,37 @@ def load_tasks() -> dict:
 
 def get_task(task_id: str) -> Optional[dict]:
     return _tasks_by_id().get(task_id)
+
+
+def _get_task_with_check_logic(task_id: str) -> Optional[dict]:
+    """Get full task including check_logic.cases from disk.
+
+    Cases are stripped from the in-memory cache (P2 RAM saving).
+    This function re-reads the JSON file to retrieve them for verification.
+    Called only during attempt_task — infrequent, so disk I/O is acceptable.
+    """
+    task = get_task(task_id)
+    if not task:
+        return None
+    cl = task.get("check_logic") or {}
+    # If cases are present (e.g. cache not yet stripped), return as-is.
+    if "cases" in cl:
+        return task
+    # Re-read from disk to get cases for this specific task.
+    try:
+        for path_name in ("tasks.json",):
+            p = Path(path_name)
+            if not p.exists():
+                continue
+            raw = json.loads(p.read_text(encoding="utf-8"))
+            for t in raw.get("tasks", []):
+                if t.get("id") == task_id:
+                    full_task = dict(task)
+                    full_task["check_logic"] = t.get("check_logic") or {}
+                    return full_task
+    except Exception as e:
+        logger.warning("_get_task_with_check_logic disk read failed for %s: %s", task_id, e)
+    return task
 
 
 def _tasks_by_id() -> dict:
@@ -5125,7 +5239,6 @@ def _tasks_by_id() -> dict:
 def public_task(task: dict) -> dict:
     """Return a safe task payload for students (no expected answers)."""
     logic = task.get("check_logic") or {}
-    cases = logic.get("cases") or []
     return {
         "id": task.get("id"),
         "category": task.get("category"),
@@ -5144,7 +5257,7 @@ def public_task(task: dict) -> dict:
         "tags": task.get("tags") or [],
         "check": {
             "engine": logic.get("engine"),
-            "case_count": len(cases),
+            "case_count": logic.get("case_count", len(logic.get("cases") or [])),
         },
     }
 
@@ -5155,7 +5268,6 @@ def public_task_lite(task: dict) -> dict:
     on-demand via /api/tasks/{task_id}/detail to reduce initial payload size.
     Description is included because it is lightweight text needed for modal display."""
     logic = task.get("check_logic") or {}
-    cases = logic.get("cases") or []
     return {
         "id": task.get("id"),
         "category": task.get("category"),
@@ -5170,7 +5282,7 @@ def public_task_lite(task: dict) -> dict:
         "source_platform": task.get("source_platform", ""),
         "check": {
             "engine": logic.get("engine"),
-            "case_count": len(cases),
+            "case_count": logic.get("case_count", len(logic.get("cases") or [])),
         },
     }
 
@@ -6013,8 +6125,12 @@ def get_roadmap(request: Request, user: dict = Depends(require_auth)):
 
 
 @app.get("/api/roadmap/status")
-def get_roadmap_status(user: dict = Depends(require_auth)):
-    """Return lightweight per-task state for background UI refreshes."""
+def get_roadmap_status(request: Request, user: dict = Depends(require_auth)):
+    """Return lightweight per-task state for background UI refreshes.
+
+    Supports ETag/If-None-Match: returns 304 when nothing has changed,
+    saving bandwidth and CPU on the most-polled endpoint.
+    """
     with get_db() as conn:
         cursor = conn.cursor()
         completed_ids = {str(tid) for tid in _completed_task_ids(cursor, user["id"])}
@@ -6025,11 +6141,16 @@ def get_roadmap_status(user: dict = Depends(require_auth)):
         )
         pending_ids = {str(row["task_id"]) for row in cursor.fetchall()}
 
-    return {
+    payload = {
         "completed_ids": sorted(completed_ids),
         "pending_ids": sorted(pending_ids),
         "methods": {str(k): int(v or 0) for k, v in method_counts.items()},
     }
+    json_bytes = _fast_json_bytes(payload)
+    etag = '"' + hashlib.md5(json_bytes[:2048] + len(json_bytes).to_bytes(8, 'little')).hexdigest()[:16] + '"'
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers={"ETag": etag})
+    return Response(content=json_bytes, media_type="application/json", headers={"ETag": etag})
 
 
 @app.get("/api/tasks/{task_id}/detail")
@@ -7160,7 +7281,7 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
     - Queue pending review for policy/manual-skip cases, top-7 tasks per rank,
       integrity flags, or configured quality-sampling review.
     """
-    task = get_task(data.task_id)
+    task = _get_task_with_check_logic(data.task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
@@ -10521,7 +10642,8 @@ def exam_submit(data: dict, user: dict = Depends(require_auth)):
 
             if engine in ("pyodide", "python", "javascript", "js", "iframe", "frontend"):
                 # ── Run actual code verification (same pipeline as /api/tasks/attempt) ──
-                verification, runtime_ms = verify_task(task, solution)
+                full_task = _get_task_with_check_logic(task.get("id") or "") or task
+                verification, runtime_ms = verify_task(full_task, solution)
                 passed = bool(verification.get("passed"))
 
                 # Apply the same safety-gate logic as regular tasks
@@ -12509,7 +12631,7 @@ _SANDBOX_SYNC_COOLDOWN_S = 0.5
 _SANDBOX_ADMIN_MAX_XP_AWARD = 30000
 _SANDBOX_STALE_ROOM_HOURS = 24
 
-_sandbox_sync_timestamps: dict[int, float] = {}  # user_id -> last sync monotonic
+_sandbox_sync_timestamps: dict[int, float] = {}  # user_id -> last sync monotonic (bounded)
 
 _SANDBOX_TEMPLATES: dict[str, dict] = {
     "py_drawing": {"name": "🎨 Рисование (turtle)", "language": "python", "code": "import turtle\nimport math\n\n# === ГАЙД: Рисование с turtle ===\n# t = turtle.Turtle()     — создать черепашку\n# t.forward(100)          — вперёд на 100\n# t.right(90)             — повернуть направо на 90°\n# t.circle(50)            — нарисовать круг радиусом 50\n# t.color('red')          — сменить цвет\n# t.pensize(3)            — толщина линии\n# t.penup() / t.pendown() — поднять/опустить перо\n# turtle.done()           — завершить\n\nt = turtle.Turtle()\nt.speed(5)\n\n# Нарисуй что-нибудь красивое!\n"},
@@ -12733,6 +12855,7 @@ def sandbox_sync(
     last_sync = _sandbox_sync_timestamps.get(uid, 0)
     if now - last_sync < _SANDBOX_SYNC_COOLDOWN_S:
         raise HTTPException(status_code=429, detail="Слишком часто. Подожди немного.")
+    _evict_bounded_dict(_sandbox_sync_timestamps)
     _sandbox_sync_timestamps[uid] = now
 
     # Validate code size

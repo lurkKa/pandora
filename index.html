@@ -5087,7 +5087,7 @@
         let dashboardSyncTick = 0;
         let frontendHintsExpanded = false;
         const SCRATCH_CLIENT_MAX_MB = 10;
-        const DASHBOARD_SYNC_MS = 45000;
+        const DASHBOARD_SYNC_MS = 90000;
         const REQUEST_TIMEOUT_MS = 45000;
         const AUTH_REQUEST_TIMEOUT_MS = 60000;
 
@@ -5614,13 +5614,31 @@
             return unlockStateMayChange;
         }
 
+        let _roadmapStatusEtag = null;
+
         async function loadTaskStatus() {
             try {
-                const resp = await fetchJsonWithTimeout(`${API_URL}/api/roadmap/status`, {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
-                });
-                if (!resp?.res?.ok) return false;
-                const completionChanged = applyTaskStatusUpdate(resp.data || {});
+                const headers = { 'Authorization': `Bearer ${authToken}` };
+                if (_roadmapStatusEtag) headers['If-None-Match'] = _roadmapStatusEtag;
+                
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+                
+                let res;
+                try {
+                    res = await fetch(`${API_URL}/api/roadmap/status`, { headers, signal: controller.signal });
+                } finally {
+                    clearTimeout(timeoutId);
+                }
+                
+                if (res.status === 304) return true;  // nothing changed
+                if (!res.ok) return false;
+                
+                const etag = res.headers.get('etag');
+                if (etag) _roadmapStatusEtag = etag;
+                
+                const data = await res.json();
+                const completionChanged = applyTaskStatusUpdate(data || {});
                 if (completionChanged) {
                     setTimeout(() => loadRoadmap(), 350);
                 }
