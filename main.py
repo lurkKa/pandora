@@ -4356,7 +4356,15 @@ def get_profile(user: dict = Depends(require_auth)):
     """Get current user's full profile with stats."""
     with get_db() as conn:
         cursor = conn.cursor()
-        
+
+        # STATELESS_AUTH: `user` from verify_token is only JWT claims (xp/level/
+        # display_name are stubs). Re-fetch the real row so the main screen shows
+        # the correct nickname, XP and level.
+        cursor.execute("SELECT * FROM users WHERE id = ?", (user["id"],))
+        db_user = cursor.fetchone()
+        if db_user:
+            user = dict(db_user)
+
         # Get user rank
         cursor.execute("""
             SELECT * FROM ranks WHERE min_xp <= ? ORDER BY min_xp DESC LIMIT 1
