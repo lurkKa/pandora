@@ -73,8 +73,8 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font);display:flex;h
 
 .editor-container{flex:1;position:relative;overflow:hidden}
 .code-highlight{position:absolute;top:0;left:0;right:0;padding:10px 16px;font-size:13px;line-height:1.65;white-space:pre;overflow:hidden;pointer-events:none;color:transparent;word-wrap:normal}
-.code-area{position:relative;width:100%;height:100%;background:transparent;color:var(--fg);border:none;outline:none;resize:none;font-family:var(--font);font-size:13px;line-height:1.65;padding:10px 16px;tab-size:4;white-space:pre;overflow:auto;z-index:1;caret-color:var(--fg)}
-.code-area::selection{background:rgba(255,255,255,.12)}
+.code-area{position:relative;width:100%;height:100%;background:transparent;color:transparent;border:none;outline:none;resize:none;font-family:var(--font);font-size:13px;line-height:1.65;padding:10px 16px;tab-size:4;white-space:pre;overflow:auto;z-index:1;caret-color:var(--fg)}
+.code-area::selection{background:rgba(255,255,255,.18)}
 
 /* Syntax colors in highlight layer */
 .hl-kw{color:var(--kw)}
@@ -88,9 +88,6 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font);display:flex;h
 .hl-attr{color:var(--fn)}
 .hl-val{color:var(--str)}
 
-/* Minimap */
-.minimap{width:60px;background:var(--bg2);border-left:1px solid var(--border);overflow:hidden;position:relative;cursor:pointer}
-.minimap canvas{width:100%;opacity:.6}
 
 /* Autocomplete */
 .autocomplete{position:absolute;background:var(--bg2);border:1px solid rgba(255,255,255,.12);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.5);max-height:200px;overflow-y:auto;z-index:50;min-width:200px;display:none;font-size:12px}
@@ -177,7 +174,6 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font);display:flex;h
    <textarea class="code-area" id="code" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="// Выберите или создайте комнату чтобы начать кодить..." oninput="onCodeInput()" onscroll="syncScroll()" onkeydown="handleKey(event)" onclick="onCursorMove()" onkeyup="onCursorMove()"></textarea>
    <div class="autocomplete" id="autocomplete"></div>
   </div>
-  <div class="minimap" id="minimap" onclick="minimapClick(event)"><canvas id="minimap-canvas"></canvas></div>
  </div>
 
  <div class="console" id="console-panel">
@@ -286,7 +282,6 @@ async function pollRoom(){
  _lineAuthors=d.line_authors||{};
  updateGutter(_lineAuthors);
  updateOnline(d.users);
- updateMinimap();
  if(d.xp_awarded>0){toast(`✨ +${d.xp_awarded} XP за активность!`,'xp');xpCountdown=60}
  setSyncState('synced');
 }
@@ -355,30 +350,7 @@ function highlightCode(){
  el.scrollTop=ta.scrollTop;el.scrollLeft=ta.scrollLeft;
 }
 
-// === MINIMAP ===
-function updateMinimap(){
- const canvas=document.getElementById('minimap-canvas');
- const ctx=canvas.getContext('2d');
- const code=document.getElementById('code').value;
- const lines=code.split('\n');
- canvas.width=60;canvas.height=Math.max(lines.length*2,100);
- ctx.fillStyle='#272822';ctx.fillRect(0,0,60,canvas.height);
- lines.forEach((line,i)=>{
-  if(!line.trim())return;
-  const w=Math.min(line.length*0.8,55);
-  ctx.fillStyle=line.trimStart().startsWith('#')||line.trimStart().startsWith('//')?'#75715e':'rgba(248,248,242,.25)';
-  ctx.fillRect(3,i*2,w,1.5);
- });
-}
-function minimapClick(e){
- const ta=document.getElementById('code');
- const lines=ta.value.split('\n');
- const ratio=e.offsetY/e.target.offsetHeight;
- const targetLine=Math.floor(ratio*lines.length);
- const charPos=ta.value.split('\n').slice(0,targetLine).join('\n').length;
- ta.scrollTop=(targetLine/lines.length)*ta.scrollHeight;
- ta.focus();
-}
+
 
 // === AUTOCOMPLETE ===
 const COMPLETIONS={
@@ -488,7 +460,6 @@ function onCodeInput(){
  updateCursorInfo();
  highlightCode();
  updateGutter(_lineAuthors);
- updateMinimap();
  // Autocomplete trigger
  const pos=ta.selectionStart;
  const before=ta.value.substring(0,pos);
