@@ -101,8 +101,9 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font);display:flex;h
 .ac-item .ac-label{color:var(--fg)}
 .ac-item .ac-type{color:var(--comment);font-size:10px;margin-left:auto}
 
-/* Bracket error underline */
-.bracket-err{text-decoration:wavy underline var(--red);text-decoration-skip-ink:none}
+/* Protected line indicator (other user's code) */
+.gutter-line.protected{background:rgba(249,38,114,.04)}
+.gutter-line.protected .ln{color:rgba(249,38,114,.4)}
 
 /* === CONSOLE === */
 .console{height:180px;background:#1a1a1a;border-top:2px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:height .2s}
@@ -206,6 +207,8 @@ const API=location.origin;
 let TOKEN=localStorage.getItem('auth_token')||'';
 let ROOM=null,POLL_ID=null,IS_ADMIN=false,LAST_CODE='',LAST_SYNC='',USER=null;
 let idleTimer=0,isIdle=false,tabVisible=true,xpCountdown=60,consoleLines=0;
+// Anti-lag: track when user is actively editing to prevent poll from overwriting
+let _dirty=false,_dirtyAt=0,_lineAuthors={},_myUid=0;
 
 // === API HELPERS ===
 async function api(path,opts={}){
@@ -227,7 +230,7 @@ async function apiForm(path,data){
  if(!TOKEN){location.href='/';return}
  const me=await api('/api/auth/me');
  if(!me||!me.username){location.href='/';return}
- USER=me;IS_ADMIN=me.role==='admin';
+ USER=me;IS_ADMIN=me.role==='admin';_myUid=me.id||0;
  if(IS_ADMIN)document.getElementById('admin-bar').classList.add('show');
  loadRooms();
 })();
@@ -251,10 +254,11 @@ function esc(s){const d=document.createElement('div');d.textContent=s;return d.i
 async function joinRoom(id){
  const d=await apiForm('/api/sandbox/join',{room_id:id});
  if(!d||!d.joined)return;
- ROOM={id};LAST_CODE='';LAST_SYNC='';
+ ROOM={id};LAST_CODE='';LAST_SYNC='';_prevCode='';
  if(POLL_ID)clearInterval(POLL_ID);
  await pollRoom();
- POLL_ID=setInterval(pollRoom,1500);
+ _prevCode=document.getElementById('code').value;
+ POLL_ID=setInterval(pollRoom,2000);
  loadRooms();
  document.getElementById('code').focus();
  appendConsole(`📂 Вошёл в комнату #${id}`,'info');
@@ -268,20 +272,26 @@ async function pollRoom(){
  document.getElementById('lang-select').value=d.language;
  document.getElementById('lang-indicator').textContent=langIcon(d.language)+' '+d.language;
  const ta=document.getElementById('code');
- if(d.code!==LAST_SYNC&&d.code!==ta.value){
+ // ANTI-LAG: only update textarea if user is NOT actively typing
+ // _dirty is set by onCodeInput and cleared by syncCode success
+ const now=Date.now();
+ const userIsEditing=_dirty&&(now-_dirtyAt<3000);
+ if(!userIsEditing&&d.code!==ta.value){
   const pos=ta.selectionStart;
   ta.value=d.code;LAST_CODE=d.code;LAST_SYNC=d.code;
   ta.selectionStart=ta.selectionEnd=Math.min(pos,d.code.length);
   highlightCode();
  }
- updateGutter(d.line_authors);
+ // Always update line authors (for gutter display and protection)
+ _lineAuthors=d.line_authors||{};
+ updateGutter(_lineAuthors);
  updateOnline(d.users);
  updateMinimap();
  if(d.xp_awarded>0){toast(`✨ +${d.xp_awarded} XP за активность!`,'xp');xpCountdown=60}
  setSyncState('synced');
 }
 
-// === GUTTER (line numbers + avatars) ===
+// === GUTTER (line numbers + avatars + protection indicators) ===
 function updateGutter(authors){
  const code=document.getElementById('code').value;
  const lines=code.split('\n');
@@ -291,9 +301,11 @@ function updateGutter(authors){
  let h='';
  for(let i=0;i<lines.length;i++){
   const a=authors?authors[String(i+1)]:null;
+  const isOther=a&&a.uid&&a.uid!==_myUid;
   const av=a?`<span class="av" title="${esc(a.name||'')}">${a.avatar||'🧙'}</span>`:'';
   const cur=i+1===curLine?' current':'';
-  h+=`<div class="gutter-line${cur}">${av}<span class="ln">${i+1}</span></div>`;
+  const prot=isOther&&!IS_ADMIN?' protected':'';
+  h+=`<div class="gutter-line${cur}${prot}">${av}<span class="ln">${i+1}</span></div>`;
  }
  el.innerHTML=h;
 }
@@ -443,15 +455,41 @@ function checkBrackets(code){
 }
 
 // === CODE INPUT ===
-let syncTimeout=null;
+let syncTimeout=null,_prevCode='';
 function onCodeInput(){
+ _dirty=true;_dirtyAt=Date.now();
  idleTimer=0;isIdle=false;
+ const ta=document.getElementById('code');
+ // LINE PROTECTION: check if lines owned by other users were deleted
+ if(!IS_ADMIN&&_prevCode&&_lineAuthors&&Object.keys(_lineAuthors).length>0){
+  const oldLines=_prevCode.split('\n');
+  const newLines=ta.value.split('\n');
+  // Check if any protected line content was removed
+  if(newLines.length<oldLines.length){
+   const protectedContents=[];
+   for(let i=0;i<oldLines.length;i++){
+    const a=_lineAuthors[String(i+1)];
+    if(a&&a.uid&&a.uid!==_myUid&&oldLines[i].trim()){
+     protectedContents.push(oldLines[i]);
+    }
+   }
+   // Check if any protected content is missing from new code
+   const newText=newLines.join('\n');
+   const missing=protectedContents.filter(pc=>!newText.includes(pc));
+   if(missing.length>0){
+    // Revert the change
+    ta.value=_prevCode;
+    toast('🔒 Нельзя удалять код другого участника','warn');
+    return;
+   }
+  }
+ }
+ _prevCode=ta.value;
  updateCursorInfo();
  highlightCode();
- updateGutter(null);
+ updateGutter(_lineAuthors);
  updateMinimap();
  // Autocomplete trigger
- const ta=document.getElementById('code');
  const pos=ta.selectionStart;
  const before=ta.value.substring(0,pos);
  const dotMatch=before.match(/(\w+)\.(\w*)$/);
@@ -472,7 +510,7 @@ async function syncCode(){
  const ta=document.getElementById('code');
  const line=ta.value.substring(0,ta.selectionStart).split('\n').length;
  const d=await apiForm('/api/sandbox/sync',{room_id:ROOM.id,code,cursor_line:line});
- if(d&&d.synced){LAST_SYNC=code;setSyncState('synced')}else setSyncState('error');
+ if(d&&d.synced){LAST_SYNC=code;_dirty=false;setSyncState('synced')}else setSyncState('error');
 }
 
 function setSyncState(state){

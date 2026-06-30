@@ -79,14 +79,14 @@ import resource as _resource
 
 # --- Configuration ---
 _MEM_TOTAL_MB = int(os.getenv("PANDORA_MEM_TOTAL_MB", "512"))
-_MEM_WARN_PCT = float(os.getenv("PANDORA_MEM_WARN_PCT", "0.70"))   # 70% → GC
-_MEM_HIGH_PCT = float(os.getenv("PANDORA_MEM_HIGH_PCT", "0.80"))   # 80% → evict caches
-_MEM_CRIT_PCT = float(os.getenv("PANDORA_MEM_CRIT_PCT", "0.90"))   # 90% → shed mode (503)
-_MEM_SENTINEL_INTERVAL_S = float(os.getenv("PANDORA_MEM_SENTINEL_INTERVAL_S", "2.0"))
-_MAX_CONCURRENT_REQUESTS = int(os.getenv("PANDORA_MAX_CONCURRENT_REQUESTS", "20"))
-_FLOOD_LIMIT_PER_MINUTE = int(os.getenv("PANDORA_FLOOD_LIMIT_PER_MINUTE", "50"))
-_FLOOD_UNAUTH_LIMIT_PER_MINUTE = int(os.getenv("PANDORA_FLOOD_UNAUTH_LIMIT_PER_MINUTE", "30"))
-_FLOOD_GLOBAL_PER_SECOND = int(os.getenv("PANDORA_FLOOD_GLOBAL_PER_SECOND", "200"))
+_MEM_WARN_PCT = float(os.getenv("PANDORA_MEM_WARN_PCT", "0.60"))   # 60% → GC
+_MEM_HIGH_PCT = float(os.getenv("PANDORA_MEM_HIGH_PCT", "0.72"))   # 72% → evict caches
+_MEM_CRIT_PCT = float(os.getenv("PANDORA_MEM_CRIT_PCT", "0.85"))   # 85% → shed mode (503)
+_MEM_SENTINEL_INTERVAL_S = float(os.getenv("PANDORA_MEM_SENTINEL_INTERVAL_S", "1.5"))
+_MAX_CONCURRENT_REQUESTS = int(os.getenv("PANDORA_MAX_CONCURRENT_REQUESTS", "80"))
+_FLOOD_LIMIT_PER_MINUTE = int(os.getenv("PANDORA_FLOOD_LIMIT_PER_MINUTE", "400"))
+_FLOOD_UNAUTH_LIMIT_PER_MINUTE = int(os.getenv("PANDORA_FLOOD_UNAUTH_LIMIT_PER_MINUTE", "240"))
+_FLOOD_GLOBAL_PER_SECOND = int(os.getenv("PANDORA_FLOOD_GLOBAL_PER_SECOND", "500"))
 _FLOOD_IP_TABLE_MAX = 2048
 _MAX_REQUEST_BODY_BYTES = int(os.getenv("PANDORA_MAX_REQUEST_BODY_BYTES", str(1 * 1024 * 1024)))  # 1MB
 
@@ -146,6 +146,17 @@ def _evict_caches_for_pressure():
         if _QUIZ_QUESTIONS_PARSED:
             _QUIZ_QUESTIONS_PARSED.clear()
             freed_items += 1
+    except Exception:
+        pass
+
+    # 4. Check-logic cache (populated by _ensure_check_logic_cache)
+    try:
+        from main import _CHECK_LOGIC_CACHE, _CHECK_LOGIC_CACHE_LOCK
+        with _CHECK_LOGIC_CACHE_LOCK:
+            if _CHECK_LOGIC_CACHE.get("data"):
+                _CHECK_LOGIC_CACHE["data"] = {}
+                _CHECK_LOGIC_CACHE["mtime"] = None
+                freed_items += 1
     except Exception:
         pass
 
@@ -1792,8 +1803,8 @@ def verify_password(password: str, hashed: str) -> bool:
         return ok
 
 # Dedicated thread pool for CPU-bound work (bcrypt, heavy JSON serialization).
-# Sized to 2 to prevent bcrypt from consuming all CPU on single-core Render.
-_cpu_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="pandora_cpu")
+# Sized to 4 to handle concurrent logins without starving the event loop.
+_cpu_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="pandora_cpu")
 
 async def verify_password_async(password: str, hashed: str) -> bool:
     """Non-blocking bcrypt verification. Runs in a thread pool to keep the event loop free."""
@@ -2966,6 +2977,13 @@ async def _startup() -> None:
     except Exception as e:
         logger.warning("Tasks cache warm-up failed (non-fatal): %s", e)
 
+    # Warm up check_logic cache so concurrent Run clicks don't trigger cold-cache parse.
+    try:
+        cl_count = len(_ensure_check_logic_cache())
+        logger.info("✓ Check-logic cache warmed up at startup: %d tasks", cl_count)
+    except Exception as e:
+        logger.warning("Check-logic cache warm-up failed (non-fatal): %s", e)
+
     # Reclaim transient memory from JSON parsing / cache building.
     # On the 512MB Render free tier this can free 15-30MB of unreachable objects.
     _gc.collect()
@@ -3164,7 +3182,7 @@ async def ping():
     )
 
 @app.post("/api/auth/login")
-@limiter.limit(os.getenv("PANDORA_LOGIN_RATE_LIMIT", "5/minute"))
+@limiter.limit(os.getenv("PANDORA_LOGIN_RATE_LIMIT", "15/minute"))
 async def login(request: Request, data: LoginRequest):
     """Authenticate user and return JWT token. Rate limited to 5 attempts/minute."""
     t0 = time.monotonic()
@@ -5201,34 +5219,77 @@ def get_task(task_id: str) -> Optional[dict]:
     return _tasks_by_id().get(task_id)
 
 
-def _get_task_with_check_logic(task_id: str) -> Optional[dict]:
-    """Get full task including check_logic.cases from disk.
+# ── Bounded LRU cache for check_logic.cases (avoids re-parsing 40MB JSON per attempt) ──
+_CHECK_LOGIC_CACHE: dict = {"mtime": None, "data": {}}  # task_id → check_logic dict
+_CHECK_LOGIC_CACHE_LOCK = __import__('threading').Lock()
 
-    Cases are stripped from the in-memory cache (P2 RAM saving).
-    This function re-reads the JSON file to retrieve them for verification.
-    Called only during attempt_task — infrequent, so disk I/O is acceptable.
+def _ensure_check_logic_cache() -> dict:
+    """Lazily parse tasks.json once and cache all check_logic dicts keyed by task_id.
+
+    Invalidated by mtime change (same approach as load_tasks).  Only stores
+    check_logic sub-dicts (~2-5MB total), NOT the entire 40MB parsed dict.
+    This eliminates the catastrophic pattern where every concurrent attempt_task
+    call re-parsed the full 40MB file into a fresh Python dict.
+
+    Uses double-checked locking: fast path (cache hit) is lock-free; slow path
+    (cache miss) acquires the lock and parses inside it so that only ONE thread
+    ever does the heavy 40MB read while others wait and get the result.
+    """
+    tasks_path = Path("tasks.json")
+    external_path = Path("tasks_external_all_available.json")
+    primary_path = external_path if external_path.exists() else tasks_path
+    try:
+        mtime = primary_path.stat().st_mtime
+    except OSError:
+        return {}
+    # Fast path (no lock): cache hit
+    if _CHECK_LOGIC_CACHE["mtime"] == mtime and _CHECK_LOGIC_CACHE["data"]:
+        return _CHECK_LOGIC_CACHE["data"]
+    # Slow path: acquire lock, double-check, parse if still stale.
+    # Only ONE thread parses; others block here and get the cached result.
+    with _CHECK_LOGIC_CACHE_LOCK:
+        # Double-check after acquiring lock (another thread may have populated)
+        if _CHECK_LOGIC_CACHE["mtime"] == mtime and _CHECK_LOGIC_CACHE["data"]:
+            return _CHECK_LOGIC_CACHE["data"]
+        try:
+            raw = json.loads(primary_path.read_text(encoding="utf-8"))
+            mapping = {}
+            for t in raw.get("tasks", []):
+                tid = t.get("id")
+                cl = t.get("check_logic")
+                if tid and cl:
+                    mapping[tid] = cl
+            _CHECK_LOGIC_CACHE["mtime"] = mtime
+            _CHECK_LOGIC_CACHE["data"] = mapping
+            logger.info("Check-logic cache built: %d tasks with check_logic", len(mapping))
+            return mapping
+        except Exception as e:
+            logger.warning("_ensure_check_logic_cache failed: %s", e)
+            return _CHECK_LOGIC_CACHE.get("data") or {}
+
+
+def _get_task_with_check_logic(task_id: str) -> Optional[dict]:
+    """Get full task including check_logic.cases.
+
+    Cases are stripped from the main in-memory cache (P2 RAM saving).
+    Instead of re-reading the entire 40MB JSON per call (which caused OOM
+    under concurrent load), we maintain a lightweight check_logic-only cache
+    that is populated once and invalidated by mtime.
     """
     task = get_task(task_id)
     if not task:
         return None
     cl = task.get("check_logic") or {}
-    # If cases are present (e.g. cache not yet stripped), return as-is.
+    # If cases are already present (cache not yet stripped), return as-is.
     if "cases" in cl:
         return task
-    # Re-read from disk to get cases for this specific task.
-    try:
-        for path_name in ("tasks.json",):
-            p = Path(path_name)
-            if not p.exists():
-                continue
-            raw = json.loads(p.read_text(encoding="utf-8"))
-            for t in raw.get("tasks", []):
-                if t.get("id") == task_id:
-                    full_task = dict(task)
-                    full_task["check_logic"] = t.get("check_logic") or {}
-                    return full_task
-    except Exception as e:
-        logger.warning("_get_task_with_check_logic disk read failed for %s: %s", task_id, e)
+    # Look up from the lightweight check_logic cache.
+    cl_cache = _ensure_check_logic_cache()
+    full_cl = cl_cache.get(task_id)
+    if full_cl:
+        full_task = dict(task)
+        full_task["check_logic"] = full_cl
+        return full_task
     return task
 
 
@@ -12890,6 +12951,25 @@ def sandbox_sync(
         old_lines = (room["code"] or "").split("\n")
         new_lines = code.split("\n")
 
+        # LINE PROTECTION: prevent non-admin users from deleting other users' lines
+        is_admin = user.get("role") == "admin"
+        if not is_admin and old_authors and len(new_lines) < len(old_lines):
+            # Collect non-empty lines owned by other users
+            protected_contents = []
+            for i, line in enumerate(old_lines):
+                line_key = str(i + 1)
+                author = old_authors.get(line_key)
+                if author and author.get("uid") and author["uid"] != uid and line.strip():
+                    protected_contents.append(line)
+            # Check if any protected content was removed
+            new_text = "\n".join(new_lines)
+            missing = [pc for pc in protected_contents if pc not in new_text]
+            if missing:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Нельзя удалять код другого участника. Только админ может это сделать."
+                )
+
         # Update author for changed lines
         username = user.get("display_name") or user.get("username", "?")
         avatar = user.get("avatar_key") or "🧙"
@@ -12922,6 +13002,11 @@ def sandbox_sync(
     return {"synced": True}
 
 
+# Sandbox subprocess concurrency limiter — prevents OOM from too many forks.
+# Each subprocess.run() forks the main process (~150-200MB RSS), so even 3
+# concurrent sandbox runs can exhaust 512MB.  Cap at 2 simultaneous runs.
+_SANDBOX_SEMAPHORE = __import__('threading').Semaphore(max(1, int(os.getenv("PANDORA_SANDBOX_CONCURRENCY", "2"))))
+
 @app.post("/api/sandbox/run")
 def sandbox_run_code(
     room_id: int = Form(...),
@@ -12950,10 +13035,12 @@ def sandbox_run_code(
     if not any(code.strip().startswith(f"import {m}") or f"from {m}" in code for m in ["math", "random", "datetime"]):
         code = auto_imports + code
 
-    # Run via subprocess with timeout (same as local runner)
+    # Concurrency gate: prevent too many simultaneous subprocess forks (OOM risk).
+    if not _SANDBOX_SEMAPHORE.acquire(blocking=False):
+        return {"output": "", "error": "⏳ Сервер занят. Подожди пару секунд и попробуй снова.", "returncode": -1}
     try:
         result = subprocess.run(
-            [sys.executable, "-c", code],
+            [sys.executable, "-I", "-S", "-c", code],
             capture_output=True, text=True,
             timeout=5.0,
             cwd=tempfile.gettempdir(),
@@ -12967,6 +13054,8 @@ def sandbox_run_code(
         return {"output": "", "error": "⏱ Таймаут (5 секунд). Проверь бесконечные циклы.", "returncode": -1}
     except Exception as e:
         return {"output": "", "error": str(e)[:500], "returncode": -1}
+    finally:
+        _SANDBOX_SEMAPHORE.release()
 
 
 @app.post("/api/sandbox/save")
