@@ -72,21 +72,9 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font);display:flex;h
 .gutter-line .ln{min-width:24px;text-align:right;font-size:12px}
 
 .editor-container{flex:1;position:relative;overflow:hidden}
-.code-highlight{position:absolute;top:0;left:0;right:0;padding:10px 16px;font-size:13px;line-height:1.65;white-space:pre;overflow:hidden;pointer-events:none;color:transparent;word-wrap:normal}
-.code-area{position:relative;width:100%;height:100%;background:transparent;color:transparent;border:none;outline:none;resize:none;font-family:var(--font);font-size:13px;line-height:1.65;padding:10px 16px;tab-size:4;white-space:pre;overflow:auto;z-index:1;caret-color:var(--fg)}
-.code-area::selection{background:rgba(255,255,255,.18)}
-
-/* Syntax colors in highlight layer */
-.hl-kw{color:var(--kw)}
-.hl-str{color:var(--str)}
-.hl-num{color:var(--num)}
-.hl-fn{color:var(--fn)}
-.hl-cm{color:var(--comment);font-style:italic}
-.hl-cls{color:var(--cls)}
-.hl-op{color:var(--kw)}
-.hl-tag{color:var(--kw)}
-.hl-attr{color:var(--fn)}
-.hl-val{color:var(--str)}
+.code-highlight{display:none}
+.code-area{position:relative;width:100%;height:100%;background:var(--bg);color:var(--fg);border:none;outline:none;resize:none;font-family:var(--font);font-size:13px;line-height:1.65;padding:10px 16px;tab-size:4;white-space:pre;overflow:auto;z-index:1;caret-color:var(--fg)}
+.code-area::selection{background:rgba(255,255,255,.15)}
 
 
 /* Autocomplete */
@@ -310,47 +298,8 @@ function updateOnline(users){
  el.innerHTML=users.map(u=>`<span class="user-badge"><span class="dot"></span>${u.avatar||'🧙'} ${esc(u.display_name||u.username)}</span>`).join('');
 }
 
-// === SYNTAX HIGHLIGHTING ===
-const PY_KW=/\b(False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield|print|input|range|len|int|str|float|list|dict|set|tuple|type|self)\b/g;
-const JS_KW=/\b(async|await|break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|false|finally|for|function|if|import|in|instanceof|let|new|null|of|return|super|switch|this|throw|true|try|typeof|undefined|var|void|while|with|yield|console|document|window|Math|Array|Object|String|Number|JSON)\b/g;
-const HTML_TAG=/(&lt;\/?)([\w-]+)/g;
-const HTML_ATTR=/\s([\w-]+)(=)/g;
-const STR_RE=/(["'`])(?:(?!\1|\\).|\\.)*?\1/g;
-const NUM_RE=/\b(\d+\.?\d*)\b/g;
-const PY_COMMENT=/(#.*$)/gm;
-const JS_COMMENT=/(\/\/.*$)/gm;
-const FN_RE=/\b([a-zA-Z_]\w*)\s*\(/g;
-
-function highlightCode(){
- const ta=document.getElementById('code');
- const el=document.getElementById('highlight');
- const lang=ROOM?ROOM.language:'python';
- let code=ta.value;
- // Escape HTML first
- code=code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
- // Comments first (so they override)
- const comments=[];
- const cmRe=lang==='python'?PY_COMMENT:JS_COMMENT;
- if(lang!=='html')code=code.replace(cmRe,m=>{const ph=`__CM${comments.length}__`;comments.push(m);return ph});
- // Strings
- const strings=[];
- code=code.replace(STR_RE,m=>{const ph=`__ST${strings.length}__`;strings.push(m);return ph});
- // Functions
- code=code.replace(FN_RE,(m,fn)=>`<span class="hl-fn">${fn}</span>(`);
- // Keywords
- if(lang==='python')code=code.replace(PY_KW,'<span class="hl-kw">$1</span>');
- else if(lang==='javascript')code=code.replace(JS_KW,'<span class="hl-kw">$1</span>');
- else{code=code.replace(HTML_TAG,'$1<span class="hl-tag">$2</span>');code=code.replace(HTML_ATTR,' <span class="hl-attr">$1</span><span class="hl-op">$2</span>')}
- // Numbers
- code=code.replace(NUM_RE,'<span class="hl-num">$1</span>');
- // Restore strings and comments
- strings.forEach((s,i)=>{code=code.replace(`__ST${i}__`,`<span class="hl-str">${s}</span>`)});
- comments.forEach((c,i)=>{code=code.replace(`__CM${i}__`,`<span class="hl-cm">${c}</span>`)});
- el.innerHTML=code+'\n';
- el.scrollTop=ta.scrollTop;el.scrollLeft=ta.scrollLeft;
-}
-
-
+// Highlight overlay removed (caused red visual artifacts). No-op stub.
+function highlightCode(){}
 
 // === AUTOCOMPLETE ===
 const COMPLETIONS={
@@ -407,24 +356,6 @@ function insertCompletion(i){
  hideAutocomplete();onCodeInput();ta.focus();
 }
 
-// === BRACKET CHECKER ===
-function checkBrackets(code){
- const stack=[];const errors=[];
- const pairs={'(':')','[':']','{':'}'};
- let inStr=false,strChar='';
- for(let i=0;i<code.length;i++){
-  const c=code[i];
-  if(inStr){if(c===strChar&&code[i-1]!=='\\')inStr=false;continue}
-  if(c==='"'||c==="'"||c==='`'){inStr=true;strChar=c;continue}
-  if('([{'.includes(c))stack.push({c,i});
-  if(')]}'.includes(c)){
-   const last=stack.pop();
-   if(!last||pairs[last.c]!==c)errors.push(i);
-  }
- }
- stack.forEach(s=>errors.push(s.i));
- return errors;
-}
 
 // === CODE INPUT ===
 let syncTimeout=null,_prevCode='';
@@ -494,8 +425,6 @@ function setSyncState(state){
 function syncScroll(){
  const ta=document.getElementById('code');
  document.getElementById('gutter').scrollTop=ta.scrollTop;
- document.getElementById('highlight').scrollTop=ta.scrollTop;
- document.getElementById('highlight').scrollLeft=ta.scrollLeft;
 }
 
 function onCursorMove(){updateCursorInfo();updateGutter(null)}
@@ -513,6 +442,8 @@ function handleKey(e){
  const ta=e.target;
  // Tab indent
  if(e.key==='Tab'&&!e.shiftKey){e.preventDefault();const s=ta.selectionStart,end=ta.selectionEnd;ta.value=ta.value.substring(0,s)+'    '+ta.value.substring(end);ta.selectionStart=ta.selectionEnd=s+4;onCodeInput();return}
+ // Shift+Tab unindent
+ if(e.key==='Tab'&&e.shiftKey){e.preventDefault();const s=ta.selectionStart;const before=ta.value.substring(0,s);const lineStart=before.lastIndexOf('\n')+1;const line=ta.value.substring(lineStart);if(line.startsWith('    ')){ta.value=ta.value.substring(0,lineStart)+line.substring(4);ta.selectionStart=ta.selectionEnd=Math.max(lineStart,s-4);onCodeInput()}return}
  // Ctrl+Enter = Run
  if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();runCode();return}
  // Shift+Enter = Run line
