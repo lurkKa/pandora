@@ -79,11 +79,11 @@ import resource as _resource
 
 # --- Configuration ---
 _MEM_TOTAL_MB = int(os.getenv("PANDORA_MEM_TOTAL_MB", "512"))
-_MEM_WARN_PCT = float(os.getenv("PANDORA_MEM_WARN_PCT", "0.60"))   # 60% → GC
-_MEM_HIGH_PCT = float(os.getenv("PANDORA_MEM_HIGH_PCT", "0.72"))   # 72% → evict caches
-_MEM_CRIT_PCT = float(os.getenv("PANDORA_MEM_CRIT_PCT", "0.85"))   # 85% → shed mode (503)
+_MEM_WARN_PCT = float(os.getenv("PANDORA_MEM_WARN_PCT", "0.55"))   # 55% → GC
+_MEM_HIGH_PCT = float(os.getenv("PANDORA_MEM_HIGH_PCT", "0.65"))   # 65% → evict caches
+_MEM_CRIT_PCT = float(os.getenv("PANDORA_MEM_CRIT_PCT", "0.78"))   # 78% → shed mode (503)
 _MEM_SENTINEL_INTERVAL_S = float(os.getenv("PANDORA_MEM_SENTINEL_INTERVAL_S", "1.5"))
-_MAX_CONCURRENT_REQUESTS = int(os.getenv("PANDORA_MAX_CONCURRENT_REQUESTS", "80"))
+_MAX_CONCURRENT_REQUESTS = int(os.getenv("PANDORA_MAX_CONCURRENT_REQUESTS", "20"))
 _FLOOD_LIMIT_PER_MINUTE = int(os.getenv("PANDORA_FLOOD_LIMIT_PER_MINUTE", "400"))
 _FLOOD_UNAUTH_LIMIT_PER_MINUTE = int(os.getenv("PANDORA_FLOOD_UNAUTH_LIMIT_PER_MINUTE", "240"))
 _FLOOD_GLOBAL_PER_SECOND = int(os.getenv("PANDORA_FLOOD_GLOBAL_PER_SECOND", "500"))
@@ -128,13 +128,12 @@ def _evict_caches_for_pressure():
     except Exception:
         pass
 
-    # 2. Roadmap base cache (~40MB)
+    # 2. Roadmap base cache
     try:
         from main import _ROADMAP_BASE_CACHE, _ROADMAP_BASE_LOCK
         with _ROADMAP_BASE_LOCK:
             if _ROADMAP_BASE_CACHE.get("base_tasks"):
                 _ROADMAP_BASE_CACHE["base_tasks"] = []
-                _ROADMAP_BASE_CACHE["tasks_by_id"] = {}
                 _ROADMAP_BASE_CACHE["tasks_data_id"] = None
                 freed_items += 1
     except Exception:
@@ -157,6 +156,28 @@ def _evict_caches_for_pressure():
                 _CHECK_LOGIC_CACHE["data"] = {}
                 _CHECK_LOGIC_CACHE["mtime"] = None
                 freed_items += 1
+    except Exception:
+        pass
+
+    # 5. Main tasks cache (~200MB) — the biggest single allocation.
+    # _TASKS_BY_ID_CACHE holds refs into _TASKS_CACHE, so clear it first.
+    try:
+        from main import _TASKS_BY_ID_CACHE
+        if _TASKS_BY_ID_CACHE.get("data"):
+            _TASKS_BY_ID_CACHE["data"] = {}
+            _TASKS_BY_ID_CACHE["tasks_data_id"] = None
+            freed_items += 1
+    except Exception:
+        pass
+
+    try:
+        from main import _TASKS_CACHE
+        if _TASKS_CACHE.get("data") is not None:
+            _TASKS_CACHE["data"] = None
+            _TASKS_CACHE["mtime"] = None
+            _TASKS_CACHE["legacy_mtime"] = None
+            _TASKS_CACHE["external_mtime"] = None
+            freed_items += 1
     except Exception:
         pass
 
@@ -5333,9 +5354,8 @@ def public_task(task: dict) -> dict:
 
 def public_task_lite(task: dict) -> dict:
     """Lightweight task payload for board/card rendering (no heavy fields).
-    Heavy fields (initial_code, resources, video_url) are loaded
-    on-demand via /api/tasks/{task_id}/detail to reduce initial payload size.
-    Description is included because it is lightweight text needed for modal display."""
+    Heavy fields (initial_code, resources, video_url, description, story) are loaded
+    on-demand via /api/tasks/{task_id}/detail to reduce initial payload and memory."""
     logic = task.get("check_logic") or {}
     return {
         "id": task.get("id"),
@@ -5343,8 +5363,6 @@ def public_task_lite(task: dict) -> dict:
         "tier": task.get("tier"),
         "xp": task.get("xp"),
         "title": task.get("title"),
-        "story": task.get("story"),
-        "description": task.get("description"),
         "topic": task.get("topic", ""),
         "task_type": task.get("task_type", "code"),
         "prerequisites": task.get("prerequisites") or [],
@@ -6046,11 +6064,18 @@ def get_task_history(task_id: str, user: dict = Depends(require_auth)):
     return {"history": history[:10]}
 
 # Pre-cached base lite tasks (reusable across all users, invalidated on tasks.json change).
-_ROADMAP_BASE_CACHE: dict = {"tasks_data_id": None, "base_tasks": [], "meta": {}, "categories": [], "tasks_by_id": {}, "totals": {}}
+# NOTE: This cache intentionally does NOT hold tasks_by_id refs to avoid pinning
+# the full ~200MB _TASKS_CACHE in memory (GC root leak).
+_ROADMAP_BASE_CACHE: dict = {"tasks_data_id": None, "base_tasks": [], "meta": {}, "categories": [], "totals": {}}
 _ROADMAP_BASE_LOCK = __import__('threading').Lock()
 
 def _get_roadmap_base():
-    """Return cached (base_lite_tasks, meta, categories, tasks_by_id, totals)."""
+    """Return cached (base_lite_tasks, meta, categories, totals).
+
+    Uses _tasks_by_id() for task lookups instead of caching a separate
+    tasks_by_id dict, which previously pinned the entire _TASKS_CACHE
+    in memory even after cache eviction.
+    """
     data = load_tasks()
     data_id = id(data)
     with _ROADMAP_BASE_LOCK:
@@ -6059,13 +6084,12 @@ def _get_roadmap_base():
                 _ROADMAP_BASE_CACHE["base_tasks"],
                 _ROADMAP_BASE_CACHE["meta"],
                 _ROADMAP_BASE_CACHE["categories"],
-                _ROADMAP_BASE_CACHE["tasks_by_id"],
                 _ROADMAP_BASE_CACHE["totals"],
             )
 
     tasks_raw = data.get("tasks", [])
-    tasks_by_id = {t.get("id"): t for t in tasks_raw if t.get("id")}
-    totals = _task_totals_by_category_and_tier(tasks_by_id)
+    tbi = _tasks_by_id()
+    totals = _task_totals_by_category_and_tier(tbi)
 
     base_tasks = []
     for t in tasks_raw:
@@ -6073,17 +6097,6 @@ def _get_roadmap_base():
         pt = public_task_lite(t)
         pt["_tid"] = tid
         pt["_archived"] = is_archived_task_id(tid)
-        # Keep only the fields needed by _unlock_state to avoid holding
-        # the entire task dict (with check_logic/cases) in the roadmap cache.
-        pt["_raw"] = {
-            "id": t.get("id"),
-            "category": t.get("category"),
-            "tier": t.get("tier"),
-            "topic": t.get("topic"),
-            "prerequisites": t.get("prerequisites"),
-            "source_platform": t.get("source_platform"),
-            "tags": t.get("tags"),
-        }
         base_tasks.append(pt)
 
     meta = data.get("meta", {})
@@ -6094,11 +6107,10 @@ def _get_roadmap_base():
         _ROADMAP_BASE_CACHE["base_tasks"] = base_tasks
         _ROADMAP_BASE_CACHE["meta"] = meta
         _ROADMAP_BASE_CACHE["categories"] = categories
-        _ROADMAP_BASE_CACHE["tasks_by_id"] = tasks_by_id
         _ROADMAP_BASE_CACHE["totals"] = totals
 
-    logger.info("Roadmap base cache built: %d tasks", len(base_tasks))
-    return base_tasks, meta, categories, tasks_by_id, totals
+    logger.info("Roadmap base cache built: %d tasks (no tasks_by_id refs)", len(base_tasks))
+    return base_tasks, meta, categories, totals
 
 
 @app.get("/api/roadmap")
@@ -6110,7 +6122,8 @@ def get_roadmap(request: Request, user: dict = Depends(require_auth)):
     is serialized once with compact separators and returned as raw bytes
     to bypass FastAPI's slow jsonable_encoder on large payloads.
     """
-    base_tasks, meta, categories, tasks_by_id, totals = _get_roadmap_base()
+    base_tasks, meta, categories, totals = _get_roadmap_base()
+    tbi = _tasks_by_id()  # O(1) lookup, no memory duplication
 
     with get_db() as conn:
         cursor = conn.cursor()
@@ -6139,16 +6152,17 @@ def get_roadmap(request: Request, user: dict = Depends(require_auth)):
         )
         homework_ids = {str(row["task_id"]) for row in cursor.fetchall()}
 
-    counts = _counts_by_category_and_tier(tasks_by_id, completed_ids)
-    daily_counts = _counts_by_category_and_tier(tasks_by_id, completed_today_ids)
+    counts = _counts_by_category_and_tier(tbi, completed_ids)
+    daily_counts = _counts_by_category_and_tier(tbi, completed_today_ids)
 
     tasks = []
     for pt_base in base_tasks:
         tid = pt_base["_tid"]
         if pt_base["_archived"] and tid not in homework_ids:
             continue
-        raw_task = pt_base["_raw"]
-        unlocked, unlock_info = _unlock_state(raw_task, completed_ids, counts, tasks_by_id, daily_counts, totals)
+        # Look up task from global cache (no _raw sub-dict needed)
+        raw_task = tbi.get(tid) or {}
+        unlocked, unlock_info = _unlock_state(raw_task, completed_ids, counts, tbi, daily_counts, totals)
         # Shallow-copy the base and add per-user overlay (avoids rebuilding
         # 11733 public_task_lite dicts per request).
         pt = {k: v for k, v in pt_base.items() if k[0] != '_'}

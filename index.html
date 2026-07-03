@@ -1260,31 +1260,45 @@
             pointer-events: none;
             animation: featured-pulse 2.5s ease-in-out infinite;
         }
+
         .quest-featured-badge.x2 {
             background: rgba(6, 182, 212, 0.18);
             color: #22d3ee;
             border: 1px solid rgba(6, 182, 212, 0.35);
             box-shadow: 0 0 10px rgba(6, 182, 212, 0.20);
         }
+
         .quest-featured-badge.x3 {
             background: rgba(139, 92, 246, 0.18);
             color: #a78bfa;
             border: 1px solid rgba(139, 92, 246, 0.35);
             box-shadow: 0 0 10px rgba(139, 92, 246, 0.20);
         }
+
         .quest-featured-badge.x5 {
             background: rgba(245, 158, 11, 0.18);
             color: #fbbf24;
             border: 1px solid rgba(245, 158, 11, 0.40);
             box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
         }
+
         @keyframes featured-pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
         }
+
         /* Completed/locked cards should not show featured badge */
         .quest-card.completed .quest-featured-badge,
-        .quest-card.locked .quest-featured-badge { display: none; }
+        .quest-card.locked .quest-featured-badge {
+            display: none;
+        }
 
         /* Empty State */
         .empty-state {
@@ -3044,6 +3058,7 @@
             cursor: not-allowed;
             position: relative;
         }
+
         .header-btn.quiz-locked:hover::after {
             content: attr(data-lock-reason);
             position: absolute;
@@ -3051,7 +3066,7 @@
             left: 50%;
             transform: translateX(-50%);
             background: var(--bg-elevated);
-            border: 1px solid rgba(255,255,255,0.12);
+            border: 1px solid rgba(255, 255, 255, 0.12);
             border-radius: 8px;
             padding: 6px 12px;
             font-size: 11px;
@@ -3081,20 +3096,34 @@
             max-width: 520px;
             width: 90vw;
         }
+
         .inactivity-notification.show {
             transform: translateX(-50%) translateY(0);
             opacity: 1;
         }
+
         .inactivity-icon {
             font-size: 42px;
             animation: inactivity-pulse 1.5s ease-in-out infinite;
             flex-shrink: 0;
         }
+
         @keyframes inactivity-pulse {
-            0%, 100% { transform: scale(1) rotate(0deg); }
-            25% { transform: scale(1.15) rotate(-5deg); }
-            75% { transform: scale(1.1) rotate(5deg); }
+
+            0%,
+            100% {
+                transform: scale(1) rotate(0deg);
+            }
+
+            25% {
+                transform: scale(1.15) rotate(-5deg);
+            }
+
+            75% {
+                transform: scale(1.1) rotate(5deg);
+            }
         }
+
         .inactivity-text {
             display: flex;
             flex-direction: column;
@@ -3102,6 +3131,7 @@
             flex: 1;
             min-width: 0;
         }
+
         .inactivity-label {
             font-size: 11px;
             text-transform: uppercase;
@@ -3109,6 +3139,7 @@
             color: #e94560;
             font-weight: 700;
         }
+
         .inactivity-quote {
             font-size: 15px;
             font-weight: 600;
@@ -3116,12 +3147,13 @@
             line-height: 1.45;
             font-style: italic;
         }
+
         .inactivity-dismiss {
             width: 30px;
             height: 30px;
             border-radius: 50%;
-            border: 1px solid rgba(255,255,255,0.15);
-            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.06);
             color: var(--text-secondary, #888);
             font-size: 14px;
             cursor: pointer;
@@ -3131,6 +3163,7 @@
             flex-shrink: 0;
             transition: all 0.2s;
         }
+
         .inactivity-dismiss:hover {
             background: rgba(233, 69, 96, 0.2);
             border-color: #e94560;
@@ -3235,13 +3268,16 @@
                 <button class="tab-btn" role="tab" aria-selected="false" onclick="filterCategory('frontend', this)">
                     <span class="tab-icon">🎨</span> Frontend
                 </button>
-                <button class="tab-btn active" role="tab" aria-selected="true" onclick="filterCategory('scratch', this)">
+                <button class="tab-btn active" role="tab" aria-selected="true"
+                    onclick="filterCategory('scratch', this)">
                     <span class="tab-icon">🐱</span> Scratch
                 </button>
-                <button class="tab-btn codewars-tab" role="tab" aria-selected="false" onclick="filterCategory('codewars', this)">
+                <button class="tab-btn codewars-tab" role="tab" aria-selected="false"
+                    onclick="filterCategory('codewars', this)">
                     <span class="tab-icon">🏆</span> Codewars
                 </button>
-                <button class="tab-btn leetcode-tab" role="tab" aria-selected="false" onclick="filterCategory('leetcode', this)">
+                <button class="tab-btn leetcode-tab" role="tab" aria-selected="false"
+                    onclick="filterCategory('leetcode', this)">
                     <span class="tab-icon">💻</span> LeetCode
                 </button>
                 <button class="tab-btn homework-tab" role="tab" aria-selected="false"
@@ -3251,7 +3287,8 @@
                 <button class="tab-btn lextype-tab" role="tab" aria-selected="false" onclick="openAlextype()">
                     <span class="tab-icon">⌨️</span> AlexType
                 </button>
-                <button class="tab-btn sandbox-tab" role="tab" aria-selected="false" onclick="openSandbox()" style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.2)">
+                <button class="tab-btn sandbox-tab" role="tab" aria-selected="false" onclick="openSandbox()"
+                    style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.2)">
                     <span class="tab-icon">🏖️</span> Песочница
                 </button>
 
@@ -5620,23 +5657,23 @@
             try {
                 const headers = { 'Authorization': `Bearer ${authToken}` };
                 if (_roadmapStatusEtag) headers['If-None-Match'] = _roadmapStatusEtag;
-                
+
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-                
+
                 let res;
                 try {
                     res = await fetch(`${API_URL}/api/roadmap/status`, { headers, signal: controller.signal });
                 } finally {
                     clearTimeout(timeoutId);
                 }
-                
+
                 if (res.status === 304) return true;  // nothing changed
                 if (!res.ok) return false;
-                
+
                 const etag = res.headers.get('etag');
                 if (etag) _roadmapStatusEtag = etag;
-                
+
                 const data = await res.json();
                 const completionChanged = applyTaskStatusUpdate(data || {});
                 if (completionChanged) {
@@ -5756,7 +5793,7 @@
                     <div class="quest-card-content">
                         <div class="quest-icon">${isTutorial ? '🎓' : (icons[task.category] || '📜')}</div>
                         <h3 class="quest-title">${task.title}</h3>
-                        <p class="quest-story">${task.story}</p>
+                        <p class="quest-story">${task.story || ''}</p>
                         ${isHomework ? `<div class="quest-homework-note">📌 ДЗ • ${hwDeadline}</div>` : ``}
                         <div class="quest-reward">${featuredReward}${isPending ? ' (на проверке)' : ''}</div>
                     </div>
@@ -6224,9 +6261,9 @@
             currentTask = tasks.find(t => t.id === taskId);
             if (!currentTask) return;
 
-            // Show modal immediately with roadmap-level data (title, story, description)
+            // Show modal immediately with roadmap-level data (title; story+description come from detail)
             document.getElementById('modal-title').innerText = currentTask.title;
-            document.getElementById('modal-story').innerText = currentTask.story;
+            document.getElementById('modal-story').innerText = currentTask.story || '';
             setQuestInstructions(currentTask);
 
             const editor = document.getElementById('code-editor');
@@ -6271,6 +6308,11 @@
                 currentTask.initial_code = detail.initial_code;
                 currentTask.resources = detail.resources;
                 currentTask.video_url = detail.video_url;
+                // story+description are no longer in roadmap response (memory optimization)
+                if (detail.story) currentTask.story = detail.story;
+                if (detail.description) currentTask.description = detail.description;
+                // Update modal with freshly loaded story
+                if (detail.story) document.getElementById('modal-story').innerText = detail.story;
             }
 
             // Re-run instructions to pick up resources from detail
@@ -11226,7 +11268,7 @@
 
         // Hook into enterApp to start tracker and update quiz button
         const _originalEnterApp = enterApp;
-        enterApp = function() {
+        enterApp = function () {
             _originalEnterApp();
             updateQuizButtonState();
             _initInactivityTracker();
@@ -11234,7 +11276,7 @@
 
         // Hook into syncDashboardData to keep quiz button updated
         const _originalSyncDashboard = syncDashboardData;
-        syncDashboardData = async function(opts) {
+        syncDashboardData = async function (opts) {
             const result = await _originalSyncDashboard(opts);
             updateQuizButtonState();
             return result;
