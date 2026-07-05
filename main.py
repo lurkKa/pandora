@@ -83,7 +83,7 @@ _MEM_WARN_PCT = float(os.getenv("PANDORA_MEM_WARN_PCT", "0.55"))   # 55% → GC
 _MEM_HIGH_PCT = float(os.getenv("PANDORA_MEM_HIGH_PCT", "0.65"))   # 65% → evict caches
 _MEM_CRIT_PCT = float(os.getenv("PANDORA_MEM_CRIT_PCT", "0.78"))   # 78% → shed mode (503)
 _MEM_SENTINEL_INTERVAL_S = float(os.getenv("PANDORA_MEM_SENTINEL_INTERVAL_S", "1.5"))
-_MAX_CONCURRENT_REQUESTS = int(os.getenv("PANDORA_MAX_CONCURRENT_REQUESTS", "20"))
+_MAX_CONCURRENT_REQUESTS = int(os.getenv("PANDORA_MAX_CONCURRENT_REQUESTS", "12"))
 _FLOOD_LIMIT_PER_MINUTE = int(os.getenv("PANDORA_FLOOD_LIMIT_PER_MINUTE", "400"))
 _FLOOD_UNAUTH_LIMIT_PER_MINUTE = int(os.getenv("PANDORA_FLOOD_UNAUTH_LIMIT_PER_MINUTE", "240"))
 _FLOOD_GLOBAL_PER_SECOND = int(os.getenv("PANDORA_FLOOD_GLOBAL_PER_SECOND", "500"))
@@ -541,6 +541,14 @@ JWT_EXPIRE_HOURS = 24
 # skip DB-backed session revocation and rely on JWT expiry only.
 STATELESS_AUTH = (os.getenv("PANDORA_STATELESS_AUTH") or "0") == "1"
 LOW_RESOURCE_MODE = (os.getenv("PANDORA_LOW_RESOURCE_MODE") or "0") == "1"
+WARM_HEAVY_CACHES = (
+    os.getenv("PANDORA_WARM_HEAVY_CACHES")
+    or ("0" if LOW_RESOURCE_MODE else "1")
+) == "1"
+CACHE_UNCOMPRESSED_TASKS = (
+    os.getenv("PANDORA_CACHE_UNCOMPRESSED_TASKS")
+    or ("0" if LOW_RESOURCE_MODE else "1")
+) == "1"
 
 # Rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -2961,10 +2969,9 @@ async def _startup() -> None:
     try:
         import anyio
         anyio.to_thread.current_default_thread_limiter().total_tokens = 8
-        logger.info("✓ anyio thread limiter raised to 8")
+        logger.info("✓ anyio thread limiter set to 8")
     except Exception as e:
         logger.warning("Could not adjust anyio thread limiter: %s", e)
-        return
 
     global JWT_SECRET
 
@@ -2990,20 +2997,22 @@ async def _startup() -> None:
     init_db()
     logger.info("SERVER STARTUP | PANDORA Sensei Node v3.0 | orjson=%s", _HAS_ORJSON)
 
-    # Warm-up heavy caches at startup to eliminate cold-start latency on first request.
-    # Without this, the first /api/tasks request takes ~810ms to build the cache.
-    try:
-        _get_preserialized_tasks_response()
-        logger.info("✓ Tasks cache warmed up at startup")
-    except Exception as e:
-        logger.warning("Tasks cache warm-up failed (non-fatal): %s", e)
+    if WARM_HEAVY_CACHES:
+        # Optional on larger hosts. On 512MB Render this costs ~100MB RSS before
+        # the first user request, so low-resource mode keeps these caches lazy.
+        try:
+            _get_preserialized_tasks_response(want_gzip=True)
+            logger.info("✓ Tasks cache warmed up at startup")
+        except Exception as e:
+            logger.warning("Tasks cache warm-up failed (non-fatal): %s", e)
 
-    # Warm up check_logic cache so concurrent Run clicks don't trigger cold-cache parse.
-    try:
-        cl_count = len(_ensure_check_logic_cache())
-        logger.info("✓ Check-logic cache warmed up at startup: %d tasks", cl_count)
-    except Exception as e:
-        logger.warning("Check-logic cache warm-up failed (non-fatal): %s", e)
+        try:
+            cl_count = len(_ensure_check_logic_cache())
+            logger.info("✓ Check-logic cache warmed up at startup: %d tasks", cl_count)
+        except Exception as e:
+            logger.warning("Check-logic cache warm-up failed (non-fatal): %s", e)
+    else:
+        logger.info("Heavy cache warm-up disabled; caches will load lazily")
 
     # Reclaim transient memory from JSON parsing / cache building.
     # On the 512MB Render free tier this can free 15-30MB of unreachable objects.
@@ -4957,6 +4966,7 @@ def download_sqlite_backup(admin: dict = Depends(require_admin)):
 # ==================== TASK ROUTES ====================
 
 _TASKS_CACHE: dict = {"mtime": None, "legacy_mtime": None, "external_mtime": None, "data": None}
+_TASKS_LOAD_LOCK = __import__('threading').RLock()
 _TASKS_BY_ID_CACHE: dict = {"tasks_data_id": None, "data": {}}
 
 # Pre-serialized JSON cache for heavy endpoints.
@@ -4969,13 +4979,18 @@ import gzip as _gzip_mod
 _PRESERIALIZED_TASKS_CACHE: dict = {"tasks_data_id": None, "json_bytes": b"", "gzip_bytes": b"", "etag": ""}
 _PRESERIALIZED_TASKS_LOCK = __import__('threading').Lock()
 
-def _get_preserialized_tasks_response() -> tuple[bytes, bytes, str]:
+def _get_preserialized_tasks_response(want_gzip: bool = True) -> tuple[bytes, bytes, str]:
     """Return (json_bytes, gzip_bytes, etag) for the full unfiltered /api/tasks response."""
     data = load_tasks()
     data_id = id(data)
     with _PRESERIALIZED_TASKS_LOCK:
-        if _PRESERIALIZED_TASKS_CACHE["tasks_data_id"] == data_id and _PRESERIALIZED_TASKS_CACHE["json_bytes"]:
-            return _PRESERIALIZED_TASKS_CACHE["json_bytes"], _PRESERIALIZED_TASKS_CACHE["gzip_bytes"], _PRESERIALIZED_TASKS_CACHE["etag"]
+        if _PRESERIALIZED_TASKS_CACHE["tasks_data_id"] == data_id:
+            cached_json = _PRESERIALIZED_TASKS_CACHE["json_bytes"]
+            cached_gzip = _PRESERIALIZED_TASKS_CACHE["gzip_bytes"]
+            if want_gzip and cached_gzip:
+                return cached_json, cached_gzip, _PRESERIALIZED_TASKS_CACHE["etag"]
+            if not want_gzip and cached_json:
+                return cached_json, cached_gzip, _PRESERIALIZED_TASKS_CACHE["etag"]
 
     # Build outside lock (CPU-bound serialization).
     tasks_public = [public_task(t) for t in data.get("tasks", []) if not is_archived_task_id(t.get("id"))]
@@ -4986,11 +5001,14 @@ def _get_preserialized_tasks_response() -> tuple[bytes, bytes, str]:
 
     with _PRESERIALIZED_TASKS_LOCK:
         _PRESERIALIZED_TASKS_CACHE["tasks_data_id"] = data_id
-        _PRESERIALIZED_TASKS_CACHE["json_bytes"] = json_bytes
+        _PRESERIALIZED_TASKS_CACHE["json_bytes"] = json_bytes if CACHE_UNCOMPRESSED_TASKS else b""
         _PRESERIALIZED_TASKS_CACHE["gzip_bytes"] = gzip_bytes
         _PRESERIALIZED_TASKS_CACHE["etag"] = etag
 
-    logger.info("Pre-serialized /api/tasks cache built: %d bytes (gzip: %d), etag=%s", len(json_bytes), len(gzip_bytes), etag)
+    logger.info(
+        "Pre-serialized /api/tasks cache built: %d bytes (gzip: %d), etag=%s, keep_json=%s",
+        len(json_bytes), len(gzip_bytes), etag, CACHE_UNCOMPRESSED_TASKS,
+    )
     return json_bytes, gzip_bytes, etag
 
 ARCHIVED_TASK_ID_PREFIXES: tuple[str, ...] = (
@@ -5170,6 +5188,11 @@ def resources_for_task(task: dict) -> dict:
     return {"docs": _dedupe_resources(docs), "videos": _dedupe_resources(videos)}
 
 def load_tasks() -> dict:
+    with _TASKS_LOAD_LOCK:
+        return _load_tasks_locked()
+
+
+def _load_tasks_locked() -> dict:
     """Load tasks with priority: tasks_external_all_available.json (contains all
     original + Codewars/LeetCode tasks) > tasks.json > empty.
     Also merges optional tasks_legacy.json.
@@ -6068,6 +6091,31 @@ def get_task_history(task_id: str, user: dict = Depends(require_auth)):
 # the full ~200MB _TASKS_CACHE in memory (GC root leak).
 _ROADMAP_BASE_CACHE: dict = {"tasks_data_id": None, "base_tasks": [], "meta": {}, "categories": [], "totals": {}}
 _ROADMAP_BASE_LOCK = __import__('threading').Lock()
+_ROADMAP_BUILD_CONCURRENCY = max(
+    1,
+    int(os.getenv("PANDORA_ROADMAP_BUILD_CONCURRENCY", "4" if LOW_RESOURCE_MODE else "8")),
+)
+_ROADMAP_BUILD_WAIT_S = float(os.getenv("PANDORA_ROADMAP_BUILD_WAIT_S", "12"))
+_ROADMAP_BUILD_SEMAPHORE = _threading.Semaphore(_ROADMAP_BUILD_CONCURRENCY)
+
+
+def _roadmap_build_limited(func):
+    def wrapper(request: Request, user: dict = Depends(require_auth)):
+        acquired = _ROADMAP_BUILD_SEMAPHORE.acquire(timeout=max(0.0, _ROADMAP_BUILD_WAIT_S))
+        if not acquired:
+            return JSONResponse(
+                status_code=503,
+                content={"detail": "Roadmap is busy. Retry shortly."},
+                headers={"Retry-After": "2"},
+            )
+        try:
+            return func(request, user)
+        finally:
+            _ROADMAP_BUILD_SEMAPHORE.release()
+
+    wrapper.__name__ = getattr(func, "__name__", "roadmap_build_limited")
+    wrapper.__doc__ = getattr(func, "__doc__", None)
+    return wrapper
 
 def _get_roadmap_base():
     """Return cached (base_lite_tasks, meta, categories, totals).
@@ -6076,9 +6124,9 @@ def _get_roadmap_base():
     tasks_by_id dict, which previously pinned the entire _TASKS_CACHE
     in memory even after cache eviction.
     """
-    data = load_tasks()
-    data_id = id(data)
     with _ROADMAP_BASE_LOCK:
+        data = load_tasks()
+        data_id = id(data)
         if _ROADMAP_BASE_CACHE["tasks_data_id"] == data_id and _ROADMAP_BASE_CACHE["base_tasks"]:
             return (
                 _ROADMAP_BASE_CACHE["base_tasks"],
@@ -6087,33 +6135,33 @@ def _get_roadmap_base():
                 _ROADMAP_BASE_CACHE["totals"],
             )
 
-    tasks_raw = data.get("tasks", [])
-    tbi = _tasks_by_id()
-    totals = _task_totals_by_category_and_tier(tbi)
+        tasks_raw = data.get("tasks", [])
+        tbi = _tasks_by_id()
+        totals = _task_totals_by_category_and_tier(tbi)
 
-    base_tasks = []
-    for t in tasks_raw:
-        tid = str(t.get("id") or "")
-        pt = public_task_lite(t)
-        pt["_tid"] = tid
-        pt["_archived"] = is_archived_task_id(tid)
-        base_tasks.append(pt)
+        base_tasks = []
+        for t in tasks_raw:
+            tid = str(t.get("id") or "")
+            pt = public_task_lite(t)
+            pt["_tid"] = tid
+            pt["_archived"] = is_archived_task_id(tid)
+            base_tasks.append(pt)
 
-    meta = data.get("meta", {})
-    categories = data.get("categories", [])
+        meta = data.get("meta", {})
+        categories = data.get("categories", [])
 
-    with _ROADMAP_BASE_LOCK:
         _ROADMAP_BASE_CACHE["tasks_data_id"] = data_id
         _ROADMAP_BASE_CACHE["base_tasks"] = base_tasks
         _ROADMAP_BASE_CACHE["meta"] = meta
         _ROADMAP_BASE_CACHE["categories"] = categories
         _ROADMAP_BASE_CACHE["totals"] = totals
 
-    logger.info("Roadmap base cache built: %d tasks (no tasks_by_id refs)", len(base_tasks))
-    return base_tasks, meta, categories, totals
+        logger.info("Roadmap base cache built: %d tasks (no tasks_by_id refs)", len(base_tasks))
+        return base_tasks, meta, categories, totals
 
 
 @app.get("/api/roadmap")
+@_roadmap_build_limited
 def get_roadmap(request: Request, user: dict = Depends(require_auth)):
     """Return tasks annotated with completion + unlock state for the current user.
 
@@ -7219,13 +7267,14 @@ def get_tasks(
     """
     # Fast path: no filters → serve pre-serialized bytes + ETag
     if not category and not tier and not shuffle:
-        json_bytes, gzip_bytes, etag = _get_preserialized_tasks_response()
+        accept_enc = request.headers.get("accept-encoding") or ""
+        wants_gzip = "gzip" in accept_enc
+        json_bytes, gzip_bytes, etag = _get_preserialized_tasks_response(want_gzip=wants_gzip)
         # ETag / 304 support: avoid sending 24MB if client already has it
         client_etag = (request.headers.get("if-none-match") or "").strip('" ')
         if client_etag and client_etag == etag:
             return Response(status_code=304)
         # Serve pre-compressed gzip if client accepts it (bypasses GZipMiddleware)
-        accept_enc = request.headers.get("accept-encoding") or ""
         if "gzip" in accept_enc and gzip_bytes:
             return Response(
                 content=gzip_bytes,

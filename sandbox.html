@@ -242,14 +242,14 @@ async function joinRoom(id){
  if(POLL_ID)clearInterval(POLL_ID);
  await pollRoom();
  _prevCode=document.getElementById('code').value;
- POLL_ID=setInterval(pollRoom,2000);
+ POLL_ID=setInterval(pollRoom,3000);
  loadRooms();
  document.getElementById('code').focus();
  appendConsole(`📂 Вошёл в комнату #${id}`,'info');
 }
 
 async function pollRoom(){
- if(!ROOM)return;
+ if(!ROOM||!tabVisible)return;
  const d=await api('/api/sandbox/poll?room_id='+ROOM.id);if(!d)return;
  ROOM.name=d.name;ROOM.language=d.language;ROOM.is_saved=d.is_saved;
  document.getElementById('room-title').innerHTML=esc(d.name)+(d.is_saved?' <span class="saved">💾 saved</span>':'');

@@ -5213,6 +5213,10 @@
             }
         }
 
+        function sleepMs(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
         async function init() {
             bindFrontendHintButton();
 
@@ -5542,15 +5546,25 @@
 
         async function loadRoadmap() {
             try {
-                // Load tasks and priorities in parallel
-                const [tasksResp, prioritiesResp] = await Promise.all([
-                    fetchJsonWithTimeout(`${API_URL}/api/roadmap`, {
+                const prioritiesPromise = fetchJsonWithTimeout(`${API_URL}/api/user/priorities`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                }).catch(() => null);
+
+                let tasksResp = null;
+                for (let attempt = 0; attempt < 5; attempt++) {
+                    tasksResp = await fetchJsonWithTimeout(`${API_URL}/api/roadmap`, {
                         headers: { 'Authorization': `Bearer ${authToken}` }
-                    }),
-                    fetchJsonWithTimeout(`${API_URL}/api/user/priorities`, {
-                        headers: { 'Authorization': `Bearer ${authToken}` }
-                    }).catch(() => null) // Graceful fallback if priorities API fails
-                ]);
+                    });
+
+                    const busy = tasksResp?.res && (tasksResp.res.status === 503 || tasksResp.res.status === 429);
+                    if (!busy || attempt === 4) break;
+
+                    const retryAfter = Number(tasksResp.res.headers.get('retry-after') || 0);
+                    const delay = Math.max(600 + attempt * 500, retryAfter * 1000) + Math.floor(Math.random() * 250);
+                    await sleepMs(delay);
+                }
+
+                const prioritiesResp = await prioritiesPromise;
 
                 if (!tasksResp?.res?.ok) {
                     throw new Error('Roadmap request failed');

@@ -264,12 +264,13 @@ async function leaveLobby() {
 }
 
 // ── Polling ──
-function startPolling() { stopPolling(); pollTimer = setInterval(pollSession, 2000); pollSession(); }
+function startPolling() { stopPolling(); pollTimer = setInterval(pollSession, 3000); pollSession(); }
 function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
 
 let lastStatus = '';
 async function pollSession() {
   if (!currentCode) return;
+  if (document.hidden) return;
   try {
     const s = await api(`/api/quiz/session/${currentCode}`);
     if (s.status === 'expired') { stopPolling(); alert('Сессия истекла'); show('view-menu'); loadDailyInfo(); return; }
@@ -406,6 +407,10 @@ async function submitAnswer(idx) {
     alert(e.message || 'Не удалось отправить ответ');
   }
 }
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && currentCode) pollSession();
+});
 
 // ── Feedback ──
 function renderFeedback(s) {

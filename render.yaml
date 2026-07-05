@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1 --limit-concurrency 200 --timeout-keep-alive 5
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1 --limit-concurrency 64 --timeout-keep-alive 3
     healthCheckPath: /ping
     envVars:
       - key: PANDORA_JWT_SECRET
@@ -21,6 +21,16 @@ services:
         value: "1"
       - key: PANDORA_LOW_RESOURCE_MODE
         value: "1"
+      - key: PANDORA_WARM_HEAVY_CACHES
+        value: "0"
+      - key: PANDORA_CACHE_UNCOMPRESSED_TASKS
+        value: "0"
+      - key: PANDORA_MAX_CONCURRENT_REQUESTS
+        value: "12"
+      - key: PANDORA_ROADMAP_BUILD_CONCURRENCY
+        value: "4"
+      - key: PANDORA_ROADMAP_BUILD_WAIT_S
+        value: "12"
       - key: PANDORA_SKIP_AUTOCHECK_REVIEWABLE_ON_LOW_RESOURCE
         value: "0"
       - key: PANDORA_MANUAL_REVIEW_FOR_REVIEWABLE_TIERS
