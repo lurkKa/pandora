@@ -69,6 +69,21 @@ except ImportError:
     def _fast_json_bytes(obj) -> bytes:
         return json.dumps(obj, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
 
+# Task data layer: slim in-heap metadata + on-disk SQLite store for heavy fields.
+# tasks.json (40MB) is parsed once at BUILD time (task_store.py --build), never
+# in the serving process — see task_store.py for the memory rationale.
+import task_store
+from task_shapes import (
+    ARCHIVED_TASK_ID_PREFIXES,
+    _DEFAULT_RESOURCES,
+    _dedupe_resources,
+    is_archived_task_id,
+    lite_task,
+    public_task,
+    public_task_lite,
+    resources_for_task,
+)
+
 # ==================== MEMORY FORTRESS (512MB Render Protection) ====================
 # 8-layer defense against OOM kills from flood attacks (hey.exe -n 10000 -c 1000).
 # Layers: RSS Sentinel, Concurrency Limiter, Flood Shield, Body Size Guard,
@@ -111,24 +126,37 @@ def _get_rss_mb() -> float:
     except Exception:
         return 0.0
 
+def _malloc_trim():
+    """Return freed heap pages to the OS (glibc).  Without this, RSS stays at
+    its high-water mark even after caches are dropped, so the sentinel keeps
+    seeing 'high memory' and thrashing.  No-op on non-glibc platforms."""
+    try:
+        import ctypes
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+        return True
+    except Exception:
+        return False
+
+
 def _evict_caches_for_pressure():
-    """Drop optional in-memory caches to free RAM under memory pressure."""
+    """Drop optional in-memory caches to free RAM under memory pressure.
+
+    IMPORTANT (post task-store): every cache here is cheap to rebuild from
+    SQLite (milliseconds, a few MB) — eviction can no longer trigger the old
+    'next request re-parses the 40MB tasks.json' OOM spiral.
+    """
     global _memory_sentinel_stats
     freed_items = 0
 
-    # 1. Preserialized tasks cache (~30MB)
+    # 1. task-store per-row LRUs (full/public task rows)
     try:
-        from main import _PRESERIALIZED_TASKS_CACHE, _PRESERIALIZED_TASKS_LOCK
-        with _PRESERIALIZED_TASKS_LOCK:
-            if _PRESERIALIZED_TASKS_CACHE.get("json_bytes"):
-                _PRESERIALIZED_TASKS_CACHE["json_bytes"] = b""
-                _PRESERIALIZED_TASKS_CACHE["gzip_bytes"] = b""
-                _PRESERIALIZED_TASKS_CACHE["tasks_data_id"] = None
-                freed_items += 1
+        import task_store as _ts
+        _ts.clear_caches()
+        freed_items += 1
     except Exception:
         pass
 
-    # 2. Roadmap base cache
+    # 2. Roadmap base cache (rebuilt from the lite bundle)
     try:
         from main import _ROADMAP_BASE_CACHE, _ROADMAP_BASE_LOCK
         with _ROADMAP_BASE_LOCK:
@@ -148,7 +176,7 @@ def _evict_caches_for_pressure():
     except Exception:
         pass
 
-    # 4. Check-logic cache (populated by _ensure_check_logic_cache)
+    # 4. Legacy check-logic cache (only ever populated when the store is absent)
     try:
         from main import _CHECK_LOGIC_CACHE, _CHECK_LOGIC_CACHE_LOCK
         with _CHECK_LOGIC_CACHE_LOCK:
@@ -159,7 +187,7 @@ def _evict_caches_for_pressure():
     except Exception:
         pass
 
-    # 5. Main tasks cache (~200MB) — the biggest single allocation.
+    # 5. Lite task bundle (~25MB) — reloads from SQLite in ~0.5s on next use.
     # _TASKS_BY_ID_CACHE holds refs into _TASKS_CACHE, so clear it first.
     try:
         from main import _TASKS_BY_ID_CACHE
@@ -174,6 +202,7 @@ def _evict_caches_for_pressure():
         from main import _TASKS_CACHE
         if _TASKS_CACHE.get("data") is not None:
             _TASKS_CACHE["data"] = None
+            _TASKS_CACHE["store_version"] = None
             _TASKS_CACHE["mtime"] = None
             _TASKS_CACHE["legacy_mtime"] = None
             _TASKS_CACHE["external_mtime"] = None
@@ -183,6 +212,7 @@ def _evict_caches_for_pressure():
 
     _memory_sentinel_stats["cache_evictions"] += 1
     _gc.collect(2)  # Full collection including cyclic garbage
+    _malloc_trim()  # actually hand the pages back to the kernel
     return freed_items
 
 
@@ -359,12 +389,19 @@ class MemoryShieldMiddleware:
 
 
 class FloodShieldMiddleware:
-    """ASGI middleware: per-IP + global rate limiting.
+    """ASGI middleware: per-client + global rate limiting.
 
     Layers:
-    - Global rate limit: _FLOOD_GLOBAL_PER_SECOND across ALL IPs (absorbs DDoS/hey.exe)
-    - Per-IP limit: _FLOOD_LIMIT_PER_MINUTE for authenticated, _FLOOD_UNAUTH_LIMIT_PER_MINUTE for unauthenticated
-    - Bounded dict (max 2048 IPs). Oldest entries evicted on overflow.
+    - Global rate limit: _FLOOD_GLOBAL_PER_SECOND across ALL clients (absorbs DDoS/hey.exe)
+    - Per-client limit: _FLOOD_LIMIT_PER_MINUTE for authenticated, _FLOOD_UNAUTH_LIMIT_PER_MINUTE
+      for unauthenticated.
+      CLASSROOM-CRITICAL: authenticated requests are bucketed by TOKEN, not IP —
+      a whole class behind one school NAT must not share a single IP budget
+      (with 50 students on one IP the old per-IP key throttled everyone).
+      Unauthenticated requests still bucket per-IP.  Fake rotating tokens can't
+      dodge limits meaningfully: the global cap still applies, the table is
+      bounded, and each bogus request dies at JWT verification anyway.
+    - Bounded dict (max 2048 clients). Oldest entries evicted on overflow.
     - Health/ping endpoints are exempt to avoid blocking Render health checks.
     """
 
@@ -391,12 +428,15 @@ class FloodShieldMiddleware:
         client = scope.get("client")
         return client[0] if client else "unknown"
 
-    def _has_auth_header(self, scope) -> bool:
-        """Quick check for Authorization header presence (no validation)."""
+    def _auth_bucket(self, scope) -> Optional[str]:
+        """Rate-bucket key for authenticated requests: a slice of the bearer
+        token (no validation here — bogus tokens die at JWT verify).  Returns
+        None when unauthenticated.  Token tails are secret, so a targeted
+        bucket collision against another user is not feasible."""
         for hdr_name, hdr_val in scope.get("headers", []):
-            if hdr_name == b"authorization" and hdr_val.startswith(b"Bearer "):
-                return True
-        return False
+            if hdr_name == b"authorization" and hdr_val.startswith(b"Bearer ") and len(hdr_val) > 27:
+                return "t:" + hdr_val[-20:].decode("latin-1")
+        return None
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -422,12 +462,13 @@ class FloodShieldMiddleware:
             return
         gw.append(now)
 
-        # --- Per-IP rate limit ---
-        ip = self._get_ip(scope)
+        # --- Per-client rate limit (token bucket for authed, IP for anonymous) ---
+        auth_bucket = self._auth_bucket(scope)
+        key = auth_bucket or self._get_ip(scope)
         cutoff = now - self._window_s
 
-        # Get or create window for this IP
-        window = self._ip_windows.get(ip)
+        # Get or create window for this client
+        window = self._ip_windows.get(key)
         if window is None:
             # Evict oldest IPs if table is full
             if len(self._ip_windows) >= _FLOOD_IP_TABLE_MAX:
@@ -436,15 +477,14 @@ class FloodShieldMiddleware:
                 for k in to_remove:
                     del self._ip_windows[k]
             window = []
-            self._ip_windows[ip] = window
+            self._ip_windows[key] = window
 
         # Prune expired timestamps
         while window and window[0] < cutoff:
             window.pop(0)
 
         # Unauthenticated requests get a stricter per-IP limit
-        has_auth = self._has_auth_header(scope)
-        effective_limit = self._limit if has_auth else self._unauth_limit
+        effective_limit = self._limit if auth_bucket else self._unauth_limit
 
         if len(window) >= effective_limit:
             await _send_error_response(send, 429, b'{"detail":"Rate limit exceeded. Slow down."}')
@@ -541,14 +581,8 @@ JWT_EXPIRE_HOURS = 24
 # skip DB-backed session revocation and rely on JWT expiry only.
 STATELESS_AUTH = (os.getenv("PANDORA_STATELESS_AUTH") or "0") == "1"
 LOW_RESOURCE_MODE = (os.getenv("PANDORA_LOW_RESOURCE_MODE") or "0") == "1"
-WARM_HEAVY_CACHES = (
-    os.getenv("PANDORA_WARM_HEAVY_CACHES")
-    or ("0" if LOW_RESOURCE_MODE else "1")
-) == "1"
-CACHE_UNCOMPRESSED_TASKS = (
-    os.getenv("PANDORA_CACHE_UNCOMPRESSED_TASKS")
-    or ("0" if LOW_RESOURCE_MODE else "1")
-) == "1"
+# (PANDORA_WARM_HEAVY_CACHES / PANDORA_CACHE_UNCOMPRESSED_TASKS removed: heavy
+# payloads are prebuilt on disk by task_store; only the slim bundle is warmed.)
 
 # Rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -2966,12 +3000,27 @@ async def _startup() -> None:
         return
 
     # Raise anyio default threadpool for concurrent blocking I/O (bcrypt, sqlite).
+    # 16 threads: handlers are cheap post task-store (304s, single-row fetches);
+    # this is throughput headroom for ~50 polling users, while MemoryShield
+    # still caps genuinely concurrent heavy work.
     try:
         import anyio
-        anyio.to_thread.current_default_thread_limiter().total_tokens = 8
-        logger.info("✓ anyio thread limiter set to 8")
+        _tp_tokens = int(os.getenv("PANDORA_THREADPOOL_TOKENS", "16"))
+        anyio.to_thread.current_default_thread_limiter().total_tokens = _tp_tokens
+        logger.info("✓ anyio thread limiter set to %d", _tp_tokens)
     except Exception as e:
         logger.warning("Could not adjust anyio thread limiter: %s", e)
+
+    # Task store: build/refresh BEFORE serving traffic (on Render it is prebuilt
+    # by buildCommand, so this is a no-op fingerprint check; locally a stale or
+    # missing store is built in a subprocess whose memory returns to the OS).
+    try:
+        if task_store.ensure_store():
+            logger.info("✓ task_store ready (%d tasks with check_logic)", task_store.check_logic_count())
+        else:
+            logger.warning("task_store unavailable — falling back to direct JSON parsing (dev mode)")
+    except Exception as e:
+        logger.warning("task_store init failed (non-fatal, JSON fallback active): %s", e)
 
     global JWT_SECRET
 
@@ -2997,27 +3046,23 @@ async def _startup() -> None:
     init_db()
     logger.info("SERVER STARTUP | PANDORA Sensei Node v3.0 | orjson=%s", _HAS_ORJSON)
 
-    if WARM_HEAVY_CACHES:
-        # Optional on larger hosts. On 512MB Render this costs ~100MB RSS before
-        # the first user request, so low-resource mode keeps these caches lazy.
-        try:
-            _get_preserialized_tasks_response(want_gzip=True)
-            logger.info("✓ Tasks cache warmed up at startup")
-        except Exception as e:
-            logger.warning("Tasks cache warm-up failed (non-fatal): %s", e)
+    # Warm the slim lite bundle + roadmap base (bounded: ~25MB total, loads from
+    # SQLite in <1s).  Heavy payloads live on disk now, so warm-up no longer
+    # costs 100MB and is safe even on the 512MB tier.
+    try:
+        bundle = load_tasks()
+        _get_roadmap_base()
+        logger.info("✓ Lite task bundle warmed: %d tasks", len(bundle.get("tasks", [])))
+    except Exception as e:
+        logger.warning("Task bundle warm-up failed (non-fatal): %s", e)
 
-        try:
-            cl_count = len(_ensure_check_logic_cache())
-            logger.info("✓ Check-logic cache warmed up at startup: %d tasks", cl_count)
-        except Exception as e:
-            logger.warning("Check-logic cache warm-up failed (non-fatal): %s", e)
-    else:
-        logger.info("Heavy cache warm-up disabled; caches will load lazily")
-
-    # Reclaim transient memory from JSON parsing / cache building.
-    # On the 512MB Render free tier this can free 15-30MB of unreachable objects.
+    # Reclaim transient memory from startup, then freeze survivors: the warmed
+    # bundle (~500k long-lived objects) is excluded from future GC scans, which
+    # keeps collection pauses short under load.
     _gc.collect()
-    logger.info("✓ Post-startup GC completed")
+    _gc.freeze()
+    _malloc_trim()
+    logger.info("✓ Post-startup GC + freeze completed")
 
     # ── Memory Fortress: start sentinel and set hard limits ──
     _setup_resource_limits()
@@ -4965,238 +5010,67 @@ def download_sqlite_backup(admin: dict = Depends(require_admin)):
 
 # ==================== TASK ROUTES ====================
 
-_TASKS_CACHE: dict = {"mtime": None, "legacy_mtime": None, "external_mtime": None, "data": None}
+_TASKS_CACHE: dict = {"mtime": None, "legacy_mtime": None, "external_mtime": None, "data": None, "store_version": None}
 _TASKS_LOAD_LOCK = __import__('threading').RLock()
 _TASKS_BY_ID_CACHE: dict = {"tasks_data_id": None, "data": {}}
 
-# Pre-serialized JSON cache for heavy endpoints.
-# Instead of re-serializing 24-38MB of JSON on every request (blocking the event
-# loop for ~1.2s per request), we cache the serialized bytes and serve them
-# directly via fastapi.responses.Response.  Cache is keyed on tasks_data_id
-# (the id() of the loaded dict) so it auto-invalidates when tasks.json reloads.
 import gzip as _gzip_mod
 
-_PRESERIALIZED_TASKS_CACHE: dict = {"tasks_data_id": None, "json_bytes": b"", "gzip_bytes": b"", "etag": ""}
-_PRESERIALIZED_TASKS_LOCK = __import__('threading').Lock()
+# The full /api/tasks body is prebuilt on disk by task_store (json + gzip twin,
+# streamed at build time) and served via FileResponse — zero heap per request.
+# This replaces the old in-memory pre-serialized cache (24MB json + gzip bytes
+# whose eviction/rebuild cycle was a major OOM driver on the 512MB tier).
 
-def _get_preserialized_tasks_response(want_gzip: bool = True) -> tuple[bytes, bytes, str]:
-    """Return (json_bytes, gzip_bytes, etag) for the full unfiltered /api/tasks response."""
-    data = load_tasks()
-    data_id = id(data)
-    with _PRESERIALIZED_TASKS_LOCK:
-        if _PRESERIALIZED_TASKS_CACHE["tasks_data_id"] == data_id:
-            cached_json = _PRESERIALIZED_TASKS_CACHE["json_bytes"]
-            cached_gzip = _PRESERIALIZED_TASKS_CACHE["gzip_bytes"]
-            if want_gzip and cached_gzip:
-                return cached_json, cached_gzip, _PRESERIALIZED_TASKS_CACHE["etag"]
-            if not want_gzip and cached_json:
-                return cached_json, cached_gzip, _PRESERIALIZED_TASKS_CACHE["etag"]
-
-    # Build outside lock (CPU-bound serialization).
-    tasks_public = [public_task(t) for t in data.get("tasks", []) if not is_archived_task_id(t.get("id"))]
-    payload = {"meta": data.get("meta", {}), "categories": data.get("categories", []), "tasks": tasks_public}
-    json_bytes = _fast_json_bytes(payload)
-    gzip_bytes = _gzip_mod.compress(json_bytes, compresslevel=6)
-    etag = hashlib.md5(json_bytes[:4096] + len(json_bytes).to_bytes(8, 'little')).hexdigest()[:16]
-
-    with _PRESERIALIZED_TASKS_LOCK:
-        _PRESERIALIZED_TASKS_CACHE["tasks_data_id"] = data_id
-        _PRESERIALIZED_TASKS_CACHE["json_bytes"] = json_bytes if CACHE_UNCOMPRESSED_TASKS else b""
-        _PRESERIALIZED_TASKS_CACHE["gzip_bytes"] = gzip_bytes
-        _PRESERIALIZED_TASKS_CACHE["etag"] = etag
-
-    logger.info(
-        "Pre-serialized /api/tasks cache built: %d bytes (gzip: %d), etag=%s, keep_json=%s",
-        len(json_bytes), len(gzip_bytes), etag, CACHE_UNCOMPRESSED_TASKS,
-    )
-    return json_bytes, gzip_bytes, etag
-
-ARCHIVED_TASK_ID_PREFIXES: tuple[str, ...] = (
-    # Legacy packs: generic/duplicate content and (historically) mixed schemas.
-    "py_nova_",
-    "js_nova_",
-    "fe_nova_",
-    "sc_nova_",
-    "py_v3_",
-    "js_v3_",
-    "fe_v3_",
-    "sc_v3_",
-)
-
-def is_archived_task_id(task_id: str) -> bool:
-    tid = str(task_id or "")
-    return any(tid.startswith(p) for p in ARCHIVED_TASK_ID_PREFIXES)
-
-def _dedupe_resources(items: list[dict]) -> list[dict]:
-    """Deduplicate resources by URL, preserving order."""
-    seen: set[str] = set()
-    out: list[dict] = []
-    for it in items or []:
-        if not isinstance(it, dict):
-            continue
-        url = str(it.get("url") or "").strip()
-        title = str(it.get("title") or "").strip()
-        if not url:
-            continue
-        if url in seen:
-            continue
-        seen.add(url)
-        out.append({"title": title or url, "url": url})
-    return out
-
-_DEFAULT_RESOURCES: dict[str, dict[str, list[dict]]] = {
-    "python": {
-        "docs": [
-            {"title": "Python: tutorial (EN)", "url": "https://docs.python.org/3/tutorial/index.html"},
-        ],
-        "videos": [
-            {"title": "Python: основы (freeCodeCamp, EN)", "url": "https://www.youtube.com/watch?v=rfscVS0vtbw"},
-        ],
-    },
-    "javascript": {
-        "docs": [
-            {"title": "MDN: руководство по JavaScript (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide"},
-        ],
-        "videos": [
-            {"title": "JavaScript: основы (freeCodeCamp, EN)", "url": "https://www.youtube.com/watch?v=PkZNo7MFNFg"},
-        ],
-    },
-    "frontend": {
-        "docs": [
-            {"title": "MDN: HTML основы (RU)", "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/HTML_basics"},
-            {"title": "MDN: CSS основы (RU)", "url": "https://developer.mozilla.org/ru/docs/Learn/Getting_started_with_the_web/CSS_basics"},
-        ],
-        "videos": [
-            {"title": "HTML: полный курс (freeCodeCamp, EN)", "url": "https://www.youtube.com/watch?v=pQN-pnXPaVg"},
-            {"title": "CSS: crash course (Traversy Media, EN)", "url": "https://www.youtube.com/watch?v=yfoY53QXEnI"},
-        ],
-    },
-    "scratch": {
-        "docs": [
-            {"title": "Scratch: идеи и туториалы", "url": "https://scratch.mit.edu/ideas"},
-            {"title": "Scratch Wiki: блоки", "url": "https://en.scratch-wiki.info/wiki/Blocks"},
-        ],
-        "videos": [
-            {"title": "Scratch Team: видео", "url": "https://www.youtube.com/@ScratchTeam/videos"},
-        ],
-    },
-}
-
-def resources_for_task(task: dict) -> dict:
-    """
-    Build per-task learning resources (docs + videos).
-    Stored server-side so the client stays dumb and tasks.json stays schema-compatible.
-    """
-    category = str(task.get("category") or "").lower()
-    explicit = task.get("resources") if isinstance(task.get("resources"), dict) else {}
-    explicit_docs = explicit.get("docs") if isinstance(explicit.get("docs"), list) else []
-    explicit_videos = explicit.get("videos") if isinstance(explicit.get("videos"), list) else []
-
-    # If tasks.json provides resources explicitly (and both groups are non-empty),
-    # treat them as authoritative.
-    if explicit_docs and explicit_videos:
-        return {"docs": _dedupe_resources(explicit_docs), "videos": _dedupe_resources(explicit_videos)}
-
-    text = " ".join(
-        [
-            str(task.get("title") or ""),
-            str(task.get("story") or ""),
-            str(task.get("description") or ""),
-            str(task.get("initial_code") or ""),
-        ]
-    ).lower()
-
-    docs: list[dict] = []
-    videos: list[dict] = []
-
-    if explicit_docs:
-        docs.extend(explicit_docs)
-    if explicit_videos:
-        videos.extend(explicit_videos)
-
-    defaults = _DEFAULT_RESOURCES.get(category) or {}
-    docs.extend(defaults.get("docs") or [])
-    videos.extend(defaults.get("videos") or [])
-
-    # Concept-sensitive docs (best-effort keyword matching; falls back to defaults).
-    if category == "python":
-        if any(k in text for k in ("регуляр", "regex", "re.")):
-            docs.insert(0, {"title": "Python: re module (EN)", "url": "https://docs.python.org/3/library/re.html"})
-        elif any(k in text for k in ("словар", "dict", "ключ", "{")):
-            docs.insert(0, {"title": "Python: dictionaries (EN)", "url": "https://docs.python.org/3/tutorial/datastructures.html#dictionaries"})
-        elif any(k in text for k in ("спис", "list", "[")):
-            docs.insert(0, {"title": "Python: lists (EN)", "url": "https://docs.python.org/3/tutorial/introduction.html#lists"})
-        elif any(k in text for k in ("цикл", "for ", "while ")):
-            docs.insert(0, {"title": "Python: control flow (EN)", "url": "https://docs.python.org/3/tutorial/controlflow.html"})
-        elif "функц" in text or "def " in text:
-            docs.insert(0, {"title": "Python: defining functions (EN)", "url": "https://docs.python.org/3/tutorial/controlflow.html#defining-functions"})
-        elif any(k in text for k in ("строк", "string", "split", "join")):
-            docs.insert(0, {"title": "Python: strings (EN)", "url": "https://docs.python.org/3/tutorial/introduction.html#strings"})
-        elif any(k in text for k in ("random", "случайн")):
-            docs.insert(0, {"title": "Python: random module (EN)", "url": "https://docs.python.org/3/library/random.html"})
-        elif any(k in text for k in ("множ", "set(")):
-            docs.insert(0, {"title": "Python: sets (EN)", "url": "https://docs.python.org/3/tutorial/datastructures.html#sets"})
-
-    elif category == "javascript":
-        if any(k in text for k in ("регуляр", "regex", "/g", "regexp")):
-            docs.insert(0, {"title": "MDN: регулярные выражения (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide/Regular_Expressions"})
-        elif any(k in text for k in ("массив", "array", "[")):
-            docs.insert(0, {"title": "MDN: Array (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Array"})
-        elif any(k in text for k in ("объект", "object", "{")):
-            docs.insert(0, {"title": "MDN: объекты (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide/Working_with_objects"})
-        elif "функц" in text or "function" in text or "=>" in text:
-            docs.insert(0, {"title": "MDN: функции (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Guide/Functions"})
-        elif any(k in text for k in ("строк", "string", ".split", ".join")):
-            docs.insert(0, {"title": "MDN: String (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/String"})
-        elif any(k in text for k in ("math", "случайн", "random")):
-            docs.insert(0, {"title": "MDN: Math (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Math"})
-        elif "date" in text or "время" in text:
-            docs.insert(0, {"title": "MDN: Date (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/JavaScript/Reference/Global_Objects/Date"})
-
-    elif category == "frontend":
-        if "grid" in text:
-            docs.insert(0, {"title": "MDN: CSS Grid (RU)", "url": "https://developer.mozilla.org/ru/docs/Learn/CSS/CSS_layout/Grids"})
-        if "flex" in text:
-            docs.insert(0, {"title": "MDN: Flexbox (RU)", "url": "https://developer.mozilla.org/ru/docs/Learn/CSS/CSS_layout/Flexbox"})
-        if any(k in text for k in ("@media", "адаптив", "responsive", "768px")):
-            docs.insert(0, {"title": "MDN: media queries (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/CSS/Media_Queries/Using_media_queries"})
-        if any(k in text for k in ("--", ":root", "переменн")):
-            docs.insert(0, {"title": "MDN: CSS-переменные (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/CSS/Using_CSS_custom_properties"})
-        if any(k in text for k in ("position", "absolute", "relative", "fixed", "sticky")):
-            docs.insert(0, {"title": "MDN: position (RU)", "url": "https://developer.mozilla.org/ru/docs/Web/CSS/position"})
-        if any(k in text for k in ("margin", "padding", "border", "box")):
-            docs.insert(0, {"title": "MDN: блочная модель (RU)", "url": "https://developer.mozilla.org/ru/docs/Learn/CSS/Building_blocks/The_box_model"})
-
-    elif category == "scratch":
-        if any(k in text for k in ("движ", "шаг", "поверн", "координат")):
-            docs.insert(0, {"title": "Scratch Wiki: Motion Blocks", "url": "https://en.scratch-wiki.info/wiki/Motion_Blocks"})
-        elif any(k in text for k in ("костюм", "сказать", "говор", "внешн")):
-            docs.insert(0, {"title": "Scratch Wiki: Looks Blocks", "url": "https://en.scratch-wiki.info/wiki/Looks_Blocks"})
-        elif any(k in text for k in ("звук", "громк")):
-            docs.insert(0, {"title": "Scratch Wiki: Sound Blocks", "url": "https://en.scratch-wiki.info/wiki/Sound_Blocks"})
-        elif any(k in text for k in ("флаж", "клик", "клавиш", "сообщен", "broadcast")):
-            docs.insert(0, {"title": "Scratch Wiki: Events Blocks", "url": "https://en.scratch-wiki.info/wiki/Events_Blocks"})
-        elif any(k in text for k in ("всегда", "повтор", "если", "таймер", "клон")):
-            docs.insert(0, {"title": "Scratch Wiki: Control Blocks", "url": "https://en.scratch-wiki.info/wiki/Control_Blocks"})
-        elif any(k in text for k in ("спрос", "касается", "сенсор")):
-            docs.insert(0, {"title": "Scratch Wiki: Sensing Blocks", "url": "https://en.scratch-wiki.info/wiki/Sensing_Blocks"})
-        elif any(k in text for k in ("переменн", "score", "level")):
-            docs.insert(0, {"title": "Scratch Wiki: Variables Blocks", "url": "https://en.scratch-wiki.info/wiki/Variables_Blocks"})
-        elif any(k in text for k in (">", "<", "=", "оператор")):
-            docs.insert(0, {"title": "Scratch Wiki: Operators Blocks", "url": "https://en.scratch-wiki.info/wiki/Operators_Blocks"})
-
-    return {"docs": _dedupe_resources(docs), "videos": _dedupe_resources(videos)}
+# (task-shaping helpers moved to task_shapes.py — imported at top)
 
 def load_tasks() -> dict:
     with _TASKS_LOAD_LOCK:
         return _load_tasks_locked()
 
 
+# Background store rebuild when tasks.json is edited on disk (dev workflow).
+# The old bundle keeps serving while a subprocess rebuilds; the loader picks
+# up the new store version on a later call.
+_TASK_STORE_REBUILD_LOCK = _threading.Lock()
+
+def _kick_task_store_rebuild() -> None:
+    if not _TASK_STORE_REBUILD_LOCK.acquire(blocking=False):
+        return
+    def _run():
+        try:
+            logger.info("task_store: sources changed — rebuilding in background")
+            task_store.rebuild_subprocess()
+        finally:
+            _TASK_STORE_REBUILD_LOCK.release()
+    _threading.Thread(target=_run, daemon=True, name="task-store-rebuild").start()
+
+
 def _load_tasks_locked() -> dict:
-    """Load tasks with priority: tasks_external_all_available.json (contains all
-    original + Codewars/LeetCode tasks) > tasks.json > empty.
-    Also merges optional tasks_legacy.json.
-    Uses a simple mtime-based cache."""
+    """Return the slim in-heap task bundle {"meta","categories","tasks"}.
+
+    Primary source: task_store.db (built from tasks.json & friends at deploy
+    time).  Only lite fields enter the heap (~4x smaller than a full parse);
+    heavy fields are fetched per-task from SQLite.  The legacy direct-JSON
+    parse below runs ONLY when the store is unavailable (fresh dev checkout).
+    """
+    ver = task_store.version()
+    if ver is not None:
+        if task_store.sources_changed():
+            _kick_task_store_rebuild()
+        cached = _TASKS_CACHE.get("data")
+        if cached is not None and _TASKS_CACHE.get("store_version") == ver:
+            return cached
+        bundle = task_store.load_lite_bundle()
+        if bundle is not None:
+            _TASKS_CACHE["data"] = bundle
+            _TASKS_CACHE["store_version"] = ver
+            _TASKS_CACHE["mtime"] = None
+            _TASKS_CACHE["legacy_mtime"] = None
+            _TASKS_CACHE["external_mtime"] = None
+            logger.info("Loaded %d lite tasks from task_store", len(bundle["tasks"]))
+            return bundle
+
+    # ── Legacy fallback: parse JSON sources directly (mtime-cached, dev only) ──
     external_path = Path("tasks_external_all_available.json")
     tasks_path = Path("tasks.json")
     legacy_path = Path("tasks_legacy.json")
@@ -5313,6 +5187,19 @@ def _ensure_check_logic_cache() -> dict:
 
 
 def _get_task_with_check_logic(task_id: str) -> Optional[dict]:
+    """Get the FULL task (all heavy fields + check_logic.cases).
+
+    Store-backed: one small SQLite row via task_store (LRU-cached) — no
+    whole-file parse on any code path.  The legacy branch below only runs
+    when the store is unavailable (dev checkout without a built store).
+    """
+    full = task_store.get_task_full(task_id)
+    if full is not None:
+        return full
+    return _get_task_with_check_logic_legacy(task_id)
+
+
+def _get_task_with_check_logic_legacy(task_id: str) -> Optional[dict]:
     """Get full task including check_logic.cases.
 
     Cases are stripped from the main in-memory cache (P2 RAM saving).
@@ -5349,52 +5236,7 @@ def _tasks_by_id() -> dict:
         _TASKS_BY_ID_CACHE["tasks_data_id"] = tasks_data_id
     return _TASKS_BY_ID_CACHE["data"]
 
-def public_task(task: dict) -> dict:
-    """Return a safe task payload for students (no expected answers)."""
-    logic = task.get("check_logic") or {}
-    return {
-        "id": task.get("id"),
-        "category": task.get("category"),
-        "tier": task.get("tier"),
-        "xp": task.get("xp"),
-        "title": task.get("title"),
-        "story": task.get("story"),
-        "description": task.get("description"),
-        "initial_code": task.get("initial_code"),
-        "topic": task.get("topic", ""),
-        "task_type": task.get("task_type", "code"),
-        "video_url": task.get("video_url", ""),
-        "resources": resources_for_task(task),
-        "prerequisites": task.get("prerequisites") or [],
-        "source_platform": task.get("source_platform", ""),
-        "tags": task.get("tags") or [],
-        "check": {
-            "engine": logic.get("engine"),
-            "case_count": logic.get("case_count", len(logic.get("cases") or [])),
-        },
-    }
-
-
-def public_task_lite(task: dict) -> dict:
-    """Lightweight task payload for board/card rendering (no heavy fields).
-    Heavy fields (initial_code, resources, video_url, description, story) are loaded
-    on-demand via /api/tasks/{task_id}/detail to reduce initial payload and memory."""
-    logic = task.get("check_logic") or {}
-    return {
-        "id": task.get("id"),
-        "category": task.get("category"),
-        "tier": task.get("tier"),
-        "xp": task.get("xp"),
-        "title": task.get("title"),
-        "topic": task.get("topic", ""),
-        "task_type": task.get("task_type", "code"),
-        "prerequisites": task.get("prerequisites") or [],
-        "source_platform": task.get("source_platform", ""),
-        "check": {
-            "engine": logic.get("engine"),
-            "case_count": logic.get("case_count", len(logic.get("cases") or [])),
-        },
-    }
+# (public_task / public_task_lite moved to task_shapes.py)
 
 EXTERNAL_TASK_PLATFORMS = {"codewars", "leetcode"}
 TASK_TIER_ORDER = ("D", "C", "B", "A", "S")
@@ -6088,34 +5930,19 @@ def get_task_history(task_id: str, user: dict = Depends(require_auth)):
 
 # Pre-cached base lite tasks (reusable across all users, invalidated on tasks.json change).
 # NOTE: This cache intentionally does NOT hold tasks_by_id refs to avoid pinning
-# the full ~200MB _TASKS_CACHE in memory (GC root leak).
+# the tasks bundle in memory (GC root leak).
 _ROADMAP_BASE_CACHE: dict = {"tasks_data_id": None, "base_tasks": [], "meta": {}, "categories": [], "totals": {}}
 _ROADMAP_BASE_LOCK = __import__('threading').Lock()
+# Roadmap builds are the largest remaining per-request allocation (~11k dicts +
+# serialization); the semaphore bounds concurrent builds (see get_roadmap —
+# ETag 304s bypass it entirely).
 _ROADMAP_BUILD_CONCURRENCY = max(
     1,
-    int(os.getenv("PANDORA_ROADMAP_BUILD_CONCURRENCY", "4" if LOW_RESOURCE_MODE else "8")),
+    int(os.getenv("PANDORA_ROADMAP_BUILD_CONCURRENCY", "2" if LOW_RESOURCE_MODE else "8")),
 )
 _ROADMAP_BUILD_WAIT_S = float(os.getenv("PANDORA_ROADMAP_BUILD_WAIT_S", "12"))
 _ROADMAP_BUILD_SEMAPHORE = _threading.Semaphore(_ROADMAP_BUILD_CONCURRENCY)
 
-
-def _roadmap_build_limited(func):
-    def wrapper(request: Request, user: dict = Depends(require_auth)):
-        acquired = _ROADMAP_BUILD_SEMAPHORE.acquire(timeout=max(0.0, _ROADMAP_BUILD_WAIT_S))
-        if not acquired:
-            return JSONResponse(
-                status_code=503,
-                content={"detail": "Roadmap is busy. Retry shortly."},
-                headers={"Retry-After": "2"},
-            )
-        try:
-            return func(request, user)
-        finally:
-            _ROADMAP_BUILD_SEMAPHORE.release()
-
-    wrapper.__name__ = getattr(func, "__name__", "roadmap_build_limited")
-    wrapper.__doc__ = getattr(func, "__doc__", None)
-    return wrapper
 
 def _get_roadmap_base():
     """Return cached (base_lite_tasks, meta, categories, totals).
@@ -6160,8 +5987,61 @@ def _get_roadmap_base():
         return base_tasks, meta, categories, totals
 
 
+def _roadmap_state_etag(user_id: int) -> str:
+    """Cheap signature of everything the roadmap response depends on.
+
+    A handful of tiny aggregates instead of the full ~11k-task build: any
+    change to completions (incl. is_valid flips — SUM(id) catches swaps),
+    today's completions (daily_counts), pending reviews, solution methods,
+    active homework targets, the task dataset version, or the calendar day
+    produces a different ETag.  Matching If-None-Match → 304 skips the build.
+    """
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT COUNT(*), COALESCE(SUM(id),0), COALESCE(MAX(completed_at),'') "
+            "FROM completed_tasks WHERE user_id = ? AND is_valid != 0",
+            (user_id,),
+        )
+        comp = tuple(cursor.fetchone())
+        cursor.execute(
+            "SELECT COUNT(*) FROM completed_tasks "
+            "WHERE user_id = ? AND is_valid != 0 AND DATE(completed_at) = DATE('now')",
+            (user_id,),
+        )
+        today = cursor.fetchone()[0]
+        cursor.execute(
+            "SELECT COUNT(*), COALESCE(MAX(id),0) FROM submissions WHERE user_id = ? AND status = 'pending'",
+            (user_id,),
+        )
+        pend = tuple(cursor.fetchone())
+        cursor.execute(
+            "SELECT COUNT(*), COALESCE(SUM(m.id),0) FROM task_solution_methods m WHERE m.user_id = ?",
+            (user_id,),
+        )
+        methods = tuple(cursor.fetchone())
+        cursor.execute(
+            """
+            SELECT COALESCE(GROUP_CONCAT(task_id),'') FROM (
+                SELECT DISTINCT hst.task_id
+                FROM homework_targets ht
+                JOIN homework_sets hs ON hs.id = ht.homework_set_id
+                JOIN homework_set_tasks hst ON hst.homework_set_id = hs.id
+                WHERE ht.user_id = ? AND hs.status = 'active'
+                ORDER BY hst.task_id
+            )
+            """,
+            (user_id,),
+        )
+        hw = cursor.fetchone()[0]
+    data_ver = _TASKS_CACHE.get("store_version") or _TASKS_CACHE.get("mtime") or 0
+    sig = f"{user_id}|{data_ver}|{datetime.now().date()}|{comp}|{today}|{pend}|{methods}|{hw}"
+    return hashlib.md5(sig.encode("utf-8")).hexdigest()[:16]
+
+
+_ROADMAP_ETAG_HEADERS = {"Cache-Control": "private, no-cache", "Vary": "Accept-Encoding"}
+
 @app.get("/api/roadmap")
-@_roadmap_build_limited
 def get_roadmap(request: Request, user: dict = Depends(require_auth)):
     """Return tasks annotated with completion + unlock state for the current user.
 
@@ -6169,7 +6049,30 @@ def get_roadmap(request: Request, user: dict = Depends(require_auth)):
     (completed/locked/pending/methods) is computed per request.  Final JSON
     is serialized once with compact separators and returned as raw bytes
     to bypass FastAPI's slow jsonable_encoder on large payloads.
+
+    ETag/304: most reloads/reconnects revalidate for ~2ms instead of paying
+    the full build+gzip; the check runs BEFORE the build semaphore so 304s
+    are never queued behind builds.
     """
+    etag = _roadmap_state_etag(int(user["id"]))
+    client_etag = (request.headers.get("if-none-match") or "").strip('" ')
+    if client_etag and client_etag == etag:
+        return Response(status_code=304, headers={"ETag": f'"{etag}"', **_ROADMAP_ETAG_HEADERS})
+
+    acquired = _ROADMAP_BUILD_SEMAPHORE.acquire(timeout=max(0.0, _ROADMAP_BUILD_WAIT_S))
+    if not acquired:
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Roadmap is busy. Retry shortly."},
+            headers={"Retry-After": "2"},
+        )
+    try:
+        return _build_roadmap_response(request, user, etag)
+    finally:
+        _ROADMAP_BUILD_SEMAPHORE.release()
+
+
+def _build_roadmap_response(request: Request, user: dict, etag: str):
     base_tasks, meta, categories, totals = _get_roadmap_base()
     tbi = _tasks_by_id()  # O(1) lookup, no memory duplication
 
@@ -6246,13 +6149,14 @@ def get_roadmap(request: Request, user: dict = Depends(require_auth)):
     }
     json_bytes = _fast_json_bytes(result)
     # Serve pre-compressed gzip if client accepts it (bypasses GZipMiddleware
-    # re-compressing 38MB per request, saving ~300ms of CPU per call).
+    # re-compressing the payload per request, saving CPU per call).
     accept_enc = request.headers.get("accept-encoding") or ""
     if "gzip" in accept_enc:
         gzip_bytes = _gzip_mod.compress(json_bytes, compresslevel=1)
         return Response(content=gzip_bytes, media_type="application/json",
-                        headers={"Content-Encoding": "gzip", "Vary": "Accept-Encoding"})
-    return Response(content=json_bytes, media_type="application/json")
+                        headers={"ETag": f'"{etag}"', "Content-Encoding": "gzip", **_ROADMAP_ETAG_HEADERS})
+    return Response(content=json_bytes, media_type="application/json",
+                    headers={"ETag": f'"{etag}"', **_ROADMAP_ETAG_HEADERS})
 
 
 @app.get("/api/roadmap/status")
@@ -6288,10 +6192,14 @@ def get_roadmap_status(request: Request, user: dict = Depends(require_auth)):
 def get_task_detail(task_id: str, user: dict = Depends(require_auth)):
     """Return full task detail (description, initial_code, resources, video_url) for a single task.
     Used for lazy-loading task content when opening a quest modal."""
-    task = get_task(task_id)
-    if not task:
+    task = task_store.get_task_public(task_id)
+    if task is not None:
+        return task
+    # Dev fallback (no store): shape the in-heap task
+    lite = get_task(task_id)
+    if not lite:
         raise HTTPException(status_code=404, detail="Task not found")
-    return public_task(task)
+    return public_task(lite)
 
 
 @app.get("/api/user/homework")
@@ -7261,45 +7169,40 @@ def get_tasks(
 ):
     """Get all tasks with optional filtering (public payload).
 
-    Optimized: when no filters are applied, serves pre-serialized cached JSON
-    bytes directly (avoids re-serializing 24MB per request which blocks the
-    event loop for ~1.2s and kills health checks under concurrent load).
+    Fast path (no filters): the exact response body is prebuilt on disk by the
+    task-store build (json + gzip) and streamed via FileResponse — zero heap
+    and zero serialization per request, with ETag/304.
     """
-    # Fast path: no filters → serve pre-serialized bytes + ETag
+    # Fast path: no filters → serve the prebuilt payload file + ETag
     if not category and not tier and not shuffle:
         accept_enc = request.headers.get("accept-encoding") or ""
         wants_gzip = "gzip" in accept_enc
-        json_bytes, gzip_bytes, etag = _get_preserialized_tasks_response(want_gzip=wants_gzip)
-        # ETag / 304 support: avoid sending 24MB if client already has it
-        client_etag = (request.headers.get("if-none-match") or "").strip('" ')
-        if client_etag and client_etag == etag:
-            return Response(status_code=304)
-        # Serve pre-compressed gzip if client accepts it (bypasses GZipMiddleware)
-        if "gzip" in accept_enc and gzip_bytes:
-            return Response(
-                content=gzip_bytes,
-                media_type="application/json",
-                headers={"ETag": f'"{etag}"', "Cache-Control": "private, max-age=30",
-                          "Content-Encoding": "gzip", "Vary": "Accept-Encoding"},
-            )
-        return Response(
-            content=json_bytes,
-            media_type="application/json",
-            headers={"ETag": f'"{etag}"', "Cache-Control": "private, max-age=30"},
-        )
+        payload = task_store.payload_file(wants_gzip)
+        if payload is not None:
+            path, etag = payload
+            client_etag = (request.headers.get("if-none-match") or "").strip('" ')
+            if client_etag and client_etag == etag:
+                return Response(status_code=304)
+            headers = {"ETag": f'"{etag}"', "Cache-Control": "private, max-age=30"}
+            if wants_gzip:
+                headers["Content-Encoding"] = "gzip"
+                headers["Vary"] = "Accept-Encoding"
+            return FileResponse(path, media_type="application/json", headers=headers)
+        # (no store — fall through to the dynamic path below)
 
-    # Slow path with filters: still needs dynamic serialization
+    # Filtered path (rare: admin tooling). Store-backed when available;
+    # otherwise built from the in-heap bundle (dev fallback).
     data = load_tasks()
-    tasks = [public_task(t) for t in data.get("tasks", []) if not is_archived_task_id(t.get("id"))]
-    
-    if category:
-        tasks = [t for t in tasks if t.get("category") == category]
-    if tier:
-        tasks = [t for t in tasks if t.get("tier") == tier]
+    tasks = task_store.filtered_public(category, tier)
+    if tasks is None:
+        tasks = [public_task(t) for t in data.get("tasks", []) if not is_archived_task_id(t.get("id"))]
+        if category:
+            tasks = [t for t in tasks if t.get("category") == category]
+        if tier:
+            tasks = [t for t in tasks if t.get("tier") == tier]
     if shuffle:
-        tasks = tasks.copy()
         random.shuffle(tasks)
-    
+
     return {"meta": data.get("meta", {}), "categories": data.get("categories", []), "tasks": tasks}
 
 @app.get("/api/tasks/random")
@@ -7308,17 +7211,19 @@ def get_random_task(
     tier: Optional[str] = Query(None)
 ):
     """Get a single random task."""
+    # Pick from the lite in-heap index, then fetch the single full payload row.
     data = load_tasks()
-    tasks = [public_task(t) for t in data.get("tasks", []) if not is_archived_task_id(t.get("id"))]
-    
-    if category:
-        tasks = [t for t in tasks if t.get("category") == category]
-    if tier:
-        tasks = [t for t in tasks if t.get("tier") == tier]
-    
-    if not tasks:
+    pool = [
+        t for t in data.get("tasks", [])
+        if not is_archived_task_id(t.get("id"))
+        and (not category or t.get("category") == category)
+        and (not tier or t.get("tier") == tier)
+    ]
+    if not pool:
         return {"task": None}
-    return {"task": random.choice(tasks)}
+    chosen = random.choice(pool)
+    task = task_store.get_task_public(chosen.get("id")) or public_task(chosen)
+    return {"task": task}
 
 # ==================== PROGRESS ROUTES ====================
 
@@ -8378,18 +8283,20 @@ def get_user_completions(user_id: int, admin: dict = Depends(require_admin)):
         """, (user_id,))
         completions = [dict(row) for row in cursor.fetchall()]
         
-        # Enrich with task info
+        # Enrich with task info (description lives in the store, not the lite bundle)
         tasks_data = load_tasks()
         tasks_map = {t["id"]: t for t in tasks_data.get("tasks", [])}
-        
+        texts = task_store.get_task_texts([c["task_id"] for c in completions])
+
         for c in completions:
             task = tasks_map.get(c["task_id"], {})
+            text = texts.get(c["task_id"], {})
             c["task_title"] = task.get("title", c["task_id"])
             c["task_category"] = task.get("category", "unknown")
             c["max_xp"] = task.get("xp", 0)
-            c["task_description"] = task.get("story", "")
-            c["task_condition"] = task.get("description", "")
-    
+            c["task_description"] = task.get("story") or text.get("story", "")
+            c["task_condition"] = task.get("description") or text.get("description", "")
+
     return {"completions": completions}
 
 @app.get("/api/user/completions")
@@ -8410,15 +8317,17 @@ def get_my_completions(user: dict = Depends(require_auth)):
         
         tasks_data = load_tasks()
         tasks_map = {t["id"]: t for t in tasks_data.get("tasks", []) if t.get("id")}
-        
+        texts = task_store.get_task_texts([c["task_id"] for c in completions])
+
         for c in completions:
             task = tasks_map.get(c["task_id"], {})
+            text = texts.get(c["task_id"], {})
             c["task_title"] = task.get("title", c["task_id"])
             c["task_category"] = task.get("category", "unknown")
             c["max_xp"] = task.get("xp", 0)
-            c["task_description"] = task.get("story", "")
-            c["task_condition"] = task.get("description", "")
-    
+            c["task_description"] = task.get("story") or text.get("story", "")
+            c["task_condition"] = task.get("description") or text.get("description", "")
+
     return {"completions": completions}
 
 @app.put("/api/admin/completions/{completion_id}/adjust")
@@ -12105,11 +12014,31 @@ def _quiz_difficulty_level(raw, default: int = 2) -> int:
     return default
 
 def _load_quiz_bank():
-    """Load the active Kahoot quiz bank lazily and keep a bounded in-memory pool."""
+    """Load the quiz selection pool lazily.
+
+    Store-backed: keeps only {id, difficulty, question} per item (~1-2MB for
+    the whole pool) instead of the fully parsed 8.6MB bank (~30MB heap).  Full
+    items are fetched from SQLite for the 12-15 questions actually selected.
+    Falls back to parsing the JSON file when the store is unavailable.
+    """
     global _QUIZ_BANK, _QUIZ_BANK_BY_DIFFICULTY, _QUIZ_BANK_LOADED, _QUIZ_BANK_LOAD_ERROR
     if _QUIZ_BANK_LOADED:
         return bool(_QUIZ_BANK)
     _QUIZ_BANK_LOADED = True
+
+    pool = task_store.quiz_pool(QUIZ_BANK_MAX_ITEMS)
+    if pool:
+        for item in pool:
+            item["_difficulty_level"] = _quiz_difficulty_level(item.get("difficulty"), default=2)
+        _QUIZ_BANK = pool
+        _QUIZ_BANK_BY_DIFFICULTY = {1: [], 2: [], 3: [], 4: [], 5: []}
+        for item in _QUIZ_BANK:
+            d = item["_difficulty_level"]
+            if d in _QUIZ_BANK_BY_DIFFICULTY:
+                _QUIZ_BANK_BY_DIFFICULTY[d].append(item)
+        logger.info("Quiz pool loaded from task_store: %d questions (lightweight)", len(_QUIZ_BANK))
+        return True
+
     bank_path = os.path.join(os.path.dirname(__file__), QUIZ_BANK_FILENAME)
     if not os.path.exists(bank_path):
         _QUIZ_BANK_LOAD_ERROR = f"{QUIZ_BANK_FILENAME} not found"
@@ -12137,7 +12066,11 @@ def _load_quiz_bank():
 
 
 def _quiz_bank_available() -> bool:
-    return bool(_QUIZ_BANK) or os.path.exists(os.path.join(os.path.dirname(__file__), QUIZ_BANK_FILENAME))
+    if _QUIZ_BANK:
+        return True
+    if task_store.quiz_count() > 0:
+        return True
+    return os.path.exists(os.path.join(os.path.dirname(__file__), QUIZ_BANK_FILENAME))
 
 QUIZ_SESSION_TIMEOUT_SEC = 300  # 5 minutes inactivity
 QUIZ_MAX_DAILY_SESSIONS = None  # None = unlimited; admin approval is still required.
@@ -12245,6 +12178,21 @@ def _select_quiz_questions(count: int) -> list[dict]:
 
     # Record selected IDs for cross-session freshness
     _quiz_mark_used([str(q.get("id", "")) for q in selected if q.get("id")])
+
+    # Materialize full items from the store (the in-heap pool holds only
+    # {id, difficulty, question}); no-op when the legacy file bank is loaded.
+    full_by_id = task_store.quiz_items([q.get("id") for q in selected if q.get("id")])
+    if full_by_id:
+        materialized = []
+        for q in selected:
+            full = full_by_id.get(str(q.get("id", "")))
+            if full is not None:
+                full = dict(full)
+                full["_difficulty_level"] = q.get("_difficulty_level", _quiz_difficulty_level(full.get("difficulty")))
+                materialized.append(full)
+            else:
+                materialized.append(q)
+        selected = materialized
 
     # Sort by difficulty (progressive)
     selected.sort(key=lambda q: _quiz_difficulty_level(q.get("_difficulty_level", q.get("difficulty")), default=2))

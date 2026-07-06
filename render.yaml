@@ -3,10 +3,17 @@ services:
     name: pandora-academy
     runtime: python
     plan: free
-    buildCommand: pip install -r requirements.txt
+    # task_store.py --build runs on the BUILD machine: it converts tasks.json +
+    # kahoot_1_2.json into task_store.db + prebuilt /api/tasks payload files,
+    # so the 512MB runtime never parses the 40MB JSON (the old OOM root cause).
+    buildCommand: pip install -r requirements.txt && python task_store.py --build
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1 --limit-concurrency 64 --timeout-keep-alive 3
     healthCheckPath: /ping
     envVars:
+      # glibc: cap malloc arenas for the threaded worker — the classic RSS
+      # reducer for Python web apps on small containers (less fragmentation).
+      - key: MALLOC_ARENA_MAX
+        value: "2"
       - key: PANDORA_JWT_SECRET
         generateValue: true
       - key: PANDORA_REVIEW_ONLY_MODE
@@ -21,14 +28,13 @@ services:
         value: "1"
       - key: PANDORA_LOW_RESOURCE_MODE
         value: "1"
-      - key: PANDORA_WARM_HEAVY_CACHES
-        value: "0"
-      - key: PANDORA_CACHE_UNCOMPRESSED_TASKS
-        value: "0"
       - key: PANDORA_MAX_CONCURRENT_REQUESTS
-        value: "12"
+        value: "16"
+      # Roadmap builds are the largest per-request allocation left (~10-20MB
+      # transient each); 2 concurrent builds bound the worst-case spike.
+      # Most roadmap requests now return 304 via ETag and skip the build.
       - key: PANDORA_ROADMAP_BUILD_CONCURRENCY
-        value: "4"
+        value: "2"
       - key: PANDORA_ROADMAP_BUILD_WAIT_S
         value: "12"
       - key: PANDORA_SKIP_AUTOCHECK_REVIEWABLE_ON_LOW_RESOURCE
@@ -47,8 +53,11 @@ services:
         value: "2"
       - key: PANDORA_SECURITY_LOG_BACKUP_COUNT
         value: "3"
+      # Per-IP: a whole class logs in from ONE school NAT IP at lesson start —
+      # 15/minute locked out most of the room. 60/min still throttles
+      # brute force (1 req/s) while letting ~50 students in within a minute.
       - key: PANDORA_LOGIN_RATE_LIMIT
-        value: "15/minute"
+        value: "60/minute"
       - key: PANDORA_RUNNER_CONCURRENCY
         value: "1"
       - key: PANDORA_ACTIVE_TASK_ATTEMPT_TTL_S
