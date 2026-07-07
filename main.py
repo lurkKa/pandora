@@ -1491,6 +1491,12 @@ def init_db():
             cursor.execute("ALTER TABLE submissions ADD COLUMN score INTEGER")
         except sqlite3.OperationalError:
             pass  # Column already exists
+
+        # Sandbox room version counter (optimistic concurrency for collab sync)
+        try:
+            cursor.execute("ALTER TABLE sandbox_rooms ADD COLUMN version INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
         
         try:
             cursor.execute("ALTER TABLE submissions ADD COLUMN max_score INTEGER DEFAULT 10")
@@ -1756,6 +1762,7 @@ def init_db():
                 language TEXT NOT NULL DEFAULT 'python',
                 code TEXT DEFAULT '',
                 line_authors TEXT DEFAULT '{}',
+                version INTEGER DEFAULT 0,
                 created_by INTEGER NOT NULL,
                 is_saved INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -2296,8 +2303,14 @@ except (TypeError, ValueError):
     METHOD_SIMHASH_DISTANCE_THRESHOLD = 8
 METHOD_SIMHASH_DISTANCE_THRESHOLD = max(0, min(64, METHOD_SIMHASH_DISTANCE_THRESHOLD))
 
-# Maximum number of unique solution methods per task per user
-MAX_METHODS_PER_TASK = 30
+# Maximum number of unique solution methods (re-solves) per task per user.
+# Beyond this the task can't be re-solved for XP — keeps students from farming
+# one easy task with dozens of trivial variations.
+try:
+    MAX_METHODS_PER_TASK = int(os.getenv("PANDORA_MAX_METHODS_PER_TASK", "5"))
+except (TypeError, ValueError):
+    MAX_METHODS_PER_TASK = 5
+MAX_METHODS_PER_TASK = max(1, min(100, MAX_METHODS_PER_TASK))
 
 
 def _solution_method_simhash(solution: str, code_simhash: str, code_language: Optional[str]) -> str:
@@ -12710,8 +12723,130 @@ _SANDBOX_HEARTBEAT_TIMEOUT_S = 15.0
 _SANDBOX_SYNC_COOLDOWN_S = 0.5
 _SANDBOX_ADMIN_MAX_XP_AWARD = 30000
 _SANDBOX_STALE_ROOM_HOURS = 24
+# Anti-spam: room creation per user
+_SANDBOX_CREATE_COOLDOWN_S = float(os.getenv("PANDORA_SANDBOX_CREATE_COOLDOWN_S", "60"))
+_SANDBOX_MAX_UNSAVED_PER_USER = int(os.getenv("PANDORA_SANDBOX_MAX_UNSAVED_PER_USER", "3"))
+# Vandalism (deleting/overwriting others' code): strikes → XP fine
+_SANDBOX_VANDAL_STRIKES = int(os.getenv("PANDORA_SANDBOX_VANDAL_STRIKES", "3"))
+_SANDBOX_VANDAL_WINDOW_S = 600.0
+_SANDBOX_VANDAL_FINE_XP = int(os.getenv("PANDORA_SANDBOX_VANDAL_FINE_XP", "200"))
 
-_sandbox_sync_timestamps: dict[int, float] = {}  # user_id -> last sync monotonic (bounded)
+_sandbox_sync_timestamps: dict[int, float] = {}    # user_id -> last sync monotonic (bounded)
+_sandbox_create_timestamps: dict[int, float] = {}  # user_id -> last room create monotonic (bounded)
+_sandbox_vandal_strikes: dict[int, list[float]] = {}  # user_id -> violation timestamps (bounded)
+
+# Per-room recent code versions for 3-way merge on concurrent edits.
+# Bounded: ≤_SANDBOX_MAX_ROOMS rooms × 8 versions × ≤50KB. Cleared on restart —
+# a stale base then falls back to a 409 (client reloads), never silent data loss.
+_SANDBOX_HISTORY_DEPTH = 8
+_sandbox_history: dict[int, list[tuple[int, str]]] = {}
+_sandbox_history_lock = _threading.Lock()
+
+
+def _sandbox_history_push(room_id: int, version: int, code: str) -> None:
+    with _sandbox_history_lock:
+        h = _sandbox_history.setdefault(room_id, [])
+        h.append((version, code))
+        if len(h) > _SANDBOX_HISTORY_DEPTH:
+            del h[: len(h) - _SANDBOX_HISTORY_DEPTH]
+        # Bound the room map itself (rooms get deleted by cleanup)
+        if len(_sandbox_history) > _SANDBOX_MAX_ROOMS * 2:
+            for k in list(_sandbox_history.keys())[: len(_sandbox_history) - _SANDBOX_MAX_ROOMS]:
+                _sandbox_history.pop(k, None)
+
+
+def _sandbox_history_get(room_id: int, version: int) -> Optional[str]:
+    with _sandbox_history_lock:
+        for v, code in _sandbox_history.get(room_id, ()):
+            if v == version:
+                return code
+    return None
+
+
+def _merge_lines(base: list[str], mine: list[str], theirs: list[str]) -> list[str]:
+    """3-way line merge for collaborative editing (diff3-style).
+
+    Regions changed by only one side take that side; when both sides changed
+    the same region, the already-committed server text (`theirs`) wins and the
+    client's conflicting hunk is dropped (the client redisplays the merge).
+    Insertions by both sides at the same anchor are BOTH kept — in a classroom
+    two kids typing in different places must never lose each other's lines.
+    """
+    import difflib
+    map_mine: dict[int, int] = {}
+    for blk in difflib.SequenceMatcher(None, base, mine, autojunk=False).get_matching_blocks():
+        for k in range(blk.size):
+            map_mine[blk.a + k] = blk.b + k
+    map_theirs: dict[int, int] = {}
+    for blk in difflib.SequenceMatcher(None, base, theirs, autojunk=False).get_matching_blocks():
+        for k in range(blk.size):
+            map_theirs[blk.a + k] = blk.b + k
+
+    out: list[str] = []
+    bi = ai = ti = 0
+    n = len(base)
+    while bi < n:
+        if bi in map_mine and bi in map_theirs:
+            # Stable line: first emit insertions accumulated before it on each side
+            ins_mine = mine[ai:map_mine[bi]]
+            ins_theirs = theirs[ti:map_theirs[bi]]
+            if ins_mine and ins_theirs:
+                out.extend(ins_theirs if ins_mine != ins_theirs else [])
+                out.extend(ins_mine)
+            else:
+                out.extend(ins_theirs or ins_mine)
+            out.append(base[bi])
+            ai = map_mine[bi] + 1
+            ti = map_theirs[bi] + 1
+            bi += 1
+            continue
+        # Changed region: extend to the next line stable on BOTH sides
+        j = bi
+        while j < n and not (j in map_mine and j in map_theirs):
+            j += 1
+        next_a = map_mine[j] if j < n else len(mine)
+        next_t = map_theirs[j] if j < n else len(theirs)
+        seg_base = base[bi:j]
+        seg_mine = mine[ai:next_a]
+        seg_theirs = theirs[ti:next_t]
+        if seg_theirs == seg_base or seg_mine == seg_theirs:
+            out.extend(seg_mine)          # only mine changed (or same change)
+        elif seg_mine == seg_base:
+            out.extend(seg_theirs)        # only theirs changed
+        else:
+            out.extend(seg_theirs)        # conflict → committed text wins
+        ai, ti, bi = next_a, next_t, j
+    # Tail insertions after the last stable line
+    tail_mine = mine[ai:]
+    tail_theirs = theirs[ti:]
+    if tail_mine and tail_theirs:
+        out.extend(tail_theirs if tail_mine != tail_theirs else [])
+        out.extend(tail_mine)
+    else:
+        out.extend(tail_theirs or tail_mine)
+    return out
+
+
+def _sandbox_register_vandal_strike(cursor, uid: int, username: str, room_name: str) -> dict:
+    """Record a protection violation; after N strikes in 10 min apply an XP fine.
+    Returns {"strikes": n, "fined": bool, "fine_xp": int}."""
+    now = time.monotonic()
+    strikes = [t for t in _sandbox_vandal_strikes.get(uid, []) if now - t < _SANDBOX_VANDAL_WINDOW_S]
+    strikes.append(now)
+    fined = False
+    if len(strikes) >= _SANDBOX_VANDAL_STRIKES:
+        try:
+            apply_xp_change(cursor, uid, -_SANDBOX_VANDAL_FINE_XP,
+                            f"Штраф: порча чужого кода в песочнице ({room_name})")
+            fined = True
+            log_action(uid, username, "SANDBOX_VANDAL_FINE",
+                       f"room={room_name} strikes={len(strikes)} fine={_SANDBOX_VANDAL_FINE_XP}")
+        except Exception as e:
+            logger.warning("sandbox vandal fine failed for uid=%s: %s", uid, e)
+        strikes = []  # fine applied — reset the window
+    _evict_bounded_dict(_sandbox_vandal_strikes)
+    _sandbox_vandal_strikes[uid] = strikes
+    return {"strikes": len(strikes), "fined": fined, "fine_xp": _SANDBOX_VANDAL_FINE_XP}
 
 _SANDBOX_TEMPLATES: dict[str, dict] = {
     "py_drawing": {"name": "🎨 Рисование (turtle)", "language": "python", "code": "import turtle\nimport math\n\n# === ГАЙД: Рисование с turtle ===\n# t = turtle.Turtle()     — создать черепашку\n# t.forward(100)          — вперёд на 100\n# t.right(90)             — повернуть направо на 90°\n# t.circle(50)            — нарисовать круг радиусом 50\n# t.color('red')          — сменить цвет\n# t.pensize(3)            — толщина линии\n# t.penup() / t.pendown() — поднять/опустить перо\n# turtle.done()           — завершить\n\nt = turtle.Turtle()\nt.speed(5)\n\n# Нарисуй что-нибудь красивое!\n"},
@@ -12735,8 +12870,10 @@ def _sandbox_cleanup_stale(cursor):
 
 
 def _sandbox_online_users(cursor, room_id: int) -> list[dict]:
-    """Get users currently in a room (heartbeat within 15s)."""
-    cutoff = time.monotonic() - _SANDBOX_HEARTBEAT_TIMEOUT_S
+    """Get users currently in a room (heartbeat within 15s).
+    Heartbeats are epoch seconds (time.time), NOT monotonic: monotonic resets
+    on every server restart, which used to leave ghost users / empty rooms."""
+    cutoff = time.time() - _SANDBOX_HEARTBEAT_TIMEOUT_S
     cursor.execute(
         "SELECT sp.user_id, sp.cursor_line, u.username, u.display_name, u.avatar_key "
         "FROM sandbox_presence sp JOIN users u ON u.id = sp.user_id "
@@ -12787,9 +12924,34 @@ def sandbox_create_room(
     template_id: str = Form(""),
     user: dict = Depends(require_auth),
 ):
-    """Create a new sandbox room."""
+    """Create a new sandbox room. Per-user cooldown + unsaved-room cap stop template spam."""
+    uid = int(user["id"])
+    is_admin = user.get("role") == "admin"
+
+    # Anti-spam: one room per minute per student
+    if not is_admin:
+        now_mono = time.monotonic()
+        last_create = _sandbox_create_timestamps.get(uid, 0)
+        if now_mono - last_create < _SANDBOX_CREATE_COOLDOWN_S:
+            wait = int(_SANDBOX_CREATE_COOLDOWN_S - (now_mono - last_create)) + 1
+            raise HTTPException(status_code=429, detail=f"Слишком часто. Новая комната через {wait} с.")
+
     with get_db() as conn:
         cursor = conn.cursor()
+
+        # Anti-spam: at most N unsaved rooms per student
+        if not is_admin:
+            cursor.execute(
+                "SELECT COUNT(*) as cnt FROM sandbox_rooms WHERE created_by = ? AND is_saved = 0",
+                (uid,)
+            )
+            if cursor.fetchone()["cnt"] >= _SANDBOX_MAX_UNSAVED_PER_USER:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"У тебя уже {_SANDBOX_MAX_UNSAVED_PER_USER} несохранённых комнат. "
+                           f"Сохрани или используй существующую.",
+                )
+
         cursor.execute("SELECT COUNT(*) as cnt FROM sandbox_rooms")
         if cursor.fetchone()["cnt"] >= _SANDBOX_MAX_ROOMS:
             _sandbox_cleanup_stale(cursor)
@@ -12817,6 +12979,8 @@ def sandbox_create_room(
         room_id = cursor.lastrowid
         conn.commit()
 
+    _evict_bounded_dict(_sandbox_create_timestamps)
+    _sandbox_create_timestamps[uid] = time.monotonic()
     return {"room_id": room_id, "name": name, "language": language}
 
 
@@ -12827,7 +12991,7 @@ def sandbox_join(
 ):
     """Join a sandbox room."""
     uid = int(user["id"])
-    now = time.monotonic()
+    now = time.time()  # epoch: survives restarts (monotonic left ghost users)
 
     with get_db() as conn:
         cursor = conn.cursor()
@@ -12854,11 +13018,17 @@ def sandbox_join(
 @app.get("/api/sandbox/poll")
 def sandbox_poll(
     room_id: int = Query(...),
+    since: int = Query(-1),
     user: dict = Depends(require_auth),
 ):
-    """Poll current state of a sandbox room. Also acts as heartbeat."""
+    """Poll current state of a sandbox room. Also acts as heartbeat.
+
+    `since` = last room version the client applied.  When nothing changed the
+    response omits code/line_authors entirely — the client skips the textarea
+    replace + re-highlight + gutter rebuild that made typing feel choppy.
+    """
     uid = int(user["id"])
-    now = time.monotonic()
+    now = time.time()  # epoch (see _sandbox_online_users)
 
     with get_db() as conn:
         cursor = conn.cursor()
@@ -12902,6 +13072,18 @@ def sandbox_poll(
         conn.commit()
 
         online = _sandbox_online_users(cursor, room_id)
+        room_version = int(room["version"] or 0)
+
+        # Unchanged fast path: tiny response, no code/authors payload
+        if since >= 0 and since == room_version:
+            return {
+                "unchanged": True,
+                "version": room_version,
+                "users": online,
+                "is_saved": bool(room["is_saved"]),
+                "xp_awarded": xp_awarded,
+            }
+
         line_authors = {}
         try:
             line_authors = json.loads(room["line_authors"] or "{}")
@@ -12910,6 +13092,7 @@ def sandbox_poll(
 
     return {
         "code": room["code"] or "",
+        "version": room_version,
         "language": room["language"],
         "name": room["name"],
         "line_authors": line_authors,
@@ -12925,84 +13108,133 @@ def sandbox_sync(
     room_id: int = Form(...),
     code: str = Form(""),
     cursor_line: int = Form(1),
+    base_version: int = Form(-1),
     user: dict = Depends(require_auth),
 ):
-    """Sync code changes to a sandbox room."""
+    """Sync code changes to a sandbox room.
+
+    Concurrency: the client sends the room `base_version` its edit started
+    from.  If someone else committed meanwhile, the server 3-way merges both
+    edits at line level instead of last-write-wins (which used to silently
+    throw away one student's typing — the main source of 'lag' complaints).
+
+    Protection: non-empty lines authored by another student must survive the
+    final text — deleting OR overwriting them is rejected; repeat offenders
+    (3 violations / 10 min) get an XP fine.
+    """
     uid = int(user["id"])
-    now = time.monotonic()
+    now_mono = time.monotonic()
 
     # Rate limit: 2 req/s per user
     last_sync = _sandbox_sync_timestamps.get(uid, 0)
-    if now - last_sync < _SANDBOX_SYNC_COOLDOWN_S:
+    if now_mono - last_sync < _SANDBOX_SYNC_COOLDOWN_S:
         raise HTTPException(status_code=429, detail="Слишком часто. Подожди немного.")
     _evict_bounded_dict(_sandbox_sync_timestamps)
-    _sandbox_sync_timestamps[uid] = now
+    _sandbox_sync_timestamps[uid] = now_mono
 
     # Validate code size
     if len(code) > _SANDBOX_MAX_CODE_CHARS:
         raise HTTPException(status_code=400, detail=f"Код слишком большой (макс {_SANDBOX_MAX_CODE_CHARS} символов)")
-    lines = code.split("\n")
-    if len(lines) > _SANDBOX_MAX_LINES:
+    if len(code.split("\n")) > _SANDBOX_MAX_LINES:
         raise HTTPException(status_code=400, detail=f"Слишком много строк (макс {_SANDBOX_MAX_LINES})")
+
+    now = time.time()  # epoch for presence rows
 
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT id, code, line_authors FROM sandbox_rooms WHERE id = ?", (room_id,))
+        cursor.execute("SELECT id, name, code, line_authors, version FROM sandbox_rooms WHERE id = ?", (room_id,))
         room = cursor.fetchone()
         if not room:
             raise HTTPException(status_code=404, detail="Комната не найдена")
 
-        # Build line authors map
+        server_code = room["code"] or ""
+        server_version = int(room["version"] or 0)
+
         old_authors = {}
         try:
             old_authors = json.loads(room["line_authors"] or "{}")
         except Exception:
             pass
 
-        old_lines = (room["code"] or "").split("\n")
+        # ── Concurrent edit? 3-way merge instead of last-write-wins ──
+        merged = False
+        if base_version >= 0 and base_version != server_version:
+            base_code = _sandbox_history_get(room_id, base_version)
+            if base_code is None:
+                # Base too old (history rotated / restart): client must reload.
+                return JSONResponse(
+                    status_code=409,
+                    content={"synced": False, "conflict": True,
+                             "code": server_code, "version": server_version,
+                             "detail": "Комната ушла вперёд — обновляю твою копию."},
+                )
+            merged_lines = _merge_lines(
+                base_code.split("\n"), code.split("\n"), server_code.split("\n")
+            )
+            if len(merged_lines) > _SANDBOX_MAX_LINES:
+                merged_lines = merged_lines[:_SANDBOX_MAX_LINES]
+            code = "\n".join(merged_lines)
+            if len(code) > _SANDBOX_MAX_CODE_CHARS:
+                code = code[:_SANDBOX_MAX_CODE_CHARS]
+            merged = True
+
+        old_lines = server_code.split("\n")
         new_lines = code.split("\n")
 
-        # LINE PROTECTION: prevent non-admin users from deleting other users' lines
+        # ── LINE PROTECTION: others' non-empty lines must survive the FINAL text.
+        # Runs on every sync (the old check only fired when the line count
+        # shrank, so overwriting someone's line in place bypassed it).
         is_admin = user.get("role") == "admin"
-        if not is_admin and old_authors and len(new_lines) < len(old_lines):
-            # Collect non-empty lines owned by other users
-            protected_contents = []
-            for i, line in enumerate(old_lines):
-                line_key = str(i + 1)
-                author = old_authors.get(line_key)
-                if author and author.get("uid") and author["uid"] != uid and line.strip():
-                    protected_contents.append(line)
-            # Check if any protected content was removed
+        if not is_admin and old_authors:
             new_text = "\n".join(new_lines)
-            missing = [pc for pc in protected_contents if pc not in new_text]
+            missing = []
+            for i, line in enumerate(old_lines):
+                author = old_authors.get(str(i + 1))
+                if author and author.get("uid") and author["uid"] != uid and line.strip() and line not in new_text:
+                    missing.append(line)
             if missing:
-                raise HTTPException(
+                strike = _sandbox_register_vandal_strike(
+                    cursor, uid, user.get("username", "?"), room["name"] or f"#{room_id}"
+                )
+                conn.commit()  # persist the fine even though the sync is rejected
+                detail = "Нельзя удалять или переписывать код другого участника."
+                if strike["fined"]:
+                    detail += f" ⚡ Штраф −{strike['fine_xp']} XP за порчу чужого кода!"
+                elif strike["strikes"] > 0:
+                    left = _SANDBOX_VANDAL_STRIKES - strike["strikes"]
+                    detail += f" Предупреждение {strike['strikes']}/{_SANDBOX_VANDAL_STRIKES}."
+                return JSONResponse(
                     status_code=403,
-                    detail="Нельзя удалять код другого участника. Только админ может это сделать."
+                    content={"synced": False, "protected": True, "detail": detail,
+                             "fined": strike["fined"], "fine_xp": strike["fine_xp"] if strike["fined"] else 0,
+                             "code": server_code, "version": server_version},
                 )
 
-        # Update author for changed lines
+        # ── Authorship: exact-position match first, then content match (so
+        # inserting a line above someone's code doesn't steal their lines).
         username = user.get("display_name") or user.get("username", "?")
         avatar = user.get("avatar_key") or "🧙"
+        me = {"uid": uid, "name": username, "avatar": avatar}
+        content_authors: dict[str, dict] = {}
+        for i, line in enumerate(old_lines):
+            a = old_authors.get(str(i + 1))
+            if a and line.strip():
+                content_authors.setdefault(line, a)
         new_authors = {}
         for i, line in enumerate(new_lines):
-            line_key = str(i + 1)
             if i < len(old_lines) and line == old_lines[i]:
-                # Line unchanged — keep old author
-                old_key = str(i + 1)
-                if old_key in old_authors:
-                    new_authors[line_key] = old_authors[old_key]
-                else:
-                    new_authors[line_key] = {"uid": uid, "name": username, "avatar": avatar}
+                new_authors[str(i + 1)] = old_authors.get(str(i + 1)) or me
+            elif line.strip() and line in content_authors:
+                new_authors[str(i + 1)] = content_authors[line]  # shifted, not edited
             else:
-                # Line changed — new author
-                new_authors[line_key] = {"uid": uid, "name": username, "avatar": avatar}
+                new_authors[str(i + 1)] = me
 
         authors_json = json.dumps(new_authors, ensure_ascii=False, separators=(",", ":"))
+        new_version = server_version + 1
 
         cursor.execute(
-            "UPDATE sandbox_rooms SET code = ?, line_authors = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-            (code, authors_json, room_id)
+            "UPDATE sandbox_rooms SET code = ?, line_authors = ?, version = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (code, authors_json, new_version, room_id)
         )
         cursor.execute(
             "UPDATE sandbox_presence SET cursor_line = ?, last_heartbeat = ?, last_edit = ? WHERE user_id = ?",
@@ -13010,7 +13242,17 @@ def sandbox_sync(
         )
         conn.commit()
 
-    return {"synced": True}
+    # Keep the pre-edit version in history too: another client polling
+    # server_version right now may sync from it as a merge base.
+    if _sandbox_history_get(room_id, server_version) is None:
+        _sandbox_history_push(room_id, server_version, server_code)
+    _sandbox_history_push(room_id, new_version, code)
+
+    resp: dict = {"synced": True, "version": new_version}
+    if merged:
+        resp["merged"] = True
+        resp["code"] = code  # client redisplays the merged text
+    return resp
 
 
 # Sandbox subprocess concurrency limiter — prevents OOM from too many forks.

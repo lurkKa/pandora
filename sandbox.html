@@ -238,7 +238,7 @@ function esc(s){const d=document.createElement('div');d.textContent=s;return d.i
 async function joinRoom(id){
  const d=await apiForm('/api/sandbox/join',{room_id:id});
  if(!d||!d.joined)return;
- ROOM={id};LAST_CODE='';LAST_SYNC='';_prevCode='';
+ ROOM={id,version:-1};LAST_CODE='';LAST_SYNC='';_prevCode='';
  if(POLL_ID)clearInterval(POLL_ID);
  await pollRoom();
  _prevCode=document.getElementById('code').value;
@@ -248,29 +248,38 @@ async function joinRoom(id){
  appendConsole(`📂 Вошёл в комнату #${id}`,'info');
 }
 
+// Apply server text to the editor (used by poll updates and merge/conflict responses)
+function applyServerCode(code,version){
+ const ta=document.getElementById('code');
+ const pos=ta.selectionStart;
+ ta.value=code;LAST_CODE=code;LAST_SYNC=code;_prevCode=code;_dirty=false;
+ ta.selectionStart=ta.selectionEnd=Math.min(pos,code.length);
+ ROOM.version=version;
+ highlightCode();
+ updateGutter(_lineAuthors);
+}
+
 async function pollRoom(){
  if(!ROOM||!tabVisible)return;
- const d=await api('/api/sandbox/poll?room_id='+ROOM.id);if(!d)return;
+ // `since` lets the server answer "unchanged" with a tiny payload — the editor
+ // is not touched at all, so typing stays smooth while others are idle.
+ const d=await api('/api/sandbox/poll?room_id='+ROOM.id+'&since='+(ROOM.version??-1));if(!d)return;
+ updateOnline(d.users||[]);
+ if(d.xp_awarded>0){toast(`✨ +${d.xp_awarded} XP за активность!`,'xp');xpCountdown=60}
+ if(d.unchanged){setSyncState('synced');return}
  ROOM.name=d.name;ROOM.language=d.language;ROOM.is_saved=d.is_saved;
  document.getElementById('room-title').innerHTML=esc(d.name)+(d.is_saved?' <span class="saved">💾 saved</span>':'');
  document.getElementById('lang-select').value=d.language;
  document.getElementById('lang-indicator').textContent=langIcon(d.language)+' '+d.language;
  const ta=document.getElementById('code');
- // ANTI-LAG: only update textarea if user is NOT actively typing
- // _dirty is set by onCodeInput and cleared by syncCode success
- const now=Date.now();
- const userIsEditing=_dirty&&(now-_dirtyAt<3000);
- if(!userIsEditing&&d.code!==ta.value){
-  const pos=ta.selectionStart;
-  ta.value=d.code;LAST_CODE=d.code;LAST_SYNC=d.code;
-  ta.selectionStart=ta.selectionEnd=Math.min(pos,d.code.length);
-  highlightCode();
- }
- // Always update line authors (for gutter display and protection)
  _lineAuthors=d.line_authors||{};
- updateGutter(_lineAuthors);
- updateOnline(d.users);
- if(d.xp_awarded>0){toast(`✨ +${d.xp_awarded} XP за активность!`,'xp');xpCountdown=60}
+ // ANTI-LAG: don't touch the textarea while the user is typing; ROOM.version
+ // is intentionally NOT advanced, so our next sync merges on the server.
+ const userIsEditing=_dirty&&(Date.now()-_dirtyAt<3000);
+ if(!userIsEditing){
+  if(d.code!==ta.value)applyServerCode(d.code,d.version);
+  else{ROOM.version=d.version;updateGutter(_lineAuthors);}
+ }
  setSyncState('synced');
 }
 
@@ -411,8 +420,29 @@ async function syncCode(){
  setSyncState('syncing');
  const ta=document.getElementById('code');
  const line=ta.value.substring(0,ta.selectionStart).split('\n').length;
- const d=await apiForm('/api/sandbox/sync',{room_id:ROOM.id,code,cursor_line:line});
- if(d&&d.synced){LAST_SYNC=code;_dirty=false;setSyncState('synced')}else setSyncState('error');
+ const d=await apiForm('/api/sandbox/sync',{room_id:ROOM.id,code,cursor_line:line,base_version:ROOM.version??-1});
+ if(!d){setSyncState('error');return}
+ if(d.synced){
+  ROOM.version=d.version;
+  if(d.merged&&typeof d.code==='string'){
+   // Someone typed at the same time — server merged both edits
+   applyServerCode(d.code,d.version);
+   toast('🔀 Объединено с правками других','info');
+  }else{LAST_SYNC=code;_dirty=false;}
+  setSyncState('synced');return;
+ }
+ if(d.protected){
+  // Vandalism guard: revert to server text, show warning / fine
+  if(typeof d.code==='string')applyServerCode(d.code,d.version);
+  toast(d.fined?`⚡ Штраф −${d.fine_xp} XP: порча чужого кода!`:('🔒 '+(d.detail||'Нельзя менять чужой код')),d.fined?'warn':'warn');
+  setSyncState('synced');return;
+ }
+ if(d.conflict){
+  if(typeof d.code==='string')applyServerCode(d.code,d.version);
+  toast('🔄 Комната обновилась, продолжай','info');
+  setSyncState('synced');return;
+ }
+ setSyncState('error');
 }
 
 function setSyncState(state){
@@ -499,18 +529,69 @@ async function runLine(){
  const lang=document.getElementById('lang-select').value;
  const line=ta.value.split('\n')[ln-1]||'';
  appendConsole(`▸ [${ln}] ${line.substring(0,80)}`,'info');
- if(lang==='javascript'){try{const r=eval(line);if(r!==undefined)appendConsole('→ '+String(r),'ok')}catch(e){appendConsole('❌ '+e.message,'err')}return}
+ // JS line runs isolated in the sandboxed frame with its result echoed. The
+ // old direct eval() executed student code in the app page context —
+ // console.log went to devtools instead of this panel.
+ if(lang==='javascript'){_runInFrame(line,true);return}
  if(lang==='html'){appendConsole('HTML выполняется целиком через ▶ Run','info');return}
  const d=await apiForm('/api/sandbox/run',{room_id:ROOM.id,code:ta.value,language:lang,run_line:ln});
  if(!d)return;
  if(d.output)appendConsole(d.output,'ok');
  if(d.error)appendConsole(d.error,'err');
 }
+// === JS EXECUTION ===
+// Sandboxed iframe + postMessage console bridge. The old version assigned
+// iframe.contentWindow.console / called contentWindow.eval — but a sandboxed
+// iframe WITHOUT allow-same-origin has an opaque origin, so those accesses are
+// blocked by the browser and JS "просто не запускался". postMessage crosses
+// the boundary legally, async console.log/setTimeout/rAF output arrives too,
+// and DOM/canvas templates become visible instead of dying in a hidden frame.
+let _jsFrame=null,_jsGotOutput=false;
+const _JS_BRIDGE=`<body style="margin:8px;font-family:sans-serif"><scr`+`ipt>
+ var send=function(t,a){parent.postMessage({sbx:true,type:t,args:a},'*')};
+ var fmt=function(x){try{if(typeof x==='object'&&x!==null)return JSON.stringify(x);return String(x)}catch(e){return String(x)}};
+ ['log','info','warn','error'].forEach(function(k){var o=console[k].bind(console);
+  console[k]=function(){send(k,Array.prototype.slice.call(arguments).map(fmt));o.apply(null,arguments)}});
+ window.onerror=function(m,s,l){send('error',[String(m)+(l?' (строка '+l+')':'')]);return true};
+ window.addEventListener('unhandledrejection',function(e){send('error',[fmt(e.reason)])});
+ function __exec(code,wantResult){
+  var r;
+  try{r=(0,eval)(code)}catch(err){send('error',[String(err&&err.message||err)]);send('done',['']);return}
+  if(wantResult&&r!==undefined)send('result',[fmt(r)]);
+  send('done',[document.body&&document.body.querySelectorAll(':scope>:not(script)').length>0?'dom':'']);
+ }
+</scr`+`ipt>`;
+
+// Run code in a fresh sandboxed iframe. The user code is baked into srcdoc as
+// a JSON string literal (with < escaped), so nothing crosses INTO the frame
+// at runtime — only console output comes back out via postMessage.
+function _runInFrame(code,wantResult){
+ if(_jsFrame){_jsFrame.remove();_jsFrame=null}
+ _jsGotOutput=false;
+ const co=document.getElementById('console-out');
+ const f=document.createElement('iframe');
+ f.setAttribute('sandbox','allow-scripts');
+ f.style.cssText='width:100%;height:170px;border:1px solid rgba(255,255,255,.1);border-radius:8px;background:#fff;margin-top:6px;display:none';
+ const payload=JSON.stringify(String(code)).replace(/</g,'\\u003c');
+ f.srcdoc=_JS_BRIDGE+'<scr'+'ipt>__exec('+payload+','+(wantResult?'true':'false')+')</scr'+'ipt></body>';
+ co.appendChild(f);co.scrollTop=co.scrollHeight;
+ _jsFrame=f;
+}
+window.addEventListener('message',e=>{
+ const d=e.data||{};if(!d.sbx||!_jsFrame)return;
+ const txt=(d.args||[]).join(' ');
+ if(d.type==='log'||d.type==='info'){appendConsole(txt,'ok');_jsGotOutput=true}
+ else if(d.type==='warn'){appendConsole('⚠ '+txt,'info');_jsGotOutput=true}
+ else if(d.type==='error'){appendConsole('❌ '+txt,'err');_jsGotOutput=true}
+ else if(d.type==='result'){appendConsole('→ '+txt,'ok');_jsGotOutput=true}
+ else if(d.type==='done'){
+  if(d.args[0]==='dom'){_jsFrame.style.display='block';const co=document.getElementById('console-out');co.scrollTop=co.scrollHeight}
+  else if(!_jsGotOutput)appendConsole('✓ (нет вывода)','info');
+ }
+});
 function runJS(code){
- try{const iframe=document.createElement('iframe');iframe.sandbox='allow-scripts';iframe.style.display='none';document.body.appendChild(iframe);
- const logs=[];iframe.contentWindow.console={log:(...a)=>logs.push(a.map(String).join(' ')),error:(...a)=>logs.push('❌ '+a.map(String).join(' ')),warn:(...a)=>logs.push('⚠ '+a.map(String).join(' '))};
- iframe.contentWindow.eval(code);appendConsole(logs.join('\n')||'✓ (нет вывода)','ok');document.body.removeChild(iframe);
- }catch(e){appendConsole('❌ '+e.message,'err')}
+ appendConsole('⚡ Запуск JS...','info');
+ _runInFrame(code,false);   // fresh realm per run; async logs keep arriving until the next run
 }
 function runHTML(code){
  appendConsole('🌐 HTML Preview:','info');
