@@ -13407,7 +13407,7 @@ def sandbox_templates(user: dict = Depends(require_auth)):
 # DB row that survives refreshes, re-logins and other devices.
 
 _BOSS_PENALTY_HOURS = float(os.getenv("PANDORA_BOSS_PENALTY_HOURS", "2"))
-_BOSS_XP_DAILY_CAP = int(os.getenv("PANDORA_BOSS_XP_DAILY_CAP", "1500"))
+_BOSS_XP_DAILY_CAP = int(os.getenv("PANDORA_BOSS_XP_DAILY_CAP", "0"))  # 0 = без дневного лимита
 _BOSS_AWARD_COOLDOWN_S = 1.5   # a human needs >1.5s to read + type an answer
 _BOSS_MAX_REWARD = 300
 _boss_award_timestamps: dict[int, float] = {}  # user_id -> last award monotonic (bounded)
@@ -13466,10 +13466,11 @@ def boss_award(request: Request, data: dict = Body(...), user: dict = Depends(re
         # Same formula as the game UI, clamped
         reward = int(round((25 + int(time_left)) * (1.05 ** (level - 1))))
         reward = max(1, min(_BOSS_MAX_REWARD, reward))
-        remaining = _BOSS_XP_DAILY_CAP - st["xp_today"]
-        if remaining <= 0:
-            return {"awarded": 0, "xp_today": st["xp_today"], "daily_cap": _BOSS_XP_DAILY_CAP, "cap_reached": True}
-        reward = min(reward, remaining)
+        if _BOSS_XP_DAILY_CAP > 0:  # 0 = unlimited
+            remaining = _BOSS_XP_DAILY_CAP - st["xp_today"]
+            if remaining <= 0:
+                return {"awarded": 0, "xp_today": st["xp_today"], "daily_cap": _BOSS_XP_DAILY_CAP, "cap_reached": True}
+            reward = min(reward, remaining)
 
         new_xp, new_level = apply_xp_change(cursor, uid, reward, f"Boss-режим: уровень {level}")
         cursor.execute(
