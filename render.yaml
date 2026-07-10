@@ -7,7 +7,10 @@ services:
     # kahoot_1_2.json into task_store.db + prebuilt /api/tasks payload files,
     # so the 512MB runtime never parses the 40MB JSON (the old OOM root cause).
     buildCommand: pip install -r requirements.txt && python task_store.py --build
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1 --limit-concurrency 64 --timeout-keep-alive 3
+    # limit-concurrency 256: uvicorn's own 503 hits /ping too (Render then
+    # kills the service). App-level shields (16 in-flight cap, flood limits,
+    # health-path bypass) do the real protection; this is only FD insurance.
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1 --limit-concurrency 256 --timeout-keep-alive 3
     healthCheckPath: /ping
     envVars:
       # glibc: cap malloc arenas for the threaded worker — the classic RSS

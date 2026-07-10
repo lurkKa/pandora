@@ -37,7 +37,7 @@ from typing import Optional, List
 from contextlib import contextmanager
 from logging.handlers import RotatingFileHandler
 
-from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Header, Query, Request
+from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Header, Query, Request, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -322,6 +322,12 @@ class MemoryShieldMiddleware:
 
     __slots__ = ("app", "_sem", "_in_flight", "_rejected")
 
+    # Render kills the service when its health check gets 503 — during a flood
+    # (hey.exe) the shields used to 503 /ping too, so Render "blocked" a server
+    # that was actually holding up fine. Health paths bypass BOTH layers: the
+    # handler is trivial (no DB, no allocation) so it is always safe to serve.
+    _HEALTH_PATHS = ("/ping", "/health")
+
     def __init__(self, app):
         self.app = app
         self._sem = asyncio.Semaphore(_MAX_CONCURRENT_REQUESTS)
@@ -330,6 +336,10 @@ class MemoryShieldMiddleware:
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        if scope.get("path") in self._HEALTH_PATHS:
             await self.app(scope, receive, send)
             return
 
@@ -1771,6 +1781,15 @@ def init_db():
             )
         """)
         cursor.execute("""
+            CREATE TABLE IF NOT EXISTS boss_state (
+                user_id INTEGER PRIMARY KEY,
+                penalty_until REAL DEFAULT 0,
+                xp_date TEXT DEFAULT '',
+                xp_today INTEGER DEFAULT 0,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        """)
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS sandbox_presence (
                 user_id INTEGER PRIMARY KEY,
                 room_id INTEGER NOT NULL,
@@ -2307,9 +2326,9 @@ METHOD_SIMHASH_DISTANCE_THRESHOLD = max(0, min(64, METHOD_SIMHASH_DISTANCE_THRES
 # Beyond this the task can't be re-solved for XP — keeps students from farming
 # one easy task with dozens of trivial variations.
 try:
-    MAX_METHODS_PER_TASK = int(os.getenv("PANDORA_MAX_METHODS_PER_TASK", "5"))
+    MAX_METHODS_PER_TASK = int(os.getenv("PANDORA_MAX_METHODS_PER_TASK", "7"))
 except (TypeError, ValueError):
-    MAX_METHODS_PER_TASK = 5
+    MAX_METHODS_PER_TASK = 7
 MAX_METHODS_PER_TASK = max(1, min(100, MAX_METHODS_PER_TASK))
 
 
@@ -13379,6 +13398,106 @@ def sandbox_templates(user: dict = Depends(require_auth)):
             for tid, t in _SANDBOX_TEMPLATES.items()
         ]
     }
+
+
+# ==================== BOSS MODE (server-authoritative) ====================
+# boss.html is an arcade typing game. XP and the 2-hour death penalty used to
+# live in localStorage (trivially cleared) — now the SERVER owns both: awards
+# go through apply_xp_change with rate limit + daily cap, and the penalty is a
+# DB row that survives refreshes, re-logins and other devices.
+
+_BOSS_PENALTY_HOURS = float(os.getenv("PANDORA_BOSS_PENALTY_HOURS", "2"))
+_BOSS_XP_DAILY_CAP = int(os.getenv("PANDORA_BOSS_XP_DAILY_CAP", "1500"))
+_BOSS_AWARD_COOLDOWN_S = 1.5   # a human needs >1.5s to read + type an answer
+_BOSS_MAX_REWARD = 300
+_boss_award_timestamps: dict[int, float] = {}  # user_id -> last award monotonic (bounded)
+
+
+def _boss_row(cursor, uid: int) -> dict:
+    cursor.execute("INSERT OR IGNORE INTO boss_state (user_id) VALUES (?)", (uid,))
+    cursor.execute("SELECT penalty_until, xp_date, xp_today FROM boss_state WHERE user_id = ?", (uid,))
+    r = cursor.fetchone()
+    today = datetime.now().date().isoformat()
+    xp_today = int(r["xp_today"] or 0) if r["xp_date"] == today else 0
+    return {"penalty_until": float(r["penalty_until"] or 0), "xp_today": xp_today, "today": today}
+
+
+@app.get("/boss", include_in_schema=False)
+def serve_boss():
+    return FileResponse("boss.html")
+
+
+@app.get("/api/boss/status")
+def boss_status(user: dict = Depends(require_auth)):
+    with get_db() as conn:
+        cursor = conn.cursor()
+        st = _boss_row(cursor, int(user["id"]))
+        conn.commit()
+    now = time.time()
+    return {
+        "now": now,
+        "penalty_until": st["penalty_until"] if st["penalty_until"] > now else 0,
+        "xp_today": st["xp_today"],
+        "daily_cap": _BOSS_XP_DAILY_CAP,
+    }
+
+
+@app.post("/api/boss/award")
+def boss_award(request: Request, data: dict = Body(...), user: dict = Depends(require_auth)):
+    """Award XP for one correct answer. The reward is recomputed SERVER-side
+    from clamped inputs (the client number is never trusted)."""
+    uid = int(user["id"])
+    now = time.time()
+    now_mono = time.monotonic()
+
+    # Anti-farm: minimum human answer time
+    if now_mono - _boss_award_timestamps.get(uid, 0) < _BOSS_AWARD_COOLDOWN_S:
+        raise HTTPException(status_code=429, detail="Слишком быстро.")
+
+    level = max(1, min(50, int(data.get("level") or 1)))
+    time_left = max(0.0, min(60.0, float(data.get("time_left") or 0)))
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        st = _boss_row(cursor, uid)
+        if st["penalty_until"] > now:
+            raise HTTPException(status_code=403, detail="Система заблокирована (штраф активен).")
+
+        # Same formula as the game UI, clamped
+        reward = int(round((25 + int(time_left)) * (1.05 ** (level - 1))))
+        reward = max(1, min(_BOSS_MAX_REWARD, reward))
+        remaining = _BOSS_XP_DAILY_CAP - st["xp_today"]
+        if remaining <= 0:
+            return {"awarded": 0, "xp_today": st["xp_today"], "daily_cap": _BOSS_XP_DAILY_CAP, "cap_reached": True}
+        reward = min(reward, remaining)
+
+        new_xp, new_level = apply_xp_change(cursor, uid, reward, f"Boss-режим: уровень {level}")
+        cursor.execute(
+            "UPDATE boss_state SET xp_date = ?, xp_today = ? WHERE user_id = ?",
+            (st["today"], st["xp_today"] + reward, uid),
+        )
+        conn.commit()
+
+    _evict_bounded_dict(_boss_award_timestamps)
+    _boss_award_timestamps[uid] = now_mono
+    return {"awarded": reward, "xp_today": st["xp_today"] + reward, "daily_cap": _BOSS_XP_DAILY_CAP,
+            "new_total_xp": new_xp, "new_level": new_level}
+
+
+@app.post("/api/boss/death")
+def boss_death(user: dict = Depends(require_auth)):
+    """HP hit zero: start the server-side penalty (admins are exempt)."""
+    uid = int(user["id"])
+    now = time.time()
+    if user.get("role") == "admin":
+        return {"penalty_until": 0, "now": now}
+    until = now + _BOSS_PENALTY_HOURS * 3600
+    with get_db() as conn:
+        cursor = conn.cursor()
+        _boss_row(cursor, uid)
+        cursor.execute("UPDATE boss_state SET penalty_until = ? WHERE user_id = ?", (until, uid))
+        conn.commit()
+    return {"penalty_until": until, "now": now}
 
 
 # ==================== STARTUP ====================

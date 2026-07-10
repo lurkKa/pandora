@@ -366,6 +366,14 @@ function insertCompletion(i){
 }
 
 
+// === NO COPY-PASTE: в песочнице только живая печать (админу можно) ===
+(function(){
+ const ta=document.getElementById('code');
+ const block=e=>{if(IS_ADMIN)return;e.preventDefault();toast('⌨️ Только печать! Вставка в песочнице запрещена','warn')};
+ ta.addEventListener('paste',block);
+ ta.addEventListener('drop',block);
+})();
+
 // === CODE INPUT ===
 let syncTimeout=null,_prevCode='';
 function onCodeInput(){

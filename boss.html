@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pandora: Infinite Core Survival</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap');
+        
+        body {
+            background-color: #08090d;
+            color: #00ffcc;
+            font-family: 'Fira Code', monospace;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        #game-wrapper {
+            background: linear-gradient(145deg, #111622, #1a2233);
+            padding: 30px;
+            border-radius: 24px;
+            box-shadow: 0 0 40px rgba(0, 255, 204, 0.15), inset 0 0 20px rgba(0, 0, 0, 0.6);
+            border: 2px solid #00ffcc;
+            text-align: center;
+            width: 850px;
+            position: relative;
+        }
+
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #ffffff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            background: rgba(0, 0, 0, 0.4);
+            padding: 10px 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 255, 204, 0.2);
+        }
+
+        .stat-highlight {
+            color: #00ffcc;
+            text-shadow: 0 0 8px rgba(0, 255, 204, 0.6);
+        }
+
+        .mode-select {
+            background: rgba(0, 255, 204, 0.1);
+            color: #00ffcc;
+            border: 1px solid #00ffcc;
+            border-radius: 8px;
+            font-family: 'Fira Code', monospace;
+            font-weight: bold;
+            padding: 5px 10px;
+            outline: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mode-select:focus, .mode-select:hover { 
+            box-shadow: 0 0 12px rgba(0, 255, 204, 0.5); 
+            background: rgba(0, 255, 204, 0.2);
+        }
+        
+        .mode-select option { background: #111622; color: #00ffcc; }
+
+        canvas {
+            background: #0d111a;
+            border-radius: 16px;
+            border: 1px solid rgba(0, 255, 204, 0.3);
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        #duo-container {
+            margin-top: 20px;
+            background: #0e131f;
+            padding: 25px;
+            border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+
+        #question-text {
+            font-size: 1.35rem;
+            color: #fff;
+            margin-bottom: 20px;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .word-bank {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 22px;
+            min-height: 50px;
+        }
+
+        .duo-answer-zone {
+            width: 90%;
+            min-height: 55px;
+            background: rgba(5, 7, 10, 0.8);
+            border: 2px dashed #1f2c3f;
+            border-radius: 14px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 10px;
+            margin: 0 auto;
+            transition: border-color 0.2s;
+        }
+
+        .duo-chip {
+            background: #172030;
+            border: 1px solid #26354d;
+            border-radius: 12px;
+            padding: 10px 20px;
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: bold;
+            box-shadow: 0 4px 0 #0b1017;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .duo-chip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 0 #0b1017, 0 0 10px rgba(0, 255, 204, 0.4);
+            border-color: #00ffcc;
+        }
+
+        .kahoot-style {
+            background: linear-gradient(135deg, #2d124d, #4c1c80) !important;
+            border-color: #a04ef6 !important;
+            box-shadow: 0 4px 0 #1f0b36 !important;
+            color: #f1e6ff !important;
+            text-shadow: 0 0 5px rgba(241, 230, 255, 0.5);
+        }
+
+        .kahoot-style:hover {
+            border-color: #d1a3ff !important;
+            box-shadow: 0 6px 0 #1f0b36, 0 0 15px rgba(160, 78, 246, 0.6) !important;
+        }
+
+        .input-container {
+            position: relative;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+
+        input {
+            width: 90%;
+            padding: 16px;
+            font-size: 1.45rem;
+            font-family: 'Fira Code', monospace;
+            background: #05070a;
+            color: #00ffcc;
+            border: 2px solid #1f2c3f;
+            border-radius: 14px;
+            outline: none;
+            text-align: center;
+            box-shadow: inset 0 4px 10px rgba(0,0,0,0.8);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        input:focus {
+            border-color: #00ffcc;
+            box-shadow: inset 0 4px 10px rgba(0,0,0,0.8), 0 0 15px rgba(0, 255, 204, 0.3);
+        }
+
+        #submit-hint {
+            margin-top: 15px;
+            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.5);
+            font-style: italic;
+            display: none;
+        }
+
+        #status-msg {
+            margin-top: 15px;
+            font-size: 1.15rem;
+            min-height: 25px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
+
+        /* --- OVERLAY ШТРАФА --- */
+        #cooldown-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 7, 10, 0.95);
+            border-radius: 24px;
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(10px);
+        }
+
+        #cooldown-overlay h2 {
+            color: #ff3366;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(255, 51, 102, 0.6);
+        }
+
+        #cooldown-overlay p {
+            font-size: 1.2rem;
+            color: #fff;
+            margin-bottom: 30px;
+        }
+
+        #timer-text {
+            font-size: 4rem;
+            font-weight: bold;
+            color: #ffcc00;
+            text-shadow: 0 0 30px rgba(255, 204, 0, 0.5);
+            letter-spacing: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <div id="cooldown-overlay">
+        <h2>СИСТЕМА ЗАБЛОКИРОВАНА</h2>
+        <p>Все жизни потрачены. Доступ будет восстановлен через:</p>
+        <div id="timer-text">02:00:00</div>
+    </div>
+
+    <div class="stats-bar">
+        <span>УРОВЕНЬ: <span id="ui-level" class="stat-highlight">1 / 500</span></span>
+        
+        <select id="game-mode" class="mode-select" onchange="runEngineInit()">
+            <option value="duo">🕹️ РЕЖИМ: DUOLINGO (Сборка)</option>
+            <option value="mixed">🔥 РЕЖИМ: ХАРДКОР (Квизы + Ввод)</option>
+        </select>
+
+        <span id="ui-task">ЗАДАЧА: <span class="stat-highlight">1/5</span></span>
+        <span id="ui-hp">💖💖💖</span>
+        <span id="ui-xp" class="stat-highlight">XP: 0</span>
+    </div>
+
+    <canvas id="gameCanvas" width="820" height="230"></canvas>
+
+    <div id="duo-container">
+        <div id="question-text">Ожидание инициализации...</div>
+        <div class="word-bank" id="duo-chips-zone"></div>
+        <div class="input-container">
+            <div id="duo-answer-zone" class="duo-answer-zone" style="display: none;"></div>
+            <input type="text" id="code-entry" placeholder="Ожидание компиляции..." autocomplete="off">
+        </div>
+        <div id="submit-hint">[ Нажми ENTER чтобы запустить код ]</div>
+        <div id="status-msg"></div>
+    </div>
+</div>
+
+<script>
+    // === PANDORA INTEGRATION: XP и 2-часовой штраф живут на СЕРВЕРЕ ===
+    const API = location.origin;
+    const TOKEN = localStorage.getItem('auth_token') || '';
+    if (!TOKEN) location.href = '/';
+    async function bossApi(path, body) {
+        try {
+            const r = await fetch(API + path, {
+                method: body ? 'POST' : 'GET',
+                headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+                body: body ? JSON.stringify(body) : undefined,
+            });
+            if (r.status === 401) { localStorage.removeItem('auth_token'); location.href = '/'; return null; }
+            return await r.json();
+        } catch (e) { return null; }
+    }
+
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let currentLevel = 1;
+    let currentTaskIndex = 0;
+    let xp = 0;
+    let hp = 3;
+    let isBossWave = false;
+    let isQuizWave = false; 
+    let levelTasks = [];
+    let isProcessing = false;
+    
+    let timeLeft = 10;
+    let timeLimit = 10;
+    let lastTime = Date.now();
+
+    let penaltyEndTime = 0;
+    let cooldownInterval = null;
+
+    let player = { x: 120, y: 150, frame: 0 };
+    let enemy = { x: 740, y: 150, type: "zombie", size: 45, hp: 1, maxHp: 1 };
+    let projectiles = [];
+    let particles = [];
+    let environmentScroll = 0;
+    let cameraShake = 0;
+
+    const uiLevel = document.getElementById("ui-level");
+    const gameModeSelect = document.getElementById("game-mode");
+    const uiTask = document.getElementById("ui-task");
+    const uiHp = document.getElementById("ui-hp");
+    const uiXp = document.getElementById("ui-xp");
+    const uiQuestion = document.getElementById("question-text");
+    const uiChipsZone = document.getElementById("duo-chips-zone");
+    const duoAnswerZone = document.getElementById("duo-answer-zone");
+    const inputField = document.getElementById("code-entry");
+    const submitHint = document.getElementById("submit-hint");
+    const msgBox = document.getElementById("status-msg");
+    const cooldownOverlay = document.getElementById("cooldown-overlay");
+    const timerText = document.getElementById("timer-text");
+
+    const quizPool = [
+        { tier: 1, q: "Что такое 'for' в Python?", options: ["Цикл", "Тип данных", "Переменная", "Модуль"], ans: "Цикл" },
+        { tier: 1, q: "Зачем нужен append()?", options: ["Добавить в конец", "Удалить элемент", "Очистить список", "Сортировать"], ans: "Добавить в конец" },
+        { tier: 1, q: "Что делает print()?", options: ["Выводит текст", "Считывает ввод", "Считает длину", "Округляет числа"], ans: "Выводит текст" },
+        { tier: 2, q: "Что делает функция len()?", options: ["Возвращает длину", "Округляет число", "Удалить пробелы", "Переводит в строку"], ans: "Возвращает длину" },
+        { tier: 2, q: "Какой оператор проверяет равенство?", options: ["==", "=", "===", "!="], ans: "==" },
+        { tier: 3, q: "Что делает инструкция break?", options: ["Прерывает цикл", "Пропускает шаг", "Выходит из программы", "Запускает функцию"], ans: "Прерывает цикл" },
+        { tier: 4, q: "Зачем нужно ключевое слово return?", options: ["Возврат значения", "Вывод на экран", "Остановка цикла", "Создание класса"], ans: "Возврат значения" },
+        { tier: 5, q: "Что такое множество (set)?", options: ["Уникальные элементы", "Список с индексами", "Таблица ключ-значение", "Неизменяемая строка"], ans: "Уникальные элементы" }
+    ];
+
+    function shuffle(arr) { return arr.sort(() => Math.random() - 0.5); }
+
+    function generateDynamicTask(level) {
+        let mode = gameModeSelect.value;
+        if (isQuizWave) {
+            let currentTier = level > 15 ? 5 : (level > 10 ? 3 : 1);
+            let availableQuizzes = quizPool.filter(q => q.tier >= currentTier - 1 && q.tier <= currentTier + 1);
+            if (availableQuizzes.length === 0) availableQuizzes = quizPool;
+            let randomQuiz = availableQuizzes[Math.floor(Math.random() * availableQuizzes.length)];
+            return { type: "kahoot", q: randomQuiz.q, options: randomQuiz.options, ans: randomQuiz.ans };
+        }
+
+        let tier = 1;
+        if (level > 30) tier = 5; else if (level > 20) tier = 4; else if (level > 10) tier = 3; else if (level > 5) tier = 2;   
+        const variables = ["x", "y", "val", "count", "score", "total"];
+        const lists = ["arr", "lst", "items", "nums", "stack"];
+        const words = ["Pandora", "Admin", "System", "Core", "Root", "Guest"];
+        
+        let v = variables[Math.floor(Math.random() * variables.length)];
+        let l = lists[Math.floor(Math.random() * lists.length)];
+        let w = words[Math.floor(Math.random() * words.length)];
+        let n = Math.floor(Math.random() * 90) + 10;
+        let n2 = Math.floor(Math.random() * 20) + 1;
+        let choice = Math.random();
+
+        if (tier === 1) { 
+            if (choice < 0.33) return { type: "code", q: `Создай переменную '${v}' равную ${n}`, duo_options: [v, "=", String(n)], simple_hints: ["=", String(n), v], ans: `${v} = ${n}` };
+            else if (choice < 0.66) return { type: "code", q: `Выведи слово '${w}' на экран`, duo_options: ["print", "(", `'${w}'`, ")"], simple_hints: ["print", `'${w}'`], ans: `print('${w}')` };
+            else return { type: "code", q: `Объяви пустой список '${l}'`, duo_options: [l, "=", "[", "]"], simple_hints: ["[]", l], ans: `${l} = []` };
+        } else if (tier === 2) { 
+            if (choice < 0.33) return { type: "code", q: `Сложи ${n} и ${n2} в переменную '${v}'`, duo_options: [v, "=", String(n), "+", String(n2)], simple_hints: ["+", "=", v], ans: `${v} = ${n} + ${n2}` };
+            else if (choice < 0.66) return { type: "code", q: `Создай список '${l}' с одним элементом ${n}`, duo_options: [l, "=", "[", String(n), "]"], simple_hints: ["[]", l], ans: `${l} = [${n}]` };
+            else return { type: "code", q: `Узнай тип переменной '${v}'`, duo_options: ["type", "(", v, ")"], simple_hints: ["type()", v], ans: `type(${v})` };
+        } else if (tier === 3) { 
+            if (choice < 0.33) return { type: "code", q: `Добавь число ${n} в конец списка '${l}'`, duo_options: [l, ".append", "(", String(n), ")"], simple_hints: ["append()", l], ans: `${l}.append(${n})` };
+            else if (choice < 0.66) return { type: "code", q: `Напиши цикл 'for' для '${v}' в диапазоне range(${n})`, duo_options: ["for", v, "in", `range(${n})`, ":"], simple_hints: ["for", "in", "range()"], ans: `for ${v} in range(${n}):` };
+            else return { type: "code", q: `Выведи длину списка '${l}'`, duo_options: ["print", "(", "len", "(", l, ")", ")"], simple_hints: ["print", "len()"], ans: `print(len(${l}))` };
+        } else if (tier === 4) { 
+            if (choice < 0.33) return { type: "code", q: `Если '${v}' больше ${n}`, duo_options: ["if", v, ">", String(n), ":"], simple_hints: ["if", ">"], ans: `if ${v} > ${n}:` };
+            else if (choice < 0.66) return { type: "code", q: `Запусти бесконечный цикл`, duo_options: ["while", "True", ":"], simple_hints: ["while", "True"], ans: "while True:" };
+            else return { type: "code", q: `Создай пустой словарь '${v}'`, duo_options: [v, "=", "{", "}"], simple_hints: ["{}", v], ans: `${v} = {}` };
+        } else { 
+            if (choice < 0.33) return { type: "code", q: `Создай функцию '${w.toLowerCase()}' без аргументов`, duo_options: ["def", `${w.toLowerCase()}`, "(", ")", ":"], simple_hints: ["def", "()"], ans: `def ${w.toLowerCase()}():` };
+            else if (choice < 0.66) return { type: "code", q: `Проверь, что '${v}' строго равен ${n}`, duo_options: ["if", v, "==", String(n), ":"], simple_hints: ["if", "=="], ans: `if ${v} == ${n}:` };
+            else return { type: "code", q: `Проверь, что '${v}' НЕТ в списке '${l}'`, duo_options: ["if", v, "not in", l, ":"], simple_hints: ["not in", "if"], ans: `if ${v} not in ${l}:` };
+        }
+    }
+
+    function runEngineInit() {
+        currentLevel = 1; xp = 0; hp = 3; isProcessing = false;
+        uiXp.innerText = `XP: ${xp}`;
+        refreshHealthStatus();
+        buildLevelSequence();
+    }
+
+    function buildLevelSequence() {
+        let mode = gameModeSelect.value;
+        currentTaskIndex = 0;
+        isQuizWave = (mode === "mixed" && currentLevel % 5 === 4); 
+        isBossWave = (currentLevel % 5 === 0);
+
+        if (isBossWave) { enemy.type = "boss"; enemy.size = 85; enemy.y = 110; enemy.maxHp = 5; enemy.hp = 5; } 
+        else if (isQuizWave) { enemy.type = "quiz_bot"; enemy.size = 50; enemy.y = 150; enemy.maxHp = 1; enemy.hp = 1; } 
+        else { enemy.type = "zombie"; enemy.size = 45; enemy.y = 150; enemy.maxHp = 1; enemy.hp = 1; }
+
+        levelTasks = [];
+        let safetyCounter = 0;
+        while(levelTasks.length < 5 && safetyCounter < 100) {
+            let newTask = generateDynamicTask(currentLevel);
+            let isDuplicate = levelTasks.some(t => t.q === newTask.q || t.ans === newTask.ans);
+            if(!isDuplicate) levelTasks.push(newTask);
+            safetyCounter++;
+        }
+        renderCurrentTask();
+    }
+
+    function handleChipInteraction(chipElement) {
+        if (isProcessing) return;
+        const bank = document.getElementById("duo-chips-zone");
+        const answerZone = document.getElementById("duo-answer-zone");
+        if (chipElement.parentElement === bank) answerZone.appendChild(chipElement);
+        else bank.appendChild(chipElement);
+    }
+
+    function handleKahootClick(chipText) {
+        if (isProcessing) return;
+        inputField.value = chipText;
+        processAnswerValidation();
+    }
+
+    function handleHintClick(chipText) {
+        if (isProcessing) return;
+        inputField.value += (inputField.value.length > 0 ? " " : "") + chipText;
+        inputField.focus();
+    }
+
+    function renderCurrentTask() {
+        isProcessing = false;
+        if (currentTaskIndex >= 5) {
+            currentLevel++;
+            if (currentLevel > 500) { msgBox.innerHTML = "<span style='color:#00ffcc'>СИСТЕМА ПОЛНОСТЬЮ ВЗЛОМАНА!</span>"; return; }
+            msgBox.innerHTML = "<span style='color:#00ffcc'>Сектор очищен. Переход на следующий уровень...</span>";
+            isProcessing = true;
+            setTimeout(buildLevelSequence, 1000);
+            return;
+        }
+
+        let mode = gameModeSelect.value;
+        let task = levelTasks[currentTaskIndex];
+        
+        uiLevel.innerText = `${currentLevel} / 500`;
+        uiTask.innerText = `ЗАДАЧА: ${currentTaskIndex + 1}/5`;
+        uiQuestion.innerText = task.q;
+        uiChipsZone.innerHTML = ""; duoAnswerZone.innerHTML = "";
+        
+        if (isQuizWave) {
+            let mixedOptions = shuffle([...task.options]);
+            mixedOptions.forEach(opt => {
+                let div = document.createElement("div");
+                div.className = "duo-chip kahoot-style";
+                div.innerText = opt;
+                div.onclick = () => handleKahootClick(opt);
+                uiChipsZone.appendChild(div);
+            });
+            inputField.style.display = "none"; duoAnswerZone.style.display = "none"; submitHint.style.display = "none";
+        } else {
+            let chipsToRender = mode === "duo" ? shuffle([...task.duo_options]) : shuffle([...task.simple_hints]);
+            chipsToRender.forEach(chip => {
+                let div = document.createElement("div"); div.className = "duo-chip"; div.innerText = chip;
+                div.onclick = function() { if (mode === "duo") handleChipInteraction(this); else handleHintClick(this.innerText); };
+                uiChipsZone.appendChild(div);
+            });
+
+            if (mode === "duo") {
+                inputField.style.display = "none"; duoAnswerZone.style.display = "flex"; submitHint.style.display = "block";
+            } else {
+                inputField.style.display = "block"; duoAnswerZone.style.display = "none"; submitHint.style.display = "none";
+                inputField.value = ""; inputField.placeholder = "Собери код на основе подсказок..."; inputField.focus();
+            }
+        }
+
+        if (isQuizWave) timeLimit = 12; else if (currentLevel > 20) timeLimit = 6; else if (currentLevel >= 10) timeLimit = 8; else timeLimit = 10;
+        timeLeft = timeLimit;
+        if (!isBossWave) { enemy.x = 860; enemy.hp = enemy.maxHp; }
+    }
+
+    function processAnswerValidation() {
+        if (isProcessing) return;
+        let mode = gameModeSelect.value;
+        let task = levelTasks[currentTaskIndex];
+        let userString = "";
+
+        if (isQuizWave) userString = inputField.value.trim();
+        else if (mode === "duo") userString = Array.from(duoAnswerZone.children).map(c => c.innerText).join("");
+        else userString = inputField.value.trim();
+
+        let isCorrect = false;
+        if (isQuizWave) isCorrect = (userString.toLowerCase() === task.ans.toLowerCase());
+        else {
+            let normalizedUser = userString.replace(/\s+/g, '').toLowerCase();
+            let normalizedAns = task.ans.replace(/\s+/g, '').toLowerCase();
+            isCorrect = (normalizedUser === normalizedAns);
+        }
+
+        isProcessing = true;
+
+        if (isCorrect) {
+            projectiles.push({ x: player.x + 40, y: player.y + 15, text: "01" });
+            // XP считает и начисляет СЕРВЕР (rate limit + дневной лимит)
+            bossApi('/api/boss/award', { level: currentLevel, time_left: Math.floor(timeLeft) }).then(d => {
+                if (d && d.awarded > 0) {
+                    xp += d.awarded; uiXp.innerText = `XP: ${xp}`;
+                    msgBox.innerHTML = `<span style="color:#00ffcc">► Поток скомпилирован! +${d.awarded} XP</span>`;
+                } else if (d && d.cap_reached) {
+                    msgBox.innerHTML = `<span style="color:#ffcc00">► Верно! Дневной лимит XP босс-режима исчерпан (${d.daily_cap}).</span>`;
+                } else {
+                    msgBox.innerHTML = `<span style="color:#00ffcc">► Поток скомпилирован!</span>`;
+                }
+            });
+            currentTaskIndex++;
+            setTimeout(renderCurrentTask, 900);
+        } else {
+            registerPlayerDamage(isQuizWave ? "Неверная теория!" : "Ошибка синтаксиса!");
+        }
+    }
+
+    function registerPlayerDamage(reason) {
+        hp--; refreshHealthStatus(); cameraShake = 22;
+        msgBox.innerHTML = `<span style="color:#ff3366">☣ ${reason}</span>`;
+        inputField.value = ""; enemy.x -= 40;
+
+        if (gameModeSelect.value === "duo" && !isQuizWave) {
+            Array.from(duoAnswerZone.children).forEach(chip => uiChipsZone.appendChild(chip));
+        }
+
+        if (hp <= 0) {
+            msgBox.innerHTML = `<span style="color:#ff3366; font-size:1.3rem">СИСТЕМА ЗАБЛОКИРОВАНА!</span>`;
+            isProcessing = true;
+
+            cooldownOverlay.style.display = "flex";
+            penaltyEndTime = Date.now() + (2 * 60 * 60 * 1000); // локально, до ответа сервера
+            startCooldownTimer();
+            // Штраф фиксируется на сервере: переживает перезагрузку и смену устройства
+            bossApi('/api/boss/death').then(d => {
+                if (d && d.penalty_until > 0) {
+                    penaltyEndTime = Date.now() + Math.max(0, (d.penalty_until - d.now)) * 1000;
+                } else if (d && d.penalty_until === 0) {
+                    // админ — без штрафа
+                    penaltyEndTime = 0; clearInterval(cooldownInterval);
+                    cooldownOverlay.style.display = "none"; hp = 3; runEngineInit();
+                }
+            });
+        } else {
+            setTimeout(() => { isProcessing = false; }, 800);
+        }
+    }
+
+    function startCooldownTimer() {
+        clearInterval(cooldownInterval);
+        updateTimerUI();
+        cooldownInterval = setInterval(() => {
+            updateTimerUI();
+        }, 1000);
+    }
+
+    function updateTimerUI() {
+        let now = Date.now();
+        let diff = penaltyEndTime - now;
+        
+        if (diff <= 0) {
+            clearInterval(cooldownInterval);
+            cooldownOverlay.style.display = "none";
+            localStorage.removeItem("pandoraPenalty");
+            runEngineInit();
+        } else {
+            let h = Math.floor(diff / (1000 * 60 * 60));
+            let m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            let s = Math.floor((diff % (1000 * 60)) / 1000);
+            timerText.innerText = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+    }
+
+    function refreshHealthStatus() {
+        let heartString = "";
+        for(let i=0; i<3; i++) heartString += (i < hp) ? "💖" : "💔";
+        uiHp.innerText = heartString;
+    }
+
+    function processFrameUpdate() {
+        let currentTime = Date.now();
+        let frameDelta = (currentTime - lastTime) / 1000;
+        lastTime = currentTime;
+
+        if (hp > 0 && !isProcessing) {
+            timeLeft -= frameDelta;
+            if (timeLeft <= 0) registerPlayerDamage("Тайм-аут потока данных!");
+        }
+
+        if (cameraShake > 0) cameraShake *= 0.88;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        if (cameraShake > 1) ctx.translate((Math.random() - 0.5) * cameraShake, (Math.random() - 0.5) * cameraShake);
+
+        environmentScroll -= (isProcessing ? 6 : 0.8);
+        ctx.strokeStyle = isQuizWave ? "rgba(160, 78, 246, 0.08)" : "rgba(0, 255, 204, 0.05)";
+        ctx.lineWidth = 1;
+        for (let x = 0; x < canvas.width; x += 40) {
+            let cx = (x + environmentScroll) % canvas.width;
+            ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, 190); ctx.stroke();
+        }
+
+        if (isBossWave) ctx.fillStyle = "rgba(255, 51, 102, 0.03)"; else if (isQuizWave) ctx.fillStyle = "rgba(160, 78, 246, 0.02)";
+        if (isBossWave || isQuizWave) ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "#06080c"; ctx.fillRect(0, 190, canvas.width, 40);
+        ctx.fillStyle = isBossWave ? "#ff3366" : (isQuizWave ? "#a04ef6" : "#00ffcc");
+        ctx.fillRect(0, 190, canvas.width, 2);
+
+        let percentage = Math.max(0, timeLeft / timeLimit);
+        ctx.fillStyle = percentage > 0.4 ? (isQuizWave ? "#a04ef6" : "#00ffcc") : "#ff3366";
+        ctx.shadowBlur = 10; ctx.shadowColor = ctx.fillStyle;
+        ctx.fillRect(0, 192, canvas.width * percentage, 4); ctx.shadowBlur = 0;
+
+        player.frame += frameDelta * 12;
+        let bounce = Math.sin(player.frame) * 4;
+        ctx.font = "40px Arial"; ctx.fillText("👨‍💻", player.x, player.y + bounce);
+
+        let stopX = isBossWave ? 560 : 480;
+        if (enemy.x > stopX) enemy.x -= (80 * frameDelta);
+
+        ctx.font = `${enemy.size}px Arial`;
+        let enemyEmoji = enemy.type === "boss" ? "👹" : (enemy.type === "quiz_bot" ? "🧐" : "🧟‍♂️");
+        ctx.fillText(enemyEmoji, enemy.x, enemy.y);
+
+        // Динамический расчет высоты ХП-бара (зависит от размера противника)
+        let hpBarY = enemy.y - enemy.size - 10;
+        
+        let displayHp = Math.max(0, enemy.hp);
+        ctx.fillStyle = "#111"; ctx.fillRect(enemy.x - 15, hpBarY, 90, 7);
+        ctx.fillStyle = isBossWave ? "#ff3366" : (isQuizWave ? "#a04ef6" : "#ffcc00"); 
+        ctx.fillRect(enemy.x - 15, hpBarY, 90 * (displayHp / enemy.maxHp), 7);
+        ctx.font = "11px 'Fira Code'"; ctx.fillStyle = "#ffffff";
+        ctx.fillText(`HP: ${displayHp}/${enemy.maxHp}`, enemy.x - 10, hpBarY - 6);
+
+        for (let i = projectiles.length - 1; i >= 0; i--) {
+            let p = projectiles[i]; p.x += 500 * frameDelta;
+            ctx.font = "bold 15px 'Fira Code'"; ctx.fillStyle = isQuizWave ? "#a04ef6" : "#00ffcc";
+            ctx.fillText(p.text, p.x, p.y);
+
+            if (p.x >= enemy.x) {
+                projectiles.splice(i, 1); enemy.hp = Math.max(0, enemy.hp - 1);
+                for (let c = 0; c < 10; c++) particles.push({ x: enemy.x + 20, y: enemy.y - 5, dx: (Math.random() - 0.5) * 200, dy: (Math.random() - 0.5) * 200, val: Math.random() > 0.5 ? "1" : "0", opacity: 1 });
+            }
+        }
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let pt = particles[i];
+            pt.x += pt.dx * frameDelta; pt.y += pt.dy * frameDelta; pt.opacity -= frameDelta * 2;
+            if (pt.opacity <= 0) { particles.splice(i, 1); continue; }
+            ctx.font = "11px 'Fira Code'";
+            ctx.fillStyle = isQuizWave ? `rgba(160, 78, 246, ${pt.opacity})` : `rgba(0, 255, 204, ${pt.opacity})`;
+            ctx.fillText(pt.val, pt.x, pt.y);
+        }
+
+        ctx.restore();
+        requestAnimationFrame(processFrameUpdate);
+    }
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !isProcessing && hp > 0) processAnswerValidation();
+    });
+
+    // (сервисная комбинация Alt+J удалена: авто-решение фармило XP,
+    //  а сброс штрафа теперь невозможен — штраф хранится на сервере)
+
+    document.addEventListener("click", () => {
+        if (gameModeSelect.value === "mixed" && !isQuizWave && hp > 0) inputField.focus();
+    });
+
+    // Старт: штраф спрашиваем у СЕРВЕРА (localStorage больше не источник правды)
+    localStorage.removeItem("pandoraPenalty");
+    bossApi('/api/boss/status').then(d => {
+        if (d && d.penalty_until > 0) {
+            hp = 0;
+            isProcessing = true;
+            penaltyEndTime = Date.now() + Math.max(0, (d.penalty_until - d.now)) * 1000;
+            cooldownOverlay.style.display = "flex";
+            startCooldownTimer();
+        } else {
+            runEngineInit();
+        }
+        requestAnimationFrame(processFrameUpdate);
+    });
+</script>
+
+</body>
+</html>

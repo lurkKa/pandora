@@ -2735,6 +2735,25 @@
             color: var(--text-bright);
         }
 
+        /* Boss-режим: тлеющая красная кнопка */
+        .header-btn.boss-btn {
+            border-color: rgba(255, 51, 102, 0.45);
+            background: linear-gradient(135deg, rgba(255, 51, 102, 0.12), rgba(120, 0, 40, 0.25));
+            box-shadow: 0 0 8px rgba(255, 51, 102, 0.25);
+            animation: bossPulse 2.4s ease-in-out infinite;
+        }
+
+        .header-btn.boss-btn:hover {
+            background: linear-gradient(135deg, rgba(255, 51, 102, 0.3), rgba(120, 0, 40, 0.45));
+            box-shadow: 0 0 16px rgba(255, 51, 102, 0.55);
+            transform: scale(1.08);
+        }
+
+        @keyframes bossPulse {
+            0%, 100% { box-shadow: 0 0 6px rgba(255, 51, 102, 0.2); }
+            50% { box-shadow: 0 0 14px rgba(255, 51, 102, 0.5); }
+        }
+
         .header-avatar {
             display: inline-flex;
             align-items: center;
@@ -3236,6 +3255,8 @@
                 <button class="header-btn" onclick="toggleGuildRankings()" title="Рейтинг гильдий">⚔️</button>
                 <button class="header-btn" onclick="toggleChatPanel()" title="Чат">💬</button>
                 <button class="header-btn" id="kahoot-btn" onclick="tryOpenQuiz()" title="Квиз">🧠</button>
+                <button class="header-btn boss-btn" onclick="window.open('/boss','_blank')"
+                    title="Boss-режим — арена печати">👹</button>
                 <span class="logo-icon" aria-hidden="true">💎</span>
                 <span class="logo-text">Академия Pandora</span>
             </div>
@@ -7345,7 +7366,7 @@
                 }
 
                 if (data.status === 'methods_limit_reached') {
-                    const limit = data.methods_limit || 5;
+                    const limit = data.methods_limit || 7;
                     output.innerText =
                         `🚫 Достигнут лимит перерешений (${limit} способов).\n` +
                         `Этот квест больше нельзя перерешать.\n\n` +
