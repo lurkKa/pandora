@@ -541,8 +541,15 @@
             cooldownOverlay.style.display = "flex";
             penaltyEndTime = Date.now() + (2 * 60 * 60 * 1000); // локально, до ответа сервера
             startCooldownTimer();
-            // Штраф фиксируется на сервере: переживает перезагрузку и смену устройства
-            bossApi('/api/boss/death').then(d => {
+            // Штраф фиксируется на сервере: переживает перезагрузку и смену
+            // устройства. До 3 попыток — иначе сорвавшийся запрос оставил бы
+            // штраф только в этой вкладке.
+            (async () => {
+                let d = null;
+                for (let i = 0; i < 3 && !d; i++) {
+                    d = await bossApi('/api/boss/death');
+                    if (!d) await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+                }
                 if (d && d.penalty_until > 0) {
                     penaltyEndTime = Date.now() + Math.max(0, (d.penalty_until - d.now)) * 1000;
                 } else if (d && d.penalty_until === 0) {
@@ -550,7 +557,7 @@
                     penaltyEndTime = 0; clearInterval(cooldownInterval);
                     cooldownOverlay.style.display = "none"; hp = 3; runEngineInit();
                 }
-            });
+            })();
         } else {
             setTimeout(() => { isProcessing = false; }, 800);
         }
@@ -679,9 +686,16 @@
         if (gameModeSelect.value === "mixed" && !isQuizWave && hp > 0) inputField.focus();
     });
 
-    // Старт: штраф спрашиваем у СЕРВЕРА (localStorage больше не источник правды)
+    // Старт: штраф спрашиваем у СЕРВЕРА (localStorage больше не источник правды).
+    // До 3 попыток с паузой: один сорвавшийся запрос (сеть/перезапуск сервера)
+    // раньше «сбрасывал» таймер штрафа — игра стартовала как ни в чём не бывало.
     localStorage.removeItem("pandoraPenalty");
-    bossApi('/api/boss/status').then(d => {
+    (async () => {
+        let d = null;
+        for (let i = 0; i < 3 && !d; i++) {
+            d = await bossApi('/api/boss/status');
+            if (!d) await new Promise(r => setTimeout(r, 800 * (i + 1)));
+        }
         if (d && d.penalty_until > 0) {
             hp = 0;
             isProcessing = true;
@@ -692,7 +706,7 @@
             runEngineInit();
         }
         requestAnimationFrame(processFrameUpdate);
-    });
+    })();
 </script>
 
 </body>

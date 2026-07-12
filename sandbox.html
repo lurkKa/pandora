@@ -143,7 +143,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font);display:flex;h
 
 <!-- MAIN -->
 <div class="main">
- <div class="admin-bar" id="admin-bar"><span class="badge">👑 Admin Mode</span><button class="btn btn-run" onclick="showAwardModal()" style="padding:4px 14px;font-size:11px">⭐ Award XP</button><span style="flex:1"></span><span style="color:var(--comment);font-size:11px">Ctrl+Enter = Run | Shift+Enter = Run Line</span></div>
+ <div class="admin-bar" id="admin-bar"><span class="badge">👑 Admin Mode</span><button class="btn btn-run" onclick="showAwardModal()" style="padding:4px 14px;font-size:11px">⭐ Award XP</button><button class="btn" onclick="showPasteModal()" style="padding:4px 14px;font-size:11px;position:relative">📋 Вставки<span id="paste-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#f92672;color:#fff;border-radius:50%;min-width:16px;height:16px;font-size:10px;line-height:16px;text-align:center;padding:0 3px">0</span></button><span style="flex:1"></span><span style="color:var(--comment);font-size:11px">Ctrl+Enter = Run | Shift+Enter = Run Line</span></div>
  <div class="toolbar" id="toolbar">
   <span class="room-title" id="room-title">Выберите комнату →</span>
   <select id="lang-select" onchange="changeLang(this.value)"><option value="python">🐍 Python</option><option value="javascript">⚡ JavaScript</option><option value="html">🌐 HTML+CSS</option></select>
@@ -152,6 +152,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font);display:flex;h
   <button class="btn" onclick="runLine()" title="Shift+Enter — запустить текущую строку">▸ Line</button>
   <div class="toolbar-sep"></div>
   <button class="btn btn-save" onclick="saveRoom()" title="Сохранить песочницу">💾</button>
+  <button class="btn" id="paste-req-btn" onclick="requestPaste()" title="Запросить у сенсея разрешение на вставку" style="display:none">📋 Вставка</button>
   <div class="sync-indicator"><div class="sync-dot" id="sync-dot"></div><span id="sync-text">Ready</span></div>
  </div>
 
@@ -184,6 +185,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font);display:flex;h
 <!-- MODALS -->
 <div class="modal-bg" id="create-modal"><div class="modal"><h3>＋ Новая песочница</h3><label>Название</label><input id="cr-name" value="Новая песочница" maxlength="60"><label>Язык</label><select id="cr-lang"><option value="python">🐍 Python</option><option value="javascript">⚡ JavaScript</option><option value="html">🌐 HTML+CSS</option></select><button class="btn btn-primary" onclick="createRoom()">Создать</button><button class="btn" onclick="closeModals()" style="margin-top:8px">Отмена</button></div></div>
 <div class="modal-bg" id="tpl-modal"><div class="modal"><h3>📋 Шаблоны</h3><div class="tpl-grid" id="tpl-grid"></div><button class="btn" onclick="closeModals()" style="margin-top:16px">Закрыть</button></div></div>
+<div class="modal-bg" id="paste-modal"><div class="modal"><h3>📋 Запросы на вставку</h3><div id="paste-list" style="max-height:260px;overflow-y:auto;text-align:left;font-size:12px"></div><button class="btn" onclick="closeModals()" style="margin-top:12px">Закрыть</button></div></div>
 <div class="modal-bg" id="award-modal"><div class="modal"><h3>⭐ Наградить XP</h3><label>Игрок</label><select id="aw-user"></select><label>XP (1 — 30 000)</label><input id="aw-xp" type="number" min="1" max="30000" value="500"><label>Причина</label><input id="aw-reason" value="Отличная работа!" maxlength="200"><button class="btn btn-primary" onclick="awardXP()">⭐ Наградить</button><button class="btn" onclick="closeModals()" style="margin-top:8px">Отмена</button></div></div>
 
 <script>
@@ -246,7 +248,11 @@ async function joinRoom(id){
  loadRooms();
  document.getElementById('code').focus();
  appendConsole(`📂 Вошёл в комнату #${id}`,'info');
+ // paste-approval: статус привязан к комнате
+ _pasteAllowed=false;_pastePending=false;updatePasteBtn();
+ if(IS_ADMIN)pollPasteRequests();else checkPasteStatus();
 }
+let _pasteTick=0;
 
 // Apply server text to the editor (used by poll updates and merge/conflict responses)
 function applyServerCode(code,version){
@@ -264,6 +270,8 @@ async function pollRoom(){
  // `since` lets the server answer "unchanged" with a tiny payload — the editor
  // is not touched at all, so typing stays smooth while others are idle.
  const d=await api('/api/sandbox/poll?room_id='+ROOM.id+'&since='+(ROOM.version??-1));if(!d)return;
+ // paste-approval: лёгкая проверка раз в ~9с (админ — счётчик заявок, ученик — статус)
+ if(++_pasteTick%3===0){if(IS_ADMIN)pollPasteRequests();else if(_pastePending)checkPasteStatus();}
  updateOnline(d.users||[]);
  if(d.xp_awarded>0){toast(`✨ +${d.xp_awarded} XP за активность!`,'xp');xpCountdown=60}
  if(d.unchanged){setSyncState('synced');return}
@@ -366,13 +374,72 @@ function insertCompletion(i){
 }
 
 
-// === NO COPY-PASTE: в песочнице только живая печать (админу можно) ===
+// === PASTE APPROVAL: вставка запрещена, но сенсей может одобрить по запросу ===
+// Переиспользует общий механизм paste_requests (task_id = "sandbox:<room>").
+let _pasteAllowed=false,_pastePending=false;
 (function(){
  const ta=document.getElementById('code');
- const block=e=>{if(IS_ADMIN)return;e.preventDefault();toast('⌨️ Только печать! Вставка в песочнице запрещена','warn')};
+ const block=e=>{
+  if(IS_ADMIN||_pasteAllowed)return;
+  e.preventDefault();
+  toast(_pastePending?'⏳ Запрос на вставку ждёт одобрения сенсея':'⌨️ Только печать! Нажми «📋 Вставка», чтобы запросить разрешение','warn');
+ };
  ta.addEventListener('paste',block);
  ta.addEventListener('drop',block);
 })();
+
+async function requestPaste(){
+ if(!ROOM||_pasteAllowed||_pastePending)return;
+ const d=await api('/api/paste-request',{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({task_id:'sandbox:'+ROOM.id,task_title:'Песочница: '+(ROOM.name||('#'+ROOM.id))})});
+ if(d){_pastePending=true;updatePasteBtn();toast('📨 Запрос отправлен сенсею','info')}
+}
+
+async function checkPasteStatus(){
+ if(!ROOM||IS_ADMIN)return;
+ const d=await api('/api/paste-request/status?task_id=sandbox:'+ROOM.id);
+ if(!d)return;
+ if(d.approved){_pasteAllowed=true;_pastePending=false;toast('✅ Сенсей разрешил вставку!','xp')}
+ else if(d.rejected&&_pastePending){_pastePending=false;toast('🚫 Сенсей отклонил вставку','warn')}
+ else if(d.pending)_pastePending=true;
+ updatePasteBtn();
+}
+
+function updatePasteBtn(){
+ const b=document.getElementById('paste-req-btn');
+ if(!b)return;
+ b.style.display=(ROOM&&!IS_ADMIN)?'':'none';
+ b.textContent=_pasteAllowed?'✅ Вставка разрешена':(_pastePending?'⏳ Ждём сенсея':'📋 Вставка');
+ b.disabled=_pasteAllowed||_pastePending;
+}
+
+// === АДМИН: панель одобрения вставок (только запросы из песочницы) ===
+let _pasteReqs=[];
+async function pollPasteRequests(){
+ if(!IS_ADMIN)return;
+ const d=await api('/api/paste-requests/pending');
+ if(!d||!d.requests)return;
+ _pasteReqs=d.requests.filter(r=>String(r.task_id||'').startsWith('sandbox:'));
+ const badge=document.getElementById('paste-badge');
+ badge.textContent=_pasteReqs.length;
+ badge.style.display=_pasteReqs.length?'block':'none';
+ if(document.getElementById('paste-modal').classList.contains('show'))renderPasteList();
+}
+function showPasteModal(){renderPasteList();document.getElementById('paste-modal').classList.add('show')}
+function renderPasteList(){
+ const el=document.getElementById('paste-list');
+ if(!_pasteReqs.length){el.innerHTML='<div style="color:var(--comment);padding:14px;text-align:center">Нет запросов 🎉</div>';return}
+ el.innerHTML=_pasteReqs.map(r=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--border)">
+  <span style="flex:1">👤 ${esc(r.display_name||r.username)} — ${esc(r.task_title||r.task_id)}</span>
+  <button class="btn btn-run" style="padding:2px 10px;font-size:11px" onclick="resolvePaste(${r.id},1)">✅</button>
+  <button class="btn" style="padding:2px 10px;font-size:11px" onclick="resolvePaste(${r.id},0)">🚫</button></div>`).join('');
+}
+async function resolvePaste(id,ok){
+ await api('/api/paste-request/'+id+'/'+(ok?'approve':'reject'),{method:'POST'});
+ _pasteReqs=_pasteReqs.filter(r=>r.id!==id);
+ pollPasteRequests();renderPasteList();
+ toast(ok?'✅ Вставка одобрена':'🚫 Отклонено','info');
+}
 
 // === CODE INPUT ===
 let syncTimeout=null,_prevCode='';

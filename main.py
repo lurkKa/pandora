@@ -31,7 +31,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import html
 import tempfile
-from collections import Counter
+from collections import Counter, deque
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 from contextlib import contextmanager
@@ -303,11 +303,18 @@ class _MemorySentinel(_threading.Thread):
 # --- ASGI Middlewares (raw ASGI for minimal overhead) ---
 
 async def _send_error_response(send, status: int, body: bytes, content_type: bytes = b"application/json"):
-    """Send a minimal HTTP error response via raw ASGI."""
+    """Send a minimal HTTP error response via raw ASGI.
+
+    Connection: close — flood clients (hey.exe) must NOT keep the socket:
+    with keep-alive they pin uvicorn connection slots until every slot is
+    taken and Render's health check starts getting uvicorn-level 503s.
+    Closing on every shield rejection recycles the slots immediately.
+    """
     await send({"type": "http.response.start", "status": status, "headers": [
         [b"content-type", content_type],
         [b"content-length", str(len(body)).encode()],
         [b"retry-after", b"5"],
+        [b"connection", b"close"],
     ]})
     await send({"type": "http.response.body", "body": body})
 
@@ -422,11 +429,14 @@ class FloodShieldMiddleware:
 
     def __init__(self, app):
         self.app = app
-        self._ip_windows: dict[str, list[float]] = {}
+        # deque, not list: pruning old timestamps is popleft() = O(1). With a
+        # plain list, pop(0) is O(n), so a heavy flood degraded to O(n²) and
+        # starved the event loop — the actual reason /ping got slow under load.
+        self._ip_windows: dict[str, deque] = {}
         self._limit = _FLOOD_LIMIT_PER_MINUTE
         self._unauth_limit = _FLOOD_UNAUTH_LIMIT_PER_MINUTE
         self._window_s = 60.0
-        self._global_window: list[float] = []
+        self._global_window: deque = deque()
         self._global_limit = _FLOOD_GLOBAL_PER_SECOND
 
     def _get_ip(self, scope) -> str:
@@ -464,9 +474,9 @@ class FloodShieldMiddleware:
         # --- Global rate limit (absorbs hey.exe / DDoS) ---
         gw = self._global_window
         g_cutoff = now - 1.0  # 1-second window
-        # Prune old entries (fast: window is sorted)
+        # Prune old entries (O(1) popleft; window is time-sorted)
         while gw and gw[0] < g_cutoff:
-            gw.pop(0)
+            gw.popleft()
         if len(gw) >= self._global_limit:
             await _send_error_response(send, 429, b'{"detail":"Server overloaded. Retry later."}')
             return
@@ -486,12 +496,12 @@ class FloodShieldMiddleware:
                 to_remove = list(self._ip_windows.keys())[:_FLOOD_IP_TABLE_MAX // 4]
                 for k in to_remove:
                     del self._ip_windows[k]
-            window = []
+            window = deque()
             self._ip_windows[key] = window
 
-        # Prune expired timestamps
+        # Prune expired timestamps (O(1) popleft)
         while window and window[0] < cutoff:
-            window.pop(0)
+            window.popleft()
 
         # Unauthenticated requests get a stricter per-IP limit
         effective_limit = self._limit if auth_bucket else self._unauth_limit
@@ -13406,6 +13416,14 @@ def sandbox_templates(user: dict = Depends(require_auth)):
 # go through apply_xp_change with rate limit + daily cap, and the penalty is a
 # DB row that survives refreshes, re-logins and other devices.
 
+# Boss mode toggle (PANDORA_BOSS_ENABLED=0 to turn off; the 404 from disabled
+# endpoints is what used to make the client "lose" the penalty timer on reload).
+_BOSS_ENABLED = (os.getenv("PANDORA_BOSS_ENABLED") or "1") == "1"
+
+def _require_boss_enabled():
+    if not _BOSS_ENABLED:
+        raise HTTPException(status_code=404, detail="Boss-режим временно отключён")
+
 _BOSS_PENALTY_HOURS = float(os.getenv("PANDORA_BOSS_PENALTY_HOURS", "2"))
 _BOSS_XP_DAILY_CAP = int(os.getenv("PANDORA_BOSS_XP_DAILY_CAP", "0"))  # 0 = без дневного лимита
 _BOSS_AWARD_COOLDOWN_S = 1.5   # a human needs >1.5s to read + type an answer
@@ -13424,11 +13442,13 @@ def _boss_row(cursor, uid: int) -> dict:
 
 @app.get("/boss", include_in_schema=False)
 def serve_boss():
+    _require_boss_enabled()
     return FileResponse("boss.html")
 
 
 @app.get("/api/boss/status")
 def boss_status(user: dict = Depends(require_auth)):
+    _require_boss_enabled()
     with get_db() as conn:
         cursor = conn.cursor()
         st = _boss_row(cursor, int(user["id"]))
@@ -13444,6 +13464,7 @@ def boss_status(user: dict = Depends(require_auth)):
 
 @app.post("/api/boss/award")
 def boss_award(request: Request, data: dict = Body(...), user: dict = Depends(require_auth)):
+    _require_boss_enabled()
     """Award XP for one correct answer. The reward is recomputed SERVER-side
     from clamped inputs (the client number is never trusted)."""
     uid = int(user["id"])
@@ -13487,6 +13508,7 @@ def boss_award(request: Request, data: dict = Body(...), user: dict = Depends(re
 
 @app.post("/api/boss/death")
 def boss_death(user: dict = Depends(require_auth)):
+    _require_boss_enabled()
     """HP hit zero: start the server-side penalty (admins are exempt)."""
     uid = int(user["id"])
     now = time.time()
