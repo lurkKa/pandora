@@ -795,6 +795,93 @@
                 background: transparent;
             }
         }
+
+        /* ========== EVENT CONTROL CENTER ========== */
+        .event-template-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 12px;
+            padding: 20px 24px 0;
+        }
+
+        .event-template-card {
+            min-height: 112px;
+            padding: 16px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: linear-gradient(145deg, var(--bg-hover), var(--bg-card));
+            color: var(--text-primary);
+            text-align: left;
+            cursor: pointer;
+            transition: border-color .2s, transform .2s, box-shadow .2s;
+        }
+
+        .event-template-card:hover,
+        .event-template-card.active {
+            transform: translateY(-2px);
+            border-color: var(--event-card-color, var(--accent));
+            box-shadow: 0 8px 24px color-mix(in srgb, var(--event-card-color, var(--accent)) 20%, transparent);
+        }
+
+        .event-template-card strong {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 15px;
+        }
+
+        .event-template-card small {
+            color: var(--text-secondary);
+            line-height: 1.35;
+        }
+
+        .event-form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0 18px;
+        }
+
+        .event-form-grid .wide {
+            grid-column: 1 / -1;
+        }
+
+        .event-rule-note {
+            grid-column: 1 / -1;
+            padding: 14px 16px;
+            margin-bottom: 18px;
+            border: 1px solid rgba(248, 113, 113, .35);
+            border-radius: 10px;
+            background: rgba(127, 29, 29, .16);
+            color: #fecaca;
+            font-size: 13px;
+        }
+
+        .event-status-panel {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+
+        .event-leaders-mini {
+            min-width: 190px;
+            font-size: 12px;
+            line-height: 1.7;
+        }
+
+        .event-deadline {
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
+
+        @media (max-width: 760px) {
+            .event-form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .event-form-grid .wide {
+                grid-column: auto;
+            }
+        }
     </style>
 </head>
 
@@ -1063,7 +1150,7 @@
             <section id="section-paste-requests" class="section">
                 <div class="page-header">
                     <h2>📋 Запросы на вставку</h2>
-                    <p>Одобрите или отклоните запросы учеников</p>
+                    <p>Одобрение действует 10 минут только для указанного задания и расходуется одной вставкой</p>
                 </div>
 
                 <div class="card">
@@ -1615,70 +1702,128 @@
             <!-- Events Section -->
             <section id="section-events" class="section">
                 <div class="page-header">
-                    <h2>🎉 Event Management</h2>
-                    <p>Create XP events and bonus periods</p>
+                    <h2>🌌 Центр событий Pandora</h2>
+                    <p>Создайте черновик, проверьте правила и запустите одно глобальное событие.</p>
                 </div>
 
                 <div class="card">
                     <div class="card-header">
-                        <h3>➕ Create New Event</h3>
+                        <h3>1. Выберите готовый шаблон</h3>
+                    </div>
+                    <div class="event-template-grid" id="event-template-grid">
+                        <button class="event-template-card active" data-event-template="custom"
+                            style="--event-card-color:#7c3aed" onclick="selectEventTemplate('custom')">
+                            <strong>🛠️ Custom</strong>
+                            <small>Свои название, срок, множитель и тема.</small>
+                        </button>
+                        <button class="event-template-card" data-event-template="judgment_day"
+                            style="--event-card-color:#dc2626" onclick="selectEventTemplate('judgment_day')">
+                            <strong>🌘 Судный день · 4 дня</strong>
+                            <small>Отдельный счёт с нуля, лидер и награда 10K–100K XP.</small>
+                        </button>
+                        <button class="event-template-card" data-event-template="double_xp_24h"
+                            style="--event-card-color:#2563eb" onclick="selectEventTemplate('double_xp_24h')">
+                            <strong>⚡ Двойной XP · 24ч</strong>
+                            <small>Все новые решения приносят ×2 постоянного XP.</small>
+                        </button>
+                        <button class="event-template-card" data-event-template="xp_marathon_7d"
+                            style="--event-card-color:#d97706" onclick="selectEventTemplate('xp_marathon_7d')">
+                            <strong>🏁 XP-марафон · 7 дней</strong>
+                            <small>Неделя прокачки с бонусом +25% XP.</small>
+                        </button>
                     </div>
                     <div style="padding: 24px;">
-                        <div class="form-group">
-                            <label for="event-name">Event Name</label>
-                            <input type="text" id="event-name-input" placeholder="Неделя Кода">
-                        </div>
-                        <div class="form-group">
-                            <label for="event-desc">Description</label>
-                            <input type="text" id="event-desc" placeholder="Двойной XP за все квесты!">
-                        </div>
-                        <div class="form-group">
-                            <label for="event-type">Bonus Type</label>
-                            <select id="event-type"
-                                style="width: 100%; padding: 12px 16px; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 15px;">
-                                <option value="xp_multiplier">XP Multiplier (x1.5, x2)</option>
-                                <option value="streak_bonus">Streak Bonus (+% per day)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="event-value">Bonus Value</label>
-                            <input type="number" id="event-value" placeholder="1.5" step="0.1" min="0.1">
-                            <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
-                                For multiplier: 1.5 = +50%, 2 = +100%. For streak: 0.1 = +10% per day
-                            </p>
-                        </div>
-                        <div class="form-group">
-                            <label for="event-color">Event Color</label>
-                            <div style="display:flex; gap:8px; align-items:center;">
-                                <input type="color" id="event-color" value="#7c3aed"
-                                    style="width:50px;height:38px;border:1px solid var(--border);border-radius:6px;background:var(--bg-deep);cursor:pointer;">
-                                <span style="font-size:12px;color:var(--text-secondary);">Цвет для оформления приложения
-                                    во время ивента</span>
+                        <input type="hidden" id="event-template" value="custom">
+                        <div class="event-form-grid">
+                            <div class="form-group wide">
+                                <label for="event-name-input">Название</label>
+                                <input type="text" id="event-name-input" maxlength="100" placeholder="Неделя кода">
+                            </div>
+                            <div class="form-group wide">
+                                <label for="event-desc">Описание</label>
+                                <input type="text" id="event-desc" maxlength="500"
+                                    placeholder="Что увидят студенты и какие действуют правила">
+                            </div>
+                            <div class="form-group">
+                                <label for="event-event-type">Режим</label>
+                                <select id="event-event-type" onchange="syncEventFormRules()"
+                                    style="width:100%;padding:12px 16px;background:var(--bg-deep);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:15px;">
+                                    <option value="standard">Обычное XP-событие</option>
+                                    <option value="judgment_day">Судный день</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="event-duration">Длительность, часов</label>
+                                <input type="number" id="event-duration" min="1" max="720" value="24">
+                            </div>
+                            <div class="form-group">
+                                <label for="event-bonus-type">Механика бонуса</label>
+                                <select id="event-bonus-type" onchange="syncEventFormRules()"
+                                    style="width:100%;padding:12px 16px;background:var(--bg-deep);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:15px;">
+                                    <option value="xp_multiplier">Множитель XP</option>
+                                    <option value="streak_bonus">Бонус за дни страйка</option>
+                                    <option value="event_score">Отдельный event XP</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="event-value">Значение</label>
+                                <input type="number" id="event-value" value="1" step="0.05" min="0">
+                                <p id="event-value-help"
+                                    style="font-size:12px;color:var(--text-secondary);margin-top:4px;">
+                                    2 = двойной XP, 1.25 = +25%.
+                                </p>
+                            </div>
+                            <div class="form-group">
+                                <label for="event-theme">Full-page тема</label>
+                                <select id="event-theme"
+                                    style="width:100%;padding:12px 16px;background:var(--bg-deep);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:15px;">
+                                    <option value="arcane">🔮 Арканная Пандора</option>
+                                    <option value="judgment">🌘 Судный день</option>
+                                    <option value="double_xp">⚡ Энергетический шторм</option>
+                                    <option value="marathon">🏁 Золотой марафон</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="event-color">Основной цвет</label>
+                                <div style="display:flex;gap:10px;align-items:center;">
+                                    <input type="color" id="event-color" value="#7c3aed"
+                                        style="width:58px;height:44px;border:1px solid var(--border);border-radius:8px;background:var(--bg-deep);cursor:pointer;">
+                                    <span style="font-size:12px;color:var(--text-secondary);">Баннер, свечение и акценты</span>
+                                </div>
+                            </div>
+                            <div class="event-rule-note" id="judgment-rule-note" style="display:none;">
+                                <strong>Правила Судного дня:</strong> ровно 96 часов; постоянный XP не обнуляется.
+                                Участники видят отдельный счёт с 0. Одна задача учитывается один раз. Победитель
+                                определяется по event XP, затем по числу задач; награда — от 10 000 до 100 000 XP
+                                в зависимости от числа уникальных задач. Завершение и награда одноразовые.
                             </div>
                         </div>
-                        <button class="btn btn-primary" onclick="createEvent()">Create Event</button>
+                        <button class="btn btn-primary" onclick="createEvent()">＋ Создать черновик</button>
                     </div>
                 </div>
 
                 <div class="card">
                     <div class="card-header">
-                        <h3>All Events</h3>
+                        <h3>2. Запуск, сроки и результаты</h3>
+                        <button class="btn btn-small" onclick="loadEvents()">🔄 Обновить</button>
                     </div>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Color</th>
-                                <th>Name</th>
-                                <th>Type</th>
-                                <th>Value</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="events-table">
-                            <!-- Populated by JS -->
-                        </tbody>
-                    </table>
+                    <div style="overflow-x:auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Событие</th>
+                                    <th>Правила</th>
+                                    <th>Срок</th>
+                                    <th>Статус</th>
+                                    <th>Лидеры / итог</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="events-table">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
@@ -2674,90 +2819,276 @@
         }
 
         // ==================== EVENTS ====================
-        async function loadEvents() {
-            try {
-                const res = await api('/api/admin/events/all');
-                const data = res;
+        const EVENT_TEMPLATE_FALLBACKS = {
+            custom: {
+                key: 'custom', name: '', description: '', event_type: 'standard',
+                bonus_type: 'xp_multiplier', bonus_value: 1, duration_hours: 24,
+                theme_key: 'arcane', color: '#7c3aed'
+            },
+            judgment_day: {
+                key: 'judgment_day', name: 'Судный день',
+                description: 'У всех отдельный счёт начинается с нуля. За 4 дня побеждает лидер по event XP; постоянный XP сохраняется.',
+                event_type: 'judgment_day', bonus_type: 'event_score', bonus_value: 1,
+                duration_hours: 96, theme_key: 'judgment', color: '#dc2626'
+            },
+            double_xp_24h: {
+                key: 'double_xp_24h', name: 'Двойной XP',
+                description: 'Все новые решения получают двойной постоянный XP в течение 24 часов.',
+                event_type: 'standard', bonus_type: 'xp_multiplier', bonus_value: 2,
+                duration_hours: 24, theme_key: 'double_xp', color: '#2563eb'
+            },
+            xp_marathon_7d: {
+                key: 'xp_marathon_7d', name: 'XP-марафон',
+                description: 'Семь дней усиленной прокачки: +25% XP за каждое новое решение.',
+                event_type: 'standard', bonus_type: 'xp_multiplier', bonus_value: 1.25,
+                duration_hours: 168, theme_key: 'marathon', color: '#d97706'
+            }
+        };
+        let eventTemplateDefinitions = { ...EVENT_TEMPLATE_FALLBACKS };
+        let eventTemplatesLoaded = false;
 
+        async function loadEventTemplates() {
+            if (eventTemplatesLoaded) return;
+            try {
+                const data = await api('/api/admin/events/templates');
+                (data.templates || []).forEach(template => {
+                    eventTemplateDefinitions[template.key] = template;
+                });
+                if (data.custom) eventTemplateDefinitions.custom = data.custom;
+                eventTemplatesLoaded = true;
+            } catch (e) {
+                console.warn('Using built-in event template definitions:', e);
+            }
+        }
+
+        function selectEventTemplate(templateKey) {
+            const template = eventTemplateDefinitions[templateKey] || EVENT_TEMPLATE_FALLBACKS[templateKey];
+            if (!template) return;
+            document.getElementById('event-template').value = templateKey;
+            document.querySelectorAll('[data-event-template]').forEach(card => {
+                card.classList.toggle('active', card.dataset.eventTemplate === templateKey);
+            });
+            document.getElementById('event-name-input').value = template.name || '';
+            document.getElementById('event-desc').value = template.description || '';
+            document.getElementById('event-event-type').value = template.event_type || 'standard';
+            document.getElementById('event-bonus-type').value = template.bonus_type || 'xp_multiplier';
+            document.getElementById('event-value').value = Number(template.bonus_value ?? 1);
+            document.getElementById('event-duration').value = Number(template.duration_hours || 24);
+            document.getElementById('event-theme').value = template.theme_key || 'arcane';
+            document.getElementById('event-color').value = template.color || '#7c3aed';
+            syncEventFormRules();
+        }
+
+        function syncEventFormRules() {
+            const templateKey = document.getElementById('event-template').value;
+            const eventType = document.getElementById('event-event-type').value;
+            const isJudgment = eventType === 'judgment_day';
+            const isFixedTemplate = templateKey !== 'custom';
+            const durationEl = document.getElementById('event-duration');
+            const bonusTypeEl = document.getElementById('event-bonus-type');
+            const valueEl = document.getElementById('event-value');
+
+            if (isJudgment) {
+                durationEl.value = 96;
+                bonusTypeEl.value = 'event_score';
+                valueEl.value = 1;
+            }
+            durationEl.disabled = isJudgment || isFixedTemplate;
+            bonusTypeEl.disabled = isJudgment || isFixedTemplate;
+            valueEl.disabled = isJudgment || isFixedTemplate;
+            document.getElementById('event-event-type').disabled = isFixedTemplate;
+            document.getElementById('event-theme').disabled = isFixedTemplate;
+            document.getElementById('judgment-rule-note').style.display = isJudgment ? 'block' : 'none';
+
+            const help = document.getElementById('event-value-help');
+            if (bonusTypeEl.value === 'streak_bonus') {
+                help.textContent = '0.1 = +10% за каждый день страйка (серверный лимит +100%).';
+            } else if (bonusTypeEl.value === 'event_score') {
+                help.textContent = 'Отдельный event XP начисляется только один раз за уникальную задачу.';
+            } else {
+                help.textContent = '2 = двойной XP, 1.25 = +25%.';
+            }
+        }
+
+        function formatEventDate(value) {
+            if (!value) return '—';
+            const date = new Date(value);
+            return Number.isNaN(date.getTime())
+                ? escapeHtml(String(value))
+                : date.toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' });
+        }
+
+        function formatEventRemaining(endsAt) {
+            if (!endsAt) return 'без срока';
+            const ms = new Date(endsAt).getTime() - Date.now();
+            if (!Number.isFinite(ms) || ms <= 0) return 'завершается…';
+            const totalMinutes = Math.floor(ms / 60000);
+            const days = Math.floor(totalMinutes / 1440);
+            const hours = Math.floor((totalMinutes % 1440) / 60);
+            const minutes = totalMinutes % 60;
+            return `${days ? days + 'д ' : ''}${hours}ч ${minutes}м`;
+        }
+
+        function eventRulesLabel(event) {
+            if (event.event_type === 'judgment_day') {
+                return '<strong style="color:#fca5a5">Event XP с нуля</strong><br><small>1 задача = 1 зачёт · приз 10K–100K</small>';
+            }
+            if (event.bonus_type === 'streak_bonus') {
+                return `<strong>+${Math.round(Number(event.bonus_value || 0) * 100)}% × дни страйка</strong>`;
+            }
+            return `<strong>×${Number(event.bonus_value || 1)} XP</strong>`;
+        }
+
+        function eventLeadersHtml(event) {
+            if (event.status === 'finished' && event.winner_user_id) {
+                return `
+                    <div class="event-leaders-mini">
+                        <strong style="color:var(--warning)">🏆 ${escapeHtml(String(event.winner_display_name || 'Победитель'))}</strong><br>
+                        ${Number(event.winner_event_xp || 0).toLocaleString()} event XP ·
+                        ${Number(event.winner_tasks_count || 0)} задач<br>
+                        <span style="color:var(--success)">+${Number(event.reward_xp || 0).toLocaleString()} постоянного XP</span>
+                    </div>`;
+            }
+            if (event.event_type !== 'judgment_day') {
+                return '<span style="color:var(--text-secondary)">Без отдельного рейтинга</span>';
+            }
+            const leaders = event.leaderboard || [];
+            if (!leaders.length) {
+                return '<span style="color:var(--text-secondary)">Пока нет решений</span>';
+            }
+            const medals = ['🥇', '🥈', '🥉'];
+            return `<div class="event-leaders-mini">${leaders.slice(0, 3).map((leader, index) =>
+                `${medals[index] || (index + 1) + '.'} ${escapeHtml(String(leader.display_name || leader.username))} — ` +
+                `<strong>${Number(leader.event_xp || 0).toLocaleString()}</strong> XP / ${Number(leader.tasks_solved || 0)} задач`
+            ).join('<br>')}</div>`;
+        }
+
+        async function loadEvents() {
+            await loadEventTemplates();
+            try {
+                const data = await api('/api/admin/events/all');
                 const tbody = document.getElementById('events-table');
                 tbody.innerHTML = '';
 
                 if (!data.events || data.events.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--text-secondary);">No events yet</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">Событий ещё нет — создайте первый черновик.</td></tr>';
                     return;
                 }
 
                 data.events.forEach(event => {
-                    const typeLabel = event.bonus_type === 'xp_multiplier' ? 'XP Multiplier' : 'Streak Bonus';
-                    const statusClass = event.is_active ? 'badge-approved' : 'badge-rejected';
-                    const statusText = event.is_active ? 'Active' : 'Inactive';
-                    const color = event.color || '#7c3aed';
-
+                    const safeColor = /^#[0-9a-f]{6}$/i.test(event.color || '') ? event.color : '#7c3aed';
+                    const statuses = {
+                        draft: ['badge-pending', 'Черновик'],
+                        active: ['badge-approved', 'Активно'],
+                        finished: ['badge-rejected', 'Завершено']
+                    };
+                    const [statusClass, statusText] = statuses[event.status] || ['badge-rejected', event.status || 'Неизвестно'];
+                    const summary = event.progress_summary || {};
+                    const period = event.status === 'draft'
+                        ? `${Number(event.duration_hours || 0)} ч после запуска`
+                        : `${formatEventDate(event.starts_at)}<br>→ ${formatEventDate(event.ends_at)}`;
+                    const remaining = event.status === 'active'
+                        ? `<div class="event-deadline" style="color:var(--warning);margin-top:5px;">⏳ ${formatEventRemaining(event.ends_at)}</div>`
+                        : '';
+                    let actions = '';
+                    if (event.status === 'draft') {
+                        actions = `
+                            <button class="btn btn-primary btn-small" onclick="startEvent(${Number(event.id)})">▶ Запустить</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteEvent(${Number(event.id)})">Удалить</button>`;
+                    } else if (event.status === 'active') {
+                        actions = `<button class="btn btn-danger btn-small" onclick="finishEvent(${Number(event.id)})">⏹ Завершить</button>`;
+                    } else {
+                        actions = '<span style="color:var(--text-secondary);font-size:12px;">История сохранена</span>';
+                    }
                     tbody.innerHTML += `
                         <tr>
-                            <td><div style="width:20px;height:20px;border-radius:50%;background:${color};border:2px solid rgba(255,255,255,0.1);"></div></td>
-                            <td>${event.name}<br><small style="color:var(--text-secondary);">${event.description || ''}</small></td>
-                            <td>${typeLabel}</td>
-                            <td>${event.bonus_value}</td>
-                            <td><span class="badge ${statusClass}">${statusText}</span></td>
                             <td>
-                                <button class="btn btn-primary btn-small" onclick="toggleEvent(${event.id})">
-                                    ${event.is_active ? '⏸ Pause' : '▶ Start'}
-                                </button>
-                                <button class="btn btn-danger btn-small" onclick="deleteEvent(${event.id})">
-                                    Delete
-                                </button>
+                                <div style="display:flex;gap:10px;align-items:flex-start;min-width:210px;">
+                                    <div style="width:14px;height:44px;border-radius:8px;background:${safeColor};box-shadow:0 0 18px ${safeColor};flex:none;"></div>
+                                    <div><strong>${escapeHtml(String(event.name || 'Без названия'))}</strong><br>
+                                    <small style="color:var(--text-secondary)">${escapeHtml(String(event.description || ''))}</small></div>
+                                </div>
                             </td>
-                        </tr>
-                    `;
+                            <td>${eventRulesLabel(event)}</td>
+                            <td style="font-size:12px;min-width:150px;">${period}${remaining}</td>
+                            <td>
+                                <span class="badge ${statusClass}">${escapeHtml(String(statusText))}</span>
+                                <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;">
+                                    ${Number(summary.participants || 0)} участников · ${Number(summary.tasks_solved || 0)} задач
+                                </div>
+                            </td>
+                            <td>${eventLeadersHtml(event)}</td>
+                            <td><div class="event-status-panel">${actions}</div></td>
+                        </tr>`;
                 });
             } catch (e) {
                 console.error('Failed to load events:', e);
+                const tbody = document.getElementById('events-table');
+                if (tbody) {
+                    tbody.innerHTML = `<tr><td colspan="6" style="color:var(--danger);text-align:center;">Ошибка загрузки: ${escapeHtml(String(e.message || e))}</td></tr>`;
+                }
             }
         }
 
         async function createEvent() {
             const name = document.getElementById('event-name-input').value.trim();
             const description = document.getElementById('event-desc').value.trim();
-            const bonus_type = document.getElementById('event-type').value;
+            const template_key = document.getElementById('event-template').value || 'custom';
+            const event_type = document.getElementById('event-event-type').value;
+            const bonus_type = document.getElementById('event-bonus-type').value;
             const bonus_value = parseFloat(document.getElementById('event-value').value);
+            const duration_hours = parseInt(document.getElementById('event-duration').value, 10);
+            const theme_key = document.getElementById('event-theme').value;
             const color = document.getElementById('event-color').value || '#7c3aed';
 
-            if (!name || isNaN(bonus_value) || bonus_value <= 0) {
-                alert('Name and bonus value (> 0) required');
+            if (!name || !Number.isFinite(bonus_value) || !Number.isFinite(duration_hours)) {
+                alert('Заполните название, срок и значение бонуса.');
                 return;
             }
-
             try {
-                await api('/api/admin/events', 'POST', { name, description, bonus_type, bonus_value, color });
-                document.getElementById('event-name-input').value = '';
-                document.getElementById('event-desc').value = '';
-                document.getElementById('event-value').value = '';
-                loadEvents();
-                alert('Event created!');
+                await api('/api/admin/events', 'POST', {
+                    name, description, template_key, event_type, bonus_type,
+                    bonus_value, duration_hours, theme_key, color
+                });
+                await loadEvents();
+                alert('Черновик создан. Проверьте его в таблице и нажмите «Запустить».');
             } catch (e) {
-                alert('Error creating event: ' + (e.message || e));
+                alert('Ошибка создания события: ' + (e.message || e));
             }
         }
 
-        async function toggleEvent(id) {
+        async function startEvent(id) {
+            if (!confirm('Запустить событие сейчас? Срок начнёт отсчитываться немедленно.')) return;
             try {
-                await api(`/api/admin/events/${id}`, 'PUT');
-                loadEvents();
+                const result = await api(`/api/admin/events/${id}/start`, 'POST');
+                await loadEvents();
+                alert(`Событие запущено до ${formatEventDate(result.event?.ends_at)}.`);
             } catch (e) {
-                alert('Ошибка переключения ивента: ' + (e.message || e));
-                console.error('toggleEvent error:', e);
+                alert('Ошибка запуска: ' + (e.message || e));
+            }
+        }
+
+        async function finishEvent(id) {
+            if (!confirm('Завершить событие сейчас? Для Судного дня лидер и одноразовая награда будут зафиксированы немедленно.')) return;
+            try {
+                const result = await api(`/api/admin/events/${id}/stop`, 'POST');
+                await loadEvents();
+                const event = result.event || {};
+                alert(event.winner_user_id
+                    ? `Событие завершено. Победителю начислено ${Number(event.reward_xp || 0).toLocaleString()} XP.`
+                    : 'Событие завершено.');
+            } catch (e) {
+                alert('Ошибка завершения: ' + (e.message || e));
             }
         }
 
         async function deleteEvent(id) {
-            if (!confirm('Delete this event?')) return;
+            if (!confirm('Удалить этот черновик события?')) return;
             try {
                 await api(`/api/admin/events/${id}`, 'DELETE');
-                loadEvents();
+                await loadEvents();
             } catch (e) {
-                alert('Ошибка удаления ивента: ' + (e.message || e));
-                console.error('deleteEvent error:', e);
+                alert('Ошибка удаления: ' + (e.message || e));
             }
         }
 
@@ -2795,6 +3126,9 @@
                     break;
                 case 'timetracking':
                     loadTimeTracking();
+                    break;
+                case 'events':
+                    loadEvents();
                     break;
                 default:
                     break;
@@ -3411,12 +3745,15 @@
 
                 table.innerHTML = data.requests.map(req => `
                     <tr>
-                        <td>${req.display_name}</td>
-                        <td>${req.task_title || req.task_id}</td>
+                        <td>${escapeHtml(String(req.display_name || req.username || '—'))}</td>
+                        <td>
+                            ${escapeHtml(String(req.task_title || req.task_id))}
+                            <small style="display:block;color:var(--text-secondary);">запрос #${Number(req.id)}</small>
+                        </td>
                         <td>${new Date(req.created_at).toLocaleString('ru-RU')}</td>
                         <td>
-                            <button class="btn btn-success btn-small" onclick="approvePaste(${req.id})">✅ Одобрить</button>
-                            <button class="btn btn-danger btn-small" onclick="rejectPaste(${req.id})">❌ Отклонить</button>
+                            <button class="btn btn-success btn-small" onclick="approvePaste(${Number(req.id)}, this)">✅ Одобрить</button>
+                            <button class="btn btn-danger btn-small" onclick="rejectPaste(${Number(req.id)}, this)">❌ Отклонить</button>
                         </td>
                     </tr>
                 `).join('');
@@ -3425,21 +3762,25 @@
             }
         }
 
-        async function approvePaste(requestId) {
+        async function approvePaste(requestId, button) {
+            if (button) button.disabled = true;
             try {
                 await api(`/api/paste-request/${requestId}/approve`, 'POST');
-                loadPasteRequests();
             } catch (e) {
-                alert('Ошибка при одобрении');
+                alert(`Не удалось одобрить запрос: ${e.message || e}`);
+            } finally {
+                loadPasteRequests();
             }
         }
 
-        async function rejectPaste(requestId) {
+        async function rejectPaste(requestId, button) {
+            if (button) button.disabled = true;
             try {
                 await api(`/api/paste-request/${requestId}/reject`, 'POST');
-                loadPasteRequests();
             } catch (e) {
-                alert('Ошибка при отклонении');
+                alert(`Не удалось отклонить запрос: ${e.message || e}`);
+            } finally {
+                loadPasteRequests();
             }
         }
 

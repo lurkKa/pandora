@@ -52,6 +52,7 @@ from slowapi.errors import RateLimitExceeded
 import re
 import shutil
 import zipfile
+import zlib
 import uuid
 import hashlib
 from pathlib import Path
@@ -798,7 +799,38 @@ SQLITE_TIMEOUT_S = float(os.getenv("PANDORA_SQLITE_TIMEOUT_S", "30.0"))
 SQLITE_BUSY_TIMEOUT_MS = int(os.getenv("PANDORA_SQLITE_BUSY_TIMEOUT_MS", "15000"))
 SQLITE_RETRY_ATTEMPTS = int(os.getenv("PANDORA_SQLITE_RETRY_ATTEMPTS", "5"))
 SQLITE_RETRY_BASE_SLEEP_S = float(os.getenv("PANDORA_SQLITE_RETRY_BASE_SLEEP_S", "0.08"))
+PASTE_PENDING_TTL_MINUTES = max(5, int(os.getenv("PANDORA_PASTE_PENDING_TTL_MINUTES", "60")))
+PASTE_APPROVAL_TTL_MINUTES = max(1, int(os.getenv("PANDORA_PASTE_APPROVAL_TTL_MINUTES", "10")))
 AUTH_TRACE = (os.getenv("PANDORA_AUTH_TRACE") or "0") == "1"
+try:
+    DB_SESSION_RETENTION_DAYS = int(os.getenv("PANDORA_DB_SESSION_RETENTION_DAYS", "30"))
+except (TypeError, ValueError):
+    DB_SESSION_RETENTION_DAYS = 30
+DB_SESSION_RETENTION_DAYS = max(1, min(365, DB_SESSION_RETENTION_DAYS))
+try:
+    DB_INCREMENTAL_VACUUM_PAGES = int(os.getenv("PANDORA_DB_INCREMENTAL_VACUUM_PAGES", "256"))
+except (TypeError, ValueError):
+    DB_INCREMENTAL_VACUUM_PAGES = 256
+DB_INCREMENTAL_VACUUM_PAGES = max(0, min(4096, DB_INCREMENTAL_VACUUM_PAGES))
+TASK_ATTEMPT_PAYLOAD_CODEC = "zlib-json-v1"
+try:
+    TASK_ATTEMPT_COMPRESSION_BATCH = int(
+        os.getenv("PANDORA_TASK_ATTEMPT_COMPRESSION_BATCH", "1000")
+    )
+except (TypeError, ValueError):
+    TASK_ATTEMPT_COMPRESSION_BATCH = 1000
+TASK_ATTEMPT_COMPRESSION_BATCH = max(0, min(10000, TASK_ATTEMPT_COMPRESSION_BATCH))
+_REDUNDANT_DATABASE_INDEXES = (
+    "idx_user_stats_user",                 # user_stats(user_id) is the PK
+    "idx_completed_tasks_user",            # UNIQUE(user_id, task_id)
+    "idx_event_tasks_user",                # UNIQUE(event_id, user_id, task_id)
+    "idx_guild_members_user",              # UNIQUE(user_id)
+    "idx_quiz_participants_session",       # UNIQUE(session_id, user_id)
+    "idx_solution_methods_user_task",       # UNIQUE(user_id, task_id, method_index)
+    "idx_time_tracking_user_date",          # UNIQUE(user_id, date)
+    "idx_typing_batches_session",           # UNIQUE(session_id, sequence)
+    "idx_user_achievements_user",           # UNIQUE(user_id, achievement_id)
+)
 
 
 def _auth_trace(message: str, *args):
@@ -842,6 +874,237 @@ def get_db():
     finally:
         conn.close()
 
+
+def _migrate_paste_requests(cursor) -> None:
+    """Upgrade paste grants to task/session-bound, one-shot capabilities.
+
+    Rows created by the legacy implementation have no capability token or
+    client-session id.  They must be revoked during migration: treating an old
+    ``approved`` row as a live grant is the bug this migration is fixing.
+    """
+    columns = {row[1] for row in cursor.execute("PRAGMA table_info(paste_requests)").fetchall()}
+    for column, definition in (
+        ("request_token", "TEXT"),
+        ("client_session_id", "TEXT"),
+        ("consumed_at", "TIMESTAMP"),
+        ("resolved_by", "INTEGER"),
+        ("expires_at", "TIMESTAMP"),
+    ):
+        if column not in columns:
+            try:
+                cursor.execute(f"ALTER TABLE paste_requests ADD COLUMN {column} {definition}")
+            except sqlite3.OperationalError as exc:
+                # Another startup worker may have completed the same additive
+                # migration after our PRAGMA snapshot.
+                message = str(exc).lower()
+                if "duplicate column" not in message and "already exists" not in message:
+                    raise
+
+    # Fail closed for every pre-migration pending/approved row.  A fresh client
+    # request will create a new capability and can then be approved normally.
+    cursor.execute("""
+        UPDATE paste_requests
+        SET status = 'expired',
+            resolved_at = COALESCE(resolved_at, CURRENT_TIMESTAMP)
+        WHERE status IN ('pending', 'approved')
+          AND (
+              request_token IS NULL OR request_token = ''
+              OR client_session_id IS NULL OR client_session_id = ''
+              OR expires_at IS NULL
+          )
+    """)
+
+    # If a deployment was interrupted before the unique index was installed,
+    # retain only the newest active grant for each student.
+    cursor.execute("""
+        UPDATE paste_requests
+        SET status = 'superseded',
+            resolved_at = COALESCE(resolved_at, CURRENT_TIMESTAMP)
+        WHERE status IN ('pending', 'approved')
+          AND consumed_at IS NULL
+          AND id NOT IN (
+              SELECT MAX(id)
+              FROM paste_requests
+              WHERE status IN ('pending', 'approved')
+                AND consumed_at IS NULL
+              GROUP BY user_id
+          )
+    """)
+
+    cursor.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_paste_requests_token
+        ON paste_requests(request_token)
+        WHERE request_token IS NOT NULL
+    """)
+    cursor.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_paste_requests_active_user
+        ON paste_requests(user_id)
+        WHERE status IN ('pending', 'approved') AND consumed_at IS NULL
+    """)
+
+
+def _prune_technical_database_rows(cursor) -> dict[str, int]:
+    """Remove bounded, non-educational residue during startup.
+
+    Completed work, submissions, attempts, XP/audit history and messages are
+    deliberately retained.  Only already-expired authentication sessions,
+    orphaned profile blobs and old clean typing telemetry are eligible.
+    """
+    deleted: dict[str, int] = {}
+
+    cursor.execute(
+        """
+        DELETE FROM sessions
+        WHERE expires_at IS NOT NULL
+          AND (
+              CASE
+                  WHEN typeof(expires_at) IN ('integer', 'real')
+                      THEN CAST(expires_at AS REAL)
+                  WHEN trim(expires_at) NOT GLOB '*[^0-9]*'
+                      THEN CAST(expires_at AS REAL)
+                  ELSE CAST(strftime('%s', expires_at) AS REAL)
+              END
+          ) < CAST(strftime('%s', 'now', ?) AS REAL)
+        """,
+        (f"-{DB_SESSION_RETENTION_DAYS} days",),
+    )
+    deleted["expired_sessions"] = max(0, int(cursor.rowcount or 0))
+
+    # Legacy deployments sometimes deleted a user while foreign_keys was off,
+    # leaving multi-megabyte base64 avatars that no endpoint can ever reach.
+    cursor.execute(
+        """
+        DELETE FROM user_stats
+        WHERE NOT EXISTS (
+            SELECT 1 FROM users WHERE users.id = user_stats.user_id
+        )
+        """
+    )
+    deleted["orphan_user_stats"] = max(0, int(cursor.rowcount or 0))
+
+    cursor.execute(
+        """
+        DELETE FROM typing_sessions
+        WHERE started_at < ?
+          AND result_status IN ('clean', 'abandoned', 'expired')
+          AND NOT EXISTS (
+              SELECT 1
+              FROM typing_integrity_incidents incident
+              WHERE incident.session_id = typing_sessions.id
+          )
+        """,
+        (time.time() - (30 * 24 * 60 * 60),),
+    )
+    deleted["old_typing_sessions"] = max(0, int(cursor.rowcount or 0))
+    return deleted
+
+
+def _drop_redundant_database_indexes(cursor) -> int:
+    """Drop indexes whose leading columns are already covered by PK/UNIQUE."""
+    dropped = 0
+    for index_name in _REDUNDANT_DATABASE_INDEXES:
+        cursor.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?",
+            (index_name,),
+        )
+        if cursor.fetchone():
+            cursor.execute(f'DROP INDEX "{index_name}"')
+            dropped += 1
+    return dropped
+
+
+def _encode_task_attempt_payload(
+    code: Optional[str],
+    result_json: Optional[str],
+) -> bytes:
+    """Losslessly compress the two large, cold task-attempt TEXT fields."""
+    raw = json.dumps(
+        {"v": 1, "code": code, "result_json": result_json},
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return zlib.compress(raw, level=6)
+
+
+def _decode_task_attempt_payload(
+    payload_z: Optional[bytes],
+    payload_codec: Optional[str],
+) -> tuple[Optional[str], Optional[str]]:
+    """Restore code/result JSON exactly from a compressed attempt payload."""
+    if payload_z is None:
+        return None, None
+    if payload_codec != TASK_ATTEMPT_PAYLOAD_CODEC:
+        raise ValueError(f"Unsupported task attempt payload codec: {payload_codec}")
+    try:
+        data = json.loads(zlib.decompress(bytes(payload_z)).decode("utf-8"))
+    except (TypeError, ValueError, zlib.error, UnicodeDecodeError) as exc:
+        raise ValueError("Corrupt task attempt payload") from exc
+    if not isinstance(data, dict) or data.get("v") != 1:
+        raise ValueError("Unsupported task attempt payload version")
+    code = data.get("code")
+    result_json = data.get("result_json")
+    if code is not None and not isinstance(code, str):
+        raise ValueError("Invalid compressed task code")
+    if result_json is not None and not isinstance(result_json, str):
+        raise ValueError("Invalid compressed task result")
+    return code, result_json
+
+
+def _compress_legacy_task_attempt_payloads(
+    cursor,
+    limit: Optional[int] = None,
+) -> dict[str, int]:
+    """Move legacy raw attempt payloads into lossless zlib blobs.
+
+    Metadata used by cooldowns, failure counts, analytics and integrity checks
+    remains in normal indexed columns. Each encoded payload is round-tripped
+    before the original TEXT fields are cleared.
+    """
+    sql = """
+        SELECT id, code, result_json
+        FROM task_attempts
+        WHERE payload_z IS NULL
+          AND (code IS NOT NULL OR result_json IS NOT NULL)
+        ORDER BY id ASC
+    """
+    params: tuple = ()
+    if limit is not None:
+        safe_limit = max(0, int(limit))
+        if safe_limit == 0:
+            return {"rows": 0, "raw_bytes": 0, "compressed_bytes": 0}
+        sql += " LIMIT ?"
+        params = (safe_limit,)
+
+    rows = cursor.execute(sql, params).fetchall()
+    raw_bytes = 0
+    compressed_bytes = 0
+    for row in rows:
+        code = row["code"]
+        result_json = row["result_json"]
+        payload = _encode_task_attempt_payload(code, result_json)
+        restored = _decode_task_attempt_payload(payload, TASK_ATTEMPT_PAYLOAD_CODEC)
+        if restored != (code, result_json):
+            raise ValueError(f"Task attempt payload round-trip failed for id={row['id']}")
+        cursor.execute(
+            """
+            UPDATE task_attempts
+            SET payload_z = ?, payload_codec = ?, code = NULL, result_json = NULL
+            WHERE id = ? AND payload_z IS NULL
+            """,
+            (payload, TASK_ATTEMPT_PAYLOAD_CODEC, row["id"]),
+        )
+        if cursor.rowcount != 1:
+            raise RuntimeError(f"Task attempt payload changed concurrently for id={row['id']}")
+        raw_bytes += len((code or "").encode("utf-8"))
+        raw_bytes += len((result_json or "").encode("utf-8"))
+        compressed_bytes += len(payload)
+    return {
+        "rows": len(rows),
+        "raw_bytes": raw_bytes,
+        "compressed_bytes": compressed_bytes,
+    }
+
+
 def _enable_wal_mode():
     """Enable WAL journal mode (once, at startup). WAL allows concurrent reads
     without blocking writers — critical for polling endpoints like quiz sessions."""
@@ -854,7 +1117,7 @@ def _enable_wal_mode():
         logger.warning("Failed to enable WAL mode: %s", e)
 
 def _sync_ranks(cursor):
-    """Replace ranks table with full professional progression (30 tiers, up to level 1000).
+    """Synchronize progression without recycling stable rank IDs.
 
     XP thresholds use progressive formula: total_xp(L) = 25 * L * (L - 1).
     """
@@ -898,10 +1161,29 @@ def _sync_ranks(cursor):
         ("Pandora Architect", "Архитектор Пандоры",      24975000,  "🌟",   "#fef08a"),   # Level 1000
     ]
 
-    cursor.execute("DELETE FROM ranks")
-    cursor.executemany(
-        "INSERT INTO ranks (name, name_ru, min_xp, badge_emoji, color) VALUES (?, ?, ?, ?, ?)",
-        ranks_data,
+    for name, name_ru, min_xp, badge_emoji, color in ranks_data:
+        cursor.execute(
+            """
+            UPDATE ranks
+            SET name_ru = ?, min_xp = ?, badge_emoji = ?, color = ?
+            WHERE name = ?
+            """,
+            (name_ru, min_xp, badge_emoji, color, name),
+        )
+        if cursor.rowcount == 0:
+            cursor.execute(
+                """
+                INSERT INTO ranks (name, name_ru, min_xp, badge_emoji, color)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (name, name_ru, min_xp, badge_emoji, color),
+            )
+
+    current_names = tuple(rank[0] for rank in ranks_data)
+    placeholders = ", ".join("?" for _ in current_names)
+    cursor.execute(
+        f"DELETE FROM ranks WHERE name NOT IN ({placeholders})",
+        current_names,
     )
 
 
@@ -914,6 +1196,9 @@ def init_db():
             cursor.execute("PRAGMA journal_mode=WAL")
             cursor.execute("PRAGMA synchronous=NORMAL")
             cursor.execute("PRAGMA wal_autocheckpoint=1000")
+            # Fresh databases start in incremental auto-vacuum mode. Existing
+            # databases adopt it after the one-time compact/VACUUM migration.
+            cursor.execute("PRAGMA auto_vacuum=INCREMENTAL")
         except sqlite3.Error:
             pass
         
@@ -1032,9 +1317,55 @@ def init_db():
                 description TEXT,
                 bonus_type TEXT NOT NULL,
                 bonus_value REAL NOT NULL,
-                is_active INTEGER DEFAULT 1,
+                is_active INTEGER DEFAULT 0,
                 color TEXT DEFAULT '#7c3aed',
+                template_key TEXT DEFAULT 'custom',
+                event_type TEXT DEFAULT 'standard',
+                status TEXT DEFAULT 'draft',
+                duration_hours INTEGER DEFAULT 24,
+                theme_key TEXT DEFAULT 'arcane',
+                starts_at TIMESTAMP,
+                ends_at TIMESTAMP,
+                ended_at TIMESTAMP,
+                created_by INTEGER,
+                finalized_at TIMESTAMP,
+                winner_user_id INTEGER,
+                winner_event_xp INTEGER DEFAULT 0,
+                winner_tasks_count INTEGER DEFAULT 0,
+                reward_xp INTEGER DEFAULT 0,
+                reward_min INTEGER DEFAULT 10000,
+                reward_max INTEGER DEFAULT 100000,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Event progress is intentionally separate from users.xp.  Competitive
+        # events can therefore present a fresh score without ever resetting the
+        # student's permanent progression.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS event_progress (
+                event_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                event_xp INTEGER DEFAULT 0,
+                tasks_solved INTEGER DEFAULT 0,
+                first_earned_at TIMESTAMP,
+                last_earned_at TIMESTAMP,
+                PRIMARY KEY (event_id, user_id),
+                FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS event_task_completions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                task_id TEXT NOT NULL,
+                xp_earned INTEGER NOT NULL,
+                completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                UNIQUE(event_id, user_id, task_id)
             )
         """)
         
@@ -1171,9 +1502,80 @@ def init_db():
                 code_hash TEXT,
                 code_simhash TEXT,
                 result_json TEXT,
+                payload_z BLOB,
+                payload_codec TEXT,
                 passed INTEGER,
                 runtime_ms INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        """)
+        for stmt in (
+            "ALTER TABLE task_attempts ADD COLUMN payload_z BLOB",
+            "ALTER TABLE task_attempts ADD COLUMN payload_codec TEXT",
+        ):
+            try:
+                cursor.execute(stmt)
+            except sqlite3.OperationalError:
+                pass
+
+        # Privacy-preserving typing telemetry.  The server never stores the
+        # characters/keys themselves: only bounded timing/count aggregates and
+        # hashes of each batch.  One-time receipts make the batch order and the
+        # server-observed elapsed time authoritative.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS typing_sessions (
+                id TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                scope TEXT NOT NULL,
+                task_id TEXT,
+                level TEXT,
+                expected_length INTEGER DEFAULT 0,
+                content_hash TEXT,
+                receipt_hash TEXT NOT NULL,
+                last_sequence INTEGER DEFAULT 0,
+                batch_count INTEGER DEFAULT 0,
+                event_count INTEGER DEFAULT 0,
+                metrics_json TEXT DEFAULT '{}',
+                started_at REAL NOT NULL,
+                first_event_at REAL,
+                last_event_at REAL,
+                expires_at REAL NOT NULL,
+                finalized_at REAL,
+                result_status TEXT DEFAULT 'active',
+                risk_score INTEGER DEFAULT 0,
+                penalty_xp INTEGER DEFAULT 0,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS typing_telemetry_batches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                sequence INTEGER NOT NULL,
+                received_at REAL NOT NULL,
+                event_count INTEGER NOT NULL,
+                payload_hash TEXT NOT NULL,
+                summary_json TEXT DEFAULT '{}',
+                FOREIGN KEY (session_id) REFERENCES typing_sessions(id) ON DELETE CASCADE,
+                UNIQUE(session_id, sequence)
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS typing_integrity_incidents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL,
+                scope TEXT NOT NULL,
+                task_id TEXT,
+                confidence REAL NOT NULL,
+                risk_score INTEGER NOT NULL,
+                signals_json TEXT NOT NULL,
+                evidence_json TEXT NOT NULL,
+                penalty_xp INTEGER NOT NULL,
+                applied_xp INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (session_id) REFERENCES typing_sessions(id),
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )
         """)
@@ -1231,11 +1633,17 @@ def init_db():
                 task_id TEXT NOT NULL,
                 task_title TEXT,
                 status TEXT DEFAULT 'pending',
+                request_token TEXT,
+                client_session_id TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 resolved_at TIMESTAMP,
+                consumed_at TIMESTAMP,
+                resolved_by INTEGER,
+                expires_at TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )
         """)
+        _migrate_paste_requests(cursor)
 
         # Homework sets assigned by admin to students.
         cursor.execute("""
@@ -1430,30 +1838,29 @@ def init_db():
         # Performance indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_xp ON users(xp DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_stats_user ON user_stats(user_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_completed_tasks_user ON completed_tasks(user_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_completed_tasks_valid ON completed_tasks(user_id, is_valid)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_completed_tasks_user_completed_at ON completed_tasks(user_id, completed_at)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_solution_methods_user_task ON task_solution_methods(user_id, task_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_solution_methods_simhash ON task_solution_methods(task_id, method_simhash)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_submissions_user_task_status ON submissions(user_id, task_id, status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_submissions_user_task_id_desc ON submissions(user_id, task_id, id DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_task_attempts_user_task_time ON task_attempts(user_id, task_id, created_at DESC)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_typing_sessions_user_context ON typing_sessions(user_id, scope, task_id, result_status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_typing_sessions_expiry ON typing_sessions(expires_at, result_status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_typing_incidents_created ON typing_integrity_incidents(created_at DESC)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_typing_incidents_user ON typing_integrity_incidents(user_id, created_at DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_chat_messages_time ON chat_messages(created_at DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_paste_requests_status ON paste_requests(status, user_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_achievements_user ON user_achievements(user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_homework_sets_deadline ON homework_sets(deadline_at, status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_homework_targets_user ON homework_targets(user_id, homework_set_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guilds_active ON guilds(disbanded_at)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_members_guild ON guild_members(guild_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_members_user ON guild_members(user_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_titles_to ON guild_titles(to_guild_id, expires_at)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_invitations_to ON guild_invitations(to_user_id, status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_invitations_guild ON guild_invitations(guild_id, status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_chat_guild ON guild_chat_messages(guild_id, created_at DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_member_titles_user ON guild_member_titles(to_user_id, expires_at)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_guild_member_titles_guild ON guild_member_titles(from_guild_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_time_tracking_user_date ON time_tracking(user_id, date)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_complaints_status ON complaints(status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_complaints_target ON complaints(target_user_id)")
         
@@ -1582,11 +1989,78 @@ def init_db():
             except sqlite3.OperationalError:
                 pass
 
-        # Events: add color column
-        try:
-            cursor.execute("ALTER TABLE events ADD COLUMN color TEXT DEFAULT '#7c3aed'")
-        except sqlite3.OperationalError:
-            pass
+        # Events v2: explicit lifecycle, themes and isolated competition score.
+        # ALTER TABLE is deliberately used instead of a destructive rebuild so
+        # existing SQLite installations migrate in-place.
+        for stmt in [
+            "ALTER TABLE events ADD COLUMN color TEXT DEFAULT '#7c3aed'",
+            "ALTER TABLE events ADD COLUMN template_key TEXT DEFAULT 'custom'",
+            "ALTER TABLE events ADD COLUMN event_type TEXT DEFAULT 'standard'",
+            "ALTER TABLE events ADD COLUMN status TEXT DEFAULT 'draft'",
+            "ALTER TABLE events ADD COLUMN duration_hours INTEGER DEFAULT 24",
+            "ALTER TABLE events ADD COLUMN theme_key TEXT DEFAULT 'arcane'",
+            "ALTER TABLE events ADD COLUMN starts_at TIMESTAMP",
+            "ALTER TABLE events ADD COLUMN ends_at TIMESTAMP",
+            "ALTER TABLE events ADD COLUMN ended_at TIMESTAMP",
+            "ALTER TABLE events ADD COLUMN created_by INTEGER",
+            "ALTER TABLE events ADD COLUMN finalized_at TIMESTAMP",
+            "ALTER TABLE events ADD COLUMN winner_user_id INTEGER",
+            "ALTER TABLE events ADD COLUMN winner_event_xp INTEGER DEFAULT 0",
+            "ALTER TABLE events ADD COLUMN winner_tasks_count INTEGER DEFAULT 0",
+            "ALTER TABLE events ADD COLUMN reward_xp INTEGER DEFAULT 0",
+            "ALTER TABLE events ADD COLUMN reward_min INTEGER DEFAULT 10000",
+            "ALTER TABLE events ADD COLUMN reward_max INTEGER DEFAULT 100000",
+        ]:
+            try:
+                cursor.execute(stmt)
+            except sqlite3.OperationalError:
+                pass
+
+        # Preserve legacy events: records that were active before the lifecycle
+        # migration remain active and receive a start timestamp.  Inactive
+        # records become drafts and can be launched explicitly by an admin.
+        cursor.execute("""
+            UPDATE events
+            SET status = CASE
+                    WHEN status IS NULL OR status = '' THEN
+                        CASE WHEN is_active = 1 THEN 'active' ELSE 'draft' END
+                    WHEN status = 'draft' AND is_active = 1 AND starts_at IS NULL THEN 'active'
+                    ELSE status
+                END,
+                starts_at = CASE
+                    WHEN is_active = 1 THEN COALESCE(starts_at, created_at, CURRENT_TIMESTAMP)
+                    ELSE starts_at
+                END
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS event_progress (
+                event_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                event_xp INTEGER DEFAULT 0,
+                tasks_solved INTEGER DEFAULT 0,
+                first_earned_at TIMESTAMP,
+                last_earned_at TIMESTAMP,
+                PRIMARY KEY (event_id, user_id),
+                FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS event_task_completions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                task_id TEXT NOT NULL,
+                xp_earned INTEGER NOT NULL,
+                completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                UNIQUE(event_id, user_id, task_id)
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_events_lifecycle ON events(status, is_active, ends_at)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_event_progress_rank ON event_progress(event_id, event_xp DESC, tasks_solved DESC)")
 
         for stmt in [
             "ALTER TABLE sessions ADD COLUMN expires_at TIMESTAMP",
@@ -1771,7 +2245,6 @@ def init_db():
             )
         """)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_quiz_sessions_status ON quiz_sessions(status)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_quiz_participants_session ON quiz_participants(session_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_quiz_participants_user ON quiz_participants(user_id)")
 
         # ========== SANDBOX SYSTEM ==========
@@ -1812,6 +2285,38 @@ def init_db():
         """)
 
         conn.commit()
+
+        # Bounded startup maintenance reuses freed pages and prevents expired
+        # technical rows from growing forever. It never prunes learning,
+        # submission, attempt, XP, audit, chat or event history.
+        try:
+            maintenance_deleted = _prune_technical_database_rows(cursor)
+            maintenance_deleted["redundant_indexes"] = (
+                _drop_redundant_database_indexes(cursor)
+            )
+            compression = _compress_legacy_task_attempt_payloads(
+                cursor,
+                limit=TASK_ATTEMPT_COMPRESSION_BATCH,
+            )
+            maintenance_deleted.update(
+                {
+                    f"attempt_compression_{key}": value
+                    for key, value in compression.items()
+                }
+            )
+            conn.commit()
+            cursor.execute("PRAGMA optimize")
+            if DB_INCREMENTAL_VACUUM_PAGES > 0:
+                cursor.execute(
+                    f"PRAGMA incremental_vacuum({DB_INCREMENTAL_VACUUM_PAGES})"
+                )
+            logger.info("Database maintenance: %s", maintenance_deleted)
+        except Exception as e:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            log_error("Database maintenance failed (non-fatal)", e)
         
         # Sync guild achievements (tables now exist)
         try:
@@ -2080,6 +2585,482 @@ def apply_xp_change(cursor, user_id: int, delta_xp: int, reason: str, task_id: s
             pass
 
     return new_xp, new_level
+
+
+# ==================== EVENT ENGINE ====================
+
+EVENT_THEMES = {
+    "arcane": {
+        "label": "Арканная Пандора",
+        "emoji": "🔮",
+        "primary": "#7c3aed",
+    },
+    "judgment": {
+        "label": "Судный день",
+        "emoji": "🌘",
+        "primary": "#dc2626",
+    },
+    "double_xp": {
+        "label": "Энергетический шторм",
+        "emoji": "⚡",
+        "primary": "#2563eb",
+    },
+    "marathon": {
+        "label": "Золотой марафон",
+        "emoji": "🏁",
+        "primary": "#d97706",
+    },
+}
+
+EVENT_TEMPLATES = {
+    "judgment_day": {
+        "key": "judgment_day",
+        "label": "Судный день · 4 дня",
+        "name": "Судный день",
+        "description": (
+            "У всех отдельный счёт начинается с нуля. За 4 дня побеждает лидер "
+            "по event XP; постоянный XP сохраняется."
+        ),
+        "event_type": "judgment_day",
+        "bonus_type": "event_score",
+        "bonus_value": 1.0,
+        "duration_hours": 96,
+        "theme_key": "judgment",
+        "color": "#dc2626",
+        "reward_min": 10000,
+        "reward_max": 100000,
+    },
+    "double_xp_24h": {
+        "key": "double_xp_24h",
+        "label": "Двойной XP · 24 часа",
+        "name": "Двойной XP",
+        "description": "Все новые решения получают двойной постоянный XP в течение 24 часов.",
+        "event_type": "standard",
+        "bonus_type": "xp_multiplier",
+        "bonus_value": 2.0,
+        "duration_hours": 24,
+        "theme_key": "double_xp",
+        "color": "#2563eb",
+        "reward_min": 10000,
+        "reward_max": 100000,
+    },
+    "xp_marathon_7d": {
+        "key": "xp_marathon_7d",
+        "label": "XP-марафон · 7 дней",
+        "name": "XP-марафон",
+        "description": "Семь дней усиленной прокачки: +25% XP за каждое новое решение.",
+        "event_type": "standard",
+        "bonus_type": "xp_multiplier",
+        "bonus_value": 1.25,
+        "duration_hours": 168,
+        "theme_key": "marathon",
+        "color": "#d97706",
+        "reward_min": 10000,
+        "reward_max": 100000,
+    },
+}
+
+EVENT_TYPES = {"standard", "judgment_day"}
+EVENT_BONUS_TYPES = {"xp_multiplier", "streak_bonus", "event_score"}
+
+
+def _event_now_sql() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _event_timestamp_iso(value) -> Optional[str]:
+    """Expose SQLite UTC timestamps as unambiguous ISO-8601 values."""
+    if value is None:
+        return None
+    text_value = str(value).strip()
+    if not text_value:
+        return None
+    if "T" not in text_value:
+        text_value = text_value.replace(" ", "T", 1)
+    if not re.search(r"(?:Z|[+-]\d\d:\d\d)$", text_value):
+        text_value += "Z"
+    return text_value
+
+
+def _event_reward_for_tasks(tasks_solved: int, reward_min: int, reward_max: int) -> int:
+    """Judgment Day prize: 10K for the first task, +1.5K per extra task, capped."""
+    tasks = max(0, int(tasks_solved or 0))
+    low = max(0, int(reward_min or 0))
+    high = max(low, int(reward_max or low))
+    if tasks <= 0:
+        return 0
+    return min(high, low + max(0, tasks - 1) * 1500)
+
+
+def _apply_event_reward_exact(cursor, user_id: int, reward_xp: int, event_id: int) -> tuple[int, int]:
+    """Apply the advertised prize exactly, without unrelated XP buffs.
+
+    Guild/title multipliers and rank milestone recursion are appropriate for
+    ordinary learning XP, but could push a 100K event prize above its published
+    cap.  Event rewards therefore use their own audited exact-delta path.
+    """
+    reward = max(0, int(reward_xp or 0))
+    cursor.execute("SELECT xp FROM users WHERE id = ?", (user_id,))
+    row = cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Winner user not found")
+    new_xp = max(0, int(row["xp"] or 0) + reward)
+    new_level = compute_level(new_xp)
+    cursor.execute(
+        "UPDATE users SET xp = ?, level = ? WHERE id = ?",
+        (new_xp, new_level, user_id),
+    )
+    cursor.execute(
+        """
+        INSERT INTO xp_log (user_id, xp_change, reason, task_id)
+        VALUES (?, ?, ?, NULL)
+        """,
+        (user_id, reward, f"event_reward:judgment_day:{event_id}"),
+    )
+    return new_xp, new_level
+
+
+def _event_leaderboard(cursor, event_id: int, limit: int = 10) -> list[dict]:
+    safe_limit = max(1, min(100, int(limit or 10)))
+    cursor.execute(
+        """
+        SELECT ep.user_id, u.username, u.display_name, u.avatar_key,
+               ep.event_xp, ep.tasks_solved, ep.first_earned_at, ep.last_earned_at
+        FROM event_progress ep
+        JOIN users u ON u.id = ep.user_id
+        WHERE ep.event_id = ? AND u.role IN ('student', 'mini_admin')
+        ORDER BY ep.event_xp DESC,
+                 ep.tasks_solved DESC,
+                 COALESCE(ep.last_earned_at, '9999-12-31') ASC,
+                 ep.user_id ASC
+        LIMIT ?
+        """,
+        (event_id, safe_limit),
+    )
+    leaders = []
+    for rank, row in enumerate(cursor.fetchall(), start=1):
+        item = dict(row)
+        item["rank"] = rank
+        item["event_xp"] = int(item.get("event_xp") or 0)
+        item["tasks_solved"] = int(item.get("tasks_solved") or 0)
+        item["first_earned_at"] = _event_timestamp_iso(item.get("first_earned_at"))
+        item["last_earned_at"] = _event_timestamp_iso(item.get("last_earned_at"))
+        leaders.append(item)
+    return leaders
+
+
+def _event_progress_for_user(cursor, event_id: int, user_id: int) -> dict:
+    cursor.execute(
+        """
+        SELECT event_xp, tasks_solved, first_earned_at, last_earned_at
+        FROM event_progress
+        WHERE event_id = ? AND user_id = ?
+        """,
+        (event_id, user_id),
+    )
+    row = cursor.fetchone()
+    if not row:
+        return {
+            "event_xp": 0,
+            "tasks_solved": 0,
+            "rank": None,
+            "first_earned_at": None,
+            "last_earned_at": None,
+        }
+    progress = dict(row)
+    event_xp = int(progress.get("event_xp") or 0)
+    tasks_solved = int(progress.get("tasks_solved") or 0)
+    cursor.execute(
+        """
+        SELECT COUNT(*) + 1 AS rank
+        FROM event_progress
+        WHERE event_id = ?
+          AND (
+                event_xp > ?
+                OR (event_xp = ? AND tasks_solved > ?)
+                OR (
+                    event_xp = ? AND tasks_solved = ?
+                    AND COALESCE(last_earned_at, '9999-12-31')
+                        < COALESCE(?, '9999-12-31')
+                )
+                OR (
+                    event_xp = ? AND tasks_solved = ?
+                    AND COALESCE(last_earned_at, '9999-12-31')
+                        = COALESCE(?, '9999-12-31')
+                    AND user_id < ?
+                )
+          )
+        """,
+        (
+            event_id,
+            event_xp,
+            event_xp,
+            tasks_solved,
+            event_xp,
+            tasks_solved,
+            progress.get("last_earned_at"),
+            event_xp,
+            tasks_solved,
+            progress.get("last_earned_at"),
+            user_id,
+        ),
+    )
+    rank_row = cursor.fetchone()
+    progress["event_xp"] = event_xp
+    progress["tasks_solved"] = tasks_solved
+    progress["rank"] = int(rank_row["rank"] or 1) if rank_row else 1
+    progress["first_earned_at"] = _event_timestamp_iso(progress.get("first_earned_at"))
+    progress["last_earned_at"] = _event_timestamp_iso(progress.get("last_earned_at"))
+    return progress
+
+
+def _event_public_dict(row, cursor=None, user_id: Optional[int] = None, leaderboard_limit: int = 0) -> dict:
+    event = dict(row)
+    for key in (
+        "id",
+        "duration_hours",
+        "winner_user_id",
+        "winner_event_xp",
+        "winner_tasks_count",
+        "reward_xp",
+        "reward_min",
+        "reward_max",
+    ):
+        if event.get(key) is not None:
+            event[key] = int(event[key])
+    event["is_active"] = bool(event.get("is_active")) and event.get("status") == "active"
+    event["bonus_value"] = float(event.get("bonus_value") or 0)
+    for timestamp_key in ("created_at", "starts_at", "ends_at", "ended_at", "finalized_at"):
+        event[timestamp_key] = _event_timestamp_iso(event.get(timestamp_key))
+    theme_key = event.get("theme_key") if event.get("theme_key") in EVENT_THEMES else "arcane"
+    event["theme_key"] = theme_key
+    event["theme"] = EVENT_THEMES[theme_key]
+    if cursor is not None:
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS participants,
+                   COALESCE(SUM(tasks_solved), 0) AS tasks_solved,
+                   COALESCE(SUM(event_xp), 0) AS event_xp
+            FROM event_progress
+            WHERE event_id = ?
+            """,
+            (event["id"],),
+        )
+        summary = cursor.fetchone()
+        event["progress_summary"] = {
+            "participants": int(summary["participants"] or 0) if summary else 0,
+            "tasks_solved": int(summary["tasks_solved"] or 0) if summary else 0,
+            "event_xp": int(summary["event_xp"] or 0) if summary else 0,
+        }
+        if user_id is not None:
+            event["my_progress"] = _event_progress_for_user(cursor, event["id"], int(user_id))
+        if leaderboard_limit > 0:
+            event["leaderboard"] = _event_leaderboard(cursor, event["id"], leaderboard_limit)
+    return event
+
+
+def _record_active_event_task_progress(
+    cursor,
+    user_id: int,
+    task_id: str,
+    event_xp: int,
+) -> Optional[dict]:
+    """Credit a task to each live competitive event exactly once.
+
+    The UNIQUE(event_id, user_id, task_id) ledger is the anti-farming and
+    idempotency boundary: alternate methods for the same task cannot inflate
+    the event score or the prize task count.
+    """
+    score = max(0, int(event_xp or 0))
+    normalized_task_id = str(task_id or "").strip()
+    if score <= 0 or not normalized_task_id:
+        return None
+    cursor.execute(
+        """
+        SELECT id
+        FROM events
+        WHERE status = 'active'
+          AND is_active = 1
+          AND event_type = 'judgment_day'
+          AND starts_at IS NOT NULL
+          AND starts_at <= CURRENT_TIMESTAMP
+          AND (ends_at IS NULL OR ends_at > CURRENT_TIMESTAMP)
+        ORDER BY starts_at DESC, id DESC
+        LIMIT 1
+        """
+    )
+    event_row = cursor.fetchone()
+    if not event_row:
+        return None
+    event_id = int(event_row["id"])
+    cursor.execute(
+        """
+        INSERT OR IGNORE INTO event_task_completions
+            (event_id, user_id, task_id, xp_earned)
+        VALUES (?, ?, ?, ?)
+        """,
+        (event_id, user_id, normalized_task_id, score),
+    )
+    if cursor.rowcount == 0:
+        return _event_progress_for_user(cursor, event_id, user_id)
+    cursor.execute(
+        """
+        INSERT INTO event_progress
+            (event_id, user_id, event_xp, tasks_solved, first_earned_at, last_earned_at)
+        VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ON CONFLICT(event_id, user_id) DO UPDATE SET
+            event_xp = event_progress.event_xp + excluded.event_xp,
+            tasks_solved = event_progress.tasks_solved + 1,
+            last_earned_at = CURRENT_TIMESTAMP
+        """,
+        (event_id, user_id, score),
+    )
+    progress = _event_progress_for_user(cursor, event_id, user_id)
+    progress["event_id"] = event_id
+    progress["credited_xp"] = score
+    return progress
+
+
+def _finalize_event_locked(
+    cursor,
+    event_id: int,
+    ended_by: Optional[int] = None,
+    end_reason: str = "admin_stop",
+) -> dict:
+    """Finish and reward an event inside the caller's write transaction."""
+    cursor.execute("SELECT * FROM events WHERE id = ?", (event_id,))
+    row = cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Event not found")
+    event = dict(row)
+    if event.get("finalized_at"):
+        result = _event_public_dict(event, cursor=cursor, leaderboard_limit=10)
+        result["already_finalized"] = True
+        return result
+    if event.get("status") == "draft":
+        raise HTTPException(status_code=409, detail="Draft event has not been started")
+
+    winner = None
+    reward_xp = 0
+    if event.get("event_type") == "judgment_day":
+        leaders = _event_leaderboard(cursor, event_id, 1)
+        winner = leaders[0] if leaders else None
+        if winner:
+            reward_xp = _event_reward_for_tasks(
+                winner["tasks_solved"],
+                int(event.get("reward_min") or 10000),
+                int(event.get("reward_max") or 100000),
+            )
+
+    cursor.execute(
+        """
+        UPDATE events
+        SET status = 'finished',
+            is_active = 0,
+            ended_at = CURRENT_TIMESTAMP,
+            finalized_at = CURRENT_TIMESTAMP,
+            winner_user_id = ?,
+            winner_event_xp = ?,
+            winner_tasks_count = ?,
+            reward_xp = ?
+        WHERE id = ? AND finalized_at IS NULL
+        """,
+        (
+            winner["user_id"] if winner else None,
+            winner["event_xp"] if winner else 0,
+            winner["tasks_solved"] if winner else 0,
+            reward_xp,
+            event_id,
+        ),
+    )
+    if cursor.rowcount == 0:
+        cursor.execute("SELECT * FROM events WHERE id = ?", (event_id,))
+        result = _event_public_dict(cursor.fetchone(), cursor=cursor, leaderboard_limit=10)
+        result["already_finalized"] = True
+        return result
+
+    if winner and reward_xp > 0:
+        _apply_event_reward_exact(
+            cursor,
+            int(winner["user_id"]),
+            reward_xp,
+            event_id,
+        )
+        cursor.execute(
+            """
+            INSERT INTO rewards (user_id, icon, title, comment, awarded_by)
+            VALUES (?, '🌘', ?, ?, ?)
+            """,
+            (
+                winner["user_id"],
+                f"Победитель: {event.get('name') or 'Судный день'}",
+                (
+                    f"{winner['event_xp']} event XP, "
+                    f"{winner['tasks_solved']} уникальных задач, +{reward_xp} XP"
+                ),
+                ended_by,
+            ),
+        )
+        cursor.execute(
+            """
+            INSERT INTO audit_log
+                (actor_user_id, actor_username, action, target_user_id, delta_xp, meta_json)
+            VALUES (?, 'EVENT_SYSTEM', 'EVENT_WINNER_REWARDED', ?, ?, ?)
+            """,
+            (
+                ended_by,
+                winner["user_id"],
+                reward_xp,
+                json.dumps(
+                    {
+                        "event_id": event_id,
+                        "event_xp": winner["event_xp"],
+                        "tasks_solved": winner["tasks_solved"],
+                        "reason": end_reason,
+                    },
+                    ensure_ascii=False,
+                ),
+            ),
+        )
+
+    cursor.execute("SELECT * FROM events WHERE id = ?", (event_id,))
+    return _event_public_dict(cursor.fetchone(), cursor=cursor, leaderboard_limit=10)
+
+
+def _finalize_expired_events() -> list[dict]:
+    """Lazily close expired events; safe across workers through BEGIN IMMEDIATE."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id FROM events
+            WHERE status = 'active'
+              AND is_active = 1
+              AND ends_at IS NOT NULL
+              AND ends_at <= CURRENT_TIMESTAMP
+            """
+        )
+        pending_ids = [int(row["id"]) for row in cursor.fetchall()]
+        if not pending_ids:
+            return []
+        conn.rollback()
+        cursor.execute("BEGIN IMMEDIATE")
+        finalized = []
+        for event_id in pending_ids:
+            cursor.execute(
+                """
+                SELECT id FROM events
+                WHERE id = ? AND status = 'active' AND finalized_at IS NULL
+                  AND ends_at IS NOT NULL AND ends_at <= CURRENT_TIMESTAMP
+                """,
+                (event_id,),
+            )
+            if cursor.fetchone():
+                finalized.append(
+                    _finalize_event_locked(cursor, event_id, ended_by=None, end_reason="expired")
+                )
+        conn.commit()
+        return finalized
 
 def sync_achievements(cursor) -> None:
     """
@@ -2508,7 +3489,16 @@ def process_task_completion(
 
     # Calculate event/streak multipliers
     bonus_multiplier = 1.0
-    cursor.execute("SELECT * FROM events WHERE is_active = 1")
+    cursor.execute(
+        """
+        SELECT *
+        FROM events
+        WHERE is_active = 1
+          AND status = 'active'
+          AND (starts_at IS NULL OR starts_at <= CURRENT_TIMESTAMP)
+          AND (ends_at IS NULL OR ends_at > CURRENT_TIMESTAMP)
+        """
+    )
     events = cursor.fetchall()
     
     # Event XP multipliers
@@ -2522,6 +3512,12 @@ def process_task_completion(
     streak_days = streak_row["streak_days"] if streak_row else 0
     streak_boost_pct = min(streak_days * 2, 30)  # 2% per day, cap 30% at day 15
     bonus_multiplier += streak_boost_pct / 100.0
+
+    # Optional event streak boost.  It is additive and capped at +100% per
+    # event so a malformed legacy value cannot create unbounded awards.
+    for event in events:
+        if event["bonus_type"] == "streak_bonus":
+            bonus_multiplier += min(1.0, max(0.0, streak_days * float(event["bonus_value"] or 0)))
     
     # Penalty for many failed attempts — kicks in after 30 fails, max -10%
     cursor.execute(
@@ -2544,6 +3540,12 @@ def process_task_completion(
     # Apply XP (keeps level consistent) + audit log
     reason = "task_completed" if is_first_completion else "task_method_completed"
     new_xp, new_level = apply_xp_change(cursor, user_id, final_xp, reason, task_id)
+    event_progress = _record_active_event_task_progress(
+        cursor,
+        user_id,
+        task_id,
+        task_base_xp,
+    )
 
     previous_task_xp = int(completion_row["xp_earned"] or 0) if completion_row else 0
     task_total_xp = final_xp if is_first_completion else (previous_task_xp + final_xp)
@@ -2642,6 +3644,7 @@ def process_task_completion(
         "method_multiplier": round(method_multiplier, 4),
         "is_first_completion": is_first_completion,
         "task_total_xp": task_total_xp,
+        "event_progress": event_progress,
     }
 
 def check_achievements(cursor, user_id: int, task_id: str, total_xp: int, total_quests: int, streak_days: int) -> List[dict]:
@@ -2891,6 +3894,28 @@ class TaskCompletion(BaseModel):
 class TaskAttemptRequest(BaseModel):
     task_id: str
     code: str
+    typing_session_id: Optional[str] = None
+    typing_receipt: Optional[str] = None
+
+class TypingSessionStartRequest(BaseModel):
+    scope: str  # 'alextype' | 'task'
+    task_id: Optional[str] = None
+    level: Optional[str] = None
+    text_length: int = 0
+    content_hash: Optional[str] = None
+
+class TypingTelemetryEvent(BaseModel):
+    # No key values or typed text are accepted/stored.
+    kind: str
+    dt_ms: int = 0
+    chars: int = 0
+    trusted: bool = False
+
+class TypingTelemetryBatchRequest(BaseModel):
+    sequence: int
+    receipt: str
+    events: List[TypingTelemetryEvent]
+    client_elapsed_ms: int = 0
 
 class SubmissionRequest(BaseModel):
     task_id: str
@@ -2922,11 +3947,17 @@ class ProfileUpdateRequest(BaseModel):
         return _validate_display_name_value(v)
 
 class EventCreateRequest(BaseModel):
-    name: str
+    name: Optional[str] = None
     description: Optional[str] = None
-    bonus_type: str  # 'xp_multiplier' or 'streak_bonus'
-    bonus_value: float  # e.g., 1.5 for 50% bonus
-    color: Optional[str] = '#7c3aed'  # event theme color
+    template_key: str = "custom"
+    event_type: str = "standard"
+    bonus_type: Optional[str] = "xp_multiplier"
+    bonus_value: Optional[float] = 1.0
+    duration_hours: int = 24
+    theme_key: str = "arcane"
+    color: Optional[str] = None  # event theme color
+    reward_min: int = 10000
+    reward_max: int = 100000
 
 class PriorityRequest(BaseModel):
     scratch_priority: int = 25
@@ -2962,6 +3993,8 @@ class AlexTypeCompleteRequest(BaseModel):
     cpm: int = 0  # chars per minute
     elapsed_ms: int = 0  # milliseconds from first keystroke to completion
     keystrokes: int = 0  # total keydown events counted client-side
+    typing_session_id: Optional[str] = None
+    typing_receipt: Optional[str] = None
 
 class AdminXPAdjustRequest(BaseModel):
     user_id: int
@@ -3127,6 +4160,810 @@ def serve_alextype():
     """Serve Alextype JS trainer UI."""
     return FileResponse("alextype.html")
 
+# ==================== SERVER-VERIFIED TYPING TELEMETRY ====================
+
+_TYPING_SCOPES = {"alextype", "task"}
+_TYPING_EVENT_KINDS = {
+    "insert", "delete", "composition", "paste", "programmatic",
+    "auto", "restore", "blocked",
+}
+_TYPING_MAX_EVENTS_PER_BATCH = 32
+_TYPING_MAX_ACTIVE_SESSIONS = 5
+_TYPING_ALEXTYPE_TTL_S = 30 * 60
+_TYPING_TASK_TTL_S = 2 * 60 * 60
+
+
+def _typing_receipt_hash(receipt: str) -> str:
+    return hashlib.sha256((receipt or "").encode("utf-8")).hexdigest()
+
+
+def _typing_empty_metrics() -> dict:
+    return {
+        "inserted_chars": 0,
+        "trusted_inserted_chars": 0,
+        "deleted_chars": 0,
+        "paste_chars": 0,
+        "authorized_paste_chars": 0,
+        "programmatic_chars": 0,
+        "restore_chars": 0,
+        "blocked_events": 0,
+        "input_events": 0,
+        "interval_count": 0,
+        "interval_sum_ms": 0.0,
+        "interval_sq_sum_ms": 0.0,
+        "fast_interval_count": 0,
+        "last_dt_ms": -1,
+        "same_dt_run": 0,
+        "max_same_dt_run": 0,
+        "server_gap_count": 0,
+        "server_gap_sum_ms": 0.0,
+        "server_gap_sq_sum_ms": 0.0,
+    }
+
+
+def _typing_load_metrics(raw: str) -> dict:
+    metrics = _typing_empty_metrics()
+    try:
+        parsed = json.loads(raw or "{}")
+        if isinstance(parsed, dict):
+            for key in metrics:
+                value = parsed.get(key)
+                if isinstance(value, (int, float)):
+                    metrics[key] = value
+    except (TypeError, ValueError):
+        pass
+    return metrics
+
+
+def _typing_event_dict(event: TypingTelemetryEvent) -> dict:
+    return {
+        "kind": str(event.kind or "").strip().lower(),
+        "dt_ms": int(event.dt_ms or 0),
+        "chars": int(event.chars or 0),
+        "trusted": bool(event.trusted),
+    }
+
+
+def _aggregate_typing_events(metrics: dict, events: list[dict]) -> dict:
+    """Update count/timing aggregates without retaining typed content."""
+    for event in events:
+        kind = event["kind"]
+        chars = max(0, int(event["chars"]))
+        dt_ms = max(0, int(event["dt_ms"]))
+
+        if kind in {"insert", "composition", "auto"}:
+            metrics["inserted_chars"] += chars
+            metrics["input_events"] += 1
+            if event["trusted"]:
+                metrics["trusted_inserted_chars"] += chars
+            else:
+                # The official clients set this from Event.isTrusted.  A bulk
+                # synthetic insert cannot disguise itself merely by choosing
+                # the "insert", "composition", or "auto" label.
+                metrics["programmatic_chars"] += chars
+        elif kind == "delete":
+            metrics["deleted_chars"] += chars
+            metrics["input_events"] += 1
+        elif kind == "paste":
+            metrics["paste_chars"] += chars
+        elif kind == "programmatic":
+            metrics["programmatic_chars"] += chars
+        elif kind == "restore":
+            metrics["restore_chars"] += chars
+        elif kind == "blocked":
+            metrics["blocked_events"] += 1
+
+        if kind in {"insert", "composition"} and chars > 0 and dt_ms > 0:
+            metrics["interval_count"] += 1
+            metrics["interval_sum_ms"] += dt_ms
+            metrics["interval_sq_sum_ms"] += dt_ms * dt_ms
+            if dt_ms <= 12:
+                metrics["fast_interval_count"] += 1
+            if int(metrics["last_dt_ms"]) == dt_ms:
+                metrics["same_dt_run"] += 1
+            else:
+                metrics["same_dt_run"] = 1
+            metrics["max_same_dt_run"] = max(
+                int(metrics["max_same_dt_run"]),
+                int(metrics["same_dt_run"]),
+            )
+            metrics["last_dt_ms"] = dt_ms
+    return metrics
+
+
+def _coefficient_of_variation(count: int, total: float, squared_total: float) -> Optional[float]:
+    if count < 2:
+        return None
+    mean = total / count
+    if mean <= 0:
+        return None
+    variance = max(0.0, (squared_total / count) - (mean * mean))
+    return (variance ** 0.5) / mean
+
+
+def _score_typing_integrity(
+    scope: str,
+    metrics: dict,
+    server_active_s: float,
+    server_session_s: float,
+    content_chars: int,
+    batch_count: int,
+    claimed_keystrokes: int = 0,
+    expected_insertions: int = 0,
+) -> dict:
+    """Return a conservative, explainable risk score.
+
+    A penalty is possible only when at least two independent evidence groups
+    agree (speed, insertion source, timing shape, trust coverage, or
+    server-observed batch cadence).  Missing/sparse telemetry is never itself
+    evidence of cheating.
+    """
+    scope = (scope or "").lower()
+    content_chars = max(0, int(content_chars or 0))
+    expected_insertions = max(0, int(expected_insertions or 0))
+    inserted = max(0, int(metrics.get("inserted_chars") or 0))
+    trusted_inserted = max(0, int(metrics.get("trusted_inserted_chars") or 0))
+    paste_chars = max(0, int(metrics.get("paste_chars") or 0))
+    authorized_paste_chars = max(0, int(metrics.get("authorized_paste_chars") or 0))
+    programmatic_chars = max(0, int(metrics.get("programmatic_chars") or 0))
+    restore_chars = max(0, int(metrics.get("restore_chars") or 0))
+    intervals = max(0, int(metrics.get("interval_count") or 0))
+    input_events = max(0, int(metrics.get("input_events") or 0))
+    interval_elapsed_s = max(0.0, float(metrics.get("interval_sum_ms") or 0.0) / 1000.0)
+
+    authored_chars = (
+        max(content_chars, inserted)
+        if scope == "alextype"
+        else max(
+            expected_insertions,
+            min(inserted + programmatic_chars + paste_chars, content_chars),
+        )
+    )
+    # A first/last server receipt is authoritative when several batches arrive.
+    # For a short text that legitimately fits in one batch, however, its span
+    # can be near zero, so only that case may use the full interval sum.  With
+    # multiple receipts client intervals receive at most a small first-batch
+    # grace and cannot be inflated to hide a rapid scripted upload.
+    if int(batch_count or 0) >= 2:
+        active_s = max(
+            0.05,
+            float(server_active_s or 0.0),
+            min(interval_elapsed_s, 2.0),
+        )
+    else:
+        active_s = max(0.05, float(server_active_s or 0.0), interval_elapsed_s)
+    server_cpm = (authored_chars / active_s) * 60.0 if authored_chars else 0.0
+
+    signals: list[str] = []
+    groups: set[str] = set()
+    risk = 0
+
+    speed_threshold = 950 if scope == "alextype" else 1100
+    if authored_chars >= 30 and server_cpm > speed_threshold:
+        signals.append("extreme_server_speed")
+        groups.add("speed")
+        risk += 55 if server_cpm >= speed_threshold * 1.8 else 45
+
+    if (
+        int(batch_count or 0) >= 3
+        and authored_chars >= 40
+        and interval_elapsed_s >= 3.0
+        and float(server_active_s or 0.0) < interval_elapsed_s * 0.45
+    ):
+        signals.append("client_server_timing_divergence")
+        # Diagnostic corroboration for the speed signal, not an independent
+        # group: a delayed start response or queued network flush can create
+        # both observations for an honest typist.
+        groups.add("speed")
+        risk += 35
+
+    non_keyboard_chars = programmatic_chars + (paste_chars if scope == "alextype" else 0)
+    non_keyboard_floor = max(8, int(max(1, authored_chars) * 0.12))
+    if authored_chars >= 20 and non_keyboard_chars >= non_keyboard_floor:
+        signals.append("non_keyboard_burst")
+        groups.add("source")
+        risk += 45
+
+    interval_cv = _coefficient_of_variation(
+        intervals,
+        float(metrics.get("interval_sum_ms") or 0.0),
+        float(metrics.get("interval_sq_sum_ms") or 0.0),
+    )
+    max_same_run = max(0, int(metrics.get("max_same_dt_run") or 0))
+    timing_uniform = (
+        intervals >= 24
+        and (
+            (interval_cv is not None and interval_cv < 0.035)
+            or max_same_run >= max(10, int(intervals * 0.30))
+        )
+    )
+    if timing_uniform:
+        signals.append("machine_uniform_intervals")
+        groups.add("timing")
+        risk += 45
+
+    fast_ratio = (
+        max(0, int(metrics.get("fast_interval_count") or 0)) / intervals
+        if intervals else 0.0
+    )
+    if intervals >= 20 and fast_ratio >= 0.35:
+        signals.append("ultrafast_interval_cluster")
+        groups.add("timing")
+        risk += 35
+
+    # Trust mismatch is considered only for a sufficiently complete receipt
+    # chain.  A dropped request or an old browser therefore cannot create a
+    # penalty.
+    coverage_target = content_chars if scope == "alextype" else expected_insertions
+    coverage_ok = (
+        batch_count >= 2
+        and input_events >= 20
+        and coverage_target >= 30
+        and inserted >= int(coverage_target * 0.65)
+    )
+    if coverage_ok and trusted_inserted < int(coverage_target * 0.55):
+        signals.append("trusted_input_mismatch")
+        groups.add("trust")
+        risk += 30
+
+    server_gaps = max(0, int(metrics.get("server_gap_count") or 0))
+    server_gap_cv = _coefficient_of_variation(
+        server_gaps,
+        float(metrics.get("server_gap_sum_ms") or 0.0),
+        float(metrics.get("server_gap_sq_sum_ms") or 0.0),
+    )
+    if (
+        timing_uniform
+        and server_gaps >= 3
+        and server_gap_cv is not None
+        and server_gap_cv < 0.08
+    ):
+        signals.append("uniform_server_batch_cadence")
+        groups.add("cadence")
+        risk += 30
+
+    # Aggregate-vs-receipt discrepancy is diagnostic only and cannot form a
+    # high-confidence group by itself.
+    if (
+        claimed_keystrokes > 0
+        and input_events >= 20
+        and abs(int(claimed_keystrokes) - input_events) > max(12, int(input_events * 0.40))
+    ):
+        signals.append("aggregate_receipt_mismatch")
+        risk += 10
+
+    risk = max(0, min(100, int(risk)))
+    high_confidence = risk >= 70 and len(groups) >= 2
+    penalty = 0
+    if high_confidence:
+        penalty = int(round(50 + ((risk - 70) / 30.0) * 450))
+        penalty = max(50, min(500, penalty))
+
+    return {
+        "risk_score": risk,
+        "confidence": round(risk / 100.0, 3),
+        "high_confidence": high_confidence,
+        "penalty_xp": penalty,
+        "signals": signals,
+        "evidence": {
+            "scope": scope,
+            "server_active_ms": int(max(0.0, server_active_s) * 1000),
+            "effective_active_ms": int(active_s * 1000),
+            "client_interval_elapsed_ms": int(interval_elapsed_s * 1000),
+            "server_session_ms": int(max(0.0, server_session_s) * 1000),
+            "server_cpm": int(server_cpm),
+            "content_chars": content_chars,
+            "expected_insertions": expected_insertions,
+            "inserted_chars": inserted,
+            "trusted_inserted_chars": trusted_inserted,
+            "paste_chars": paste_chars,
+            "authorized_paste_chars": authorized_paste_chars,
+            "programmatic_chars": programmatic_chars,
+            "restore_chars": restore_chars,
+            "interval_count": intervals,
+            "interval_cv": round(interval_cv, 4) if interval_cv is not None else None,
+            "fast_interval_ratio": round(fast_ratio, 4),
+            "max_same_dt_run": max_same_run,
+            "batch_count": int(batch_count or 0),
+            "server_gap_cv": round(server_gap_cv, 4) if server_gap_cv is not None else None,
+        },
+    }
+
+
+def _typing_unavailable(status: str, detail: str = "") -> dict:
+    return {
+        "verified": False,
+        "usable": False,
+        "status": status,
+        "detail": detail,
+        "risk_score": 0,
+        "confidence": 0.0,
+        "high_confidence": False,
+        "penalty_xp": 0,
+        "applied_xp": 0,
+        "signals": [],
+        "evidence": {},
+    }
+
+
+def _finalize_typing_session(
+    cursor,
+    *,
+    user: dict,
+    scope: str,
+    session_id: Optional[str],
+    receipt: Optional[str],
+    task_id: Optional[str] = None,
+    level: Optional[str] = None,
+    content_chars: int = 0,
+    expected_length: int = 0,
+    claimed_keystrokes: int = 0,
+    expected_insertions: int = 0,
+    ip: str = "unknown",
+) -> dict:
+    """Atomically consume a telemetry session and apply at most one penalty."""
+    if not session_id or not receipt:
+        return _typing_unavailable("missing", "typing telemetry was not supplied")
+    if len(session_id) > 100 or len(receipt) > 200:
+        return _typing_unavailable("invalid", "invalid telemetry credentials")
+
+    cursor.execute("SELECT * FROM typing_sessions WHERE id = ?", (session_id,))
+    row = cursor.fetchone()
+    if not row:
+        return _typing_unavailable("invalid", "typing session not found")
+
+    uid = int(user["id"])
+    now = time.time()
+    normalized_task_id = str(task_id or "")
+    if (
+        int(row["user_id"]) != uid
+        or str(row["scope"] or "") != scope
+        or (scope == "task" and str(row["task_id"] or "") != normalized_task_id)
+    ):
+        return _typing_unavailable("context_mismatch", "typing session context mismatch")
+    if row["finalized_at"] is not None or str(row["result_status"] or "") != "active":
+        return _typing_unavailable("already_finalized", "typing session is single-use")
+    if float(row["expires_at"] or 0) < now:
+        cursor.execute(
+            "UPDATE typing_sessions SET result_status = 'expired', finalized_at = ? WHERE id = ? AND finalized_at IS NULL",
+            (now, session_id),
+        )
+        return _typing_unavailable("expired", "typing session expired")
+    if not secrets.compare_digest(str(row["receipt_hash"]), _typing_receipt_hash(receipt)):
+        return _typing_unavailable("stale_receipt", "telemetry receipt is stale")
+    if (
+        scope == "alextype"
+        and expected_length > 0
+        and int(row["expected_length"] or 0) != int(expected_length)
+    ):
+        return _typing_unavailable("context_mismatch", "text length changed after session start")
+    if (
+        scope == "alextype"
+        and level
+        and str(row["level"] or "").upper() != str(level).upper()
+    ):
+        return _typing_unavailable("context_mismatch", "AlexType level changed after session start")
+
+    metrics = _typing_load_metrics(row["metrics_json"])
+    if scope == "task" and int(metrics.get("paste_chars") or 0) > 0:
+        paste_chars = int(metrics.get("paste_chars") or 0)
+        authorized_paste = False
+        try:
+            cursor.execute(
+                """
+                SELECT 1
+                FROM paste_requests
+                WHERE user_id = ? AND task_id = ?
+                  AND status = 'consumed' AND consumed_at IS NOT NULL
+                  AND consumed_at >= datetime(?, 'unixepoch', '-10 seconds')
+                  AND consumed_at <= datetime(?, 'unixepoch', '+10 seconds')
+                ORDER BY consumed_at DESC
+                LIMIT 1
+                """,
+                (
+                    uid,
+                    normalized_task_id,
+                    float(row["started_at"] or now),
+                    now,
+                ),
+            )
+            authorized_paste = cursor.fetchone() is not None
+        except sqlite3.OperationalError:
+            authorized_paste = False
+
+        if authorized_paste:
+            authorized_chars = min(paste_chars, max(0, int(content_chars * 0.55)))
+            metrics["authorized_paste_chars"] = authorized_chars
+            # The grant is explicitly capped at half of the submitted text.
+            metrics["programmatic_chars"] += max(0, paste_chars - authorized_chars)
+        else:
+            # Merely labelling a forged event as "paste" cannot bypass source
+            # detection; the consumed server capability is authoritative.
+            metrics["programmatic_chars"] += paste_chars
+
+    first_event_at = float(row["first_event_at"] or 0.0)
+    server_active_s = max(0.0, now - first_event_at) if first_event_at else 0.0
+    server_session_s = max(0.0, now - float(row["started_at"] or now))
+    score = _score_typing_integrity(
+        scope,
+        metrics,
+        server_active_s,
+        server_session_s,
+        content_chars,
+        int(row["batch_count"] or 0),
+        claimed_keystrokes=claimed_keystrokes,
+        expected_insertions=expected_insertions,
+    )
+
+    status = "penalized" if score["high_confidence"] else "clean"
+    cursor.execute(
+        """
+        UPDATE typing_sessions
+        SET finalized_at = ?, result_status = ?, risk_score = ?, penalty_xp = ?
+        WHERE id = ? AND finalized_at IS NULL
+        """,
+        (now, status, score["risk_score"], score["penalty_xp"], session_id),
+    )
+    if cursor.rowcount != 1:
+        return _typing_unavailable("already_finalized", "typing session is single-use")
+
+    applied_xp = 0
+    if score["high_confidence"]:
+        nominal_penalty = int(score["penalty_xp"])
+        cursor.execute("SELECT xp FROM users WHERE id = ?", (uid,))
+        xp_row = cursor.fetchone()
+        before_xp = int(xp_row["xp"] or 0) if xp_row else 0
+        actual_to_apply = min(before_xp, nominal_penalty)
+        if actual_to_apply > 0:
+            new_xp, _new_level = apply_xp_change(
+                cursor,
+                uid,
+                -actual_to_apply,
+                f"typing_integrity:{scope}",
+                normalized_task_id or None,
+            )
+        else:
+            new_xp = before_xp
+        applied_xp = max(0, before_xp - int(new_xp))
+        cursor.execute(
+            """
+            INSERT OR IGNORE INTO typing_integrity_incidents (
+                session_id, user_id, scope, task_id, confidence, risk_score,
+                signals_json, evidence_json, penalty_xp, applied_xp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                session_id,
+                uid,
+                scope,
+                normalized_task_id or None,
+                score["confidence"],
+                score["risk_score"],
+                json.dumps(score["signals"], ensure_ascii=False, separators=(",", ":")),
+                json.dumps(score["evidence"], ensure_ascii=False, separators=(",", ":")),
+                nominal_penalty,
+                applied_xp,
+            ),
+        )
+        cursor.execute(
+            """
+            INSERT INTO audit_log (
+                actor_user_id, actor_username, action, target_user_id,
+                target_task_id, delta_xp, meta_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                uid,
+                user.get("username"),
+                "TYPING_INTEGRITY_PENALTY",
+                uid,
+                normalized_task_id or None,
+                -applied_xp,
+                json.dumps(
+                    {
+                        "session_id": session_id,
+                        "scope": scope,
+                        "risk_score": score["risk_score"],
+                        "confidence": score["confidence"],
+                        "signals": score["signals"],
+                        "nominal_penalty_xp": nominal_penalty,
+                        "ip": ip,
+                    },
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ),
+            ),
+        )
+        log_security(
+            "TYPING_INTEGRITY_PENALTY",
+            user.get("username") or str(uid),
+            (
+                f"session={session_id} scope={scope} task={normalized_task_id or '-'} "
+                f"risk={score['risk_score']} penalty={nominal_penalty} "
+                f"applied={applied_xp} signals={','.join(score['signals'])}"
+            ),
+            ip,
+        )
+
+    score.update({
+        "verified": True,
+        "usable": int(row["event_count"] or 0) > 0,
+        "status": status,
+        "applied_xp": applied_xp,
+        "session_id": session_id,
+    })
+    return score
+
+
+@app.post("/api/typing/session/start")
+def start_typing_session(
+    data: TypingSessionStartRequest,
+    user: dict = Depends(require_auth),
+):
+    scope = str(data.scope or "").strip().lower()
+    if scope not in _TYPING_SCOPES:
+        raise HTTPException(status_code=400, detail="Invalid typing telemetry scope")
+
+    task_id = str(data.task_id or "").strip()
+    level = str(data.level or "").strip().upper()
+    expected_length = max(0, int(data.text_length or 0))
+    if scope == "task":
+        if not task_id or len(task_id) > 200 or not get_task(task_id):
+            raise HTTPException(status_code=404, detail="Task not found")
+        level = ""
+        expected_length = 0
+    else:
+        if level not in _ALEXTYPE_DIFFICULTY_MULT:
+            raise HTTPException(status_code=400, detail="Invalid AlexType level")
+        if expected_length < 10 or expected_length > 5000:
+            raise HTTPException(status_code=400, detail="Invalid text length")
+        task_id = ""
+
+    content_hash = str(data.content_hash or "").strip().lower()
+    if len(content_hash) > 128:
+        raise HTTPException(status_code=400, detail="Invalid content fingerprint")
+
+    now = time.time()
+    ttl_s = _TYPING_ALEXTYPE_TTL_S if scope == "alextype" else _TYPING_TASK_TTL_S
+    session_id = secrets.token_urlsafe(24)
+    receipt = secrets.token_urlsafe(32)
+    uid = int(user["id"])
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        # Bounded retention: sample cleanup on ~1% of starts so normal request
+        # latency stays flat.  Incidents are retained; their source sessions
+        # are excluded, while child batches of old clean sessions cascade.
+        if secrets.randbelow(100) == 0:
+            cursor.execute(
+                """
+                DELETE FROM typing_sessions
+                WHERE id IN (
+                    SELECT s.id
+                    FROM typing_sessions s
+                    WHERE s.started_at < ?
+                      AND s.result_status IN ('clean', 'abandoned', 'expired')
+                      AND NOT EXISTS (
+                          SELECT 1 FROM typing_integrity_incidents i
+                          WHERE i.session_id = s.id
+                      )
+                    ORDER BY s.started_at ASC
+                    LIMIT 500
+                )
+                """,
+                (now - (30 * 24 * 60 * 60),),
+            )
+        # Bound abandoned-session growth without invalidating another live tab
+        # (or a slower, earlier start request that completed out of order).
+        # Incidents and finalized sessions are always preserved for audit.
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS cnt
+            FROM typing_sessions
+            WHERE user_id = ? AND result_status = 'active' AND finalized_at IS NULL
+            """,
+            (uid,),
+        )
+        active_count = int(cursor.fetchone()["cnt"] or 0)
+        if active_count >= _TYPING_MAX_ACTIVE_SESSIONS:
+            cursor.execute(
+                """
+                UPDATE typing_sessions
+                SET result_status = 'abandoned', finalized_at = ?
+                WHERE id IN (
+                    SELECT id FROM typing_sessions
+                    WHERE user_id = ? AND result_status = 'active' AND finalized_at IS NULL
+                    ORDER BY started_at ASC LIMIT ?
+                )
+                """,
+                (now, uid, active_count - _TYPING_MAX_ACTIVE_SESSIONS + 1),
+            )
+        cursor.execute(
+            """
+            INSERT INTO typing_sessions (
+                id, user_id, scope, task_id, level, expected_length,
+                content_hash, receipt_hash, metrics_json, started_at, expires_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                session_id,
+                uid,
+                scope,
+                task_id or None,
+                level or None,
+                expected_length,
+                content_hash or None,
+                _typing_receipt_hash(receipt),
+                json.dumps(_typing_empty_metrics(), separators=(",", ":")),
+                now,
+                now + ttl_s,
+            ),
+        )
+        conn.commit()
+
+    return {
+        "session_id": session_id,
+        "receipt": receipt,
+        "next_sequence": 1,
+        "expires_in": ttl_s,
+        "max_events_per_batch": _TYPING_MAX_EVENTS_PER_BATCH,
+    }
+
+
+@app.post("/api/typing/session/{session_id}/events")
+def append_typing_events(
+    session_id: str,
+    data: TypingTelemetryBatchRequest,
+    user: dict = Depends(require_auth),
+):
+    if not session_id or len(session_id) > 100:
+        raise HTTPException(status_code=400, detail="Invalid typing session")
+    if (
+        data.sequence < 1
+        or data.sequence > 100000
+        or not data.receipt
+        or len(data.receipt) > 200
+        or not data.events
+        or len(data.events) > _TYPING_MAX_EVENTS_PER_BATCH
+    ):
+        raise HTTPException(status_code=400, detail="Invalid telemetry batch")
+
+    events: list[dict] = []
+    for item in data.events:
+        event = _typing_event_dict(item)
+        if (
+            event["kind"] not in _TYPING_EVENT_KINDS
+            or event["dt_ms"] < 0
+            or event["dt_ms"] > 60000
+            or event["chars"] < 0
+            or event["chars"] > 4096
+        ):
+            raise HTTPException(status_code=400, detail="Invalid telemetry event")
+        events.append(event)
+
+    payload_bytes = json.dumps(
+        {"sequence": int(data.sequence), "events": events},
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    if len(payload_bytes) > 24 * 1024:
+        raise HTTPException(status_code=413, detail="Telemetry batch too large")
+    payload_hash = hashlib.sha256(payload_bytes).hexdigest()
+    now = time.time()
+    next_receipt = secrets.token_urlsafe(32)
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM typing_sessions WHERE id = ?", (session_id,))
+        row = cursor.fetchone()
+        if not row or int(row["user_id"]) != int(user["id"]):
+            raise HTTPException(status_code=404, detail="Typing session not found")
+        if row["finalized_at"] is not None or str(row["result_status"] or "") != "active":
+            raise HTTPException(status_code=409, detail="Typing session already finalized")
+        if float(row["expires_at"] or 0) < now:
+            cursor.execute(
+                "UPDATE typing_sessions SET result_status = 'expired', finalized_at = ? WHERE id = ?",
+                (now, session_id),
+            )
+            conn.commit()
+            raise HTTPException(status_code=410, detail="Typing session expired")
+        if int(data.sequence) != int(row["last_sequence"] or 0) + 1:
+            raise HTTPException(status_code=409, detail="Telemetry sequence mismatch")
+        if not secrets.compare_digest(str(row["receipt_hash"]), _typing_receipt_hash(data.receipt)):
+            raise HTTPException(status_code=409, detail="Telemetry receipt mismatch")
+
+        metrics = _typing_load_metrics(row["metrics_json"])
+        previous_batch_at = float(row["last_event_at"] or 0.0)
+        if previous_batch_at > 0:
+            gap_ms = max(0.0, min(60000.0, (now - previous_batch_at) * 1000.0))
+            metrics["server_gap_count"] += 1
+            metrics["server_gap_sum_ms"] += gap_ms
+            metrics["server_gap_sq_sum_ms"] += gap_ms * gap_ms
+        _aggregate_typing_events(metrics, events)
+
+        summary = {
+            "inserted_chars": sum(
+                e["chars"] for e in events if e["kind"] in {"insert", "composition", "auto"}
+            ),
+            "non_keyboard_chars": sum(
+                e["chars"] for e in events if e["kind"] in {"paste", "programmatic"}
+            ),
+            "blocked_events": sum(1 for e in events if e["kind"] == "blocked"),
+            "client_elapsed_ms": max(0, min(int(data.client_elapsed_ms or 0), 24 * 60 * 60 * 1000)),
+        }
+        cursor.execute(
+            """
+            INSERT INTO typing_telemetry_batches (
+                session_id, sequence, received_at, event_count, payload_hash, summary_json
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                session_id,
+                int(data.sequence),
+                now,
+                len(events),
+                payload_hash,
+                json.dumps(summary, separators=(",", ":")),
+            ),
+        )
+        cursor.execute(
+            """
+            UPDATE typing_sessions
+            SET receipt_hash = ?, last_sequence = ?, batch_count = batch_count + 1,
+                event_count = event_count + ?, metrics_json = ?,
+                first_event_at = COALESCE(first_event_at, ?), last_event_at = ?
+            WHERE id = ?
+            """,
+            (
+                _typing_receipt_hash(next_receipt),
+                int(data.sequence),
+                len(events),
+                json.dumps(metrics, separators=(",", ":")),
+                now,
+                now,
+                session_id,
+            ),
+        )
+        conn.commit()
+
+    return {
+        "accepted": len(events),
+        "next_sequence": int(data.sequence) + 1,
+        "receipt": next_receipt,
+    }
+
+
+@app.get("/api/admin/typing-incidents")
+def get_typing_integrity_incidents(
+    limit: int = Query(50, ge=1, le=200),
+    admin: dict = Depends(require_admin),
+):
+    del admin
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT i.id, i.session_id, i.user_id, u.username, u.display_name,
+                   i.scope, i.task_id, i.confidence, i.risk_score,
+                   i.signals_json, i.evidence_json, i.penalty_xp,
+                   i.applied_xp, i.created_at
+            FROM typing_integrity_incidents i
+            JOIN users u ON u.id = i.user_id
+            ORDER BY i.id DESC
+            LIMIT ?
+            """,
+            (int(limit),),
+        )
+        rows = [dict(row) for row in cursor.fetchall()]
+    for row in rows:
+        for field in ("signals_json", "evidence_json"):
+            try:
+                row[field.removesuffix("_json")] = json.loads(row.pop(field) or "null")
+            except (TypeError, ValueError):
+                row[field.removesuffix("_json")] = [] if field.startswith("signals") else {}
+    return {"incidents": rows}
+
+
 # AlexType last-reward timestamps per user (in-memory cooldown)
 _alextype_last_reward: dict[int, float] = {}
 _BOUNDED_DICT_MAX = 256
@@ -3143,7 +4980,11 @@ _ALEXTYPE_DIFFICULTY_MULT = {"D": 2.00, "C": 2.80, "B": 4.00, "A": 5.16, "S": 8.
 _ALEXTYPE_MAX_XP = {"D": 120, "C": 240, "B": 480, "A": 660, "S": 1000}  # x4 boost
 
 @app.post("/api/alextype/complete")
-def alextype_complete(data: AlexTypeCompleteRequest, user: dict = Depends(require_auth)):
+def alextype_complete(
+    request: Request,
+    data: AlexTypeCompleteRequest,
+    user: dict = Depends(require_auth),
+):
     """Award XP for completing an AlexType typing session."""
     uid = int(user["id"])
     now = time.monotonic()
@@ -3158,35 +4999,22 @@ def alextype_complete(data: AlexTypeCompleteRequest, user: dict = Depends(requir
     level = (data.level or "D").upper()
     if level not in _ALEXTYPE_DIFFICULTY_MULT:
         raise HTTPException(status_code=400, detail="Invalid level")
+    if (
+        data.accuracy < 0
+        or data.accuracy > 1
+        or data.text_length < 10
+        or data.text_length > 5000
+        or data.chars_typed < 0
+        or data.chars_typed > 7500
+        or data.keystrokes < 0
+    ):
+        raise HTTPException(status_code=400, detail="Invalid typing result")
     if data.accuracy < 0.8:
         return {"xp_awarded": 0, "message": "Точность ниже 80%, XP не начислен. Попробуй точнее!"}
     if data.chars_typed < 10:
         return {"xp_awarded": 0, "message": "Слишком мало символов"}
     if data.chars_typed > data.text_length * 1.5:
         return {"xp_awarded": 0, "message": "Невалидные данные"}
-
-    # ===== SERVER-SIDE ANTI-CHEAT: Typing speed validation =====
-    _MAX_HUMAN_CPM = 800  # World record ~750 CPM; above this = cheat
-    _DYNAMIC_MIN_ELAPSED_MS = int((data.chars_typed / _MAX_HUMAN_CPM) * 60000 * 0.8)  # Allow 20% margin
-    _DYNAMIC_MIN_ELAPSED_MS = max(500, _DYNAMIC_MIN_ELAPSED_MS) # Absolute minimum 0.5s
-
-    if data.elapsed_ms > 0:
-        elapsed_min = data.elapsed_ms / 60000.0
-        if elapsed_min > 0:
-            server_cpm = data.chars_typed / elapsed_min
-            if server_cpm > _MAX_HUMAN_CPM:
-                return {"xp_awarded": 0, "message": "⚠️ Слишком быстро. Печатай сам!"}
-        if data.elapsed_ms < _DYNAMIC_MIN_ELAPSED_MS:
-            return {"xp_awarded": 0, "message": "⚠️ Слишком быстро. Печатай сам!"}
-    else:
-        # No elapsed_ms provided — legacy client or cheat; reject if chars > 20
-        if data.chars_typed > 20:
-            return {"xp_awarded": 0, "message": "Обнови страницу AlexType"}
-
-    # Keystroke sanity: keystrokes must be ≥ 70% of chars_typed
-    # Voice input = 0 keystrokes; paste bypass = very few keystrokes
-    if data.chars_typed > 5 and data.keystrokes < data.chars_typed * 0.7:
-        return {"xp_awarded": 0, "message": "⚠️ Невалидные данные набора"}
 
     # XP formula: chars × accuracy × difficulty_multiplier / divisor
     mult = _ALEXTYPE_DIFFICULTY_MULT[level]
@@ -3204,6 +5032,72 @@ def alextype_complete(data: AlexTypeCompleteRequest, user: dict = Depends(requir
 
     with get_db() as conn:
         cursor = conn.cursor()
+        integrity = _finalize_typing_session(
+            cursor,
+            user=user,
+            scope="alextype",
+            session_id=data.typing_session_id,
+            receipt=data.typing_receipt,
+            level=level,
+            content_chars=data.chars_typed,
+            expected_length=data.text_length,
+            claimed_keystrokes=data.keystrokes,
+            ip=get_client_ip(request),
+        )
+
+        if integrity.get("high_confidence"):
+            cursor.execute("SELECT xp, level FROM users WHERE id = ?", (uid,))
+            current = cursor.fetchone()
+            conn.commit()
+            _evict_bounded_dict(_alextype_last_reward)
+            _alextype_last_reward[uid] = now
+            return {
+                "status": "integrity_penalty",
+                "xp_awarded": 0,
+                "penalty_xp": int(integrity.get("penalty_xp") or 0),
+                "applied_penalty_xp": int(integrity.get("applied_xp") or 0),
+                "integrity_risk": int(integrity.get("risk_score") or 0),
+                "integrity_signals": integrity.get("signals") or [],
+                "new_total_xp": int(current["xp"] or 0) if current else 0,
+                "new_level": int(current["level"] or 1) if current else 1,
+                "message": (
+                    f"Обнаружена автоматическая печать. "
+                    f"Штраф: {int(integrity.get('penalty_xp') or 0)} XP."
+                ),
+            }
+
+        # A missing/stale receipt is not punished, but it cannot be used to
+        # mint AlexType XP.  This avoids trusting legacy client aggregates.
+        if not integrity.get("verified") or not integrity.get("usable"):
+            conn.commit()
+            return {
+                "xp_awarded": 0,
+                "telemetry_status": integrity.get("status"),
+                "message": "Телеметрия набора не подтверждена сервером. Начни новый текст.",
+            }
+
+        evidence = integrity.get("evidence") or {}
+        inserted_chars = int(evidence.get("inserted_chars") or 0)
+        trusted_chars = int(evidence.get("trusted_inserted_chars") or 0)
+        server_cpm = int(evidence.get("server_cpm") or 0)
+        if (
+            inserted_chars < int(data.chars_typed * 0.75)
+            or trusted_chars < int(data.chars_typed * 0.65)
+        ):
+            conn.commit()
+            return {
+                "xp_awarded": 0,
+                "telemetry_status": "insufficient_coverage",
+                "message": "Недостаточно подтверждённых событий клавиатуры. Начни новый текст.",
+            }
+        if server_cpm > 900:
+            conn.commit()
+            return {
+                "xp_awarded": 0,
+                "telemetry_status": "speed_rejected",
+                "message": "⚠️ Сервер зафиксировал нереалистичную скорость набора.",
+            }
+
         new_xp, new_level = apply_xp_change(
             cursor, uid, xp, f"AlexType {level} ({data.chars_typed} символов, {int(data.accuracy*100)}%)"
         )
@@ -3823,13 +5717,52 @@ def get_achievement_status(user: dict = Depends(require_auth)):
     }
 
 @app.get("/api/events/active")
-def get_active_events():
-    """Get all currently active events."""
+def get_active_events(user: dict = Depends(require_auth)):
+    """Get live events with the current student's isolated event progress."""
+    _finalize_expired_events()
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM events WHERE is_active = 1")
-        events = [dict(row) for row in cursor.fetchall()]
+        cursor.execute(
+            """
+            SELECT *
+            FROM events
+            WHERE is_active = 1
+              AND status = 'active'
+              AND (starts_at IS NULL OR starts_at <= CURRENT_TIMESTAMP)
+              AND (ends_at IS NULL OR ends_at > CURRENT_TIMESTAMP)
+            ORDER BY starts_at DESC, id DESC
+            """
+        )
+        events = [
+            _event_public_dict(
+                row,
+                cursor=cursor,
+                user_id=int(user["id"]),
+                leaderboard_limit=5,
+            )
+            for row in cursor.fetchall()
+        ]
     return {"events": events}
+
+
+@app.get("/api/events/{event_id}/leaderboard")
+def get_event_leaderboard(
+    event_id: int,
+    limit: int = Query(20, ge=1, le=100),
+    user: dict = Depends(require_auth),
+):
+    """Leaderboard and personal standing for an event, including finished ones."""
+    _finalize_expired_events()
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM events WHERE id = ?", (event_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Event not found")
+        return {
+            "event": _event_public_dict(row, cursor=cursor, user_id=int(user["id"])),
+            "leaderboard": _event_leaderboard(cursor, event_id, limit),
+        }
 
 @app.get("/api/leaderboard")
 def get_leaderboard(limit: int = Query(20, le=100)):
@@ -4621,47 +6554,271 @@ def update_profile(data: ProfileUpdateRequest, user: dict = Depends(require_auth
 
 @app.get("/api/admin/events/all")
 def get_all_events(admin: dict = Depends(require_admin)):
-    """Get ALL events (active + inactive) for admin panel."""
+    """Get all event lifecycle records and compact result summaries."""
+    _finalize_expired_events()
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM events ORDER BY created_at DESC")
-        events = [dict(row) for row in cursor.fetchall()]
+        cursor.execute(
+            """
+            SELECT e.*, winner.display_name AS winner_display_name
+            FROM events e
+            LEFT JOIN users winner ON winner.id = e.winner_user_id
+            ORDER BY
+                CASE e.status WHEN 'active' THEN 0 WHEN 'draft' THEN 1 ELSE 2 END,
+                e.created_at DESC,
+                e.id DESC
+            """
+        )
+        events = [
+            _event_public_dict(row, cursor=cursor, leaderboard_limit=5)
+            for row in cursor.fetchall()
+        ]
     return {"events": events}
+
+
+@app.get("/api/admin/events/templates")
+def get_event_templates(admin: dict = Depends(require_admin)):
+    """Server-authoritative presets used by the admin event builder."""
+    return {
+        "templates": [dict(template) for template in EVENT_TEMPLATES.values()],
+        "themes": [
+            {"key": key, **theme}
+            for key, theme in EVENT_THEMES.items()
+        ],
+        "custom": {
+            "key": "custom",
+            "label": "Custom",
+            "event_type": "standard",
+            "bonus_type": "xp_multiplier",
+            "bonus_value": 1.0,
+            "duration_hours": 24,
+            "theme_key": "arcane",
+            "color": "#7c3aed",
+        },
+    }
+
 
 @app.post("/api/admin/events")
 def create_event(data: EventCreateRequest, admin: dict = Depends(require_admin)):
-    """Create a new event (Admin only)."""
+    """Create an event draft. Launch is a separate, deliberate action."""
+    template_key = str(data.template_key or "custom").strip()
+    preset = EVENT_TEMPLATES.get(template_key)
+    if preset:
+        values = dict(preset)
+        if data.name and data.name.strip():
+            values["name"] = data.name.strip()
+        if data.description is not None:
+            values["description"] = data.description.strip()
+        if data.color and re.fullmatch(r"#[0-9a-fA-F]{6}", data.color):
+            values["color"] = data.color
+    else:
+        if template_key != "custom":
+            raise HTTPException(status_code=400, detail="Unknown event template")
+        values = {
+            "name": str(data.name or "").strip(),
+            "description": str(data.description or "").strip(),
+            "event_type": str(data.event_type or "standard").strip(),
+            "bonus_type": str(data.bonus_type or "xp_multiplier").strip(),
+            "bonus_value": float(data.bonus_value or 0),
+            "duration_hours": int(data.duration_hours or 0),
+            "theme_key": str(data.theme_key or "arcane").strip(),
+            "color": str(data.color or "#7c3aed").strip(),
+            "reward_min": int(data.reward_min or 10000),
+            "reward_max": int(data.reward_max or 100000),
+            "key": "custom",
+        }
+
+    if not values.get("name") or len(values["name"]) > 100:
+        raise HTTPException(status_code=400, detail="Event name must be 1-100 characters")
+    if len(values.get("description") or "") > 500:
+        raise HTTPException(status_code=400, detail="Event description is too long")
+    if values.get("event_type") not in EVENT_TYPES:
+        raise HTTPException(status_code=400, detail="Invalid event type")
+    if values.get("bonus_type") not in EVENT_BONUS_TYPES:
+        raise HTTPException(status_code=400, detail="Invalid bonus type")
+    if values.get("theme_key") not in EVENT_THEMES:
+        raise HTTPException(status_code=400, detail="Invalid event theme")
+    if not re.fullmatch(r"#[0-9a-fA-F]{6}", str(values.get("color") or "")):
+        raise HTTPException(status_code=400, detail="Invalid event color")
+
+    if values["event_type"] == "judgment_day":
+        # The named mode has fixed, auditable rules.
+        values["duration_hours"] = 96
+        values["bonus_type"] = "event_score"
+        values["bonus_value"] = 1.0
+        values["reward_min"] = 10000
+        values["reward_max"] = 100000
+    else:
+        values["duration_hours"] = max(1, min(24 * 30, int(values.get("duration_hours") or 24)))
+        bonus_value = float(values.get("bonus_value") or 0)
+        if values["bonus_type"] == "event_score":
+            raise HTTPException(status_code=400, detail="Separate event score is reserved for Judgment Day")
+        if values["bonus_type"] == "xp_multiplier" and not 0.1 <= bonus_value <= 5.0:
+            raise HTTPException(status_code=400, detail="XP multiplier must be between 0.1 and 5")
+        if values["bonus_type"] == "streak_bonus" and not 0 <= bonus_value <= 1.0:
+            raise HTTPException(status_code=400, detail="Streak bonus must be between 0 and 1")
+
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO events (name, description, bonus_type, bonus_value, color) VALUES (?, ?, ?, ?, ?)",
-            (data.name, data.description, data.bonus_type, data.bonus_value, data.color or '#7c3aed')
+            """
+            INSERT INTO events (
+                name, description, template_key, event_type, bonus_type,
+                bonus_value, duration_hours, theme_key, color,
+                reward_min, reward_max, status, is_active, created_by
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', 0, ?)
+            """,
+            (
+                values["name"],
+                values.get("description"),
+                values.get("key") or template_key,
+                values["event_type"],
+                values["bonus_type"],
+                float(values.get("bonus_value") or 0),
+                int(values["duration_hours"]),
+                values["theme_key"],
+                values["color"],
+                int(values.get("reward_min") or 10000),
+                int(values.get("reward_max") or 100000),
+                int(admin["id"]),
+            ),
+        )
+        event_id = int(cursor.lastrowid)
+        conn.commit()
+        cursor.execute("SELECT * FROM events WHERE id = ?", (event_id,))
+        return {
+            "message": "Event draft created",
+            "event": _event_public_dict(cursor.fetchone(), cursor=cursor),
+            "id": event_id,
+        }
+
+
+@app.post("/api/admin/events/{event_id}/start")
+def start_event(event_id: int, admin: dict = Depends(require_admin)):
+    """Launch a draft with a server-calculated deadline."""
+    _finalize_expired_events()
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("BEGIN IMMEDIATE")
+        cursor.execute("SELECT * FROM events WHERE id = ?", (event_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Event not found")
+        event = dict(row)
+        if event.get("status") == "active" and event.get("is_active"):
+            conn.commit()
+            result = _event_public_dict(event, cursor=cursor, leaderboard_limit=5)
+            result["already_active"] = True
+            return {"message": "Event already active", "event": result}
+        if event.get("status") == "finished" or event.get("finalized_at"):
+            raise HTTPException(status_code=409, detail="Finished events cannot be restarted; create a new draft")
+
+        cursor.execute(
+            """
+            SELECT id, name FROM events
+            WHERE id != ? AND status = 'active' AND is_active = 1
+            LIMIT 1
+            """,
+            (event_id,),
+        )
+        other = cursor.fetchone()
+        if other:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Finish active event “{other['name']}” before starting another",
+            )
+
+        duration_hours = 96 if event.get("event_type") == "judgment_day" else max(
+            1, min(24 * 30, int(event.get("duration_hours") or 24))
+        )
+        starts_at = datetime.now(timezone.utc)
+        ends_at = starts_at + timedelta(hours=duration_hours)
+        starts_sql = starts_at.strftime("%Y-%m-%d %H:%M:%S")
+        ends_sql = ends_at.strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute("DELETE FROM event_task_completions WHERE event_id = ?", (event_id,))
+        cursor.execute("DELETE FROM event_progress WHERE event_id = ?", (event_id,))
+        cursor.execute(
+            """
+            UPDATE events
+            SET status = 'active',
+                is_active = 1,
+                starts_at = ?,
+                ends_at = ?,
+                ended_at = NULL,
+                finalized_at = NULL,
+                winner_user_id = NULL,
+                winner_event_xp = 0,
+                winner_tasks_count = 0,
+                reward_xp = 0
+            WHERE id = ?
+            """,
+            (starts_sql, ends_sql, event_id),
+        )
+        cursor.execute("SELECT * FROM events WHERE id = ?", (event_id,))
+        result = _event_public_dict(cursor.fetchone(), cursor=cursor, leaderboard_limit=5)
+        conn.commit()
+    log_security(
+        "EVENT_STARTED",
+        user=admin.get("username", "admin"),
+        details=f"event_id={event_id}, ends_at={ends_sql}",
+    )
+    return {"message": "Event started", "event": result}
+
+
+@app.post("/api/admin/events/{event_id}/stop")
+def stop_event(event_id: int, admin: dict = Depends(require_admin)):
+    """Finish an event and award its winner exactly once."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("BEGIN IMMEDIATE")
+        result = _finalize_event_locked(
+            cursor,
+            event_id,
+            ended_by=int(admin["id"]),
+            end_reason="admin_stop",
         )
         conn.commit()
-        return {"message": "Event created", "id": cursor.lastrowid}
+    log_security(
+        "EVENT_FINISHED",
+        user=admin.get("username", "admin"),
+        details=(
+            f"event_id={event_id}, winner={result.get('winner_user_id')}, "
+            f"reward={result.get('reward_xp', 0)}"
+        ),
+    )
+    return {
+        "message": "Event already finished" if result.get("already_finalized") else "Event finished",
+        "event": result,
+    }
 
 @app.put("/api/admin/events/{event_id}")
 def toggle_event(event_id: int, admin: dict = Depends(require_admin)):
-    """Toggle event active status (Admin only)."""
+    """Compatibility route: delegates to explicit start/stop lifecycle actions."""
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE events SET is_active = NOT is_active WHERE id = ?",
-            (event_id,)
-        )
-        conn.commit()
-        if cursor.rowcount == 0:
+        cursor.execute("SELECT status, is_active FROM events WHERE id = ?", (event_id,))
+        row = cursor.fetchone()
+        if not row:
             raise HTTPException(status_code=404, detail="Event not found")
-    return {"message": "Event toggled"}
+    if row["status"] == "active" and row["is_active"]:
+        return stop_event(event_id, admin)
+    return start_event(event_id, admin)
 
 @app.delete("/api/admin/events/{event_id}")
 def delete_event(event_id: int, admin: dict = Depends(require_admin)):
-    """Delete an event (Admin only)."""
+    """Delete only a never-started draft; finished history remains auditable."""
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM events WHERE id = ?", (event_id,))
+        cursor.execute("SELECT status FROM events WHERE id = ?", (event_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Event not found")
+        if row["status"] != "draft":
+            raise HTTPException(status_code=409, detail="Only draft events can be deleted")
+        cursor.execute("DELETE FROM events WHERE id = ? AND status = 'draft'", (event_id,))
         conn.commit()
-    return {"message": "Event deleted"}
+    return {"message": "Event draft deleted"}
 
 # ==================== ADMIN ROUTES ====================
 
@@ -7487,31 +9644,94 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
     code_language = "python" if category == "python" else "javascript" if category == "javascript" else "frontend"
     code_hash = code_sha256(code)
     simhash_hex = code_simhash_hex(code, code_language)
+    typing_required = (
+        category in {"python", "javascript", "frontend"}
+        and engine in {"python", "pyodide", "javascript", "js", "iframe", "frontend"}
+    )
+    typing_integrity = _typing_unavailable("not_required")
+    typing_review_required = False
 
     with get_db() as conn:
         cursor = conn.cursor()
 
-        # Record attempt
+        if passed and typing_required:
+            initial_code = str(task.get("initial_code") or "")
+            # Net growth is intentionally conservative: replacements and edits
+            # within a template are not treated as untyped content.
+            expected_insertions = max(0, len(code) - len(initial_code))
+            typing_integrity = _finalize_typing_session(
+                cursor,
+                user=user,
+                scope="task",
+                session_id=data.typing_session_id,
+                receipt=data.typing_receipt,
+                task_id=data.task_id,
+                content_chars=len(code),
+                expected_insertions=expected_insertions,
+                ip=get_client_ip(request),
+            )
+            typing_review_required = (
+                not typing_integrity.get("verified")
+                or not typing_integrity.get("usable")
+            )
+            verification["typing_integrity"] = {
+                "status": typing_integrity.get("status"),
+                "risk_score": int(typing_integrity.get("risk_score") or 0),
+                "signals": typing_integrity.get("signals") or [],
+            }
+
+        # Record the full attempt losslessly, but keep its two cold/heavy
+        # fields compressed so repeated runs do not inflate academy.db.
+        attempt_result_json = json.dumps(
+            verification,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        attempt_payload = _encode_task_attempt_payload(code, attempt_result_json)
         cursor.execute(
             """
-            INSERT INTO task_attempts (user_id, task_id, category, tier, code, code_language, code_hash, code_simhash, result_json, passed, runtime_ms)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO task_attempts (
+                user_id, task_id, category, tier, code, code_language,
+                code_hash, code_simhash, result_json, payload_z,
+                payload_codec, passed, runtime_ms
+            )
+            VALUES (?, ?, ?, ?, NULL, ?, ?, ?, NULL, ?, ?, ?, ?)
             """,
             (
                 user["id"],
                 data.task_id,
                 category,
                 tier,
-                code,
                 code_language,
                 code_hash,
                 simhash_hex,
-                json.dumps(verification, ensure_ascii=False),
+                attempt_payload,
+                TASK_ATTEMPT_PAYLOAD_CODEC,
                 1 if passed else 0,
                 runtime_ms,
             ),
         )
         attempt_id = cursor.lastrowid
+
+        if passed and typing_integrity.get("high_confidence"):
+            cursor.execute("SELECT xp, level FROM users WHERE id = ?", (user["id"],))
+            current = cursor.fetchone()
+            conn.commit()
+            return {
+                "status": "integrity_penalty",
+                "attempt_id": attempt_id,
+                "verification": verification,
+                "penalty_xp": int(typing_integrity.get("penalty_xp") or 0),
+                "applied_penalty_xp": int(typing_integrity.get("applied_xp") or 0),
+                "integrity_risk": int(typing_integrity.get("risk_score") or 0),
+                "integrity_signals": typing_integrity.get("signals") or [],
+                "xp": int(current["xp"] or 0) if current else 0,
+                "level": int(current["level"] or 1) if current else 1,
+                "message": (
+                    "Сервер обнаружил признаки автоматической печати. "
+                    f"Штраф: {int(typing_integrity.get('penalty_xp') or 0)} XP."
+                ),
+            }
 
         if not passed:
             conn.commit()
@@ -7532,6 +9752,7 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
             or manual_review_required
             or top7_review_required
             or sampled_review_required
+            or typing_review_required
             or (MANUAL_REVIEW_FOR_REVIEWABLE_TIERS and tier in REVIEWABLE_TIERS)
             or flags
         ):
@@ -7544,6 +9765,8 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
                 if top7_review_required
                 else "Quality sampling review required"
                 if sampled_review_required
+                else "Typing telemetry unavailable; waiting for Sensei review"
+                if typing_review_required
                 else "Tier policy review required"
                 if (MANUAL_REVIEW_FOR_REVIEWABLE_TIERS and tier in REVIEWABLE_TIERS)
                 else "Flagged for integrity review"
@@ -8029,52 +10252,285 @@ def get_own_priorities(user: dict = Depends(require_auth)):
 
 class PasteRequest(BaseModel):
     task_id: str
-    task_title: str = None
+    task_title: Optional[str] = None
+    client_session_id: str
+
+    @validator("task_id")
+    def validate_task_id(cls, value):
+        value = (value or "").strip()
+        if not value or len(value) > 256 or "\x00" in value:
+            raise ValueError("Invalid task_id")
+        return value
+
+    @validator("task_title")
+    def validate_task_title(cls, value):
+        if value is None:
+            return None
+        value = value.strip()
+        return value[:300] or None
+
+    @validator("client_session_id")
+    def validate_client_session_id(cls, value):
+        value = (value or "").strip()
+        if not re.fullmatch(r"[A-Za-z0-9_-]{16,128}", value):
+            raise ValueError("Invalid client_session_id")
+        return value
+
+
+class PasteConsumeRequest(BaseModel):
+    task_id: str
+    request_token: str
+    client_session_id: str
+
+    @validator("task_id")
+    def validate_task_id(cls, value):
+        return PasteRequest.validate_task_id(value)
+
+    @validator("request_token")
+    def validate_request_token(cls, value):
+        value = (value or "").strip()
+        if not re.fullmatch(r"[A-Za-z0-9_-]{32,128}", value):
+            raise ValueError("Invalid request_token")
+        return value
+
+    @validator("client_session_id")
+    def validate_client_session_id(cls, value):
+        return PasteRequest.validate_client_session_id(value)
+
+
+def _paste_request_response(row) -> dict:
+    status = row["status"]
+    return {
+        "request_id": int(row["id"]),
+        "request_token": row["request_token"],
+        "client_session_id": row["client_session_id"],
+        "task_id": row["task_id"],
+        "status": status,
+        "expires_at": row["expires_at"],
+        "pending": status == "pending",
+        "approved": status == "approved",
+        "rejected": status in {"rejected", "expired", "superseded"},
+        "consumed": status == "consumed" or row["consumed_at"] is not None,
+    }
 
 @app.post("/api/paste-request")
 def create_paste_request(data: PasteRequest, user: dict = Depends(require_auth)):
-    """Student requests paste permission from admin."""
+    """Create one task/session-bound paste capability for the current user."""
     with get_db() as conn:
         cursor = conn.cursor()
-        
-        # Check if already has pending request for this task
+        cursor.execute("BEGIN IMMEDIATE")
         cursor.execute("""
-            SELECT id FROM paste_requests 
-            WHERE user_id = ? AND task_id = ? AND status = 'pending'
-        """, (user["id"], data.task_id))
-        
-        if cursor.fetchone():
-            return {"message": "Request already pending"}
-        
+            UPDATE paste_requests
+            SET status = 'expired',
+                resolved_at = COALESCE(resolved_at, CURRENT_TIMESTAMP)
+            WHERE user_id = ?
+              AND status IN ('pending', 'approved')
+              AND (expires_at IS NULL OR expires_at <= CURRENT_TIMESTAMP)
+        """, (user["id"],))
+
+        # Idempotent retry from the same editor session returns the exact same
+        # request.  It never falls back to an older approval for this task.
         cursor.execute("""
-            INSERT INTO paste_requests (user_id, task_id, task_title, status)
-            VALUES (?, ?, ?, 'pending')
-        """, (user["id"], data.task_id, data.task_title))
+            SELECT id, task_id, status, request_token, client_session_id,
+                   consumed_at, expires_at
+            FROM paste_requests
+            WHERE user_id = ?
+              AND task_id = ?
+              AND client_session_id = ?
+              AND status IN ('pending', 'approved')
+              AND consumed_at IS NULL
+            ORDER BY id DESC
+            LIMIT 1
+        """, (user["id"], data.task_id, data.client_session_id))
+        existing = cursor.fetchone()
+        if existing:
+            conn.commit()
+            payload = _paste_request_response(existing)
+            payload["message"] = (
+                "Request already approved" if payload["approved"] else "Request already pending"
+            )
+            return payload
+
+        # A student may have only one live grant across all tasks/editor
+        # sessions.  Starting a different request revokes the previous one.
+        cursor.execute("""
+            UPDATE paste_requests
+            SET status = 'superseded',
+                resolved_at = COALESCE(resolved_at, CURRENT_TIMESTAMP)
+            WHERE user_id = ?
+              AND status IN ('pending', 'approved')
+              AND consumed_at IS NULL
+        """, (user["id"],))
+
+        request_token = secrets.token_urlsafe(32)
+        try:
+            cursor.execute("""
+                INSERT INTO paste_requests (
+                    user_id, task_id, task_title, status,
+                    request_token, client_session_id, expires_at
+                )
+                VALUES (?, ?, ?, 'pending', ?, ?, datetime('now', ?))
+            """, (
+                user["id"],
+                data.task_id,
+                data.task_title,
+                request_token,
+                data.client_session_id,
+                f"+{PASTE_PENDING_TTL_MINUTES} minutes",
+            ))
+        except sqlite3.IntegrityError:
+            conn.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="Another paste request became active; retry",
+            )
+        request_id = cursor.lastrowid
         conn.commit()
-        
-        return {"message": "Request submitted", "request_id": cursor.lastrowid}
+
+        return {
+            "message": "Request submitted",
+            "request_id": request_id,
+            "request_token": request_token,
+            "client_session_id": data.client_session_id,
+            "task_id": data.task_id,
+            "status": "pending",
+            "expires_at": cursor.execute(
+                "SELECT expires_at FROM paste_requests WHERE id = ?", (request_id,)
+            ).fetchone()["expires_at"],
+            "pending": True,
+            "approved": False,
+            "rejected": False,
+            "consumed": False,
+        }
 
 @app.get("/api/paste-request/status")
-def check_paste_request_status(task_id: str, user: dict = Depends(require_auth)):
-    """Check if paste request was approved."""
+def check_paste_request_status(
+    task_id: str,
+    request_id: int,
+    request_token: str,
+    client_session_id: str,
+    user: dict = Depends(require_auth),
+):
+    """Read only the exact paste request created by this user/task/session."""
+    try:
+        task_id = PasteRequest.validate_task_id(task_id)
+        request_token = PasteConsumeRequest.validate_request_token(request_token)
+        client_session_id = PasteRequest.validate_client_session_id(client_session_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=422, detail="Invalid paste request credentials")
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT status FROM paste_requests 
-            WHERE user_id = ? AND task_id = ?
-            ORDER BY created_at DESC LIMIT 1
-        """, (user["id"], task_id))
-        
+            SELECT id, task_id,
+                   CASE
+                       WHEN status IN ('pending', 'approved')
+                            AND (expires_at IS NULL OR expires_at <= CURRENT_TIMESTAMP)
+                       THEN 'expired'
+                       ELSE status
+                   END AS status,
+                   request_token, client_session_id,
+                   consumed_at, expires_at
+            FROM paste_requests
+            WHERE id = ?
+              AND user_id = ?
+              AND task_id = ?
+              AND request_token = ?
+              AND client_session_id = ?
+        """, (
+            request_id,
+            user["id"],
+            task_id,
+            request_token,
+            client_session_id,
+        ))
         row = cursor.fetchone()
         if not row:
-            return {"pending": False, "approved": False, "rejected": False}
-        
-        status = row["status"]
-        return {
-            "pending": status == "pending",
-            "approved": status == "approved",
-            "rejected": status == "rejected"
-        }
+            raise HTTPException(status_code=404, detail="Paste request not found")
+        return _paste_request_response(row)
+
+
+@app.post("/api/paste-request/{request_id}/consume")
+def consume_paste_request(
+    request_id: int,
+    data: PasteConsumeRequest,
+    user: dict = Depends(require_auth),
+):
+    """Atomically spend an approved capability exactly once."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("BEGIN IMMEDIATE")
+        cursor.execute("""
+            UPDATE paste_requests
+            SET status = 'expired',
+                resolved_at = COALESCE(resolved_at, CURRENT_TIMESTAMP)
+            WHERE id = ?
+              AND user_id = ?
+              AND task_id = ?
+              AND request_token = ?
+              AND client_session_id = ?
+              AND status = 'approved'
+              AND (expires_at IS NULL OR expires_at <= CURRENT_TIMESTAMP)
+        """, (
+            request_id,
+            user["id"],
+            data.task_id,
+            data.request_token,
+            data.client_session_id,
+        ))
+        cursor.execute("""
+            UPDATE paste_requests
+            SET status = 'consumed',
+                consumed_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+              AND user_id = ?
+              AND task_id = ?
+              AND request_token = ?
+              AND client_session_id = ?
+              AND status = 'approved'
+              AND consumed_at IS NULL
+              AND expires_at > CURRENT_TIMESTAMP
+        """, (
+            request_id,
+            user["id"],
+            data.task_id,
+            data.request_token,
+            data.client_session_id,
+        ))
+        if cursor.rowcount == 1:
+            conn.commit()
+            return {
+                "message": "Paste permission consumed",
+                "request_id": request_id,
+                "task_id": data.task_id,
+                "consumed": True,
+            }
+
+        # Do not reveal requests belonging to another user.  For the caller's
+        # exact capability, return a conflict that is safe to retry around.
+        cursor.execute("""
+            SELECT status, consumed_at
+            FROM paste_requests
+            WHERE id = ?
+              AND user_id = ?
+              AND task_id = ?
+              AND request_token = ?
+              AND client_session_id = ?
+        """, (
+            request_id,
+            user["id"],
+            data.task_id,
+            data.request_token,
+            data.client_session_id,
+        ))
+        row = cursor.fetchone()
+        # Persist a possible approved -> expired transition performed above.
+        conn.commit()
+        if not row:
+            raise HTTPException(status_code=404, detail="Paste request not found")
+        raise HTTPException(
+            status_code=409,
+            detail=f"Paste permission is {row['status']}",
+        )
 
 @app.get("/api/paste-requests/pending")
 def get_pending_paste_requests(user: dict = Depends(require_admin)):
@@ -8082,11 +10538,12 @@ def get_pending_paste_requests(user: dict = Depends(require_admin)):
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT pr.id, pr.task_id, pr.task_title, pr.created_at,
+            SELECT pr.id, pr.user_id, pr.task_id, pr.task_title, pr.created_at,
                    u.display_name, u.username
             FROM paste_requests pr
             JOIN users u ON pr.user_id = u.id
             WHERE pr.status = 'pending'
+              AND pr.expires_at > CURRENT_TIMESTAMP
             ORDER BY pr.created_at ASC
         """)
         requests = [dict(row) for row in cursor.fetchall()]
@@ -8094,29 +10551,85 @@ def get_pending_paste_requests(user: dict = Depends(require_admin)):
 
 @app.post("/api/paste-request/{request_id}/approve")
 def approve_paste_request(request_id: int, user: dict = Depends(require_admin)):
-    """Admin: Approve paste request."""
+    """Admin: approve only a still-pending request (compare-and-set)."""
     with get_db() as conn:
         cursor = conn.cursor()
+        cursor.execute("BEGIN IMMEDIATE")
         cursor.execute("""
-            UPDATE paste_requests 
-            SET status = 'approved', resolved_at = CURRENT_TIMESTAMP
+            UPDATE paste_requests
+            SET status = 'expired',
+                resolved_at = COALESCE(resolved_at, CURRENT_TIMESTAMP)
             WHERE id = ?
+              AND status = 'pending'
+              AND (expires_at IS NULL OR expires_at <= CURRENT_TIMESTAMP)
         """, (request_id,))
+        cursor.execute("""
+            UPDATE paste_requests
+            SET status = 'approved',
+                resolved_at = CURRENT_TIMESTAMP,
+                resolved_by = ?,
+                expires_at = datetime('now', ?)
+            WHERE id = ?
+              AND status = 'pending'
+              AND consumed_at IS NULL
+              AND expires_at > CURRENT_TIMESTAMP
+        """, (user["id"], f"+{PASTE_APPROVAL_TTL_MINUTES} minutes", request_id))
+        if cursor.rowcount != 1:
+            cursor.execute("SELECT status FROM paste_requests WHERE id = ?", (request_id,))
+            row = cursor.fetchone()
+            # Preserve a possible pending -> expired transition.
+            conn.commit()
+            if not row:
+                raise HTTPException(status_code=404, detail="Paste request not found")
+            raise HTTPException(
+                status_code=409,
+                detail=f"Paste request is already {row['status']}",
+            )
         conn.commit()
-    return {"message": "Request approved"}
+    return {
+        "message": "Request approved",
+        "request_id": request_id,
+        "status": "approved",
+        "expires_in_seconds": PASTE_APPROVAL_TTL_MINUTES * 60,
+    }
 
 @app.post("/api/paste-request/{request_id}/reject")
 def reject_paste_request(request_id: int, user: dict = Depends(require_admin)):
-    """Admin: Reject paste request."""
+    """Admin: reject only a still-pending request (compare-and-set)."""
     with get_db() as conn:
         cursor = conn.cursor()
+        cursor.execute("BEGIN IMMEDIATE")
         cursor.execute("""
-            UPDATE paste_requests 
-            SET status = 'rejected', resolved_at = CURRENT_TIMESTAMP
+            UPDATE paste_requests
+            SET status = 'expired',
+                resolved_at = COALESCE(resolved_at, CURRENT_TIMESTAMP)
             WHERE id = ?
+              AND status = 'pending'
+              AND (expires_at IS NULL OR expires_at <= CURRENT_TIMESTAMP)
         """, (request_id,))
+        cursor.execute("""
+            UPDATE paste_requests
+            SET status = 'rejected',
+                resolved_at = CURRENT_TIMESTAMP,
+                resolved_by = ?
+            WHERE id = ?
+              AND status = 'pending'
+              AND consumed_at IS NULL
+              AND expires_at > CURRENT_TIMESTAMP
+        """, (user["id"], request_id))
+        if cursor.rowcount != 1:
+            cursor.execute("SELECT status FROM paste_requests WHERE id = ?", (request_id,))
+            row = cursor.fetchone()
+            # Preserve a possible pending -> expired transition.
+            conn.commit()
+            if not row:
+                raise HTTPException(status_code=404, detail="Paste request not found")
+            raise HTTPException(
+                status_code=409,
+                detail=f"Paste request is already {row['status']}",
+            )
         conn.commit()
-    return {"message": "Request rejected"}
+    return {"message": "Request rejected", "request_id": request_id, "status": "rejected"}
 
 # ==================== CHAT SYSTEM ====================
 

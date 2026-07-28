@@ -2136,14 +2136,121 @@
         .event-banner {
             background: linear-gradient(135deg, #7c3aed 0%, #db2777 100%);
             color: white;
-            padding: 12px 20px;
-            display: flex;
+            padding: 14px clamp(16px, 3vw, 38px);
+            display: grid;
+            grid-template-columns: minmax(220px, 1.25fr) auto minmax(220px, 1fr);
             align-items: center;
-            justify-content: center;
-            gap: 12px;
+            gap: 18px;
             font-weight: 600;
             font-size: 14px;
             animation: pulse-glow 2s ease-in-out infinite;
+            position: relative;
+            z-index: 80;
+            overflow: hidden;
+            border-bottom: 1px solid rgba(255, 255, 255, .2);
+        }
+
+        .event-banner::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(100deg, transparent 15%, rgba(255, 255, 255, .11) 48%, transparent 75%);
+            transform: translateX(-120%);
+            animation: event-sheen 7s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes event-sheen {
+            0%, 55% { transform: translateX(-120%); }
+            85%, 100% { transform: translateX(120%); }
+        }
+
+        .event-banner-main {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .event-banner-icon {
+            font-size: 32px;
+            filter: drop-shadow(0 0 12px rgba(255, 255, 255, .5));
+            flex: none;
+        }
+
+        .event-banner-title {
+            font-size: 17px;
+            font-weight: 800;
+            letter-spacing: .01em;
+        }
+
+        .event-banner-description {
+            color: rgba(255, 255, 255, .8);
+            font-size: 11px;
+            line-height: 1.35;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 520px;
+        }
+
+        .event-banner-metrics {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .event-metric {
+            min-width: 92px;
+            padding: 7px 10px;
+            border: 1px solid rgba(255, 255, 255, .2);
+            border-radius: 10px;
+            background: rgba(0, 0, 0, .18);
+            backdrop-filter: blur(8px);
+            text-align: center;
+        }
+
+        .event-metric strong {
+            display: block;
+            font-size: 15px;
+            line-height: 1.2;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .event-metric small {
+            display: block;
+            color: rgba(255, 255, 255, .72);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: .07em;
+        }
+
+        .event-banner-side {
+            text-align: right;
+            min-width: 0;
+        }
+
+        .event-countdown {
+            font-size: 13px;
+            font-variant-numeric: tabular-nums;
+            margin-bottom: 3px;
+        }
+
+        .event-leaders {
+            color: rgba(255, 255, 255, .86);
+            font-size: 10px;
+            line-height: 1.45;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .event-permanent-note {
+            margin-top: 3px;
+            color: rgba(255, 255, 255, .68);
+            font-size: 9px;
         }
 
         .event-banner.hidden {
@@ -2167,6 +2274,106 @@
             padding: 4px 10px;
             border-radius: 20px;
             font-size: 12px;
+            display: inline-block;
+        }
+
+        /* An active event re-skins the whole Pandora world.  Themes are
+           predefined; the API only supplies a validated accent colour. */
+        body.event-world-active {
+            --event-primary: #7c3aed;
+            background: #090910;
+        }
+
+        body.event-world-active .ambient-bg {
+            z-index: 0;
+            opacity: 1;
+            transition: background 600ms ease, opacity 400ms ease;
+        }
+
+        body.event-world-active #app {
+            position: relative;
+            z-index: 1;
+        }
+
+        body.event-world-active header,
+        body.event-world-active .category-nav,
+        body.event-world-active .guild-banner {
+            background-color: rgba(8, 8, 14, .78);
+            backdrop-filter: blur(16px);
+            border-color: color-mix(in srgb, var(--event-primary) 30%, transparent);
+        }
+
+        body.event-world-active .quest-card {
+            border-color: color-mix(in srgb, var(--event-primary) 24%, rgba(255, 255, 255, .06));
+            box-shadow: 0 14px 32px rgba(0, 0, 0, .22);
+        }
+
+        body[data-event-theme="arcane"] .ambient-bg {
+            background:
+                radial-gradient(circle at 50% -10%, color-mix(in srgb, var(--event-primary) 38%, transparent), transparent 48%),
+                radial-gradient(circle at 8% 70%, rgba(91, 33, 182, .18), transparent 35%),
+                linear-gradient(145deg, #08080c, #120b22 50%, #08080c);
+        }
+
+        body[data-event-theme="judgment"] .ambient-bg {
+            background:
+                radial-gradient(circle at 50% 9%, #050505 0 6%, #991b1b 6.5%, rgba(127, 29, 29, .38) 8%, transparent 24%),
+                repeating-linear-gradient(115deg, transparent 0 90px, rgba(239, 68, 68, .025) 92px 94px),
+                radial-gradient(ellipse at 50% 110%, rgba(153, 27, 27, .28), transparent 52%),
+                linear-gradient(155deg, #090607, #16090b 55%, #050506);
+        }
+
+        body[data-event-theme="double_xp"] .ambient-bg {
+            background:
+                linear-gradient(118deg, transparent 0 46%, rgba(96, 165, 250, .11) 47%, transparent 48%),
+                linear-gradient(62deg, transparent 0 58%, rgba(37, 99, 235, .1) 59%, transparent 60%),
+                radial-gradient(circle at 50% 0, rgba(37, 99, 235, .4), transparent 45%),
+                linear-gradient(150deg, #050914, #071b34 50%, #060810);
+        }
+
+        body[data-event-theme="marathon"] .ambient-bg {
+            background:
+                radial-gradient(circle at 12% 15%, rgba(251, 191, 36, .2), transparent 28%),
+                radial-gradient(circle at 90% 85%, rgba(217, 119, 6, .17), transparent 34%),
+                repeating-linear-gradient(135deg, transparent 0 46px, rgba(245, 158, 11, .025) 47px 49px),
+                linear-gradient(145deg, #0e0b05, #1c1307 48%, #08080a);
+        }
+
+        @media (max-width: 950px) {
+            .event-banner {
+                grid-template-columns: 1fr auto;
+            }
+
+            .event-banner-side {
+                grid-column: 1 / -1;
+                text-align: left;
+                display: flex;
+                gap: 12px;
+                align-items: center;
+                justify-content: space-between;
+            }
+        }
+
+        @media (max-width: 620px) {
+            .event-banner {
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 9px;
+            }
+
+            .event-banner-description {
+                white-space: normal;
+                max-width: none;
+            }
+
+            .event-banner-metrics {
+                justify-content: flex-start;
+            }
+
+            .event-banner-side {
+                display: block;
+            }
         }
 
         /* Rank Badge */
@@ -3236,9 +3443,33 @@
     <div id="app">
         <!-- Event Banner -->
         <div class="event-banner hidden" id="event-banner">
-            <span>🎉</span>
-            <span id="event-name">Событие активно!</span>
-            <span class="event-bonus" id="event-bonus">+50% XP</span>
+            <div class="event-banner-main">
+                <span class="event-banner-icon" id="event-icon" aria-hidden="true">🎉</span>
+                <div style="min-width:0;">
+                    <div class="event-banner-title" id="event-name">Событие активно!</div>
+                    <div class="event-banner-description" id="event-description"></div>
+                </div>
+            </div>
+            <div class="event-banner-metrics">
+                <span class="event-bonus" id="event-bonus">+50% XP</span>
+                <div class="event-metric" id="event-score-metric" style="display:none;">
+                    <strong id="event-my-xp">0</strong>
+                    <small>event XP</small>
+                </div>
+                <div class="event-metric" id="event-tasks-metric" style="display:none;">
+                    <strong id="event-my-tasks">0</strong>
+                    <small>уник. задач</small>
+                </div>
+                <div class="event-metric" id="event-rank-metric" style="display:none;">
+                    <strong id="event-my-rank">—</strong>
+                    <small>место</small>
+                </div>
+            </div>
+            <div class="event-banner-side">
+                <div class="event-countdown" id="event-countdown">⏳ —</div>
+                <div class="event-leaders" id="event-leaders"></div>
+                <div class="event-permanent-note" id="event-permanent-note"></div>
+            </div>
         </div>
 
         <!-- Guild Banner -->
@@ -5144,10 +5375,164 @@
         let runCodeInFlight = false;
         let dashboardSyncTick = 0;
         let frontendHintsExpanded = false;
+        let taskTypingTelemetry = null;
+        let taskTypingLastValue = '';
+        let taskTypingBeforeInput = null;
+        let taskTypingLastKeydownAt = 0;
+        let taskTypingLastKeydownTrusted = false;
         const SCRATCH_CLIENT_MAX_MB = 10;
         const DASHBOARD_SYNC_MS = 90000;
         const REQUEST_TIMEOUT_MS = 45000;
         const AUTH_REQUEST_TIMEOUT_MS = 60000;
+
+        function createTaskTypingTelemetry(taskId) {
+            const state = {
+                sessionId: null,
+                receipt: null,
+                sequence: 1,
+                queue: [],
+                lastEventAt: 0,
+                startedAt: performance.now(),
+                timer: null,
+                failed: false,
+                inFlight: Promise.resolve(),
+                ready: null
+            };
+
+            state.ready = fetch(`${API_URL}/api/typing/session/start`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ scope: 'task', task_id: String(taskId) })
+            }).then(async response => {
+                if (!response.ok) throw new Error(`telemetry start ${response.status}`);
+                const payload = await response.json();
+                state.sessionId = payload.session_id;
+                state.receipt = payload.receipt;
+                return true;
+            }).catch(error => {
+                state.failed = true;
+                console.warn('Task typing telemetry unavailable:', error);
+                return false;
+            });
+
+            state.flush = function (force = false) {
+                if (state.timer) {
+                    clearTimeout(state.timer);
+                    state.timer = null;
+                }
+                state.inFlight = state.inFlight.then(async () => {
+                    const ready = await state.ready;
+                    if (!ready || state.failed) return;
+                    do {
+                        if (!state.queue.length) return;
+                        const batch = state.queue.splice(0, 32);
+                        try {
+                            const response = await fetch(
+                                `${API_URL}/api/typing/session/${encodeURIComponent(state.sessionId)}/events`,
+                                {
+                                    method: 'POST',
+                                    headers: {
+                                        'Authorization': `Bearer ${authToken}`,
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                        sequence: state.sequence,
+                                        receipt: state.receipt,
+                                        events: batch,
+                                        client_elapsed_ms: Math.max(0, Math.round(performance.now() - state.startedAt))
+                                    })
+                                }
+                            );
+                            if (!response.ok) throw new Error(`telemetry batch ${response.status}`);
+                            const payload = await response.json();
+                            state.receipt = payload.receipt;
+                            state.sequence = payload.next_sequence;
+                        } catch (error) {
+                            state.queue.unshift(...batch);
+                            state.failed = true;
+                            console.warn('Task typing telemetry batch failed:', error);
+                            return;
+                        }
+                    } while (force && state.queue.length);
+                });
+                return state.inFlight;
+            };
+
+            state.record = function (kind, chars, trusted) {
+                if (state.failed) return;
+                const now = performance.now();
+                const dt = state.lastEventAt
+                    ? Math.min(60000, Math.max(0, Math.round(now - state.lastEventAt)))
+                    : 0;
+                state.lastEventAt = now;
+                state.queue.push({
+                    kind,
+                    dt_ms: dt,
+                    chars: Math.min(4096, Math.max(0, Number(chars) || 0)),
+                    trusted: Boolean(trusted)
+                });
+                if (state.sequence === 1 && state.queue.length === 1) {
+                    state.flush(false);
+                } else if (state.queue.length >= 16) {
+                    state.flush(false);
+                } else if (!state.timer) {
+                    state.timer = setTimeout(() => state.flush(false), 1200);
+                }
+            };
+
+            state.credentials = () => ({
+                typing_session_id: state.sessionId,
+                typing_receipt: state.receipt
+            });
+            return state;
+        }
+
+        function startTaskTypingTelemetry(taskId, initialValue) {
+            taskTypingLastValue = String(initialValue || '');
+            taskTypingBeforeInput = null;
+            taskTypingLastKeydownAt = 0;
+            taskTypingLastKeydownTrusted = false;
+            taskTypingTelemetry = createTaskTypingTelemetry(taskId);
+        }
+
+        function taskEditorChangedChars(previousValue, currentValue) {
+            const before = String(previousValue || '');
+            const after = String(currentValue || '');
+            if (before === after) return 0;
+            let prefix = 0;
+            const shared = Math.min(before.length, after.length);
+            while (prefix < shared && before[prefix] === after[prefix]) prefix++;
+            let suffix = 0;
+            while (
+                suffix < shared - prefix
+                && before[before.length - 1 - suffix] === after[after.length - 1 - suffix]
+            ) suffix++;
+            return Math.max(1, after.length - prefix - suffix);
+        }
+
+        function reconcileTaskEditorTelemetry(currentValue) {
+            const value = String(currentValue || '');
+            if (!taskTypingTelemetry || value === taskTypingLastValue) return;
+            taskTypingTelemetry.record(
+                'programmatic',
+                taskEditorChangedChars(taskTypingLastValue, value),
+                false
+            );
+            taskTypingLastValue = value;
+            taskTypingBeforeInput = null;
+        }
+
+        async function finalizeTaskTypingTelemetry(currentValue) {
+            reconcileTaskEditorTelemetry(currentValue);
+            if (!taskTypingTelemetry) {
+                return { typing_session_id: null, typing_receipt: null };
+            }
+            await taskTypingTelemetry.flush(true);
+            return taskTypingTelemetry.credentials();
+        }
 
         // ==================== INITIALIZATION ====================
         function getDefaultApiUrl() {
@@ -6295,6 +6680,11 @@
         async function openQuest(taskId) {
             currentTask = tasks.find(t => t.id === taskId);
             if (!currentTask) return;
+            taskTypingTelemetry = null;
+            taskTypingBeforeInput = null;
+            // Every modal/task navigation is a new editor session.  Never carry
+            // a paste approval (or an in-flight poll) to another task.
+            resetPastePermissionState(currentTask.id);
 
             // Show modal immediately with roadmap-level data (title; story+description come from detail)
             document.getElementById('modal-title').innerText = currentTask.title;
@@ -6414,7 +6804,12 @@
                 : isTutorial ? '🎓 Посмотри видео, выполни задание и нажми «Отправить»'
                     : 'Готово к проверке...';
 
-            if (!isTutorial && currentTask.category !== 'scratch') editor.focus();
+            if (!isTutorial && currentTask.category !== 'scratch' && !currentTask.locked) {
+                startTaskTypingTelemetry(currentTask.id, editor.value);
+                editor.focus();
+            } else {
+                taskTypingLastValue = editor.value || '';
+            }
         }
 
         function showTutorialToast(msg, type = 'success') {
@@ -6528,6 +6923,12 @@
             const editor = document.getElementById('code-editor');
             if (editor) {
                 editor.value = items[index].solution;
+                if (taskTypingTelemetry) {
+                    taskTypingTelemetry.record('restore', editor.value.length, false);
+                }
+                taskTypingLastValue = editor.value;
+                taskTypingBeforeInput = null;
+                scheduleFrontendPreview();
                 showTutorialToast('📜 Код из попытки вставлен в редактор', 'info');
             }
         }
@@ -6628,6 +7029,7 @@
                     consoleEl.innerText = '✅ Задание завершено! +' + (data.xp_earned || 0) + ' XP';
                     showTutorialToast('✅ Задание завершено! +' + (data.xp_earned || 0) + ' XP', 'success');
                     syncDashboardData({ forceRoadmap: true });
+                    loadActiveEvents();
                 } else if (data.status === 'already_completed') {
                     consoleEl.innerText = '✅ Это задание уже выполнено.';
                     showTutorialToast('✅ Это задание уже выполнено', 'info');
@@ -6649,10 +7051,7 @@
         function closeModal() {
             document.getElementById('quest-modal').classList.remove('active');
             setPageContext('general');
-            // Reset paste permission when closing modal
-            pasteAllowed = false;
-            pasteUsed = false;
-            updatePasteButton();
+            resetPastePermissionState();
             if (previewRenderTimer) {
                 clearTimeout(previewRenderTimer);
                 previewRenderTimer = null;
@@ -6664,12 +7063,67 @@
         let pasteAllowed = false;
         let pasteUsed = false;
         let pasteRequestPending = false;
+        let pasteConsumeInFlight = false;
+        let pastePermissionTaskId = null;
+        let pasteClientSessionId = null;
+        let pasteRequestId = null;
+        let pasteRequestToken = null;
+        let pastePollTimer = null;
+        let pasteContextVersion = 0;
+
+        function createPasteClientSessionId() {
+            if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+                return window.crypto.randomUUID();
+            }
+            const randomPart = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+            return `${Date.now().toString(36)}_${randomPart}`.padEnd(20, '0');
+        }
+
+        function resetPastePermissionState(taskId = null) {
+            if (pastePollTimer) {
+                clearTimeout(pastePollTimer);
+                pastePollTimer = null;
+            }
+            pasteContextVersion += 1;
+            pasteAllowed = false;
+            pasteUsed = false;
+            pasteRequestPending = false;
+            pasteConsumeInFlight = false;
+            pasteRequestId = null;
+            pasteRequestToken = null;
+            pastePermissionTaskId = taskId === null ? null : String(taskId);
+            pasteClientSessionId = taskId === null ? null : createPasteClientSessionId();
+            updatePasteButton();
+        }
+
+        function isCurrentPasteContext(taskId, contextVersion = pasteContextVersion) {
+            return Boolean(
+                currentTask
+                && String(currentTask.id) === String(taskId)
+                && pastePermissionTaskId === String(taskId)
+                && pasteContextVersion === contextVersion
+            );
+        }
+
+        function schedulePasteApprovalCheck(delayMs, contextVersion) {
+            if (pastePollTimer) clearTimeout(pastePollTimer);
+            pastePollTimer = setTimeout(() => {
+                pastePollTimer = null;
+                checkPasteApproval(contextVersion);
+            }, delayMs);
+        }
 
         function updatePasteButton() {
             const btn = document.getElementById('paste-request-btn');
             if (!btn) return;
 
-            if (pasteUsed) {
+            if (pasteConsumeInFlight) {
+                btn.innerHTML = '⏳ Проверка вставки...';
+                btn.style.background = 'rgba(251, 191, 36, 0.2)';
+                btn.style.borderColor = 'rgba(251, 191, 36, 0.5)';
+                btn.style.color = '#fbbf24';
+                btn.disabled = true;
+            } else if (pasteUsed) {
                 btn.innerHTML = '🚫 Использовано';
                 btn.style.background = 'rgba(239, 68, 68, 0.15)';
                 btn.style.borderColor = 'rgba(239, 68, 68, 0.4)';
@@ -6716,6 +7170,12 @@
                 return;
             }
 
+            const taskId = String(currentTask.id);
+            if (pastePermissionTaskId !== taskId || !pasteClientSessionId) {
+                resetPastePermissionState(taskId);
+            }
+            const contextVersion = pasteContextVersion;
+            const clientSessionId = pasteClientSessionId;
             pasteRequestPending = true;
             updatePasteButton();
 
@@ -6727,104 +7187,229 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        task_id: currentTask.id,
-                        task_title: currentTask.title
+                        task_id: taskId,
+                        task_title: currentTask.title,
+                        client_session_id: clientSessionId
                     })
                 });
+                const data = await res.json().catch(() => ({}));
 
-                if (res.ok) {
+                if (!isCurrentPasteContext(taskId, contextVersion)) return;
+                if (!res.ok) {
+                    throw new Error(typeof data.detail === 'string' ? data.detail : 'Ошибка отправки запроса');
+                }
+
+                if (
+                    String(data.task_id) !== taskId
+                    || data.client_session_id !== clientSessionId
+                    || !Number.isInteger(Number(data.request_id))
+                    || typeof data.request_token !== 'string'
+                ) {
+                    throw new Error('Сервер вернул несогласованный запрос на вставку');
+                }
+
+                pasteRequestId = Number(data.request_id);
+                pasteRequestToken = data.request_token;
+                pasteAllowed = Boolean(data.approved);
+                pasteRequestPending = Boolean(data.pending);
+                updatePasteButton();
+
+                if (pasteAllowed) {
+                    alert('✅ Мастер уже разрешил вставку! Разрешена ОДНА вставка (до 50% кода).');
+                } else if (pasteRequestPending) {
                     alert('Запрос отправлен мастеру. Вы получите уведомление о решении.');
-                    // Poll for approval
-                    checkPasteApproval();
+                    checkPasteApproval(contextVersion);
                 } else {
-                    pasteRequestPending = false;
-                    updatePasteButton();
-                    alert('Ошибка отправки запроса.');
+                    alert('Запрос больше не активен. Отправьте новый.');
                 }
             } catch (e) {
+                if (!isCurrentPasteContext(taskId, contextVersion)) return;
                 pasteRequestPending = false;
+                pasteAllowed = false;
+                pasteRequestId = null;
+                pasteRequestToken = null;
                 updatePasteButton();
                 console.error('Paste request error:', e);
+                alert(e.message || 'Ошибка отправки запроса.');
             }
         }
 
-        async function checkPasteApproval() {
-            if (!pasteRequestPending || !currentTask) return;
+        async function checkPasteApproval(contextVersion = pasteContextVersion) {
+            const taskId = pastePermissionTaskId;
+            const requestId = pasteRequestId;
+            const requestToken = pasteRequestToken;
+            const clientSessionId = pasteClientSessionId;
+            if (
+                !pasteRequestPending
+                || !taskId
+                || !requestId
+                || !requestToken
+                || !clientSessionId
+                || !isCurrentPasteContext(taskId, contextVersion)
+            ) return;
 
             try {
-                const res = await fetch(`${API_URL}/api/paste-request/status?task_id=${currentTask.id}`, {
+                const query = new URLSearchParams({
+                    task_id: taskId,
+                    request_id: String(requestId),
+                    request_token: requestToken,
+                    client_session_id: clientSessionId
+                });
+                const res = await fetch(`${API_URL}/api/paste-request/status?${query.toString()}`, {
                     headers: { 'Authorization': `Bearer ${authToken}` }
                 });
+                const data = await res.json().catch(() => ({}));
 
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.approved) {
-                        pasteAllowed = true;
-                        pasteRequestPending = false;
-                        updatePasteButton();
-                        alert('✅ Мастер разрешил вставку! Разрешена ОДНА вставка (до 50% кода).');
-                    } else if (data.rejected) {
-                        pasteRequestPending = false;
-                        updatePasteButton();
-                        alert('❌ Мастер отклонил запрос на вставку.');
-                    } else {
-                        // Still pending, check again in 3 seconds
-                        setTimeout(checkPasteApproval, 3000);
-                    }
+                if (!isCurrentPasteContext(taskId, contextVersion)) return;
+                if (!res.ok) {
+                    pasteRequestPending = false;
+                    pasteAllowed = false;
+                    pasteRequestId = null;
+                    pasteRequestToken = null;
+                    updatePasteButton();
+                    alert('Запрос на вставку недействителен или устарел.');
+                    return;
+                }
+                if (
+                    Number(data.request_id) !== requestId
+                    || String(data.task_id) !== taskId
+                    || data.request_token !== requestToken
+                    || data.client_session_id !== clientSessionId
+                ) {
+                    throw new Error('Несовпадение контекста запроса на вставку');
+                }
+
+                if (data.approved) {
+                    pasteAllowed = true;
+                    pasteRequestPending = false;
+                    updatePasteButton();
+                    alert('✅ Мастер разрешил вставку! Разрешена ОДНА вставка (до 50% кода).');
+                } else if (data.pending) {
+                    schedulePasteApprovalCheck(3000, contextVersion);
+                } else {
+                    pasteRequestPending = false;
+                    pasteAllowed = false;
+                    updatePasteButton();
+                    alert(data.consumed
+                        ? '🚫 Это разрешение на вставку уже использовано.'
+                        : '❌ Запрос отклонён или срок разрешения истёк.');
                 }
             } catch (e) {
                 console.error('Paste approval check error:', e);
-                setTimeout(checkPasteApproval, 5000);
+                if (isCurrentPasteContext(taskId, contextVersion) && pasteRequestPending) {
+                    schedulePasteApprovalCheck(5000, contextVersion);
+                }
             }
         }
 
         function handlePaste(event) {
-            // Block paste if not allowed
-            if (!pasteAllowed) {
-                event.preventDefault();
+            // Always stop the browser's native paste.  Text is inserted only
+            // after the server atomically consumes this exact task grant.
+            event.preventDefault();
+            const taskId = currentTask ? String(currentTask.id) : null;
+            if (
+                !pasteAllowed
+                || pasteConsumeInFlight
+                || !taskId
+                || pastePermissionTaskId !== taskId
+                || !pasteRequestId
+                || !pasteRequestToken
+                || !pasteClientSessionId
+            ) {
                 const btn = document.getElementById('paste-request-btn');
-                btn.style.animation = 'shake 0.3s';
-                setTimeout(() => btn.style.animation = '', 300);
+                if (btn) {
+                    btn.style.animation = 'shake 0.3s';
+                    setTimeout(() => btn.style.animation = '', 300);
+                }
                 return false;
             }
 
-            // Allow paste but limit to first half
-            event.preventDefault();
             const clipboardData = event.clipboardData || window.clipboardData;
             const pastedText = clipboardData.getData('text');
-
             if (!pastedText) return false;
 
-            // Only allow first half of pasted content
             const halfLength = Math.floor(pastedText.length / 2);
             const allowedText = pastedText.substring(0, halfLength);
+            if (!allowedText) return false;
 
-            // Insert at cursor position
-            const editor = document.getElementById('code-editor');
-            const start = editor.selectionStart;
-            const end = editor.selectionEnd;
-            const before = editor.value.substring(0, start);
-            const after = editor.value.substring(end);
-
-            editor.value = before + allowedText + after;
-            editor.selectionStart = editor.selectionEnd = start + allowedText.length;
-            editor.focus();
-
-            // One-time paste used — block further pastes
+            const capability = {
+                taskId,
+                requestId: pasteRequestId,
+                requestToken: pasteRequestToken,
+                clientSessionId: pasteClientSessionId,
+                contextVersion: pasteContextVersion
+            };
             pasteAllowed = false;
-            pasteUsed = true;
+            pasteConsumeInFlight = true;
             updatePasteButton();
-
-            // Show notification about half-paste
-            const console_el = document.getElementById('output-console');
-            if (console_el) {
-                console_el.innerText = `📋 Вставлено ${allowedText.length} из ${pastedText.length} символов (50% лимит).\n\n🚫 Вставка больше недоступна для этого задания.`;
-            }
-
+            consumeApprovedPaste(capability, pastedText, allowedText);
             return false;
         }
 
+        async function consumeApprovedPaste(capability, pastedText, allowedText) {
+            let res;
+            let data = {};
+            try {
+                res = await fetch(`${API_URL}/api/paste-request/${capability.requestId}/consume`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        task_id: capability.taskId,
+                        request_token: capability.requestToken,
+                        client_session_id: capability.clientSessionId
+                    })
+                });
+                data = await res.json().catch(() => ({}));
+            } catch (e) {
+                console.error('Paste consume error:', e);
+            }
+
+            if (!isCurrentPasteContext(capability.taskId, capability.contextVersion)) return;
+            pasteConsumeInFlight = false;
+            pasteAllowed = false;
+            pasteRequestPending = false;
+            pasteRequestId = null;
+            pasteRequestToken = null;
+
+            if (!res || !res.ok || !data.consumed) {
+                // The request may have reached the server even when the network
+                // response was lost.  Fail closed and require a fresh approval.
+                pasteUsed = Boolean(res && res.status === 409);
+                pasteClientSessionId = createPasteClientSessionId();
+                updatePasteButton();
+                alert('Вставка не выполнена: разрешение уже использовано, истекло или связь прервалась. Запросите новое разрешение.');
+                return;
+            }
+
+            const editor = document.getElementById('code-editor');
+            if (!editor || !currentTask || String(currentTask.id) !== capability.taskId) return;
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            editor.value = editor.value.substring(0, start) + allowedText + editor.value.substring(end);
+            editor.selectionStart = editor.selectionEnd = start + allowedText.length;
+            editor.focus();
+            if (taskTypingTelemetry) {
+                taskTypingTelemetry.record('paste', allowedText.length, false);
+            }
+            taskTypingLastValue = editor.value;
+            taskTypingBeforeInput = null;
+            scheduleFrontendPreview();
+
+            pasteUsed = true;
+            updatePasteButton();
+            const consoleEl = document.getElementById('output-console');
+            if (consoleEl) {
+                consoleEl.innerText = `📋 Вставлено ${allowedText.length} из ${pastedText.length} символов (50% лимит).\n\n🚫 Вставка больше недоступна для этого задания.`;
+            }
+        }
+
         function handleEditorKeydown(event) {
+            taskTypingLastKeydownAt = performance.now();
+            taskTypingLastKeydownTrusted = Boolean(event.isTrusted);
+
             if (event.key === 'Enter') {
                 event.preventDefault();
 
@@ -6858,6 +7443,12 @@
                 const after = value.substring(editor.selectionEnd);
                 editor.value = before + '\n' + indent + after;
                 editor.selectionStart = editor.selectionEnd = start + 1 + indent.length;
+                if (taskTypingTelemetry) {
+                    taskTypingTelemetry.record('auto', 1 + indent.length, Boolean(event.isTrusted));
+                }
+                taskTypingLastValue = editor.value;
+                taskTypingBeforeInput = null;
+                scheduleFrontendPreview();
             }
 
             // Tab key handling - insert 4 spaces
@@ -6869,6 +7460,12 @@
                 const after = editor.value.substring(editor.selectionEnd);
                 editor.value = before + '    ' + after;
                 editor.selectionStart = editor.selectionEnd = start + 4;
+                if (taskTypingTelemetry) {
+                    taskTypingTelemetry.record('auto', 4, Boolean(event.isTrusted));
+                }
+                taskTypingLastValue = editor.value;
+                taskTypingBeforeInput = null;
+                scheduleFrontendPreview();
             }
         }
 
@@ -7056,9 +7653,80 @@
             }
         }
 
+        function captureTaskEditorBeforeInput(event) {
+            if (!taskTypingTelemetry) return;
+            const inputType = String(event.inputType || '');
+            if (inputType === 'insertFromPaste') {
+                // consumeApprovedPaste records the server-authorized insertion.
+                taskTypingBeforeInput = null;
+                return;
+            }
+            if (inputType === 'historyUndo' || inputType === 'historyRedo') {
+                taskTypingBeforeInput = {
+                    kind: 'restore',
+                    chars: Math.max(1, String(event.data || '').length),
+                    trusted: Boolean(event.isTrusted)
+                };
+                return;
+            }
+            if (inputType.startsWith('delete')) {
+                taskTypingBeforeInput = {
+                    kind: 'delete',
+                    chars: 1,
+                    trusted: Boolean(event.isTrusted)
+                };
+                return;
+            }
+            if (inputType.startsWith('insert')) {
+                taskTypingBeforeInput = {
+                    kind: inputType.includes('Composition') ? 'composition' : 'insert',
+                    chars: Math.max(1, String(event.data || '').length),
+                    trusted: Boolean(event.isTrusted)
+                };
+            }
+        }
+
+        function captureTaskEditorInput(event) {
+            const editor = event.currentTarget;
+            const value = String(editor.value || '');
+            const delta = value.length - taskTypingLastValue.length;
+            const meta = taskTypingBeforeInput;
+            if (taskTypingTelemetry && meta) {
+                if (meta.kind === 'restore') {
+                    taskTypingTelemetry.record(
+                        'restore',
+                        taskEditorChangedChars(taskTypingLastValue, value),
+                        Boolean(meta.trusted && event.isTrusted)
+                    );
+                } else {
+                    const observedChars = meta.kind === 'delete'
+                        ? Math.max(1, -delta, Number(meta.chars) || 0)
+                        : Math.max(1, delta, Number(meta.chars) || 0);
+                    taskTypingTelemetry.record(
+                        meta.kind,
+                        observedChars,
+                        Boolean(meta.trusted && event.isTrusted)
+                    );
+                }
+            } else if (taskTypingTelemetry && value !== taskTypingLastValue) {
+                // A script can replace text with a same-length value and then
+                // dispatch an input event. Length-only comparison would miss
+                // that mutation, so compare the actual editor snapshots.
+                taskTypingTelemetry.record(
+                    'programmatic',
+                    taskEditorChangedChars(taskTypingLastValue, value),
+                    false
+                );
+            }
+            taskTypingLastValue = value;
+            taskTypingBeforeInput = null;
+            scheduleFrontendPreview();
+        }
+
         const codeEditorEl = document.getElementById('code-editor');
         if (codeEditorEl) {
-            codeEditorEl.addEventListener('input', scheduleFrontendPreview);
+            codeEditorEl.addEventListener('beforeinput', captureTaskEditorBeforeInput);
+            codeEditorEl.addEventListener('input', captureTaskEditorInput);
         }
 
         // ==================== CODE EXECUTION (SERVER-VERIFIED) ====================
@@ -7306,6 +7974,7 @@
             }
 
             const code = document.getElementById('code-editor').value || '';
+            const typingCredentials = await finalizeTaskTypingTelemetry(code);
             if (currentTask.category === 'frontend') {
                 renderFrontendPreview(true);
                 setFrontendPreviewStatus('PENDING');
@@ -7319,7 +7988,11 @@
                         'Authorization': `Bearer ${authToken}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ task_id: currentTask.id, code })
+                    body: JSON.stringify({
+                        task_id: currentTask.id,
+                        code,
+                        ...typingCredentials
+                    })
                 });
 
                 const data = await res.json().catch(() => ({}));
@@ -7334,6 +8007,19 @@
 
                 if (data.status === 'failed') {
                     output.innerText = renderVerificationText(data.verification);
+                    if (currentTask.category === 'frontend') setFrontendPreviewStatus('FAILED');
+                    return;
+                }
+
+                if (data.status === 'integrity_penalty') {
+                    if (typeof data.xp === 'number') currentUser.xp = data.xp;
+                    if (typeof data.level === 'number') currentUser.level = data.level;
+                    updateXPDisplay();
+                    const penalty = Number(data.penalty_xp || 0);
+                    output.innerText =
+                        `⛔ Обнаружена автоматическая печать.\n` +
+                        `Штраф: ${penalty} XP.\n` +
+                        `Решение не засчитано. Печатай код самостоятельно.`;
                     if (currentTask.category === 'frontend') setFrontendPreviewStatus('FAILED');
                     return;
                 }
@@ -7450,6 +8136,7 @@
                     // Refresh lists
                     setTimeout(() => loadRoadmap(), 600);
                     setTimeout(() => loadAchievements(), 900);
+                    setTimeout(() => loadActiveEvents(), 700);
                     if (currentTask.category === 'frontend') setFrontendPreviewStatus('PASSED');
                     appendNextTaskButton(output);
                     return;
@@ -7537,6 +8224,7 @@
 
                 output.innerText += '\n\n🎉 QUEST COMPLETE! +' + currentTask.xp + ' XP';
                 updateXPDisplay();
+                loadActiveEvents();
 
                 // Show achievement notifications if any
                 if (data.new_achievements && data.new_achievements.length > 0) {
@@ -7576,55 +8264,137 @@
 
         // ==================== GAMIFICATION ====================
 
-        async function loadActiveEvents() {
-            try {
-                const res = await fetch(`${API_URL}/api/events/active`);
-                const data = await res.json();
+        let eventCountdownTimer = null;
+        let activePandoraEventId = null;
 
-                const banner = document.getElementById('event-banner');
-                const existingGlow = document.getElementById('event-ambient-glow');
+        function clearEventWorld() {
+            const banner = document.getElementById('event-banner');
+            if (banner) banner.classList.add('hidden');
+            document.body.classList.remove('event-world-active');
+            document.body.removeAttribute('data-event-theme');
+            document.body.style.removeProperty('--event-primary');
+            activePandoraEventId = null;
+            if (eventCountdownTimer) {
+                clearInterval(eventCountdownTimer);
+                eventCountdownTimer = null;
+            }
+            const legacyGlow = document.getElementById('event-ambient-glow');
+            if (legacyGlow) legacyGlow.remove();
+        }
 
-                if (data.events && data.events.length > 0) {
-                    const event = data.events[0];
-                    const color = event.color || '#7c3aed';
+        function formatActiveEventCountdown(endsAt) {
+            if (!endsAt) return '⏳ Без ограничения по времени';
+            const milliseconds = new Date(endsAt).getTime() - Date.now();
+            if (!Number.isFinite(milliseconds) || milliseconds <= 0) return '⏳ Завершение события…';
+            const totalSeconds = Math.floor(milliseconds / 1000);
+            const days = Math.floor(totalSeconds / 86400);
+            const hours = Math.floor((totalSeconds % 86400) / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            return `⏳ ${days ? days + 'д ' : ''}${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
 
-                    document.getElementById('event-name').innerText = event.name;
-
-                    let bonusText = '';
-                    if (event.bonus_type === 'xp_multiplier') {
-                        bonusText = `x${event.bonus_value} XP`;
-                    } else if (event.bonus_type === 'streak_bonus') {
-                        bonusText = `+${event.bonus_value * 100}% за страйк`;
-                    }
-                    document.getElementById('event-bonus').innerText = bonusText;
-
-                    // Apply event color to banner
-                    banner.style.background = `linear-gradient(135deg, ${color} 0%, ${adjustColor(color, -30)} 100%)`;
-                    banner.classList.remove('hidden');
-
-                    // Apply subtle ambient glow at the top
-                    if (!existingGlow) {
-                        const glow = document.createElement('div');
-                        glow.id = 'event-ambient-glow';
-                        glow.style.cssText = `
-                            position: fixed;
-                            top: 0; left: 0; right: 0;
-                            height: 200px;
-                            background: radial-gradient(ellipse at top, ${hexToRgba(color, 0.07)} 0%, transparent 70%);
-                            pointer-events: none;
-                            z-index: 0;
-                            transition: opacity 0.5s;
-                        `;
-                        document.body.appendChild(glow);
-                    } else {
-                        existingGlow.style.background = `radial-gradient(ellipse at top, ${hexToRgba(color, 0.07)} 0%, transparent 70%)`;
-                    }
-                } else {
-                    banner.classList.add('hidden');
-                    if (existingGlow) existingGlow.remove();
+        function startActiveEventCountdown(event) {
+            if (eventCountdownTimer) clearInterval(eventCountdownTimer);
+            const countdownEl = document.getElementById('event-countdown');
+            const render = () => {
+                if (!countdownEl) return;
+                countdownEl.textContent = formatActiveEventCountdown(event.ends_at);
+                if (event.ends_at && new Date(event.ends_at).getTime() <= Date.now()) {
+                    clearInterval(eventCountdownTimer);
+                    eventCountdownTimer = null;
+                    setTimeout(loadActiveEvents, 1500);
                 }
+            };
+            render();
+            eventCountdownTimer = setInterval(render, 1000);
+        }
+
+        function renderActiveEventLeaders(event) {
+            const leadersEl = document.getElementById('event-leaders');
+            if (!leadersEl) return;
+            if (event.event_type !== 'judgment_day') {
+                leadersEl.textContent = '';
+                return;
+            }
+            const leaders = event.leaderboard || [];
+            if (!leaders.length) {
+                leadersEl.textContent = 'Рейтинг: ещё никто не решил задачу';
+                return;
+            }
+            const medals = ['🥇', '🥈', '🥉'];
+            leadersEl.innerHTML = leaders.slice(0, 3).map((leader, index) =>
+                `${medals[index] || (index + 1) + '.'} ${escapeHtml(String(leader.display_name || leader.username || 'Игрок'))} ` +
+                `<strong>${Number(leader.event_xp || 0).toLocaleString()}</strong>`
+            ).join(' &nbsp; ');
+        }
+
+        async function loadActiveEvents() {
+            if (!authToken) {
+                clearEventWorld();
+                return;
+            }
+            try {
+                const res = await fetch(`${API_URL}/api/events/active`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+                if (!data.events || data.events.length === 0) {
+                    clearEventWorld();
+                    return;
+                }
+
+                const event = data.events[0];
+                const banner = document.getElementById('event-banner');
+                const color = /^#[0-9a-f]{6}$/i.test(event.color || '') ? event.color : '#7c3aed';
+                const themeKey = ['arcane', 'judgment', 'double_xp', 'marathon'].includes(event.theme_key)
+                    ? event.theme_key
+                    : 'arcane';
+                activePandoraEventId = Number(event.id);
+
+                document.body.classList.add('event-world-active');
+                document.body.dataset.eventTheme = themeKey;
+                document.body.style.setProperty('--event-primary', color);
+                document.getElementById('event-icon').textContent = event.theme?.emoji || (event.event_type === 'judgment_day' ? '🌘' : '🎉');
+                document.getElementById('event-name').textContent = event.name || 'Событие Pandora';
+                document.getElementById('event-description').textContent = event.description || '';
+
+                let bonusText = 'СОБЫТИЕ';
+                if (event.event_type === 'judgment_day') {
+                    bonusText = 'EVENT XP С НУЛЯ';
+                } else if (event.bonus_type === 'xp_multiplier') {
+                    bonusText = `×${Number(event.bonus_value || 1)} XP`;
+                } else if (event.bonus_type === 'streak_bonus') {
+                    bonusText = `+${Math.round(Number(event.bonus_value || 0) * 100)}% × СТРАЙК`;
+                }
+                document.getElementById('event-bonus').textContent = bonusText;
+
+                const isJudgment = event.event_type === 'judgment_day';
+                const progress = event.my_progress || {};
+                ['event-score-metric', 'event-tasks-metric', 'event-rank-metric'].forEach(id => {
+                    document.getElementById(id).style.display = isJudgment ? 'block' : 'none';
+                });
+                if (isJudgment) {
+                    document.getElementById('event-my-xp').textContent = Number(progress.event_xp || 0).toLocaleString();
+                    document.getElementById('event-my-tasks').textContent = Number(progress.tasks_solved || 0).toLocaleString();
+                    document.getElementById('event-my-rank').textContent = progress.rank ? `#${progress.rank}` : '—';
+                    document.getElementById('event-permanent-note').textContent =
+                        `Постоянный XP сохранён: ${Number(currentUser?.xp || 0).toLocaleString()} · приз лидеру 10 000–100 000 XP`;
+                } else {
+                    document.getElementById('event-permanent-note').textContent =
+                        `Срок: ${event.duration_hours || '—'} ч · бонус применяется сервером`;
+                }
+                renderActiveEventLeaders(event);
+                startActiveEventCountdown(event);
+
+                banner.style.background = `linear-gradient(118deg, ${adjustColor(color, -45)} 0%, ${color} 52%, ${adjustColor(color, -25)} 100%)`;
+                banner.classList.remove('hidden');
+                const legacyGlow = document.getElementById('event-ambient-glow');
+                if (legacyGlow) legacyGlow.remove();
             } catch (e) {
-                console.log('No events loaded');
+                console.warn('Active event refresh failed:', e);
+                // Keep the last valid theme during a transient network failure.
             }
         }
 

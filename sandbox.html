@@ -248,9 +248,9 @@ async function joinRoom(id){
  loadRooms();
  document.getElementById('code').focus();
  appendConsole(`📂 Вошёл в комнату #${id}`,'info');
- // paste-approval: статус привязан к комнате
- _pasteAllowed=false;_pastePending=false;updatePasteBtn();
- if(IS_ADMIN)pollPasteRequests();else checkPasteStatus();
+ // A room switch creates a new paste-capability session.
+ resetSandboxPasteState();
+ if(IS_ADMIN)pollPasteRequests();
 }
 let _pasteTick=0;
 
@@ -376,41 +376,99 @@ function insertCompletion(i){
 
 // === PASTE APPROVAL: вставка запрещена, но сенсей может одобрить по запросу ===
 // Переиспользует общий механизм paste_requests (task_id = "sandbox:<room>").
-let _pasteAllowed=false,_pastePending=false;
+let _pasteAllowed=false,_pastePending=false,_pasteUsed=false,_pasteConsuming=false;
+let _pasteRequestId=null,_pasteRequestToken=null,_pasteClientSessionId=null,_pasteRoomId=null;
+
+function newSandboxPasteSessionId(){
+ return (window.crypto&&typeof window.crypto.randomUUID==='function')
+  ?window.crypto.randomUUID()
+  :(Date.now().toString(36)+'_'+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)).padEnd(20,'0');
+}
+function resetSandboxPasteState(){
+ _pasteAllowed=false;_pastePending=false;_pasteUsed=false;_pasteConsuming=false;
+ _pasteRequestId=null;_pasteRequestToken=null;
+ _pasteRoomId=ROOM?String(ROOM.id):null;
+ _pasteClientSessionId=ROOM?newSandboxPasteSessionId():null;
+ updatePasteBtn();
+}
 (function(){
  const ta=document.getElementById('code');
- const block=e=>{
-  if(IS_ADMIN||_pasteAllowed)return;
+ ta.addEventListener('paste',e=>{
+  if(IS_ADMIN)return;
   e.preventDefault();
-  toast(_pastePending?'⏳ Запрос на вставку ждёт одобрения сенсея':'⌨️ Только печать! Нажми «📋 Вставка», чтобы запросить разрешение','warn');
- };
- ta.addEventListener('paste',block);
- ta.addEventListener('drop',block);
+  if(!_pasteAllowed||_pasteConsuming||!ROOM||String(ROOM.id)!==_pasteRoomId){
+   toast(_pastePending?'⏳ Запрос на вставку ждёт одобрения сенсея':'⌨️ Только печать! Нажми «📋 Вставка», чтобы запросить разрешение','warn');
+   return;
+  }
+  const text=(e.clipboardData||window.clipboardData).getData('text');
+  if(text)consumeSandboxPaste(text);
+ });
+ ta.addEventListener('drop',e=>{
+  if(IS_ADMIN)return;
+  e.preventDefault();
+  toast('Перетаскивание кода запрещено. Для вставки запросите разрешение сенсея.','warn');
+ });
 })();
 
 async function requestPaste(){
- if(!ROOM||_pasteAllowed||_pastePending)return;
- const d=await api('/api/paste-request',{method:'POST',headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({task_id:'sandbox:'+ROOM.id,task_title:'Песочница: '+(ROOM.name||('#'+ROOM.id))})});
- if(d){_pastePending=true;updatePasteBtn();toast('📨 Запрос отправлен сенсею','info')}
+ if(!ROOM||_pasteAllowed||_pastePending||_pasteConsuming||_pasteUsed)return;
+ const roomId=String(ROOM.id);
+ if(_pasteRoomId!==roomId||!_pasteClientSessionId)resetSandboxPasteState();
+ const taskId='sandbox:'+roomId,sessionId=_pasteClientSessionId;
+ try{
+  const r=await fetch(API+'/api/paste-request',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},
+   body:JSON.stringify({task_id:taskId,task_title:'Песочница: '+(ROOM.name||('#'+ROOM.id)),client_session_id:sessionId})});
+  const d=await r.json().catch(()=>({}));
+  if(!ROOM||String(ROOM.id)!==roomId||_pasteClientSessionId!==sessionId)return;
+  if(!r.ok||String(d.task_id)!==taskId||d.client_session_id!==sessionId||!d.request_id||!d.request_token)throw new Error(d.detail||'bad response');
+  _pasteRequestId=Number(d.request_id);_pasteRequestToken=d.request_token;
+  _pasteAllowed=Boolean(d.approved);_pastePending=Boolean(d.pending);updatePasteBtn();
+  toast(_pasteAllowed?'✅ Сенсей уже разрешил одну вставку':'📨 Запрос отправлен сенсею',_pasteAllowed?'xp':'info');
+ }catch(e){_pastePending=false;_pasteAllowed=false;updatePasteBtn();toast('Не удалось отправить запрос на вставку','warn')}
 }
 
 async function checkPasteStatus(){
- if(!ROOM||IS_ADMIN)return;
- const d=await api('/api/paste-request/status?task_id=sandbox:'+ROOM.id);
- if(!d)return;
+ if(!ROOM||IS_ADMIN||!_pastePending||!_pasteRequestId||!_pasteRequestToken||!_pasteClientSessionId)return;
+ const roomId=String(ROOM.id),taskId='sandbox:'+roomId,sessionId=_pasteClientSessionId,requestId=_pasteRequestId;
+ const q=new URLSearchParams({task_id:taskId,request_id:String(requestId),request_token:_pasteRequestToken,client_session_id:sessionId});
+ let r,d;
+ try{r=await fetch(API+'/api/paste-request/status?'+q,{headers:{'Authorization':'Bearer '+TOKEN}});d=await r.json().catch(()=>({}))}
+ catch(e){return}
+ if(!ROOM||String(ROOM.id)!==roomId||_pasteClientSessionId!==sessionId||_pasteRequestId!==requestId)return;
+ if(!r.ok||Number(d.request_id)!==requestId||String(d.task_id)!==taskId||d.request_token!==_pasteRequestToken||d.client_session_id!==sessionId){_pasteAllowed=false;_pastePending=false;_pasteRequestId=null;_pasteRequestToken=null;updatePasteBtn();return}
  if(d.approved){_pasteAllowed=true;_pastePending=false;toast('✅ Сенсей разрешил вставку!','xp')}
- else if(d.rejected&&_pastePending){_pastePending=false;toast('🚫 Сенсей отклонил вставку','warn')}
+ else if(d.rejected||d.consumed){_pasteAllowed=false;_pastePending=false;toast('🚫 Запрос отклонён, истёк или уже использован','warn')}
  else if(d.pending)_pastePending=true;
  updatePasteBtn();
+}
+
+async function consumeSandboxPaste(text){
+ if(!ROOM||!_pasteAllowed||_pasteConsuming)return;
+ const roomId=String(ROOM.id),taskId='sandbox:'+roomId,sessionId=_pasteClientSessionId,requestId=_pasteRequestId,requestToken=_pasteRequestToken;
+ _pasteAllowed=false;_pasteConsuming=true;updatePasteBtn();
+ let r,d;
+ try{
+  r=await fetch(API+'/api/paste-request/'+requestId+'/consume',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},
+   body:JSON.stringify({task_id:taskId,request_token:requestToken,client_session_id:sessionId})});
+  d=await r.json().catch(()=>({}));
+ }catch(e){}
+ if(!ROOM||String(ROOM.id)!==roomId||_pasteClientSessionId!==sessionId)return;
+ _pasteConsuming=false;_pasteRequestId=null;_pasteRequestToken=null;
+ if(!r||!r.ok||!d.consumed){
+  _pasteUsed=Boolean(r&&r.status===409);_pasteClientSessionId=newSandboxPasteSessionId();updatePasteBtn();
+  toast('Вставка не выполнена: разрешение истекло или уже использовано','warn');return;
+ }
+ const ta=document.getElementById('code'),start=ta.selectionStart,end=ta.selectionEnd;
+ ta.value=ta.value.slice(0,start)+text+ta.value.slice(end);ta.selectionStart=ta.selectionEnd=start+text.length;
+ _pasteUsed=true;updatePasteBtn();onCodeInput();ta.focus();toast('✅ Разрешение использовано: код вставлен один раз','xp');
 }
 
 function updatePasteBtn(){
  const b=document.getElementById('paste-req-btn');
  if(!b)return;
  b.style.display=(ROOM&&!IS_ADMIN)?'':'none';
- b.textContent=_pasteAllowed?'✅ Вставка разрешена':(_pastePending?'⏳ Ждём сенсея':'📋 Вставка');
- b.disabled=_pasteAllowed||_pastePending;
+ b.textContent=_pasteConsuming?'⏳ Проверка...':(_pasteUsed?'🚫 Использовано':(_pasteAllowed?'✅ Вставка разрешена (1 раз)':(_pastePending?'⏳ Ждём сенсея':'📋 Вставка')));
+ b.disabled=_pasteAllowed||_pastePending||_pasteConsuming||_pasteUsed;
 }
 
 // === АДМИН: панель одобрения вставок (только запросы из песочницы) ===

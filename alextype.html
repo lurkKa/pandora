@@ -1075,16 +1075,150 @@
     let startedAt = 0;
     let timer = null;
     let rewardSent = false;
+    let typingTelemetry = null;
+    let _lastInputValue = "";
+    let _pendingInputMeta = null;
+
+    function textFingerprint(value) {
+      // Context binding only (not a secret and not used as proof of content).
+      let hash = 2166136261;
+      for (let i = 0; i < value.length; i++) {
+        hash ^= value.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+      return (hash >>> 0).toString(16).padStart(8, "0");
+    }
+
+    function createServerTypingTelemetry(startPayload) {
+      const state = {
+        sessionId: null,
+        receipt: null,
+        sequence: 1,
+        queue: [],
+        lastEventAt: 0,
+        startedAt: performance.now(),
+        timer: null,
+        failed: false,
+        inFlight: Promise.resolve(),
+        ready: null,
+      };
+
+      const token = getAuthToken();
+      state.ready = token
+        ? fetch(`${API_URL}/api/typing/session/start`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify(startPayload),
+        }).then(async (response) => {
+          if (!response.ok) throw new Error(`telemetry start ${response.status}`);
+          const payload = await response.json();
+          state.sessionId = payload.session_id;
+          state.receipt = payload.receipt;
+          return true;
+        }).catch((error) => {
+          state.failed = true;
+          console.warn("Typing telemetry unavailable:", error);
+          return false;
+        })
+        : Promise.resolve(false);
+
+      state.flush = function (force = false) {
+        if (state.timer) {
+          clearTimeout(state.timer);
+          state.timer = null;
+        }
+        state.inFlight = state.inFlight.then(async () => {
+          const ready = await state.ready;
+          if (!ready || state.failed) return;
+          do {
+            if (!state.queue.length) return;
+            const batch = state.queue.splice(0, 32);
+            try {
+              const response = await fetch(
+                `${API_URL}/api/typing/session/${encodeURIComponent(state.sessionId)}/events`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${getAuthToken()}`,
+                  },
+                  body: JSON.stringify({
+                    sequence: state.sequence,
+                    receipt: state.receipt,
+                    events: batch,
+                    client_elapsed_ms: Math.max(0, Math.round(performance.now() - state.startedAt)),
+                  }),
+                },
+              );
+              if (!response.ok) throw new Error(`telemetry batch ${response.status}`);
+              const payload = await response.json();
+              state.receipt = payload.receipt;
+              state.sequence = payload.next_sequence;
+            } catch (error) {
+              state.queue.unshift(...batch);
+              state.failed = true;
+              console.warn("Typing telemetry batch failed:", error);
+              return;
+            }
+          } while (force && state.queue.length);
+        });
+        return state.inFlight;
+      };
+
+      state.record = function (kind, chars, trusted) {
+        if (state.failed) return;
+        const now = performance.now();
+        const dt = state.lastEventAt ? Math.min(60000, Math.max(0, Math.round(now - state.lastEventAt))) : 0;
+        state.lastEventAt = now;
+        state.queue.push({
+          kind,
+          dt_ms: dt,
+          chars: Math.min(4096, Math.max(0, Number(chars) || 0)),
+          trusted: Boolean(trusted),
+        });
+        // Establish a server timestamp on the first input.  Later batches are
+        // bounded by count and a short timer.
+        if (state.sequence === 1 && state.queue.length === 1) {
+          state.flush(false);
+        } else if (state.queue.length >= 16) {
+          state.flush(false);
+        } else if (!state.timer) {
+          state.timer = setTimeout(() => state.flush(false), 1200);
+        }
+      };
+
+      state.credentials = () => ({
+        typing_session_id: state.sessionId,
+        typing_receipt: state.receipt,
+      });
+      return state;
+    }
 
     function pickText() {
       const lang = langEl.value || "ru";
       const pool = (TEXTS[lang] || TEXTS.ru)[levelEl.value] || (TEXTS[lang] || TEXTS.ru).D;
       targetText = pool[Math.floor(Math.random() * pool.length)];
       inputEl.value = "";
+      _lastInputValue = "";
+      _pendingInputMeta = null;
+      _keystrokeCount = 0;
+      _voiceBlockCount = 0;
+      _lastKeydownTime = 0;
+      _lastKeydownTrusted = false;
+      _recentInsertTimes.length = 0;
       startedAt = 0;
       clearInterval(timer);
       timer = null;
       rewardSent = false;
+      typingTelemetry = createServerTypingTelemetry({
+        scope: "alextype",
+        level: levelEl.value,
+        text_length: targetText.length,
+        content_hash: textFingerprint(targetText),
+      });
       renderSample();
       setStats();
       setStatus("Готово к старту", "");
@@ -1189,6 +1323,10 @@
       const cpmVal = elapsedMin > 0 ? Math.round(targetText.length / elapsedMin) : 0;
 
       try {
+        if (typingTelemetry) await typingTelemetry.flush(true);
+        const telemetryCredentials = typingTelemetry
+          ? typingTelemetry.credentials()
+          : { typing_session_id: null, typing_receipt: null };
         const resp = await fetch(`${API_URL}/api/alextype/complete`, {
           method: 'POST',
           headers: {
@@ -1203,10 +1341,14 @@
             cpm: cpmVal,
             elapsed_ms: elapsedMs,
             keystrokes: _keystrokeCount,
+            ...telemetryCredentials,
           }),
         });
         const data = await resp.json();
-        if (data.xp_awarded > 0) {
+        if (data.status === "integrity_penalty") {
+          const penalty = Number(data.penalty_xp || 0);
+          setStatus(`⛔ АВТОПЕЧАТЬ — штраф ${penalty} XP`, "status-bad");
+        } else if (data.xp_awarded > 0) {
           showXPToast(data.xp_awarded, data.message || 'За набор текста');
           setStatus(`✅ PASSED +${data.xp_awarded} XP`, "status-ok");
         } else {
@@ -1237,6 +1379,7 @@
     //
     let _keystrokeCount = 0;            // Real keydown events (sent to server)
     let _lastKeydownTime = 0;           // Timestamp of last keydown (Layer 1)
+    let _lastKeydownTrusted = false;     // Browser-generated (not dispatchEvent)
     let _inComposition = false;         // True during IME composition
     let _voiceBlockCount = 0;           // How many voice inserts were blocked
     const _recentInsertTimes = [];      // Timestamps of recent insertText events (Layer 2)
@@ -1272,12 +1415,20 @@
       ];
       if (alwaysBlocked.includes(e.inputType)) {
         e.preventDefault();
+        if (typingTelemetry) typingTelemetry.record("blocked", (e.data || "").length, false);
         setStatus("⛔ Вставка запрещена — печатай сам!", "status-bad");
         return;
       }
 
       // Skip ALL checks during active composition (IME input is trusted)
-      if (_inComposition) return;
+      if (_inComposition) {
+        _pendingInputMeta = {
+          kind: "composition",
+          chars: Math.max(1, (e.data || "").length),
+          trusted: Boolean(e.isTrusted),
+        };
+        return;
+      }
 
       // For insertText: apply all three layers
       if (e.inputType === "insertText") {
@@ -1287,6 +1438,7 @@
         if (e.data && e.data.length > 1) {
           e.preventDefault();
           _voiceBlockCount++;
+          if (typingTelemetry) typingTelemetry.record("blocked", e.data.length, false);
           setStatus("⛔ Голосовой ввод запрещён — печатай сам!", "status-bad");
           return;
         }
@@ -1295,6 +1447,7 @@
         if (now - _lastKeydownTime > _KEYDOWN_WINDOW_MS) {
           e.preventDefault();
           _voiceBlockCount++;
+          if (typingTelemetry) typingTelemetry.record("blocked", (e.data || "").length || 1, false);
           setStatus("⛔ Голосовой ввод запрещён — печатай сам!", "status-bad");
           return;
         }
@@ -1306,12 +1459,24 @@
         if (_recentInsertTimes.length >= _BURST_MAX_CHARS) {
           e.preventDefault();
           _voiceBlockCount++;
+          if (typingTelemetry) typingTelemetry.record("blocked", (e.data || "").length || 1, false);
           setStatus("⛔ Голосовой ввод запрещён — печатай сам!", "status-bad");
           return;
         }
 
         // All checks passed — accept this character
         _recentInsertTimes.push(now);
+        _pendingInputMeta = {
+          kind: "insert",
+          chars: Math.max(1, (e.data || "").length),
+          trusted: Boolean(e.isTrusted && _lastKeydownTrusted),
+        };
+      } else if (String(e.inputType || "").startsWith("delete")) {
+        _pendingInputMeta = {
+          kind: "delete",
+          chars: 1,
+          trusted: Boolean(e.isTrusted && _lastKeydownTrusted),
+        };
       }
 
       // Allow: insertCompositionText, deleteContent*, historyUndo/Redo
@@ -1336,10 +1501,12 @@
       }
       _keystrokeCount++;
       _lastKeydownTime = Date.now();
+      _lastKeydownTrusted = Boolean(e.isTrusted);
     });
 
     inputEl.addEventListener("paste", (e) => {
       e.preventDefault();
+      if (typingTelemetry) typingTelemetry.record("blocked", 1, false);
       setStatus("⛔ Вставка запрещена — печатай сам!", "status-bad");
     });
 
@@ -1350,10 +1517,35 @@
     // Block drag-and-drop text into textarea
     inputEl.addEventListener("drop", (e) => {
       e.preventDefault();
+      if (typingTelemetry) typingTelemetry.record("blocked", 1, false);
       setStatus("⛔ Перетаскивание запрещено!", "status-bad");
     });
 
-    inputEl.addEventListener("input", () => {
+    inputEl.addEventListener("input", (event) => {
+      const currentValue = inputEl.value;
+      const delta = currentValue.length - _lastInputValue.length;
+      const meta = _pendingInputMeta;
+      if (meta) {
+        const observedChars = meta.kind === "delete"
+          ? Math.max(1, -delta, meta.chars || 0)
+          : Math.max(1, delta, meta.chars || 0);
+        if (typingTelemetry) {
+          typingTelemetry.record(
+            meta.kind,
+            observedChars,
+            Boolean(meta.trusted && event.isTrusted),
+          );
+        }
+      } else if (delta > 0) {
+        // An input event with no accepted beforeinput/keydown path is a strong
+        // automation signal.  Synthetic events have isTrusted=false.
+        if (typingTelemetry) typingTelemetry.record("programmatic", delta, false);
+      } else if (delta < 0) {
+        if (typingTelemetry) typingTelemetry.record("delete", -delta, Boolean(event.isTrusted));
+      }
+      _pendingInputMeta = null;
+      _lastInputValue = currentValue;
+
       // Standard input handler
       if (!startedAt && inputEl.value.length > 0) {
         startedAt = Date.now();
