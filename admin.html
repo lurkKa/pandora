@@ -959,6 +959,9 @@
                 <li class="nav-item" onclick="showSection('students')" tabindex="0" role="button">
                     <span class="icon">👥</span> Students
                 </li>
+                <li class="nav-item" onclick="showSection('parents')" tabindex="0" role="button">
+                    <span class="icon">👨‍👩‍👧</span> Родители
+                </li>
                 <li class="nav-item" onclick="showSection('reviews')" tabindex="0" role="button">
                     <span class="icon">📝</span> Reviews
                 </li>
@@ -1085,6 +1088,42 @@
                             <!-- Populated by JS -->
                         </tbody>
                     </table>
+                </div>
+            </section>
+
+            <!-- Parents Section -->
+            <section id="section-parents" class="section">
+                <div class="page-header">
+                    <h2>👨‍👩‍👧 Родительские аккаунты</h2>
+                    <p>Создание логинов, привязка к ребёнку и управление паролями</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Создать родителя</h3>
+                        <a class="btn btn-small" href="/parent" target="_blank" rel="noopener">Открыть родительскую панель ↗</a>
+                    </div>
+                    <div style="padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:end;">
+                        <div class="form-group" style="margin:0"><label>Имя родителя</label><input id="parent-display-name" placeholder="Мария Иванова"></div>
+                        <div class="form-group" style="margin:0"><label>Логин</label><input id="parent-username" placeholder="maria_parent"></div>
+                        <div class="form-group" style="margin:0"><label>Пароль</label><input id="parent-password" type="password" minlength="6" placeholder="Минимум 6 символов"></div>
+                        <div class="form-group" style="margin:0"><label>Ребёнок</label><select id="parent-child-select"><option value="">Загрузка…</option></select></div>
+                        <button class="btn btn-primary" onclick="createParent()">➕ Создать</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header"><h3>Все родители</h3><button class="btn btn-small" onclick="loadParents()">🔄 Обновить</button></div>
+                    <div style="overflow:auto">
+                        <table>
+                            <thead><tr><th>Родитель</th><th>Логин</th><th>Привязанный ребёнок</th><th>Создан</th><th>Действия</th></tr></thead>
+                            <tbody id="parents-table"><tr><td colspan="5">Загрузка…</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>История родительских поощрений и штрафов</h3></div>
+                    <div style="overflow:auto"><table><thead><tr><th>Родитель</th><th>Ребёнок</th><th>XP</th><th>Причина</th><th>Дата</th></tr></thead><tbody id="parent-actions-table"></tbody></table></div>
                 </div>
             </section>
 
@@ -2090,6 +2129,7 @@
         let authToken = localStorage.getItem('admin_token');
         let currentSubmissions = []; // For code viewing in submissions
         let reviewTasksMap = {};
+        let parentAccounts = [];
 
         function escapeHtml(text) {
             const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
@@ -2374,7 +2414,7 @@
             const tbody = document.getElementById('students-table');
             tbody.innerHTML = '';
 
-            data.users.filter(u => u.role !== 'admin').forEach(user => {
+            data.users.filter(u => u.role === 'student' || u.role === 'mini_admin').forEach(user => {
                 const isMini = user.role === 'mini_admin';
                 const miniBtn = isMini
                     ? `<button class="btn btn-small" style="background:var(--warning);color:#000" onclick="demoteMiniAdmin(${user.id})" title="Снять мини-админа">🛡️ Снять</button>`
@@ -2659,6 +2699,99 @@
             } catch (e) {
                 alert('Error resetting password');
             }
+        }
+
+        // ==================== PARENT ACCOUNTS ====================
+        async function loadParents() {
+            const tbody = document.getElementById('parents-table');
+            if (!tbody) return;
+            try {
+                const data = await api('/api/admin/parents');
+                parentAccounts = data.parents || [];
+                const students = data.students || [];
+                const actionsTable = document.getElementById('parent-actions-table');
+                if (actionsTable) {
+                    actionsTable.innerHTML = (data.recent_actions || []).map(action => `<tr>
+                        <td>${escapeHtml(action.parent_name)}</td><td>${escapeHtml(action.child_name)}</td>
+                        <td style="color:${action.applied_xp >= 0 ? 'var(--success)' : 'var(--danger)'};font-weight:700">${action.applied_xp >= 0 ? '+' : ''}${action.applied_xp} XP</td>
+                        <td>${escapeHtml(action.reason)}</td><td>${new Date(action.created_at).toLocaleString('ru')}</td>
+                    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">Действий пока нет</td></tr>';
+                }
+                const createSelect = document.getElementById('parent-child-select');
+                if (createSelect) {
+                    createSelect.innerHTML = '<option value="">Выберите ребёнка</option>' + students.map(s =>
+                        `<option value="${s.id}">${escapeHtml(s.display_name)} (@${escapeHtml(s.username)})</option>`
+                    ).join('');
+                }
+                if (!parentAccounts.length) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:24px">Родительских аккаунтов пока нет</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = parentAccounts.map(parent => {
+                    const currentChild = parent.children?.[0];
+                    const options = students.map(s =>
+                        `<option value="${s.id}" ${currentChild?.id === s.id ? 'selected' : ''}>${escapeHtml(s.display_name)} (@${escapeHtml(s.username)})</option>`
+                    ).join('');
+                    return `<tr>
+                        <td><strong>${escapeHtml(parent.display_name)}</strong></td>
+                        <td><code>${escapeHtml(parent.username)}</code></td>
+                        <td><select id="parent-child-${parent.id}" style="min-width:220px;padding:8px;background:var(--bg-deep);border:1px solid var(--border);border-radius:7px;color:var(--text-primary)">${options}</select>
+                            <button class="btn btn-small" onclick="saveParentChild(${parent.id})">Сохранить</button></td>
+                        <td>${new Date(parent.created_at).toLocaleDateString('ru')}</td>
+                        <td style="white-space:nowrap">
+                            <button class="btn btn-primary btn-small" onclick="resetParentPassword(${parent.id})">🔑 Пароль</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteParent(${parent.id})">Удалить</button>
+                        </td>
+                    </tr>`;
+                }).join('');
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="5" style="color:var(--danger)">${escapeHtml(e.message || e)}</td></tr>`;
+            }
+        }
+
+        async function createParent() {
+            const display_name = document.getElementById('parent-display-name').value.trim();
+            const username = document.getElementById('parent-username').value.trim();
+            const password = document.getElementById('parent-password').value;
+            const child_id = Number(document.getElementById('parent-child-select').value);
+            if (!display_name || !username || password.length < 6 || !child_id) {
+                alert('Заполните все поля. Пароль — минимум 6 символов.');
+                return;
+            }
+            try {
+                await api('/api/admin/parents', 'POST', { display_name, username, password, child_id });
+                document.getElementById('parent-display-name').value = '';
+                document.getElementById('parent-username').value = '';
+                document.getElementById('parent-password').value = '';
+                await loadParents();
+                alert('Родительский аккаунт создан');
+            } catch (e) {
+                alert('Не удалось создать родителя: ' + (e.message || e));
+            }
+        }
+
+        async function saveParentChild(parentId) {
+            const child_id = Number(document.getElementById(`parent-child-${parentId}`).value);
+            if (!child_id) return;
+            try {
+                await api(`/api/admin/parents/${parentId}/child`, 'PUT', { child_id });
+                alert('Привязка обновлена');
+                await loadParents();
+            } catch (e) { alert('Ошибка: ' + (e.message || e)); }
+        }
+
+        async function resetParentPassword(parentId) {
+            const parent = parentAccounts.find(p => p.id === parentId);
+            if (parent) await resetPassword(parentId, parent.username);
+        }
+
+        async function deleteParent(parentId) {
+            const parent = parentAccounts.find(p => p.id === parentId);
+            if (!confirm(`Удалить родительский аккаунт ${parent?.display_name || ''}? Данные ребёнка останутся.`)) return;
+            try {
+                await api(`/api/admin/parents/${parentId}`, 'DELETE');
+                await loadParents();
+            } catch (e) { alert('Ошибка удаления: ' + (e.message || e)); }
         }
 
         async function changeOwnPassword() {
@@ -3112,6 +3245,9 @@
                 case 'students':
                     loadDashboard();
                     break;
+                case 'parents':
+                    loadParents();
+                    break;
                 case 'reviews':
                     loadSubmissions(_reviewsStatus);
                     break;
@@ -3159,6 +3295,7 @@
 
             // Load data when section is shown
             if (name === 'events') loadEvents();
+            if (name === 'parents') loadParents();
             if (name === 'history') populateUserDropdowns();
             if (name === 'progress') { populateUserDropdowns(); loadProgressChart(); }
             if (name === 'priorities') populateUserDropdowns();

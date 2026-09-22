@@ -1216,6 +1216,40 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # Parent accounts are regular authenticated users with role='parent'.
+        # Access to student analytics is granted only through this mapping.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS parent_child_links (
+                parent_id INTEGER NOT NULL,
+                child_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (parent_id, child_id),
+                FOREIGN KEY (parent_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (child_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """)
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_parent_child_links_child "
+            "ON parent_child_links(child_id)"
+        )
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS parent_xp_actions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                parent_id INTEGER NOT NULL,
+                child_id INTEGER NOT NULL,
+                delta_xp INTEGER NOT NULL,
+                applied_xp INTEGER NOT NULL DEFAULT 0,
+                reason TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (parent_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (child_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """)
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_parent_xp_actions_daily "
+            "ON parent_xp_actions(parent_id, created_at)"
+        )
         
         # Completed tasks
         cursor.execute("""
@@ -3859,6 +3893,13 @@ def require_mini_admin(authorization: Optional[str] = Header(None)):
         raise HTTPException(status_code=403, detail="Mini-admin access required")
     return user
 
+def require_parent(authorization: Optional[str] = Header(None)):
+    """Require a dedicated parent account."""
+    user = require_auth(authorization)
+    if user["role"] != "parent":
+        raise HTTPException(status_code=403, detail="Parent access required")
+    return user
+
 # ==================== MODELS ====================
 
 class LoginRequest(BaseModel):
@@ -3947,9 +3988,31 @@ class ChangePasswordRequest(BaseModel):
     current_password: Optional[str] = None  # Required for self-change
     new_password: str
 
+    @validator('new_password')
+    def new_password_strength(cls, value):
+        if len(value or "") < 6:
+            raise ValueError('Password must be at least 6 characters')
+        return value
+
 class ResetPasswordRequest(BaseModel):
     user_id: int
     new_password: str
+
+    @validator('new_password')
+    def reset_password_strength(cls, value):
+        if len(value or "") < 6:
+            raise ValueError('Password must be at least 6 characters')
+        return value
+
+class ParentCreateRequest(RegisterRequest):
+    child_id: int
+
+class ParentChildRequest(BaseModel):
+    child_id: int
+
+class ParentXPActionRequest(BaseModel):
+    delta_xp: int
+    reason: str
 
 class ProfileUpdateRequest(BaseModel):
     display_name: Optional[str] = None
@@ -5163,6 +5226,16 @@ def serve_mini_admin_slash():
 def serve_mini_admin_html():
     return FileResponse("mini_admin.html")
 
+@app.get("/parent", include_in_schema=False)
+def serve_parent_panel():
+    """Serve the read-only parent progress panel."""
+    return FileResponse("parent.html")
+
+@app.get("/parent/", include_in_schema=False)
+@app.get("/parent.html", include_in_schema=False)
+def serve_parent_panel_alias():
+    return FileResponse("parent.html")
+
 @app.get("/exam", include_in_schema=False)
 def serve_exam():
     return FileResponse("exam.html")
@@ -5408,11 +5481,12 @@ def reset_user_password(data: ResetPasswordRequest, admin: dict = Depends(requir
             "UPDATE users SET password_hash = ? WHERE id = ?",
             (hash_password(data.new_password), data.user_id)
         )
+        updated = cursor.rowcount
         if not STATELESS_AUTH:
             cursor.execute("DELETE FROM sessions WHERE user_id = ?", (data.user_id,))
         conn.commit()
         
-        if cursor.rowcount == 0:
+        if updated == 0:
             raise HTTPException(status_code=404, detail="User not found")
     
     log_security("PASSWORD_RESET", user=admin["username"], details=f"Reset user_id={data.user_id}")
@@ -6886,11 +6960,555 @@ def list_users(admin: dict = Depends(require_admin)):
         users = [dict(row) for row in cursor.fetchall()]
     return {"users": users}
 
+
+def _student_for_parent_link(cursor, child_id: int):
+    child = cursor.execute(
+        """
+        SELECT id, username, display_name, xp, level
+        FROM users
+        WHERE id = ? AND role IN ('student', 'mini_admin')
+        """,
+        (child_id,),
+    ).fetchone()
+    if not child:
+        raise HTTPException(status_code=404, detail="Ученик не найден")
+    return child
+
+
+@app.get("/api/admin/parents")
+def admin_list_parents(admin: dict = Depends(require_admin)):
+    """List parent accounts, their child link, and available students."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        parents = [dict(row) for row in cursor.execute(
+            """
+            SELECT id, username, display_name, created_at
+            FROM users WHERE role = 'parent'
+            ORDER BY display_name COLLATE NOCASE
+            """
+        ).fetchall()]
+        links = cursor.execute(
+            """
+            SELECT pcl.parent_id, u.id, u.username, u.display_name, u.xp, u.level
+            FROM parent_child_links pcl
+            JOIN users u ON u.id = pcl.child_id
+            ORDER BY u.display_name COLLATE NOCASE
+            """
+        ).fetchall()
+        by_parent: dict[int, list[dict]] = {}
+        for row in links:
+            item = dict(row)
+            parent_id = int(item.pop("parent_id"))
+            by_parent.setdefault(parent_id, []).append(item)
+        for parent in parents:
+            parent["children"] = by_parent.get(int(parent["id"]), [])
+        students = [dict(row) for row in cursor.execute(
+            """
+            SELECT id, username, display_name, xp, level
+            FROM users WHERE role IN ('student', 'mini_admin')
+            ORDER BY display_name COLLATE NOCASE
+            """
+        ).fetchall()]
+        recent_actions = [dict(row) for row in cursor.execute(
+            """
+            SELECT pxa.id, pxa.delta_xp, pxa.applied_xp, pxa.reason, pxa.created_at,
+                   parent.display_name AS parent_name,
+                   child.display_name AS child_name
+            FROM parent_xp_actions pxa
+            JOIN users parent ON parent.id = pxa.parent_id
+            JOIN users child ON child.id = pxa.child_id
+            ORDER BY pxa.created_at DESC LIMIT 100
+            """
+        ).fetchall()]
+    return {"parents": parents, "students": students, "recent_actions": recent_actions}
+
+
+@app.post("/api/admin/parents")
+def admin_create_parent(
+    request: Request,
+    data: ParentCreateRequest,
+    admin: dict = Depends(require_admin),
+):
+    """Create a parent login and bind it to one student."""
+    threats = detect_threats(data.username) + detect_threats(data.display_name)
+    if threats:
+        raise HTTPException(status_code=400, detail="Invalid input detected")
+    with get_db() as conn:
+        cursor = conn.cursor()
+        _student_for_parent_link(cursor, int(data.child_id))
+        try:
+            cursor.execute(
+                """
+                INSERT INTO users (username, password_hash, display_name, role)
+                VALUES (?, ?, ?, 'parent')
+                """,
+                (data.username, hash_password(data.password), data.display_name),
+            )
+            parent_id = int(cursor.lastrowid)
+            cursor.execute(
+                "INSERT INTO parent_child_links (parent_id, child_id) VALUES (?, ?)",
+                (parent_id, int(data.child_id)),
+            )
+            conn.commit()
+        except sqlite3.IntegrityError:
+            raise HTTPException(status_code=400, detail="Такой логин уже существует")
+    log_security(
+        "PARENT_CREATED",
+        user=admin["username"],
+        details=f"parent_id={parent_id}, child_id={data.child_id}",
+    )
+    return {"message": "Родитель создан", "id": parent_id}
+
+
+@app.put("/api/admin/parents/{parent_id}/child")
+def admin_set_parent_child(
+    parent_id: int,
+    data: ParentChildRequest,
+    admin: dict = Depends(require_admin),
+):
+    """Replace the student's assignment for a parent account."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        parent = cursor.execute(
+            "SELECT id FROM users WHERE id = ? AND role = 'parent'",
+            (parent_id,),
+        ).fetchone()
+        if not parent:
+            raise HTTPException(status_code=404, detail="Родитель не найден")
+        _student_for_parent_link(cursor, int(data.child_id))
+        cursor.execute("DELETE FROM parent_child_links WHERE parent_id = ?", (parent_id,))
+        cursor.execute(
+            "INSERT INTO parent_child_links (parent_id, child_id) VALUES (?, ?)",
+            (parent_id, int(data.child_id)),
+        )
+        conn.commit()
+    log_security(
+        "PARENT_CHILD_UPDATED",
+        user=admin["username"],
+        details=f"parent_id={parent_id}, child_id={data.child_id}",
+    )
+    return {"message": "Привязка обновлена"}
+
+
+@app.delete("/api/admin/parents/{parent_id}")
+def admin_delete_parent(parent_id: int, admin: dict = Depends(require_admin)):
+    with get_db() as conn:
+        cursor = conn.cursor()
+        parent = cursor.execute(
+            "SELECT username FROM users WHERE id = ? AND role = 'parent'",
+            (parent_id,),
+        ).fetchone()
+        if not parent:
+            raise HTTPException(status_code=404, detail="Родитель не найден")
+        cursor.execute("DELETE FROM sessions WHERE user_id = ?", (parent_id,))
+        cursor.execute("DELETE FROM parent_xp_actions WHERE parent_id = ?", (parent_id,))
+        cursor.execute("DELETE FROM parent_child_links WHERE parent_id = ?", (parent_id,))
+        cursor.execute("DELETE FROM users WHERE id = ? AND role = 'parent'", (parent_id,))
+        conn.commit()
+    log_security(
+        "PARENT_DELETED",
+        user=admin["username"],
+        details=f"parent_id={parent_id}",
+    )
+    return {"message": "Родитель удалён"}
+
+
+def _parent_child_row(cursor, parent_id: int, child_id: Optional[int] = None):
+    params: list[int] = [int(parent_id)]
+    child_filter = ""
+    if child_id is not None:
+        child_filter = " AND u.id = ?"
+        params.append(int(child_id))
+    row = cursor.execute(
+        f"""
+        SELECT u.id, u.username, u.display_name, u.xp, u.level,
+               u.avatar_key, u.created_at, u.last_seen_at
+        FROM parent_child_links pcl
+        JOIN users u ON u.id = pcl.child_id
+        WHERE pcl.parent_id = ?
+          AND u.role IN ('student', 'mini_admin')
+          {child_filter}
+        ORDER BY u.display_name COLLATE NOCASE
+        LIMIT 1
+        """,
+        params,
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Привязанный ученик не найден")
+    return row
+
+
+def _parent_task_catalog() -> tuple[dict[str, dict], dict[str, int]]:
+    tasks = [
+        task for task in load_tasks().get("tasks", [])
+        if task.get("id") and not is_archived_task_id(str(task["id"]))
+    ]
+    task_map = {str(task["id"]): task for task in tasks}
+    totals: dict[str, int] = {}
+    for task in tasks:
+        category = str(task.get("category") or "other")
+        totals[category] = totals.get(category, 0) + 1
+    return task_map, totals
+
+
+@app.get("/api/parent/dashboard")
+def parent_dashboard(
+    child_id: Optional[int] = Query(None),
+    parent: dict = Depends(require_parent),
+):
+    """Read-only learning overview for a child assigned to this parent."""
+    task_map, category_totals = _parent_task_catalog()
+    with get_db() as conn:
+        cursor = conn.cursor()
+        child_row = _parent_child_row(cursor, int(parent["id"]), child_id)
+        child = dict(child_row)
+        uid = int(child["id"])
+
+        current_rank_row = cursor.execute(
+            "SELECT name_ru, badge_emoji FROM ranks WHERE min_xp <= ? ORDER BY min_xp DESC LIMIT 1",
+            (int(child["xp"] or 0),),
+        ).fetchone()
+        child["rank"] = (
+            {"name": current_rank_row["name_ru"], "badge": current_rank_row["badge_emoji"]}
+            if current_rank_row else {"name": "Ученик", "badge": "🌱"}
+        )
+
+        completion_rows = cursor.execute(
+            """
+            SELECT task_id, completed_at, xp_earned
+            FROM completed_tasks
+            WHERE user_id = ? AND is_valid != 0
+            ORDER BY completed_at DESC
+            """,
+            (uid,),
+        ).fetchall()
+        completed_ids = {str(row["task_id"]) for row in completion_rows}
+        completed_by_category: dict[str, int] = {}
+        for task_id in completed_ids:
+            category = str(task_map.get(task_id, {}).get("category") or "other")
+            completed_by_category[category] = completed_by_category.get(category, 0) + 1
+
+        attempts = cursor.execute(
+            """
+            SELECT COUNT(*) AS total,
+                   COALESCE(SUM(CASE WHEN passed = 1 THEN 1 ELSE 0 END), 0) AS passed,
+                   COALESCE(AVG(CASE WHEN runtime_ms >= 0 THEN runtime_ms END), 0) AS avg_runtime_ms
+            FROM task_attempts WHERE user_id = ?
+            """,
+            (uid,),
+        ).fetchone()
+        time_row = cursor.execute(
+            """
+            SELECT COALESCE(SUM(total_seconds), 0) AS total_seconds,
+                   COALESCE(SUM(task_seconds), 0) AS task_seconds,
+                   COALESCE(SUM(alextype_seconds), 0) AS alextype_seconds,
+                   COALESCE(SUM(CASE WHEN date >= date('now', '-6 days') THEN total_seconds ELSE 0 END), 0) AS week_seconds,
+                   COALESCE(SUM(CASE WHEN date >= date('now', '-29 days') THEN total_seconds ELSE 0 END), 0) AS month_seconds,
+                   COUNT(CASE WHEN total_seconds > 0 THEN 1 END) AS active_days
+            FROM time_tracking WHERE user_id = ?
+            """,
+            (uid,),
+        ).fetchone()
+        stats_row = cursor.execute(
+            "SELECT streak_days, best_streak FROM user_stats WHERE user_id = ?",
+            (uid,),
+        ).fetchone()
+        review_counts = cursor.execute(
+            """
+            SELECT COUNT(*) AS total,
+                   COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0) AS pending,
+                   COALESCE(SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END), 0) AS approved
+            FROM submissions WHERE user_id = ?
+            """,
+            (uid,),
+        ).fetchone()
+
+        xp_days = cursor.execute(
+            """
+            SELECT date(logged_at) AS date, SUM(xp_change) AS delta
+            FROM xp_log WHERE user_id = ?
+            GROUP BY date(logged_at) ORDER BY date(logged_at)
+            """,
+            (uid,),
+        ).fetchall()
+        running_xp = max(0, int(child["xp"] or 0) - sum(int(row["delta"] or 0) for row in xp_days))
+        xp_history = []
+        for row in xp_days:
+            running_xp += int(row["delta"] or 0)
+            xp_history.append({"date": row["date"], "delta": int(row["delta"] or 0), "total": running_xp})
+        xp_history = xp_history[-90:]
+        if not xp_history:
+            xp_history = [{"date": datetime.now(timezone.utc).date().isoformat(), "delta": 0, "total": int(child["xp"] or 0)}]
+
+        time_daily = [dict(row) for row in cursor.execute(
+            """
+            SELECT date, total_seconds, task_seconds, alextype_seconds
+            FROM time_tracking
+            WHERE user_id = ? AND date >= date('now', '-29 days')
+            ORDER BY date
+            """,
+            (uid,),
+        ).fetchall()]
+
+        recent_attempt_rows = cursor.execute(
+            """
+            SELECT task_id, category, tier, code, payload_z, payload_codec,
+                   result_json, passed, runtime_ms, created_at
+            FROM task_attempts WHERE user_id = ?
+            ORDER BY created_at DESC LIMIT 15
+            """,
+            (uid,),
+        ).fetchall()
+        recent_attempts = []
+        for row in recent_attempt_rows:
+            item = dict(row)
+            if item.get("payload_z") is not None:
+                try:
+                    restored_code, restored_result = _decode_task_attempt_payload(
+                        item["payload_z"], item.get("payload_codec")
+                    )
+                    item["code"] = restored_code
+                    item["result_json"] = restored_result
+                except ValueError:
+                    item["code"] = None
+                    item["result_json"] = None
+            item.pop("payload_z", None)
+            item.pop("payload_codec", None)
+            item["code"] = (item.get("code") or "")[:6000]
+            item["result_json"] = (item.get("result_json") or "")[:2000]
+            task = task_map.get(str(item["task_id"]), {})
+            item["task_title"] = task.get("title", item["task_id"])
+            recent_attempts.append(item)
+
+        feedback = []
+        for row in cursor.execute(
+            """
+            SELECT s.id, s.task_id, s.status, s.score, s.max_score, s.feedback,
+                   s.submitted_at, s.reviewed_at, r.display_name AS reviewer_name,
+                   r.role AS reviewer_role
+            FROM submissions s
+            LEFT JOIN users r ON r.id = s.reviewer_id
+            WHERE s.user_id = ? AND (s.reviewed_at IS NOT NULL OR COALESCE(s.feedback, '') != '')
+            ORDER BY COALESCE(s.reviewed_at, s.submitted_at) DESC LIMIT 50
+            """,
+            (uid,),
+        ).fetchall():
+            item = dict(row)
+            item["source"] = "admin"
+            item["task_title"] = task_map.get(str(item["task_id"]), {}).get("title", item["task_id"])
+            feedback.append(item)
+        for row in cursor.execute(
+            """
+            SELECT mar.id, s.task_id, mar.score, mar.admin_final_score,
+                   mar.admin_approved, mar.reviewed_at,
+                   reviewer.display_name AS reviewer_name
+            FROM mini_admin_reviews mar
+            JOIN submissions s ON s.id = mar.submission_id
+            JOIN users reviewer ON reviewer.id = mar.mini_admin_id
+            WHERE s.user_id = ? AND mar.reviewed_at IS NOT NULL
+            ORDER BY mar.reviewed_at DESC LIMIT 50
+            """,
+            (uid,),
+        ).fetchall():
+            item = dict(row)
+            item["source"] = "mini_admin"
+            item["task_title"] = task_map.get(str(item["task_id"]), {}).get("title", item["task_id"])
+            feedback.append(item)
+        feedback.sort(key=lambda item: str(item.get("reviewed_at") or item.get("submitted_at") or ""), reverse=True)
+        parent_actions = [dict(row) for row in cursor.execute(
+            """
+            SELECT id, delta_xp, applied_xp, reason, created_at
+            FROM parent_xp_actions
+            WHERE parent_id = ? AND child_id = ?
+            ORDER BY created_at DESC LIMIT 100
+            """,
+            (int(parent["id"]), uid),
+        ).fetchall()]
+        parent_xp_used_today = int(cursor.execute(
+            """
+            SELECT COALESCE(SUM(ABS(delta_xp)), 0) AS used
+            FROM parent_xp_actions
+            WHERE parent_id = ? AND date(created_at) = date('now')
+            """,
+            (int(parent["id"]),),
+        ).fetchone()["used"] or 0)
+
+    return {
+        "child": child,
+        "summary": {
+            "completed_tasks": len(completed_ids),
+            "total_tasks": len(task_map),
+            "task_xp": sum(int(row["xp_earned"] or 0) for row in completion_rows),
+            "attempts": int(attempts["total"] or 0),
+            "successful_attempts": int(attempts["passed"] or 0),
+            "avg_runtime_ms": round(float(attempts["avg_runtime_ms"] or 0), 1),
+            "streak_days": int(stats_row["streak_days"] or 0) if stats_row else 0,
+            "best_streak": int(stats_row["best_streak"] or 0) if stats_row else 0,
+            "reviews": dict(review_counts),
+            "time": dict(time_row),
+        },
+        "category_progress": [
+            {"category": category, "completed": completed_by_category.get(category, 0), "total": total}
+            for category, total in sorted(category_totals.items())
+        ],
+        "xp_history": xp_history,
+        "time_daily": time_daily,
+        "recent_attempts": recent_attempts,
+        "feedback": feedback[:75],
+        "parent_xp_actions": parent_actions,
+        "parent_xp_remaining_today": max(0, 5000 - parent_xp_used_today),
+    }
+
+
+@app.get("/api/parent/completions")
+def parent_completions(
+    child_id: Optional[int] = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    parent: dict = Depends(require_parent),
+):
+    """Paginated completed work including submitted solution code."""
+    task_map, _ = _parent_task_catalog()
+    with get_db() as conn:
+        cursor = conn.cursor()
+        child = _parent_child_row(cursor, int(parent["id"]), child_id)
+        uid = int(child["id"])
+        total = cursor.execute(
+            "SELECT COUNT(*) AS count FROM completed_tasks WHERE user_id = ? AND is_valid != 0",
+            (uid,),
+        ).fetchone()["count"]
+        rows = cursor.execute(
+            """
+            SELECT id, task_id, completed_at, solution, xp_earned,
+                   comment_bonus_status, comment_bonus_awarded
+            FROM completed_tasks
+            WHERE user_id = ? AND is_valid != 0
+            ORDER BY completed_at DESC LIMIT ? OFFSET ?
+            """,
+            (uid, limit, offset),
+        ).fetchall()
+        task_texts = task_store.get_task_texts([str(row["task_id"]) for row in rows])
+        completions = []
+        for row in rows:
+            item = dict(row)
+            task = task_map.get(str(item["task_id"]), {})
+            text = task_texts.get(str(item["task_id"]), {})
+            item["task_title"] = task.get("title", item["task_id"])
+            item["category"] = task.get("category", "other")
+            item["tier"] = task.get("tier", "")
+            item["max_xp"] = int(task.get("xp") or 0)
+            item["task_description"] = task.get("description") or text.get("description", "")
+            item["task_story"] = task.get("story") or text.get("story", "")
+            item["solution"] = (item.get("solution") or "")[:12000]
+            item["methods"] = [dict(method) for method in cursor.execute(
+                """
+                SELECT method_index, code_language, solution, xp_earned, created_at
+                FROM task_solution_methods
+                WHERE user_id = ? AND task_id = ? ORDER BY method_index
+                """,
+                (uid, item["task_id"]),
+            ).fetchall()]
+            for method in item["methods"]:
+                method["solution"] = (method.get("solution") or "")[:12000]
+            completions.append(item)
+    return {"completions": completions, "total": int(total), "limit": limit, "offset": offset}
+
+
+PARENT_XP_DAILY_LIMIT = 5000
+
+
+@app.post("/api/parent/xp-action")
+def parent_xp_action(
+    data: ParentXPActionRequest,
+    child_id: Optional[int] = Query(None),
+    parent: dict = Depends(require_parent),
+):
+    """Reward or penalize an assigned child with an auditable daily limit."""
+    delta = int(data.delta_xp or 0)
+    reason_text = (data.reason or "").strip()
+    if delta == 0 or abs(delta) > PARENT_XP_DAILY_LIMIT:
+        raise HTTPException(status_code=400, detail="Изменение XP должно быть от -5000 до 5000 и не равно нулю")
+    if len(reason_text) < 3:
+        raise HTTPException(status_code=400, detail="Укажите причину минимум из 3 символов")
+    reason_text = reason_text[:300]
+
+    with get_db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        cursor = conn.cursor()
+        child = _parent_child_row(cursor, int(parent["id"]), child_id)
+        uid = int(child["id"])
+        used_today = int(cursor.execute(
+            """
+            SELECT COALESCE(SUM(ABS(delta_xp)), 0) AS used
+            FROM parent_xp_actions
+            WHERE parent_id = ? AND date(created_at) = date('now')
+            """,
+            (int(parent["id"]),),
+        ).fetchone()["used"] or 0)
+        if used_today + abs(delta) > PARENT_XP_DAILY_LIMIT:
+            remaining = max(0, PARENT_XP_DAILY_LIMIT - used_today)
+            raise HTTPException(
+                status_code=409,
+                detail=f"Дневной лимит исчерпан. Доступно: {remaining} XP",
+            )
+
+        cursor.execute(
+            """
+            INSERT INTO parent_xp_actions
+                (parent_id, child_id, delta_xp, applied_xp, reason)
+            VALUES (?, ?, ?, 0, ?)
+            """,
+            (int(parent["id"]), uid, delta, reason_text),
+        )
+        action_id = int(cursor.lastrowid)
+        xp_reason = f"parent_adjustment:{action_id}:{reason_text}"
+        before_xp = int(child["xp"] or 0)
+        # Parent adjustments are exact administrative amounts: they must not
+        # inherit guild/event multipliers or trigger rank-milestone bonuses.
+        new_xp = max(0, before_xp + delta)
+        applied = new_xp - before_xp
+        new_level = compute_level(new_xp)
+        cursor.execute(
+            "UPDATE users SET xp = ?, level = ? WHERE id = ?",
+            (new_xp, new_level, uid),
+        )
+        cursor.execute(
+            "INSERT INTO xp_log (user_id, xp_change, reason) VALUES (?, ?, ?)",
+            (uid, applied, xp_reason),
+        )
+        cursor.execute(
+            "UPDATE parent_xp_actions SET applied_xp = ? WHERE id = ?",
+            (applied, action_id),
+        )
+        conn.commit()
+
+    log_security(
+        "PARENT_XP_ACTION",
+        user=parent["username"],
+        details=f"child_id={uid}, requested={delta}, applied={applied}, reason={reason_text}",
+    )
+    return {
+        "action_id": action_id,
+        "requested_xp": delta,
+        "applied_xp": applied,
+        "new_total_xp": new_xp,
+        "new_level": new_level,
+        "remaining_today": max(0, PARENT_XP_DAILY_LIMIT - used_today - abs(delta)),
+    }
+
 @app.delete("/api/admin/users/{user_id}")
 def delete_user(user_id: int, admin: dict = Depends(require_admin)):
     """Delete a user (Admin only)."""
     with get_db() as conn:
         cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM parent_child_links WHERE parent_id = ? OR child_id = ?",
+            (user_id, user_id),
+        )
+        cursor.execute(
+            "DELETE FROM parent_xp_actions WHERE parent_id = ? OR child_id = ?",
+            (user_id, user_id),
+        )
         cursor.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
         cursor.execute("DELETE FROM task_solution_methods WHERE user_id = ?", (user_id,))
         cursor.execute("DELETE FROM completed_tasks WHERE user_id = ?", (user_id,))

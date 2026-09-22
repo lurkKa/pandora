@@ -5697,6 +5697,12 @@
                 authToken = data.token;
                 currentUser = data.user;
 
+                if (currentUser?.role === 'parent') {
+                    localStorage.setItem('parent_token', authToken);
+                    window.location.href = '/parent';
+                    return;
+                }
+
                 localStorage.setItem('auth_token', authToken);
                 localStorage.setItem('api_url', API_URL);
 
@@ -5717,6 +5723,12 @@
 
                 if (res.ok) {
                     currentUser = data;
+                    if (currentUser?.role === 'parent') {
+                        localStorage.setItem('parent_token', authToken);
+                        localStorage.removeItem('auth_token');
+                        window.location.href = '/parent';
+                        return;
+                    }
                     enterApp();
                 } else {
                     localStorage.removeItem('auth_token');
