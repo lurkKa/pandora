@@ -173,11 +173,32 @@ class ParentPanelTests(unittest.TestCase):
         self.assertEqual(data["child"]["id"], 2)
         self.assertEqual(data["summary"]["completed_tasks"], 1)
         self.assertEqual(data["summary"]["time"]["total_seconds"], 3600)
+        self.assertEqual(data["summary"]["dominant_mode"], "tasks")
         self.assertEqual(tasks["completions"][0]["solution"], "print(1)")
         with patch.object(main, "load_tasks", return_value=catalog):
             with self.assertRaises(main.HTTPException) as denied:
                 main.parent_dashboard(3, parent)
         self.assertEqual(denied.exception.status_code, 404)
+
+    def test_alextype_becomes_primary_when_it_has_most_time(self):
+        parent_id = self._create_parent()["id"]
+        parent = {"id": parent_id, "username": "parent_one", "role": "parent"}
+        with main.get_db() as conn:
+            conn.execute(
+                "UPDATE time_tracking SET total_seconds = 5000, task_seconds = 500, alextype_seconds = 4000 WHERE user_id = 2"
+            )
+            conn.execute(
+                "INSERT INTO xp_log (user_id, xp_change, reason) VALUES (2, 240, 'AlexType C (180 символов, 96%)')"
+            )
+            conn.commit()
+        with patch.object(main, "load_tasks", return_value={"tasks": []}):
+            data = main.parent_dashboard(None, parent)
+        alex = data["summary"]["alextype"]
+        self.assertEqual(data["summary"]["dominant_mode"], "alextype")
+        self.assertEqual(alex["time_seconds"], 4000)
+        self.assertEqual(alex["xp"], 240)
+        self.assertEqual(alex["average_accuracy"], 96.0)
+        self.assertEqual(alex["best_level"], "C")
 
     def test_admin_and_parent_can_change_parent_password(self):
         parent_id = self._create_parent()["id"]

@@ -7222,6 +7222,45 @@ def parent_dashboard(
             """,
             (uid,),
         ).fetchone()
+        alextype_logs = cursor.execute(
+            """
+            SELECT xp_change, reason, logged_at
+            FROM xp_log
+            WHERE user_id = ? AND reason LIKE 'AlexType%'
+            ORDER BY logged_at DESC
+            """,
+            (uid,),
+        ).fetchall()
+        level_order = {"D": 1, "C": 2, "B": 3, "A": 4, "S": 5}
+        alex_levels: list[str] = []
+        alex_accuracies: list[int] = []
+        alex_chars = 0
+        for alex_row in alextype_logs:
+            match = re.search(
+                r"AlexType\s+([DCBAS])\s+\((\d+)\s+символов,\s*(\d+)%\)",
+                str(alex_row["reason"] or ""),
+                flags=re.IGNORECASE,
+            )
+            if match:
+                alex_levels.append(match.group(1).upper())
+                alex_chars += int(match.group(2))
+                alex_accuracies.append(int(match.group(3)))
+
+        time_data = dict(time_row)
+        task_seconds = max(0, int(time_data.get("task_seconds") or 0))
+        alextype_seconds = max(0, int(time_data.get("alextype_seconds") or 0))
+        general_seconds = max(
+            0,
+            int(time_data.get("total_seconds") or 0) - task_seconds - alextype_seconds,
+        )
+        mode_times = {
+            "tasks": task_seconds,
+            "alextype": alextype_seconds,
+            "general": general_seconds,
+        }
+        dominant_mode = max(mode_times, key=mode_times.get)
+        if not any(mode_times.values()):
+            dominant_mode = "general"
 
         xp_days = cursor.execute(
             """
@@ -7345,7 +7384,23 @@ def parent_dashboard(
             "streak_days": int(stats_row["streak_days"] or 0) if stats_row else 0,
             "best_streak": int(stats_row["best_streak"] or 0) if stats_row else 0,
             "reviews": dict(review_counts),
-            "time": dict(time_row),
+            "time": time_data,
+            "dominant_mode": dominant_mode,
+            "mode_times": mode_times,
+            "alextype": {
+                "time_seconds": alextype_seconds,
+                "xp": sum(max(0, int(row["xp_change"] or 0)) for row in alextype_logs),
+                "sessions": len(alextype_logs),
+                "characters": alex_chars,
+                "average_accuracy": (
+                    round(sum(alex_accuracies) / len(alex_accuracies), 1)
+                    if alex_accuracies else None
+                ),
+                "best_level": (
+                    max(alex_levels, key=lambda level: level_order.get(level, 0))
+                    if alex_levels else None
+                ),
+            },
         },
         "category_progress": [
             {"category": category, "completed": completed_by_category.get(category, 0), "total": total}
