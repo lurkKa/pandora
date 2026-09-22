@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pandora: Bank Heist</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Nunito:wght@400;700;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--panel:rgba(12,12,20,0.93);--border:#1e1e2e;--accent:#00ff88;--accent2:#ff3366;--accent3:#ffaa00;--text:#e0e0e0;--muted:#777;}
+html,body{background:#05050b;color:var(--text);font-family:'Nunito',sans-serif;overflow:hidden;height:100%;width:100%;}
+canvas#c{position:fixed;inset:0;width:100%;height:100%;z-index:0;display:block;}
+#topBar{position:fixed;top:0;left:0;right:0;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:8px 18px;background:var(--panel);border-bottom:1px solid var(--border);backdrop-filter:blur(10px);}
+#topBar h1{font-size:1.05rem;font-weight:900;background:linear-gradient(135deg,var(--accent),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.backLink{color:var(--muted);text-decoration:none;font:700 .72rem 'Nunito';border:1px solid var(--border);border-radius:7px;padding:5px 8px;transition:.2s;}
+.backLink:hover{color:var(--accent);border-color:var(--accent);}
+.sts{display:flex;gap:16px;font:700 .78rem 'JetBrains Mono',monospace;align-items:center;}
+.st{display:flex;align-items:center;gap:4px;}
+.st i{font-style:normal;font-size:.95rem;}
+.c1{color:var(--accent2);}.c2{color:var(--accent3);}.c3{color:var(--accent);}.c4{color:var(--accent2);}
+#rnd{background:linear-gradient(135deg,#7a3cff,#c04bff);color:#fff;padding:3px 11px;border-radius:20px;font:900 .72rem 'Nunito';box-shadow:0 0 10px rgba(150,70,255,.4);}
+#xpHud{color:var(--accent);max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#locBadge{position:fixed;top:48px;left:16px;z-index:10;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font:700 .82rem 'JetBrains Mono',monospace;color:var(--accent);backdrop-filter:blur(10px);}
+#goal{position:fixed;top:86px;left:16px;z-index:10;max-width:300px;background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--accent3);border-radius:8px;padding:7px 12px;font:600 .74rem/1.4 'Nunito',sans-serif;color:var(--accent3);backdrop-filter:blur(10px);}
+#codePanel{position:fixed;right:0;top:40px;bottom:0;width:390px;z-index:10;display:flex;flex-direction:column;background:var(--panel);border-left:1px solid var(--border);backdrop-filter:blur(12px);}
+#codePanel.off{display:none;}
+#codeToggle{position:fixed;right:10px;top:50px;z-index:11;width:36px;height:36px;background:var(--panel);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.1rem;color:var(--accent);backdrop-filter:blur(10px);}
+.cpHead{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.cpHead h2{font:700 .9rem 'Nunito',sans-serif;color:var(--accent3);}
+.cpHead span{font-size:.65rem;color:var(--muted);}
+.tabRow{display:flex;border-bottom:1px solid var(--border);}
+.tab{flex:1;padding:7px;text-align:center;font:700 .72rem 'Nunito';color:var(--muted);cursor:pointer;background:rgba(0,0,0,.2);transition:all .15s;}
+.tab.on{color:var(--accent);background:rgba(0,255,136,.08);box-shadow:inset 0 -2px 0 var(--accent);}
+#guidePane{padding:10px 12px;overflow-y:auto;flex:1;display:none;}
+#guidePane.on{display:block;}
+.gTitle{font:900 .95rem 'Nunito';color:var(--accent3);margin-bottom:2px;}
+.gBrief{font:.72rem/1.5 'Nunito';color:var(--muted);margin-bottom:10px;border-left:2px solid var(--accent3);padding-left:8px;}
+.gStep{display:flex;gap:8px;align-items:flex-start;padding:5px 7px;margin-bottom:4px;border-radius:6px;background:rgba(255,255,255,.03);font:.72rem/1.4 'Nunito';}
+.gStep.done{opacity:.4;text-decoration:line-through;}
+.gStep.cur{background:rgba(0,255,136,.12);border:1px solid rgba(0,255,136,.35);}
+.gStep .n{min-width:18px;height:18px;border-radius:50%;background:var(--border);color:var(--text);font:700 .62rem 'JetBrains Mono';display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.gStep.done .n{background:var(--accent);color:#000;}
+.gStep.cur .n{background:var(--accent3);color:#000;}
+.gStep code{color:var(--accent);font-family:'JetBrains Mono';font-size:.68rem;}
+.gStep small{display:block;color:var(--muted);font-size:.64rem;}
+.gInsert{width:100%;margin-top:6px;padding:8px;background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.3);border-radius:6px;color:var(--accent);font:700 .74rem 'Nunito';cursor:pointer;}
+.gInsert:hover{background:rgba(0,255,136,.2);}
+#editPane{flex:1;display:flex;flex-direction:column;}
+#editPane.off{display:none;}
+.refBox{padding:6px 10px;background:rgba(0,0,0,.3);font:.62rem/1.6 'JetBrains Mono',monospace;color:var(--muted);overflow-y:auto;max-height:104px;border-bottom:1px solid var(--border);}
+.refBox .c{color:var(--accent);}.refBox .a{color:var(--accent3);}
+#editor{flex:1;padding:10px 12px;font:.78rem/1.7 'JetBrains Mono',monospace;color:var(--accent);background:rgba(0,0,0,.35);border:none;resize:none;outline:none;}
+#editor::placeholder{color:var(--muted);}
+#logBox{max-height:130px;overflow-y:auto;padding:6px 10px;border-top:1px solid var(--border);background:rgba(0,0,0,.25);font:.65rem/1.5 'JetBrains Mono',monospace;}
+#logBox .lt{color:var(--muted);font-weight:700;margin-bottom:4px;}
+.lentry{display:flex;gap:8px;padding:1px 4px;}
+.lentry .ln{color:var(--muted);min-width:22px;}
+.lentry .lc{color:var(--accent);}
+.lentry .lr{color:var(--accent3);}
+.lentry .lr.err{color:var(--accent2);}
+.lentry .lr.ok{color:var(--accent);}
+.btnRow{padding:8px 10px;display:flex;gap:8px;border-top:1px solid var(--border);}
+#btnRun{flex:1;padding:10px 14px;background:linear-gradient(135deg,#00cc6a,#00ff88);color:#000;font:900 .88rem 'Nunito',sans-serif;border:none;border-radius:6px;cursor:pointer;transition:all .15s;}
+#btnRun:hover{box-shadow:0 0 14px rgba(0,255,136,.4);}
+#btnRun:disabled{opacity:.45;cursor:not-allowed;}
+#btnReset{padding:10px 14px;background:rgba(255,51,102,.1);color:var(--accent2);font:700 .78rem 'Nunito',sans-serif;border:1px solid rgba(255,51,102,.3);border-radius:6px;cursor:pointer;}
+#narr{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:10;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 22px;max-width:540px;text-align:center;font:.9rem/1.6 'Nunito',sans-serif;color:var(--text);backdrop-filter:blur(12px);opacity:0;transition:opacity .4s;pointer-events:none;}
+#narr.on{opacity:1;}
+.hl{color:var(--accent3);font-weight:700;}
+#invHud{position:fixed;bottom:16px;left:16px;z-index:10;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:6px 10px;backdrop-filter:blur(10px);display:flex;gap:5px;flex-wrap:wrap;max-width:260px;font:.7rem 'JetBrains Mono',monospace;}
+.invI{background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.3);border-radius:4px;padding:2px 7px;color:var(--accent);}
+#endOvr{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:100;align-items:center;justify-content:center;}
+#endOvr.on{display:flex;}
+#endMdl{background:var(--panel);border:2px solid var(--accent);border-radius:16px;padding:36px;max-width:460px;text-align:center;}
+#endMdl h2{font-size:1.8rem;font-weight:900;margin-bottom:10px;}
+#endMdl.win h2{color:var(--accent3);}
+#endMdl.lose h2{color:var(--accent2);}
+#endMdl p{font-size:.95rem;line-height:1.6;margin-bottom:18px;white-space:pre-line;}
+#endMdl .mbtns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+#endMdl button{padding:12px 24px;background:linear-gradient(135deg,var(--accent),var(--accent3));color:#000;font:900 1rem 'Nunito',sans-serif;border:none;border-radius:8px;cursor:pointer;}
+#btnRestart{background:rgba(255,255,255,.12)!important;color:var(--text)!important;}
+#btnNext{display:none;}
+@media(max-width:760px){
+  #topBar{padding:7px 9px;gap:6px}#topBar h1{display:none}.backLink{padding:4px 6px}.sts{gap:7px;font-size:.67rem}
+  #codePanel{width:min(92vw,390px)}#goal{max-width:calc(100vw - 32px)}#xpHud{max-width:100px}
+}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="topBar">
+  <a class="backLink" href="/" title="Вернуться в Академию">← Pandora</a>
+  <h1>🏦 PANDORA · ОПЕРАЦИЯ «ЗОЛОТОЙ РЕЗЕРВ»</h1>
+  <div class="sts">
+    <span id="rnd">Раунд 1</span>
+    <div class="st" id="xpHud" title="Награда Pandora">⚡ <b>+500 XP</b></div>
+    <div class="st"><i>❤️</i> <b class="c1" id="sH">100</b></div>
+    <div class="st"><i>💰</i> <b class="c2" id="sM">$0</b></div>
+    <div class="st"><i>⏱️</i> <b class="c3" id="sT">25</b></div>
+    <div class="st"><i>🚨</i> <b class="c4" id="sA">0%</b></div>
+  </div>
+</div>
+<div id="locBadge">📍 <b id="locN">Улица</b></div>
+<div id="goal">🎯 <span id="goalT">—</span></div>
+<div id="codeToggle" title="Панель">⌨️</div>
+<div id="codePanel">
+  <div class="cpHead"><h2>🎮 Центр управления</h2><span>Ctrl+Enter = Запуск</span></div>
+  <div class="tabRow"><div class="tab on" id="tabGuide">📖 Гайд</div><div class="tab" id="tabCode">⌨️ Код</div></div>
+  <div id="guidePane" class="on"></div>
+  <div id="editPane" class="off">
+    <div class="refBox">
+      <div><span class="c">move_to</span>(<span class="a">"место"</span>) — улица крыша вход зал коридор хранилище выход</div>
+      <div><span class="c">take</span>(<span class="a">"предмет"</span>) — верёвка маска фонарик ключ дрель мешок</div>
+      <div><span class="c">use</span>(<span class="a">"предмет"</span>) — использовать</div>
+      <div><span class="c">hack</span>(<span class="a">"цель"</span>) — камеры сигнализация замок компьютер</div>
+      <div><span class="c">talk_to</span>(<span class="a">"кто"</span>) — охранник менеджер кассир</div>
+      <div><span class="c">attack</span>(<span class="a">"кто"</span>) — охранник камера</div>
+      <div><span class="c">hide</span>() / <span class="c">wait</span>()</div>
+      <div><span class="c">open</span>(<span class="a">"объект"</span>) — дверь сейф вентиляция</div>
+      <div><span class="c">escape</span>() — сбежать (выход + деньги)</div>
+    </div>
+    <textarea id="editor" placeholder='# Пиши код здесь...' spellcheck="false"></textarea>
+    <div id="logBox"><div class="lt">📋 Лог выполнения</div></div>
+    <div class="btnRow">
+      <button id="btnRun">▶ ВЫПОЛНИТЬ</button>
+      <button id="btnReset">🔄 ЗАНОВО</button>
+    </div>
+  </div>
+</div>
+<div id="narr"></div>
+<div id="invHud"><span style="color:var(--muted);">🎒 пусто</span></div>
+<div id="endOvr"><div id="endMdl"><h2 id="endT"></h2><p id="endP"></p><div class="mbtns"><button id="btnNext">➡️ След. раунд</button><button id="btnRestart">🔄 Заново</button></div></div></div>
+<script>
+
+// ===== PURE-CANVAS FIRST-PERSON ENGINE (no external libs) =====
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+let W=0,H=0,DPR=1,startT=performance.now();
+function resize(){DPR=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;cv.width=W*DPR;cv.height=H*DPR;cv.style.width=W+'px';cv.style.height=H+'px';ctx.setTransform(DPR,0,0,DPR,0,0);}
+resize();addEventListener('resize',resize);
+
+// ===== ROUNDS SYSTEM =====
+const ROUNDS=[
+  {name:'Разведчик',time:25,startAlarm:0,guards:{зал:1,коридор:1},hp:100,desc:'Первая ночь операции. Изучи банк и вынеси учебный слиток.'},
+  {name:'Инсайдер',time:24,startAlarm:10,guards:{зал:1,коридор:1},hp:100,desc:'Служба безопасности заметила следы. Камеры уже настороже.'},
+  {name:'Взломщик',time:23,startAlarm:20,guards:{зал:2,коридор:1},hp:90,desc:'Хранилище перевели на усиленную охрану. Импровизируй.'},
+  {name:'Архитектор',time:22,startAlarm:30,guards:{зал:2,коридор:2},hp:80,desc:'Маршруты патруля изменены. Шумный взлом теперь особенно опасен.'},
+  {name:'Маэстро',time:21,startAlarm:40,guards:{зал:3,коридор:2},hp:70,desc:'Банк ждёт тебя. Победит только чистый и короткий алгоритм.'},
+  {name:'Призрак',time:20,startAlarm:50,guards:{зал:3,коридор:3},hp:60,desc:'Операция засекречена. Не оставь охране ни одного шанса.'},
+  {name:'Тень',time:20,startAlarm:55,guards:{зал:3,коридор:3},hp:50,desc:'Город перекрыт. Любой лишний шаг поднимает тревогу.'},
+  {name:'Фантом',time:20,startAlarm:60,guards:{зал:3,коридор:4},hp:45,desc:'Коридор стал ловушкой. Продумай всю программу заранее.'},
+  {name:'Кошмар',time:20,startAlarm:65,guards:{зал:4,коридор:4},hp:40,desc:'Элитная охрана заняла банк. Ошибка здесь стоит всей операции.'},
+  {name:'Кодовое имя: Пандора',time:20,startAlarm:70,guards:{зал:4,коридор:4},hp:35,desc:'Финал. Последнее хранилище и идеальный алгоритм — войди в легенду.'}
+];
+let roundRewards=[500,1000,1500,2000,2500,3000,3500,4000,4500,5000];
+let currentRound=0;
+let totalScore=0;
+let claimingXP=false;
+
+// render state
+const RS={room:'улица',bob:0,shake:0,hand:null,hp:0,crouch:0,maskOn:false,alarm:0,gFall:0,gGone:{},fwd:0,
+  flash:0,dmg:0,trans:0,transDir:0,breathe:0,swayX:0,swayY:0,heat:0,approach:0,walk:0,walkT:0,walkX:0,step:0};
+// rain drops
+const rain=[];for(let i=0;i<200;i++)rain.push({x:Math.random(),y:Math.random(),l:8+Math.random()*18,sp:0.6+Math.random()*0.9});
+const splashes=[];
+// stars
+const stars=[];for(let i=0;i<140;i++)stars.push({x:Math.random(),y:Math.random()*0.4,s:0.5+Math.random()*1.8,r:0.5+Math.random()*2,tw:Math.random()*7});
+// floating dust motes
+const motes=[];for(let i=0;i<46;i++)motes.push({x:Math.random(),y:Math.random(),r:0.6+Math.random()*2.2,sp:0.15+Math.random()*0.4,ph:Math.random()*7});
+
+// ===== particle system =====
+const PT=[];
+function spawn(x,y,n,opt){opt=opt||{};for(let i=0;i<n;i++){const a=(opt.ang!=null?opt.ang:Math.random()*Math.PI*2)+(Math.random()-0.5)*(opt.spread||6.283);const sp=(opt.sp||2)*(0.4+Math.random()*0.9);PT.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-(opt.up||0),life:1,decay:opt.decay||0.02+Math.random()*0.02,size:(opt.size||3)*(0.5+Math.random()),col:opt.col||'#ffcc44',g:opt.g!=null?opt.g:0.12,glow:opt.glow});}}
+function updateParticles(){for(let i=PT.length-1;i>=0;i--){const p=PT[i];p.x+=p.vx;p.y+=p.vy;p.vy+=p.g;p.vx*=0.98;p.life-=p.decay;if(p.life<=0)PT.splice(i,1);}}
+function drawParticles(){ctx.save();for(const p of PT){const a=Math.max(0,p.life);if(p.glow){ctx.globalAlpha=a*0.45;ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.size*3.4*a,0,7);ctx.fill();}ctx.globalAlpha=a;ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,Math.max(0.5,p.size*a),0,7);ctx.fill();}ctx.globalAlpha=1;ctx.restore();}
+// radial glow helper
+function glow(x,y,r,col,a){const g=ctx.createRadialGradient(x,y,0,x,y,r);const ca=col.replace('rgb','rgba');g.addColorStop(0,ca.replace(')',','+a+')'));g.addColorStop(1,ca.replace(')',',0)'));ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();}
+
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+const THEME={
+  'улица':{out:true},'крыша':{out:true},'выход':{out:true},
+  'вход':{wall:'#2b2f3a',floor:'#20222c',ceil:'#1a1c24',accent:'#00ff88'},
+  'зал':{wall:'#33333f',floor:'#26242c',ceil:'#1d1d26',accent:'#ffaa00'},
+  'коридор':{wall:'#2a2622',floor:'#1c1a18',ceil:'#161412',accent:'#ff3366'},
+  'хранилище':{wall:'#3a3324',floor:'#26221a',ceil:'#1c1912',accent:'#ffd050'}
+};
+
+function drawInterior(room){
+  const th=THEME[room];
+  const vp={x:W/2,y:H*0.44};
+  const bhw=W*0.17,bhh=H*0.17;
+  const L=vp.x-bhw,R=vp.x+bhw,T=vp.y-bhh,B=vp.y+bhh;
+  // ceiling
+  ctx.fillStyle=th.ceil;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(W,0);ctx.lineTo(R,T);ctx.lineTo(L,T);ctx.closePath();ctx.fill();
+  // floor
+  const fg=ctx.createLinearGradient(0,B,0,H);fg.addColorStop(0,th.floor);fg.addColorStop(1,'#0b0b12');
+  ctx.fillStyle=fg;ctx.beginPath();ctx.moveTo(0,H);ctx.lineTo(W,H);ctx.lineTo(R,B);ctx.lineTo(L,B);ctx.closePath();ctx.fill();
+  // left wall
+  ctx.fillStyle=shade(th.wall,-28);ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(L,T);ctx.lineTo(L,B);ctx.lineTo(0,H);ctx.closePath();ctx.fill();
+  // right wall
+  ctx.fillStyle=shade(th.wall,-16);ctx.beginPath();ctx.moveTo(W,0);ctx.lineTo(R,T);ctx.lineTo(R,B);ctx.lineTo(W,H);ctx.closePath();ctx.fill();
+  // back wall
+  ctx.fillStyle=th.wall;ctx.fillRect(L,T,R-L,B-T);
+  // wall trim lines
+  ctx.strokeStyle='rgba(0,0,0,0.35)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(L,T);ctx.moveTo(W,0);ctx.lineTo(R,T);ctx.moveTo(0,H);ctx.lineTo(L,B);ctx.moveTo(W,H);ctx.lineTo(R,B);ctx.stroke();
+  // floor perspective lines
+  ctx.strokeStyle='rgba(255,255,255,0.04)';ctx.lineWidth=1;
+  for(let i=1;i<6;i++){const y=B+(H-B)*(i/6);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  return{L,R,T,B,vp,accent:th.accent};
+}
+function shade(hex,amt){const n=parseInt(hex.slice(1),16);let r=(n>>16)+amt,g=((n>>8)&255)+amt,b=(n&255)+amt;r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));return'rgb('+r+','+g+','+b+')';}
+
+function drawOutdoor(room,t){
+  // sky
+  const sky=ctx.createLinearGradient(0,0,0,H*0.62);sky.addColorStop(0,'#02030a');sky.addColorStop(0.6,'#0a0c1e');sky.addColorStop(1,'#141838');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H*0.62);
+  stars.forEach(s=>{const b=0.4+0.6*Math.abs(Math.sin(t*2+s.x*10));ctx.fillStyle='rgba(255,255,255,'+b+')';ctx.beginPath();ctx.arc(s.x*W,s.y*H,s.r,0,7);ctx.fill();});
+  glow(W*0.82,H*0.13,120,'rgb(200,220,255)',0.12);ctx.fillStyle='#dde8ff';ctx.beginPath();ctx.arc(W*0.82,H*0.13,26,0,7);ctx.fill();
+  ctx.fillStyle='rgba(200,220,255,0.06)';ctx.beginPath();ctx.arc(W*0.82,H*0.13,55,0,7);ctx.fill();
+  // skyline
+  const bs=[[0.02,0.05,0.2],[0.09,0.035,0.28],[0.15,0.06,0.16],[0.24,0.045,0.32],[0.62,0.05,0.3],[0.7,0.06,0.22],[0.78,0.04,0.26],[0.86,0.055,0.32],[0.93,0.05,0.2]];
+  bs.forEach(b=>{const bx=b[0]*W,bw=b[1]*W,bh=b[2]*H*0.5,by=H*0.6-bh;ctx.fillStyle='#0b0c18';ctx.fillRect(bx,by,bw,bh);for(let wy=by+8;wy<by+bh-4;wy+=13)for(let wx=bx+5;wx<bx+bw-5;wx+=9){ctx.fillStyle=Math.sin(t*0.4+wx+wy)>0.2?'rgba(255,200,80,0.6)':'rgba(30,30,50,0.5)';ctx.fillRect(wx,wy,4,6);}});
+  if(room==='улица'){
+    const bx=W*0.3,bw=W*0.4,bh=H*0.34,by=H*0.6-bh;
+    ctx.fillStyle='#14141f';ctx.fillRect(bx,by,bw,bh);
+    for(let i=0;i<6;i++){ctx.fillStyle='#1c1c2c';ctx.fillRect(bx+bw*0.08+i*bw*0.16,by+18,7,bh-18);}
+    ctx.fillStyle='#191926';ctx.beginPath();ctx.moveTo(bx-10,by+18);ctx.lineTo(bx+bw/2,by-22);ctx.lineTo(bx+bw+10,by+18);ctx.closePath();ctx.fill();
+    const g=0.5+0.5*Math.sin(t*2);glow(bx+bw/2,by+bh*0.3+10,90,'rgb(0,255,136)',0.14+g*0.1);ctx.fillStyle='rgba(0,255,136,'+(0.2+g*0.2)+')';ctx.fillRect(bx+bw*0.2,by+bh*0.3,bw*0.6,20);
+    ctx.fillStyle='#00ff88';ctx.font='bold 15px "JetBrains Mono",monospace';ctx.textAlign='center';ctx.fillText('GOLD RESERVE BANK',bx+bw/2,by+bh*0.3+15);
+    ctx.fillStyle='rgba(60,120,160,0.5)';ctx.fillRect(bx+bw/2-28,by+bh-70,56,70);
+    ctx.fillStyle='#0a0a14';ctx.fillRect(0,H*0.6,W,H*0.4);ctx.fillStyle='#15151f';ctx.fillRect(0,H*0.74,W,H*0.09);
+    const pc=W*0.16;ctx.fillStyle='#1a1a2a';ctx.fillRect(pc-28,H*0.7,56,20);ctx.fillStyle='#222';ctx.fillRect(pc-22,H*0.7-9,44,11);
+    const lr=Math.sin(t*6)>0;glow(pc-11,H*0.7-5,30,lr?'rgb(255,40,40)':'rgb(40,80,255)',0.5);glow(pc+11,H*0.7-5,30,lr?'rgb(40,80,255)':'rgb(255,40,40)',0.5);ctx.fillStyle=lr?'#ff2222':'#2244ff';ctx.beginPath();ctx.arc(pc-11,H*0.7-5,5,0,7);ctx.fill();ctx.fillStyle=lr?'#2244ff':'#ff2222';ctx.beginPath();ctx.arc(pc+11,H*0.7-5,5,0,7);ctx.fill();
+  }else if(room==='крыша'){
+    ctx.fillStyle='#111119';ctx.fillRect(0,H*0.58,W,H*0.42);
+    ctx.fillStyle='#181820';ctx.beginPath();ctx.moveTo(0,H);ctx.lineTo(W,H);ctx.lineTo(W*0.72,H*0.58);ctx.lineTo(W*0.28,H*0.58);ctx.closePath();ctx.fill();
+    const vx=W*0.5,vy=H*0.66;ctx.fillStyle='#333';rr(vx-45,vy-30,90,60,6);ctx.fill();ctx.strokeStyle='#555';ctx.lineWidth=2;for(let i=-2;i<=2;i++){ctx.beginPath();ctx.moveTo(vx+i*15,vy-26);ctx.lineTo(vx+i*15,vy+26);ctx.stroke();}
+    ctx.fillStyle='#222';ctx.fillRect(W*0.15,H*0.62,70,45);ctx.fillRect(W*0.72,H*0.62,70,45);
+  }else{
+    ctx.fillStyle='#0a0a14';ctx.fillRect(0,H*0.6,W,H*0.4);
+    ctx.fillStyle='#141420';ctx.fillRect(W*0.1,H*0.2,W*0.25,H*0.42);ctx.fillStyle='#141420';ctx.fillRect(W*0.65,H*0.2,W*0.25,H*0.42);
+    const cx=W*0.5;ctx.fillStyle='#661111';rr(cx-90,H*0.6,180,55,10);ctx.fill();ctx.fillStyle='#801515';rr(cx-55,H*0.6-32,110,38,8);ctx.fill();
+    ctx.fillStyle='#88ccff';rr(cx-45,H*0.6-26,90,26,4);ctx.fill();
+    ctx.fillStyle='#111';ctx.beginPath();ctx.arc(cx-55,H*0.6+55,18,0,7);ctx.arc(cx+55,H*0.6+55,18,0,7);ctx.fill();
+    ctx.fillStyle='#ffcc66';ctx.beginPath();ctx.arc(cx+92,H*0.6+22,7,0,7);ctx.fill();
+  }
+  // rain with wind + splashes
+  ctx.strokeStyle='rgba(150,175,215,0.3)';ctx.lineWidth=1.2;rain.forEach(r=>{r.y+=r.sp*0.016;if(r.y>1){if(Math.random()<0.4)splashes.push({x:r.x,y:0.96+Math.random()*0.03,life:1});r.y=0;r.x=Math.random();}const rx=r.x*W,ry=r.y*H;ctx.beginPath();ctx.moveTo(rx,ry);ctx.lineTo(rx-3.5,ry+r.l);ctx.stroke();});
+  for(let i=splashes.length-1;i>=0;i--){const s=splashes[i];s.life-=0.06;if(s.life<=0){splashes.splice(i,1);continue;}ctx.strokeStyle='rgba(160,185,220,'+(s.life*0.4)+')';ctx.lineWidth=1;ctx.beginPath();ctx.arc(s.x*W,s.y*H,(1-s.life)*7,Math.PI,2*Math.PI);ctx.stroke();}
+}
+
+function drawProps(room,g,t){
+  const{L,R,T,B,vp,accent}=g;
+  if(room==='вход'){
+    ctx.fillStyle='rgba(70,130,170,0.4)';ctx.fillRect(vp.x-38,T+12,76,B-T-14);
+    ctx.strokeStyle='#5a8';ctx.lineWidth=2;ctx.strokeRect(vp.x-38,T+12,76,B-T-14);ctx.beginPath();ctx.moveTo(vp.x,T+12);ctx.lineTo(vp.x,B-2);ctx.stroke();
+    [-1,1].forEach(s=>{const cx=vp.x+s*bhwFix(0.13);const cy=T-6;ctx.fillStyle='#333';rr(cx-14,cy-8,28,14,3);ctx.fill();ctx.fillStyle=Math.sin(t*3)>0?'#f33':'#800';ctx.beginPath();ctx.arc(cx,cy-1,3,0,7);ctx.fill();});
+    ctx.fillStyle=accent;ctx.font='11px "JetBrains Mono"';ctx.textAlign='center';ctx.fillText('▸ ВХОД ▸',vp.x,T+2);
+  }else if(room==='зал'){
+    ctx.fillStyle='#3a2c1c';ctx.fillRect(L+10,B-30,R-L-20,26);ctx.fillStyle='#241a10';ctx.fillRect(L+10,B-8,R-L-20,10);
+    const cx=vp.x+90,cy=B-58;ctx.fillStyle='#111';rr(cx-24,cy-18,48,34,3);ctx.fill();ctx.fillStyle='rgba(0,255,136,'+(0.5+0.5*Math.sin(t*4))+')';ctx.fillRect(cx-20,cy-14,40,26);ctx.fillStyle='#003';ctx.font='7px monospace';for(let i=0;i<3;i++)ctx.fillText('01001',cx,cy-6+i*8);
+    ctx.fillStyle='#888';ctx.fillText('💻',cx,cy+30);
+    ctx.fillStyle='rgba(255,200,120,0.5)';ctx.beginPath();ctx.arc(vp.x,T-2,8,0,7);ctx.fill();
+  }else if(room==='коридор'){
+    ctx.fillStyle='#4a4033';ctx.beginPath();ctx.arc(vp.x,vp.y,Math.min(R-L,B-T)*0.55,0,7);ctx.fill();
+    ctx.strokeStyle='#6a5';ctx.lineWidth=4;ctx.beginPath();ctx.arc(vp.x,vp.y,Math.min(R-L,B-T)*0.4,0,7);ctx.stroke();
+    ctx.fillStyle='#888';ctx.beginPath();ctx.arc(vp.x,vp.y,10,0,7);ctx.fill();
+    ctx.fillStyle='#200';rr(L-2,vp.y-20,30,40,3);ctx.fill();ctx.fillStyle=Math.sin(t*5)>0?'#f33':'#500';ctx.beginPath();ctx.arc(L+13,vp.y-6,5,0,7);ctx.fill();
+    ctx.fillStyle='#f66';ctx.font='9px monospace';ctx.textAlign='center';ctx.fillText('🚨',L+13,vp.y+14);
+    ctx.fillStyle='#444';ctx.fillRect(vp.x-22,T-2,44,10);ctx.strokeStyle='#666';for(let i=-2;i<=2;i++){ctx.beginPath();ctx.moveTo(vp.x+i*8,T-1);ctx.lineTo(vp.x+i*8,T+7);ctx.stroke();}
+    ctx.fillStyle='#faa';ctx.fillText('🌀',vp.x,T+18);
+  }else if(room==='хранилище'){
+    const sw=(R-L)*0.7,sx=vp.x-sw/2,sy=T+10,shh=(B-T)*0.8;
+    ctx.fillStyle='#8a7340';ctx.fillRect(sx,sy,sw,shh);ctx.strokeStyle='#c9a54a';ctx.lineWidth=3;ctx.strokeRect(sx,sy,sw,shh);
+    ctx.strokeStyle='#5a4a20';ctx.lineWidth=2;ctx.beginPath();ctx.arc(vp.x,sy+shh/2,shh*0.28,0,7);ctx.stroke();
+    ctx.fillStyle=G&&G.f&&G.f.safeOpen?'#ffe27a':'#3a2f14';ctx.beginPath();ctx.arc(vp.x,sy+shh/2,10,0,7);ctx.fill();
+    if(G&&G.f&&G.f.safeOpen){glow(vp.x,sy+shh/2,shh*0.35,'rgb(255,215,80)',0.2);ctx.fillStyle='rgba(255,215,80,0.25)';ctx.beginPath();ctx.arc(vp.x,sy+shh/2,shh*0.3,0,7);ctx.fill();}
+    for(let i=0;i<4;i++){ctx.fillStyle='#c9a54a';ctx.fillRect(L+20+i*26,B+6,20,10);ctx.fillStyle='#e0c060';ctx.fillRect(L+20+i*26,B+2,20,5);}
+  }
+}
+function bhwFix(f){return W*f;}
+const ITEM_EMOJI={'верёвка':'🧶','маска':'🎭','фонарик':'🔦','ключ':'🗝️','дрель':'🔧','мешок':'💰'};
+function drawItems(room,t){
+  const list=(G&&G.world&&G.world[room])?G.world[room]:[];
+  if(!list.length)return;
+  const baseY=H*0.6;
+  list.forEach((name,i)=>{
+    const x=W*0.5+(i-(list.length-1)/2)*W*0.14;
+    const y=baseY+Math.sin(t*2+i)*6;
+    glow(x,y,58,'rgb(0,255,136)',0.18+0.1*Math.sin(t*3+i));
+    ctx.save();ctx.globalAlpha=0.10;ctx.fillStyle='#00ff88';ctx.beginPath();ctx.moveTo(x-10,y);ctx.lineTo(x+10,y);ctx.lineTo(x+26,H);ctx.lineTo(x-26,H);ctx.closePath();ctx.fill();ctx.restore();
+    ctx.strokeStyle='rgba(0,255,136,'+(0.3+0.25*Math.sin(t*3+i))+')';ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,26,0,7);ctx.stroke();
+    ctx.fillStyle='rgba(0,255,136,0.12)';ctx.beginPath();ctx.arc(x,y,26,0,7);ctx.fill();
+    ctx.font='30px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(ITEM_EMOJI[name]||'📦',x,y);
+    ctx.fillStyle='#9fe';ctx.font='11px "JetBrains Mono"';ctx.textBaseline='alphabetic';ctx.fillText(name,x,y+42);
+  });
+}
+function drawGuard(room,t){
+  if(!(room==='зал'||room==='коридор'))return;
+  if(RS.gGone[room])return;
+  const n=(G&&G.guards&&G.guards[room])?G.guards[room]:1;
+  const base=room==='зал'?0.30:0.58;
+  for(let gi=0;gi<n;gi++){
+    const x=W*(base+gi*0.11);const gy=H*0.66;
+    ctx.save();ctx.translate(x,gy);
+    if(RS.gFall>0){ctx.rotate(RS.gFall*(1.2-gi*0.15));ctx.translate(0,RS.gFall*46);ctx.globalAlpha=1-RS.gFall*0.4;}
+    const sway=Math.sin(t*1.5+gi)*3;
+    ctx.fillStyle='#2e4a2e';rr(-20,-66+sway,40,74,10);ctx.fill();
+    ctx.fillStyle='#ddb894';ctx.beginPath();ctx.arc(0,-82,16,0,7);ctx.fill();
+    ctx.fillStyle='#132';rr(-18,-96,36,11,4);ctx.fill();
+    glow(12,-48,12,'rgb(255,204,0)',0.35);ctx.fillStyle='#ffcc00';ctx.fillRect(12,-48,9,7);
+    ctx.fillStyle='#1a2a1a';ctx.fillRect(-20,8,16,32);ctx.fillRect(4,8,16,32);
+    if(RS.gFall<0.3){const eo=Math.sin(t*0.7+gi)*2;ctx.fillStyle='#222';ctx.beginPath();ctx.arc(-5-eo,-84,2.2,0,7);ctx.fill();ctx.beginPath();ctx.arc(5-eo,-84,2.2,0,7);ctx.fill();}
+    ctx.restore();
+  }
+  const lx=W*(base+(n-1)*0.055);
+  ctx.fillStyle='#8a8';ctx.font='12px "JetBrains Mono"';ctx.textAlign='center';ctx.fillText(n>1?('👮×'+n+' Охрана'):'👮 Охранник',lx,gy+62);
+}
+
+function forearm(bx,by,hx,hy,w,col){
+  const dx=hx-bx,dy=hy-by,len=Math.hypot(dx,dy)||1,nx=-dy/len*w,ny=dx/len*w;
+  ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(bx+nx*1.3,by+ny*1.3);ctx.lineTo(bx-nx*1.3,by-ny*1.3);ctx.lineTo(hx-nx,hy-ny);ctx.lineTo(hx+nx,hy+ny);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#e0bd97';ctx.beginPath();ctx.arc(hx,hy,w*1.15,0,7);ctx.fill();
+}
+function drawHands(t){
+  const p=RS.hp,act=RS.hand,br=Math.sin(t*1.5)*4+RS.breathe*2,sx=RS.swayX,sy=RS.swayY;
+  let lh={x:W*0.36+sx,y:H*0.82+br+sy},rh={x:W*0.64+sx,y:H*0.82+br+sy},tool=false;
+  const arc=Math.sin(Math.min(p,1)*Math.PI);
+  // approach offset: hands drift forward/up as approach grows
+  const ao=RS.approach;
+  if(act==='take'){rh.x=W*0.5;rh.y=H*0.66-arc*30;}
+  else if(act==='mask'){lh.y=H*0.55-arc*40;rh.y=H*0.55-arc*40;lh.x=W*0.42;rh.x=W*0.58;}
+  else if(act==='climb'){lh.y=H*0.5-Math.abs(Math.sin(p*Math.PI*4))*40;rh.y=H*0.5+Math.abs(Math.sin(p*Math.PI*4))*40;lh.x=W*0.4;rh.x=W*0.6;}
+  else if(act==='drill'){rh.x=W*0.5;rh.y=H*0.6;tool=true;}
+  else if(act==='scoop'){lh.y=H*0.72-arc*20;rh.y=H*0.72-arc*20;lh.x=W*0.45;rh.x=W*0.55;}
+  else if(act==='key'){rh.x=W*0.5;rh.y=H*0.62;}
+  else if(act==='flash'){rh.x=W*0.5;rh.y=H*0.6;}
+  else if(act==='hack'){lh.x=W*0.44;rh.x=W*0.56;lh.y=H*0.68+Math.sin(p*Math.PI*14)*8;rh.y=H*0.68+Math.sin(p*Math.PI*14+1)*8;}
+  else if(act==='talk'){rh.y=H*0.72+Math.sin(p*Math.PI*4)*20;}
+  else if(act==='punch'){const q=p<0.4?p/0.4:1-(p-0.4)/0.6;rh.x=W*0.5+ao*W*0.12;rh.y=H*0.82-q*(H*0.32);}
+  else if(act==='open'){lh.x=W*0.44;rh.x=W*0.56;lh.y=H*0.66-arc*20;rh.y=H*0.66-arc*20;}
+  else if(act==='walk'){const s=Math.sin(RS.walkT),w=RS.walk;
+    lh.x=W*0.30+sx-s*W*0.045*w; lh.y=H*0.82+br+sy-s*44*w;
+    rh.x=W*0.70+sx+s*W*0.045*w; rh.y=H*0.82+br+sy+s*44*w;}
+  forearm(W*0.2,H+20,lh.x,lh.y,22,'#161616');
+  forearm(W*0.8,H+20,rh.x,rh.y,22,'#161616');
+  if(tool){const jt=Math.sin(t*40)*2;ctx.save();ctx.translate(jt,0);ctx.fillStyle='#454a58';rr(rh.x-16,rh.y-32,32,30,4);ctx.fill();ctx.fillStyle='#6a7182';rr(rh.x-6,rh.y-40,12,12,2);ctx.fill();ctx.fillStyle='#cdd';ctx.fillRect(rh.x-2,rh.y-46,4,8);ctx.restore();
+    if(RS.hp>0.15){glow(rh.x,rh.y-46,34,'rgb(255,180,60)',0.5);}}
+  if(act==='flash'){const fl=0.28+0.12*Math.sin(t*30)+0.06*Math.random();const cx=W/2,cy=H*0.46;
+    ctx.save();const grd=ctx.createRadialGradient(rh.x,rh.y-34,6,cx,cy,H*0.55);grd.addColorStop(0,'rgba(255,255,210,'+fl+')');grd.addColorStop(0.5,'rgba(255,250,190,'+(fl*0.4)+')');grd.addColorStop(1,'transparent');ctx.fillStyle=grd;
+    ctx.beginPath();ctx.moveTo(rh.x,rh.y-34);ctx.lineTo(cx-W*0.32,cy);ctx.lineTo(cx+W*0.32,cy);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.arc(cx,cy,H*0.3,0,7);ctx.fill();ctx.restore();
+    ctx.fillStyle='rgba(255,255,220,0.9)';ctx.beginPath();ctx.arc(rh.x,rh.y-34,5,0,7);ctx.fill();}
+  if(act==='punch'&&p>0.35&&p<0.62){const q=(p-0.35)/0.27;ctx.strokeStyle='rgba(255,255,255,'+(0.6*(1-q))+')';ctx.lineWidth=4*(1-q)+1;ctx.beginPath();ctx.arc(W*0.42,H*0.5,20+q*70,0,7);ctx.stroke();ctx.fillStyle='rgba(255,240,180,'+(0.3*(1-q))+')';ctx.beginPath();ctx.arc(W*0.42,H*0.5,18,0,7);ctx.fill();}
+}
+function drawMotes(t){ctx.save();for(const m of motes){m.y-=m.sp*0.0016;m.x+=Math.sin(t*0.5+m.ph)*0.0004;if(m.y<0){m.y=1;m.x=Math.random();}const a=0.10+0.10*Math.sin(t*1.3+m.ph);ctx.fillStyle='rgba(200,220,255,'+a+')';ctx.beginPath();ctx.arc(m.x*W,m.y*H,m.r,0,7);ctx.fill();}ctx.restore();}
+function drawOverlays(t){
+  // scanlines
+  ctx.fillStyle='rgba(0,0,0,0.045)';for(let y=0;y<H;y+=3)ctx.fillRect(0,y,W,1);
+  // film grain
+  ctx.save();ctx.globalAlpha=0.05;for(let i=0;i<70;i++){ctx.fillStyle=Math.random()>0.5?'#fff':'#000';ctx.fillRect(Math.random()*W,Math.random()*H,1.4,1.4);}ctx.restore();
+  // vignette
+  const vig=ctx.createRadialGradient(W/2,H/2,H*0.22,W/2,H/2,H*0.9);vig.addColorStop(0,'transparent');vig.addColorStop(0.7,'rgba(0,0,0,0.28)');vig.addColorStop(1,'rgba(0,0,0,0.78)');ctx.fillStyle=vig;ctx.fillRect(0,0,W,H);
+  // damage red
+  if(RS.dmg>0.02){const d=ctx.createRadialGradient(W/2,H/2,H*0.2,W/2,H/2,H*0.75);d.addColorStop(0,'transparent');d.addColorStop(1,'rgba(220,20,40,'+(RS.dmg*0.8)+')');ctx.fillStyle=d;ctx.fillRect(0,0,W,H);}
+  // flash
+  if(RS.flash>0.02){ctx.fillStyle='rgba(255,255,255,'+(RS.flash*0.55)+')';ctx.fillRect(0,0,W,H);}
+  // mask
+  if(RS.maskOn){const m=ctx.createRadialGradient(W/2,H/2-H*0.02,H*0.16,W/2,H/2,H*0.5);m.addColorStop(0,'transparent');m.addColorStop(0.62,'rgba(0,0,0,0.55)');m.addColorStop(1,'rgba(0,0,0,0.96)');ctx.fillStyle=m;ctx.fillRect(0,0,W,H);}
+  // alarm
+  if(RS.alarm>=70){const pulse=0.05+0.07*Math.abs(Math.sin(t*7));ctx.fillStyle='rgba(255,40,80,'+pulse+')';ctx.fillRect(0,0,W,H);ctx.fillStyle='rgba(255,30,60,'+(0.12+0.12*Math.abs(Math.sin(t*7)))+')';ctx.fillRect(0,0,W,10);ctx.fillRect(0,H-10,W,10);}
+  // dynamic crosshair
+  const act=RS.hand?1:0;const gap=9+act*6+RS.hp*4;const cc=RS.hand?'rgba(255,170,0,0.9)':'rgba(0,255,136,0.65)';
+  ctx.strokeStyle=cc;ctx.lineWidth=2;ctx.beginPath();
+  ctx.moveTo(W/2-gap,H/2);ctx.lineTo(W/2-gap+7,H/2);ctx.moveTo(W/2+gap,H/2);ctx.lineTo(W/2+gap-7,H/2);
+  ctx.moveTo(W/2,H/2-gap);ctx.lineTo(W/2,H/2-gap+7);ctx.moveTo(W/2,H/2+gap);ctx.lineTo(W/2,H/2+gap-7);ctx.stroke();
+  ctx.fillStyle=cc;ctx.beginPath();ctx.arc(W/2,H/2,1.4,0,7);ctx.fill();
+}
+
+let _bob=0;
+function drawFrame(){
+  requestAnimationFrame(drawFrame);
+  const t=(performance.now()-startT)/1000;
+  RS.flash*=0.90;RS.dmg*=0.92;RS.heat*=0.9;
+  RS.breathe=Math.sin(t*1.4)*1;
+  RS.swayX=Math.sin(t*0.9)*6;RS.swayY=Math.cos(t*0.7)*4;
+  updateParticles();
+  ctx.clearRect(0,0,W,H);
+  ctx.save();
+  const sh=RS.shake;
+  // camera zoom: breathing + heat + APPROACH (steps toward target)
+  const scale=1+RS.breathe*0.002+RS.heat*0.01+RS.approach*0.30;
+  // zoom origin drifts to the target ahead (back wall) while approaching
+  const oy=H/2-RS.approach*(H*0.06);
+  ctx.translate(W/2,oy);ctx.scale(scale,scale);ctx.translate(-W/2,-oy);
+  // walking bob is stronger the closer we get
+  ctx.translate((Math.random()-0.5)*sh+RS.swayX*0.4+RS.walkX,(Math.random()-0.5)*sh+RS.bob+RS.breathe*2+RS.crouch*120+RS.swayY*0.3-RS.approach*10);
+  if(THEME[RS.room].out){drawOutdoor(RS.room,t);}else{const g=drawInterior(RS.room);drawProps(RS.room,g,t);}
+  drawItems(RS.room,t);
+  drawGuard(RS.room,t);
+  if(!THEME[RS.room].out)drawMotes(t);
+  drawParticles();
+  ctx.restore();
+  drawHands(t);
+  drawOverlays(t);
+  // transition wipe
+  if(RS.trans>0.001){RS.trans*=0.90;const a=RS.trans;ctx.fillStyle='rgba(0,0,0,'+a+')';ctx.fillRect(0,0,W,H);
+    ctx.save();ctx.globalAlpha=a*0.5;ctx.strokeStyle='rgba(0,255,136,0.5)';ctx.lineWidth=2;for(let i=0;i<14;i++){const yy=(i/14)*H;ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(W*(1-a),yy);ctx.stroke();}ctx.restore();}
+}
+
+// ===== animation queue =====
+let animQueue=[],animRunning=false;
+function ease(t){return t<0.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;}
+function tween(dur,fn,cb){const st=performance.now();const loop=()=>{const el=performance.now()-st;let p=Math.min(el/dur,1);fn(p);if(el<dur)requestAnimationFrame(loop);else if(cb)cb();};requestAnimationFrame(loop);}
+function pump(){if(animQueue.length>0&&!animRunning)runAnim(animQueue.shift());}
+function runAnim(a){
+  animRunning=true;RS.hp=0;RS.approach=0;
+  const done=()=>{RS.hand=null;RS.shake=0;RS.bob=0;RS.crouch=0;RS.approach=0;RS.walk=0;RS.walkX=0;RS.walkT=0;animRunning=false;pump();};
+  if(a.type==='move'){
+    let switched=false;RS.trans=0.85;RS.hand='walk';
+    tween(a.dur||1200,p=>{RS.hp=p;
+      const ph=p*Math.PI*8;RS.walkT=ph;const inten=Math.min(1,Math.sin(p*Math.PI)*1.8);RS.walk=inten;
+      RS.bob=Math.abs(Math.sin(ph))*16*inten;         // footstep vertical bob
+      RS.walkX=Math.sin(ph*0.5)*15*inten;             // side-to-side sway (figure-8)
+      RS.approach=ease(p);
+      if(p>=0.5&&!switched){switched=true;RS.room=a.to;RS.trans=0.85;RS.approach=0;}
+    },()=>{RS.room=a.to;done();});
+  }
+  else if(a.type==='take'){RS.hand='take';tween(800,p=>{RS.hp=p;RS.approach=ease(p);},done);}
+  else if(a.type==='use'){
+    if(a.item==='маска'){RS.hand='mask';tween(950,p=>{RS.hp=p;RS.approach=ease(p);if(p>0.6)RS.maskOn=true;},done);}
+    else if(a.item==='верёвка'){RS.hand='climb';let sw=false;tween(1600,p=>{RS.hp=p;RS.bob=Math.sin(p*Math.PI*8)*6;RS.approach=ease(p);if(p>=0.7&&!sw){sw=true;RS.room='крыша';}},()=>{RS.room='крыша';done();});}
+    else if(a.item==='дрель'){RS.hand='drill';tween(1600,p=>{RS.hp=p;RS.shake=5+Math.sin(p*Math.PI*20)*3;RS.heat=0.4;RS.approach=ease(p);if(Math.random()<0.7)spawn(W*0.5,H*0.5,3,{ang:-Math.PI/2,spread:2.2,sp:5,col:Math.random()>0.4?'#ffcc33':'#ff8822',size:2.2,decay:0.05,g:0.3,glow:true});},done);}
+    else if(a.item==='мешок'){RS.hand='scoop';tween(1300,p=>{RS.hp=p;RS.approach=ease(p);if(Math.random()<0.6)spawn(W*0.5+(Math.random()-0.5)*160,H*0.62,2,{ang:-Math.PI/2,spread:1.2,sp:3,up:2,col:Math.random()>0.5?'#ffe27a':'#ffd050',size:2.5,decay:0.03,g:0.05,glow:true});},done);}
+    else if(a.item==='ключ'){RS.hand='key';tween(900,p=>{RS.hp=p;RS.approach=ease(p);},done);}
+    else if(a.item==='фонарик'){RS.hand='flash';tween(900,p=>{RS.hp=p;RS.approach=ease(p);},done);}
+    else{RS.hand='take';tween(700,p=>{RS.hp=p;RS.approach=ease(p);},done);}
+  }
+  else if(a.type==='hack'){RS.hand='hack';tween(1500,p=>{RS.hp=p;RS.approach=ease(p);if(Math.random()<0.4)spawn(W*0.5+(Math.random()-0.5)*120,H*0.5,1,{ang:-Math.PI/2,spread:0.4,sp:2.5,up:1,col:'#00ff88',size:2,decay:0.03,g:-0.02,glow:true});},done);}
+  else if(a.type==='talk'){RS.hand='talk';tween(1000,p=>{RS.hp=p;RS.approach=ease(p);},done);}
+  else if(a.type==='attack'){
+    RS.hand='punch';
+    // 3-phase realistic knockout: approach → impact → guard falls
+    let phase=0,hit=false;
+    tween(1200,p=>{
+      if(p<0.35){
+        // Phase 1: sneaking closer
+        RS.hp=p/0.35;RS.approach=ease(p/0.35);
+      }else if(p<0.55){
+        // Phase 2: IMPACT
+        const ip=(p-0.35)/0.20;
+        if(!hit){hit=true;RS.flash=0.7;RS.heat=0.35;RS.dmg=0.3;spawn(W*0.42,H*0.5,18,{sp:6,col:'#fff',size:2.6,decay:0.04,g:0.2});spawn(W*0.42,H*0.5,10,{sp:4,col:'#ffbb44',size:2,decay:0.05,g:0.2,glow:true});}
+        RS.shake=12*(1-ip);RS.hp=0.35+ip*0.2;
+      }else{
+        // Phase 3: guard crumbles, you steady
+        const fp=(p-0.55)/0.45;
+        RS.shake=0;RS.hp=0.55+fp*0.45;RS.approach=1-fp*0.5;
+      }
+    },()=>{
+      if(a.guard){RS.gFall=0;const gs=performance.now();const gt=()=>{const el=performance.now()-gs;let q=Math.min(el/700,1);RS.gFall=q;if(el<700)requestAnimationFrame(gt);else{RS.gGone[a.guard]=true;RS.gFall=0;}};requestAnimationFrame(gt);}
+      done();
+    });
+  }
+  else if(a.type==='hide'){tween(900,p=>{RS.crouch=Math.sin(p*Math.PI)*1;RS.approach=ease(p)*0.5;},()=>{RS.crouch=0;done();});}
+  else if(a.type==='open'){RS.hand='open';tween(1100,p=>{RS.hp=p;RS.approach=ease(p);},done);}
+  else if(a.type==='escape'){let sw=false;RS.trans=0.85;RS.hand='walk';tween(1900,p=>{RS.hp=p;RS.walkT=p*Math.PI*16;RS.walk=1;RS.bob=Math.abs(Math.sin(p*Math.PI*12))*16;RS.walkX=Math.sin(p*Math.PI*8)*10;RS.heat=0.2;RS.approach=ease(p);if(p>=0.5&&!sw){sw=true;RS.room='выход';RS.trans=0.85;spawn(W*0.5,H*0.6,26,{sp:5,col:'#ffe27a',size:2.5,decay:0.02,g:0.05,glow:true});}},()=>{RS.room='выход';done();});}
+  else{done();}
+}
+
+// ===== GAME LOGIC =====
+let G={};
+function buildG0(round){
+  const r=ROUNDS[round];
+  return{loc:'улица',hp:r.hp,money:0,time:r.time,alarm:r.startAlarm,inv:[],
+    f:{maskOn:false,camOff:false,almOff:false,doorUnlocked:false,ventOpen:false,guardDown:false,mgrTalk:false,mgrDist:false,pcHack:false,ropeUsed:false,drillUsed:false,flashUsed:false,bagFull:false,safeOpen:false,escaped:false,over:false},
+    world:{'улица':['верёвка'],'крыша':[],'вход':['маска'],'зал':['ключ'],'коридор':['фонарик'],'хранилище':['дрель','мешок'],'выход':[]},
+    guards:Object.assign({},r.guards)};
+}
+function initG(){G=JSON.parse(JSON.stringify(buildG0(currentRound)));}
+function parseLine(l){l=l.trim();if(!l||l.startsWith('#'))return null;const m=l.match(/^(\w+)\(?\s*"?([^"\)\s]*)"?\s*\)?$/);if(!m)return null;return{cmd:m[1],arg:m[2]||''};}
+function mv(to,dur){return{type:'move',to:to,dur:dur||1200};}
+function exec(p){
+  if(!p)return{ok:true,msg:''};const{cmd,arg:a}=p;
+  switch(cmd){
+  case'move_to':{
+    const ok={'улица':['крыша','вход'],'крыша':['улица','зал'],'вход':['улица','зал'],'зал':['вход','крыша','коридор','выход'],'коридор':['зал','хранилище'],'хранилище':['коридор'],'выход':['зал']};
+    const fr=G.loc,to=a;
+    if(!ok[fr])return{ok:false,msg:'❌ Нельзя из "'+fr+'"'};
+    if(!ok[fr].includes(to))return{ok:false,msg:'❌ "'+fr+'" → "'+to+'" нельзя. Доступно: '+ok[fr].join(', ')};
+    if(to==='зал'&&fr==='крыша'){G.time-=1;G.loc=to;return{ok:true,msg:'🧗 Спустился в зал через люк!',success:true,a:mv(to,1500)};}
+    if(to==='зал'&&fr==='вход'&&!G.f.maskOn&&!G.f.camOff){G.alarm+=15;G.time-=1;G.loc=to;return{ok:true,msg:'⚠️ Без маски! Камеры видят лицо! +15%',warn:true,a:mv(to,1400)};}
+    if(to==='коридор'&&fr==='зал'&&G.guards['зал']>0&&!G.f.mgrDist&&!G.f.guardDown){G.alarm+=25;G.hp-=15;G.time-=2;G.loc=to;RS.dmg=1;RS.flash=0.4;return{ok:true,msg:'⛔ Охранник ударил! -15HP +25%',warn:true,a:mv(to,1500)};}
+    if(to==='хранилище'&&!G.f.doorUnlocked&&!G.f.ventOpen){G.time-=1;return{ok:false,msg:'❌ Дверь заперта! Нужен ключ или вентиляция.'};}
+    if(to==='хранилище'&&G.f.doorUnlocked){G.time-=1;G.loc=to;return{ok:true,msg:'🔓 Вошёл через дверь!',success:true,a:mv(to,1200)};}
+    if(to==='хранилище'&&G.f.ventOpen){G.time-=2;G.loc=to;return{ok:true,msg:'🌀 Через вентиляцию!',success:true,a:mv(to,1500)};}
+    G.time-=1;G.loc=to;return{ok:true,msg:'🚶 "'+fr+'" → "'+to+'"',a:mv(to,1200)};
+  }
+  case'take':{
+    const ih=G.world[G.loc]||[];
+    if(!ih.includes(a)){if(G.inv.includes(a))return{ok:false,msg:'❌ Уже есть "'+a+'"'};return{ok:false,msg:'❌ Нет "'+a+'" тут. Есть: '+(ih.length?ih.join(', '):'ничего')};}
+    G.inv.push(a);G.world[G.loc]=ih.filter(i=>i!==a);G.time-=0.5;return{ok:true,msg:'✅ Взял "'+a+'"',success:true,a:{type:'take',item:a}};
+  }
+  case'use':{
+    if(!G.inv.includes(a))return{ok:false,msg:'❌ Нет "'+a+'"'};
+    if(a==='маска'){G.f.maskOn=true;G.inv=G.inv.filter(i=>i!=='маска');return{ok:true,msg:'🎭 Маска надета!',success:true,a:{type:'use',item:'маска'}};}
+    if(a==='верёвка'&&G.loc==='улица'){G.f.ropeUsed=true;G.inv=G.inv.filter(i=>i!=='верёвка');G.loc='крыша';return{ok:true,msg:'🧗 На крыше!',success:true,a:{type:'use',item:'верёвка'}};}
+    if(a==='верёвка')return{ok:false,msg:'❌ Верёвка — только на улице'};
+    if(a==='фонарик'&&G.loc==='коридор'){G.f.flashUsed=true;return{ok:true,msg:'🔦 Вентиляция видна!',success:true,a:{type:'use',item:'фонарик'}};}
+    if(a==='фонарик')return{ok:true,msg:'🔦 Включён.',a:{type:'use',item:'фонарик'}};
+    if(a==='ключ'&&G.loc==='коридор'){G.f.doorUnlocked=true;G.inv=G.inv.filter(i=>i!=='ключ');return{ok:true,msg:'🗝️ Дверь открыта!',success:true,a:{type:'use',item:'ключ'}};}
+    if(a==='ключ')return{ok:false,msg:'❌ Ключ — только в коридоре'};
+    if(a==='дрель'&&G.loc==='хранилище'&&!G.f.safeOpen){G.f.drillUsed=true;G.f.safeOpen=true;G.alarm+=20;G.time-=3;G.inv=G.inv.filter(i=>i!=='дрель');return{ok:true,msg:'🔧 Сейф вскрыт! Шум! +20%',success:true,warn:true,a:{type:'use',item:'дрель'}};}
+    if(a==='дрель')return{ok:false,msg:'❌ Дрель — только в хранилище'};
+    if(a==='мешок'&&G.loc==='хранилище'&&G.f.safeOpen&&!G.f.bagFull){G.f.bagFull=true;G.money+=1000000;G.inv=G.inv.filter(i=>i!=='мешок');G.time-=2;return{ok:true,msg:'💰 +$1,000,000!',success:true,a:{type:'use',item:'мешок'}};}
+    if(a==='мешок'&&!G.f.safeOpen)return{ok:false,msg:'❌ Сейф закрыт!'};
+    if(a==='мешок'&&G.f.bagFull)return{ok:false,msg:'❌ Мешок полон!'};
+    return{ok:false,msg:'❌ Не знаю как "'+a+'"'};
+  }
+  case'hack':{
+    if(a==='камеры'&&G.loc==='вход'){if(G.f.camOff)return{ok:false,msg:'❌ Уже'};G.f.camOff=true;G.alarm+=5;G.time-=2;return{ok:true,msg:'💻 Камеры отключены! +5%',success:true,a:{type:'hack'}};}
+    if(a==='камеры')return{ok:false,msg:'❌ Камеры — из входа'};
+    if(a==='сигнализация'&&G.loc==='коридор'){if(G.f.almOff)return{ok:false,msg:'❌ Уже'};G.f.almOff=true;G.alarm=Math.max(0,G.alarm-30);G.time-=2;return{ok:true,msg:'💻 Сигнализация OFF! -30%',success:true,a:{type:'hack'}};}
+    if(a==='сигнализация')return{ok:false,msg:'❌ Панель — в коридоре'};
+    if(a==='замок'&&G.loc==='коридор'){if(G.f.doorUnlocked)return{ok:false,msg:'❌ Уже'};G.f.doorUnlocked=true;G.alarm+=10;G.time-=3;return{ok:true,msg:'💻 Замок взломан! +10%',success:true,warn:true,a:{type:'hack'}};}
+    if(a==='замок')return{ok:false,msg:'❌ Замок — в коридоре'};
+    if(a==='компьютер'&&G.loc==='зал'){if(G.f.pcHack)return{ok:false,msg:'❌ Уже'};G.f.pcHack=true;G.time-=2;return{ok:true,msg:'💻 Код сейфа: 7-3-9-1!',success:true,a:{type:'hack'}};}
+    return{ok:false,msg:'❌ Нельзя "'+a+'" тут'};
+  }
+  case'talk_to':{
+    if(a==='охранник'&&G.loc==='зал'){if(G.f.guardDown)return{ok:false,msg:'❌ На полу'};G.f.mgrDist=true;G.time-=1;return{ok:true,msg:'🗣️ Охранник отвлечён!',success:true,a:{type:'talk'}};}
+    if(a==='менеджер'&&G.loc==='зал'){if(G.f.mgrTalk)return{ok:false,msg:'❌ Уже'};G.f.mgrTalk=true;G.f.mgrDist=true;G.time-=1;return{ok:true,msg:'🗣️ Охрана отвлечена!',success:true,a:{type:'talk'}};}
+    if(a==='кассир'&&G.loc==='зал'){G.time-=1;return{ok:true,msg:'🗣️ "До 18:00..."',a:{type:'talk'}};}
+    return{ok:false,msg:'❌ Нет "'+a+'" тут'};
+  }
+  case'attack':{
+    if(a==='охранник'&&G.loc==='зал'){if(G.f.guardDown)return{ok:false,msg:'❌ Уже'};G.f.guardDown=true;G.alarm+=35;G.time-=2;return{ok:true,msg:'👊 Вырублен! +35%',warn:true,a:{type:'attack',guard:'зал'}};}
+    if(a==='камера'&&G.loc==='зал'){G.alarm+=25;G.time-=1;return{ok:true,msg:'👊 Камера! +25%',warn:true,a:{type:'attack'}};}
+    return{ok:false,msg:'❌ Нельзя "'+a+'"'};
+  }
+  case'hide':{G.time-=1;return{ok:true,msg:'🫣 Спрятался',a:{type:'hide'}};}
+  case'wait':{G.time-=1;return{ok:true,msg:'⏳ Ждёшь'};}
+  case'open':{
+    if(a==='вентиляция'&&G.loc==='коридор'){if(!G.f.flashUsed)return{ok:false,msg:'❌ Не видно. Фонарик!'};if(G.f.ventOpen)return{ok:false,msg:'❌ Уже'};G.f.ventOpen=true;G.time-=2;return{ok:true,msg:'🔧 Вентиляция открыта!',success:true,a:{type:'open',item:'вентиляция'}};}
+    if(a==='дверь'&&G.loc==='коридор'){if(G.f.doorUnlocked)return{ok:true,msg:'🔓 Открыта!'};return{ok:false,msg:'❌ Заперта'};}
+    if(a==='сейф'&&G.loc==='хранилище'){if(G.f.safeOpen)return{ok:false,msg:'❌ Открыт'};if(G.f.pcHack){G.f.safeOpen=true;G.time-=1;return{ok:true,msg:'🔢 7-3-9-1 → ОТКРЫТ! 💎',success:true,a:{type:'open',item:'сейф'}};}
+    return{ok:false,msg:'❌ Заперт. Код (компьютер) или дрель'};}
+    return{ok:false,msg:'❌ Нельзя "'+a+'"'};
+  }
+  case'escape':{
+    if(G.loc!=='выход')return{ok:false,msg:'❌ Будь у выхода!'};if(!G.f.bagFull)return{ok:false,msg:'❌ Мешок пуст!'};G.f.escaped=true;G.time-=1;return{ok:true,msg:'🚗 СБЕЖАЛ!',success:true,a:{type:'escape'}};
+  }
+  default:return{ok:false,msg:'❌ Неизвестно: "'+cmd+'"'};
+  }
+}
+function checkEnd(){
+  if(G.f.escaped&&G.f.bagFull){const r=G.alarm<30?'S':G.alarm<50?'A':G.alarm<70?'B':'C';const pts=r==='S'?3:r==='A'?2:r==='B'?1:0;totalScore+=pts;showEnd(true,'🏆 ОПЕРАЦИЯ ВЫПОЛНЕНА','Ты вынес $'+G.money.toLocaleString()+'!\n\n❤️ '+G.hp+' | ⏱️ '+(Math.round(G.time*10)/10)+' мин | 🚨 '+G.alarm+'%\n⭐ Рейтинг: '+r+' (+'+pts+' очков)\n⚡ Синхронизация XP с Pandora…',currentRound<ROUNDS.length-1);awardRoundXP(currentRound+1,r);return true;}
+  if(G.hp<=0){showEnd(false,'💀 ПОГИБ','Охрана схватила. Раунд '+(currentRound+1),false);return true;}
+  if(G.time<=0){showEnd(false,'⏰ ВРЕМЯ!','Полиция приехала! Раунд '+(currentRound+1),false);return true;}
+  if(G.alarm>=100){showEnd(false,'🚨 ТРЕВОГА!','Полиция окружила! Раунд '+(currentRound+1),false);return true;}
+  return false;
+}
+function showEnd(win,t,m,hasNext){G.f.over=true;const md=document.getElementById('endMdl');md.className=win?'win':'lose';document.getElementById('endT').textContent=t;document.getElementById('endP').textContent=m;document.getElementById('btnNext').style.display=hasNext?'inline-block':'none';document.getElementById('endOvr').classList.add('on');}
+function authToken(){return localStorage.getItem('auth_token')||'';}
+async function apiJson(path,options={}){
+  const token=authToken();if(!token)throw new Error('Войди в Академию Pandora, чтобы получать XP.');
+  const res=await fetch(path,{...options,headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json',...(options.headers||{})}});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok)throw new Error(data.detail||'Сервер Pandora недоступен');
+  return data;
+}
+async function loadHeistProgress(){
+  const hud=document.getElementById('xpHud');
+  try{
+    const data=await apiJson('/api/heist/status');
+    if(Array.isArray(data.round_rewards))roundRewards=data.round_rewards;
+    const target=data.campaign_complete?ROUNDS.length-1:Math.max(0,Number(data.max_round_completed||0));
+    if(target!==currentRound){currentRound=Math.min(target,ROUNDS.length-1);resetGame();}
+    hud.innerHTML='⚡ <b>+'+roundRewards[currentRound]+' XP</b>';
+    hud.title='За ограбления получено: '+Number(data.total_heist_xp||0)+' XP';
+    if(data.campaign_complete)narr('🏆 Кампания пройдена. Можно переигрывать раунды без повторной награды.',4200);
+  }catch(err){hud.innerHTML='⚡ <b>XP офлайн</b>';hud.title=err.message;}
+}
+async function awardRoundXP(round,rating){
+  if(claimingXP)return;claimingXP=true;
+  const next=document.getElementById('btnNext');next.disabled=true;
+  const endText=document.getElementById('endP');
+  try{
+    const data=await apiJson('/api/heist/complete',{method:'POST',body:JSON.stringify({round_number:round,rating})});
+    const earned=Number(data.awarded||0);
+    endText.textContent=endText.textContent.replace('⚡ Синхронизация XP с Pandora…',data.already_completed?'⚡ XP за этот раунд уже получен.':'⚡ Pandora: +'+earned+' XP · уровень '+data.new_level);
+    document.getElementById('xpHud').innerHTML='⚡ <b>+'+(roundRewards[Math.min(round,roundRewards.length-1)]||0)+' XP далее</b>';
+  }catch(err){
+    endText.textContent=endText.textContent.replace('⚡ Синхронизация XP с Pandora…','⚠️ XP не начислен: '+err.message);
+  }finally{claimingXP=false;next.disabled=false;}
+}
+function updateHUD(){
+  document.getElementById('sH').textContent=Math.max(0,G.hp);
+  document.getElementById('sM').textContent='$'+G.money.toLocaleString();
+  document.getElementById('sT').textContent=Math.max(0,Math.round(G.time*10)/10);
+  document.getElementById('sA').textContent=Math.min(100,G.alarm)+'%';
+  document.getElementById('rnd').textContent='Раунд '+(currentRound+1);
+  document.getElementById('xpHud').innerHTML='⚡ <b>+'+roundRewards[currentRound]+' XP</b>';
+  RS.alarm=G.alarm;
+  const ln={'улица':'Улица','крыша':'Крыша','вход':'Вход','зал':'Зал','коридор':'Коридор','хранилище':'Хранилище','выход':'Выход'};
+  document.getElementById('locN').textContent=ln[G.loc]||G.loc;
+  const ih=document.getElementById('invHud');let h='';
+  if(G.f.maskOn)h+='<div class="invI">🎭 Маска</div>';
+  if(G.f.bagFull)h+='<div class="invI">💰 Мешок $</div>';
+  G.inv.forEach(i=>h+='<div class="invI">📦 '+i+'</div>');
+  ih.innerHTML=h||'<span style="color:var(--muted);">🎒 пусто</span>';
+  document.getElementById('goalT').textContent=goalText();
+  updateGuide();
+}
+
+function goalText(){
+  const f=G.f;
+  if(f.escaped)return 'Готово! 🏆';
+  if(f.bagFull)return 'Беги к выходу: → зал → выход → escape()';
+  if(f.safeOpen)return 'Забери деньги: use("мешок")';
+  if(G.loc==='хранилище')return 'Вскрой сейф: open("сейф") — нужен код, или take+use("дрель")';
+  if(f.doorUnlocked||f.ventOpen)return 'Иди в хранилище: move_to("хранилище")';
+  if(G.loc==='коридор')return 'Открой путь: use("ключ") / hack("замок"), или use("фонарик")+open("вентиляция")';
+  if(G.loc==='зал')return 'Код сейфа: hack("компьютер"); возьми ключ; отвлеки talk_to("охранник")';
+  if(G.loc==='вход')return 'Возьми и надень маску, hack("камеры"), затем в зал';
+  if(G.loc==='крыша')return 'Спустись в зал: move_to("зал")';
+  return 'Войди в банк: move_to("вход") или take+use("верёвка")';
+}
+// ===== GUIDE SYSTEM =====
+const GUIDE_STEPS=[
+  {id:'g1',label:'Войди в банк',code:'move_to("вход")',tip:'Подойди к входу банка'},
+  {id:'g2',label:'Возьми маску',code:'take("маска")',tip:'Маска на стойке у входа'},
+  {id:'g3',label:'Надень маску',code:'use("маска")',tip:'Без маски камеры увидят лицо'},
+  {id:'g4',label:'Взломай камеры',code:'hack("камеры")',tip:'Панель рядом с дверью, +5% тревоги'},
+  {id:'g5',label:'Иди в зал',code:'move_to("зал")',tip:'Главный зал банка'},
+  {id:'g6',label:'Взломай компьютер',code:'hack("компьютер")',tip:'Узнай код сейфа: 7-3-9-1'},
+  {id:'g7',label:'Возьми ключ',code:'take("ключ")',tip:'Ключ на полу в зале'},
+  {id:'g8',label:'Отвлеки охрану',code:'talk_to("охранник")',tip:'Или talk_to("менеджер"). Или атакуй.'},
+  {id:'g9',label:'Иди в коридор',code:'move_to("коридор")',tip:'К хранилищу'},
+  {id:'g10',label:'Взломай сигнализацию',code:'hack("сигнализация")',tip:'Панель на стене, -30% тревоги'},
+  {id:'g11',label:'Открой дверь ключом',code:'use("ключ")',tip:'Или hack("замок") — но +10% тревоги'},
+  {id:'g12',label:'Иди в хранилище',code:'move_to("хранилище")',tip:'Дверь открыта!'},
+  {id:'g13',label:'Возьми мешок',code:'take("мешок")',tip:'Для золота'},
+  {id:'g14',label:'Открой сейф',code:'open("сейф")',tip:'Код 7-3-9-1 или use("дрель")'},
+  {id:'g15',label:'Загрузи золото',code:'use("мешок")',tip:'💰 +$1,000,000!'},
+  {id:'g16',label:'Вернись в коридор',code:'move_to("коридор")',tip:'Обратно'},
+  {id:'g17',label:'Иди в зал',code:'move_to("зал")',tip:'На выход'},
+  {id:'g18',label:'Иди к выходу',code:'move_to("выход")',tip:'Почти свободен!'},
+  {id:'g19',label:'СБЕЖАТЬ!',code:'escape()',tip:'🚗 Ура!'}
+];
+function getGuideState(){
+  const f=G.f;
+  if(f.escaped)return 19;
+  if(f.bagFull&&G.loc==='коридор')return 17;
+  if(f.bagFull)return 16;
+  if(f.safeOpen)return 15;
+  if(G.loc==='хранилище')return 14;
+  if(f.doorUnlocked||f.ventOpen)return 12;
+  if(G.loc==='коридор')return 11;
+  if(f.mgrDist||f.guardDown)return 9;
+  if(G.inv.includes('ключ'))return 9;
+  if(f.pcHack)return 8;
+  if(G.loc==='зал')return 6;
+  if(f.camOff)return 5;
+  if(f.maskOn)return 4;
+  if(G.inv.includes('маска'))return 3;
+  if(G.loc==='вход')return 2;
+  return 1;
+}
+function updateGuide(){
+  const gp=document.getElementById('guidePane');
+  const step=getGuideState();
+  const round=ROUNDS[currentRound];
+  let html='<div class="gTitle">🏦 Раунд '+(currentRound+1)+': '+round.name+'</div>';
+  html+='<div class="gBrief">'+round.desc+'<br><b style="color:var(--accent)">Награда: +'+roundRewards[currentRound]+' XP</b> · выдаётся один раз</div>';
+  GUIDE_STEPS.forEach((s,i)=>{
+    const n=i+1;const cls=n<step?'done':n===step?'cur':'';
+    html+='<div class="gStep '+cls+'"><div class="n">'+n+'</div><div><b>'+s.label+'</b><br><code>'+s.code+'</code><small>'+s.tip+'</small></div></div>';
+  });
+  // insert next step button
+  if(step<=19){
+    const next=GUIDE_STEPS[step-1];
+    html+='<button class="gInsert" onclick="insertStep(\''+next.code+'\')">➕ Вставить: '+next.code+'</button>';
+  }
+  if(currentRound<ROUNDS.length-1){
+    html+='<div style="margin-top:12px;padding:8px;background:rgba(150,70,255,.1);border:1px solid rgba(150,70,255,.3);border-radius:6px;font:.72rem Nunito;color:#c8a0ff;">🏅 Всего очков: <b>'+totalScore+'</b> / '+ROUNDS.length*3+'<br>⬆️ След. раунд сложнее!</div>';
+  }
+  gp.innerHTML=html;
+}
+function insertStep(code){
+  const ed=document.getElementById('editor');
+  const v=ed.value.trim();
+  ed.value=v?(v+'\\n'+code):code;
+  // switch to code tab
+  document.getElementById('tabGuide').classList.remove('on');
+  document.getElementById('tabCode').classList.add('on');
+  document.getElementById('guidePane').classList.remove('on');
+  document.getElementById('editPane').classList.remove('off');
+  ed.focus();
+}
+
+function addLog(ln,code,res){const lb=document.getElementById('logBox');const d=document.createElement('div');d.className='lentry';const cls=res.error?' err':res.success?' ok':'';d.innerHTML='<span class="ln">'+ln+'</span><span class="lc">'+esc(code)+'</span><span class="lr'+cls+'">'+res.msg+'</span>';lb.appendChild(d);lb.scrollTop=lb.scrollHeight;}
+function narr(html,ms){ms=ms||2500;const n=document.getElementById('narr');n.innerHTML=html;n.classList.add('on');clearTimeout(n._t);n._t=setTimeout(()=>n.classList.remove('on'),ms);}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+let running=false;
+async function runCode(){
+  if(running||G.f.over)return;running=true;
+  const btn=document.getElementById('btnRun');btn.disabled=true;btn.textContent='⏳ ВЫПОЛНЕНИЕ...';
+  const lines=document.getElementById('editor').value.split('\\n');
+  const lb=document.getElementById('logBox');while(lb.children.length>1)lb.removeChild(lb.lastChild);
+  let ln=1;
+  for(const line of lines){
+    const parsed=parseLine(line);
+    if(!parsed){if(line.trim()&&!line.trim().startsWith('#'))addLog(ln,line.trim(),{msg:'⚠️ Пропущено',error:true});ln++;continue;}
+    const result=exec(parsed);addLog(ln,line.trim(),result);if(result.msg)narr(result.msg,2500);
+    if(result.a){animQueue.push(result.a);pump();await waitAnim(result.a.dur||1200);}else{await new Promise(r=>setTimeout(r,250));}
+    updateHUD();if(checkEnd())break;ln++;
+  }
+  if(!G.f.over)narr('Код выполнен. Пиши дальше! 🎮',2000);
+  btn.disabled=false;btn.textContent='▶ ВЫПОЛНИТЬ';running=false;
+}
+function waitAnim(ms){return new Promise(r=>{setTimeout(()=>{const ck=()=>{if(!animRunning&&animQueue.length===0)r();else setTimeout(ck,50);};ck();},ms+150);});}
+function starterCode(){return '# Операция «Золотой резерв»\n# Собери алгоритм по шагам из гайда\nmove_to("вход")';}
+function resetGame(){
+  document.getElementById('endOvr').classList.remove('on');
+  initG();animQueue=[];animRunning=false;
+  RS.room='улица';RS.maskOn=false;RS.gGone={};RS.gFall=0;RS.hand=null;RS.shake=0;RS.bob=0;RS.crouch=0;RS.alarm=0;RS.approach=0;RS.flash=0;RS.dmg=0;RS.heat=0;RS.trans=0;RS.walk=0;RS.walkT=0;RS.walkX=0;
+  updateHUD();
+  const lb=document.getElementById('logBox');while(lb.children.length>1)lb.removeChild(lb.lastChild);
+  document.getElementById('editor').value=starterCode();
+  narr('Начинаем заново! Раунд '+(currentRound+1)+' 💰',3000);
+}
+function nextRound(){
+  if(currentRound>=ROUNDS.length-1)return;
+  currentRound++;
+  document.getElementById('endOvr').classList.remove('on');
+  initG();animQueue=[];animRunning=false;
+  RS.room='улица';RS.maskOn=false;RS.gGone={};RS.gFall=0;RS.hand=null;RS.shake=0;RS.bob=0;RS.crouch=0;RS.alarm=0;RS.approach=0;RS.flash=0;RS.dmg=0;RS.heat=0;RS.trans=0;RS.walk=0;RS.walkT=0;RS.walkX=0;
+  updateHUD();
+  const lb=document.getElementById('logBox');while(lb.children.length>1)lb.removeChild(lb.lastChild);
+  document.getElementById('editor').value=starterCode();
+  narr('🏆 Раунд '+(currentRound+1)+': '+ROUNDS[currentRound].name+'! '+ROUNDS[currentRound].desc,4000);
+}
+function togglePanel(){document.getElementById('codePanel').classList.toggle('off');}
+// tab switching
+document.getElementById('tabGuide').addEventListener('click',()=>{
+  document.getElementById('tabGuide').classList.add('on');document.getElementById('tabCode').classList.remove('on');
+  document.getElementById('guidePane').classList.add('on');document.getElementById('editPane').classList.add('off');
+});
+document.getElementById('tabCode').addEventListener('click',()=>{
+  document.getElementById('tabCode').classList.add('on');document.getElementById('tabGuide').classList.remove('on');
+  document.getElementById('editPane').classList.remove('off');document.getElementById('guidePane').classList.remove('on');
+});
+
+document.getElementById('btnRun').addEventListener('click',runCode);
+document.getElementById('btnReset').addEventListener('click',()=>{currentRound=Math.max(0,currentRound);totalScore=0;resetGame();});
+document.getElementById('btnRestart').addEventListener('click',()=>{currentRound=Math.max(0,currentRound);totalScore=0;resetGame();});
+document.getElementById('btnNext').addEventListener('click',nextRound);
+document.getElementById('codeToggle').addEventListener('click',togglePanel);
+document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();runCode();}});
+
+// ===== START =====
+initG();updateHUD();
+document.getElementById('editor').value=starterCode();
+narr('Агент Pandora, ты напротив <span class="hl">«Золотого Резерва»</span>. Напиши маршрут операции.',4500);
+loadHeistProgress();
+drawFrame();
+
+</script>
+</body>
+</html>

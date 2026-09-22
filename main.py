@@ -2273,6 +2273,18 @@ def init_db():
             )
         """)
         cursor.execute("""
+            CREATE TABLE IF NOT EXISTS heist_round_completions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                round_number INTEGER NOT NULL CHECK(round_number BETWEEN 1 AND 10),
+                rating TEXT NOT NULL DEFAULT 'C',
+                xp_earned INTEGER NOT NULL DEFAULT 0,
+                completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                UNIQUE(user_id, round_number)
+            )
+        """)
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS sandbox_presence (
                 user_id INTEGER PRIMARY KEY,
                 room_id INTEGER NOT NULL,
@@ -3891,6 +3903,10 @@ class TaskCompletion(BaseModel):
     task_id: str
     xp_earned: int
 
+class HeistCompletionRequest(BaseModel):
+    round_number: int
+    rating: str = "C"
+
 class TaskAttemptRequest(BaseModel):
     task_id: str
     code: str
@@ -4159,6 +4175,11 @@ def serve_index():
 def serve_alextype():
     """Serve Alextype JS trainer UI."""
     return FileResponse("alextype.html")
+
+@app.get("/heist", include_in_schema=False)
+def serve_heist():
+    """Serve the Pandora Bank Heist coding campaign."""
+    return FileResponse("bank_heist_fp2 (8).html")
 
 # ==================== SERVER-VERIFIED TYPING TELEMETRY ====================
 
@@ -15920,6 +15941,119 @@ def sandbox_templates(user: dict = Depends(require_auth)):
             {"id": tid, "name": t["name"], "language": t["language"]}
             for tid, t in _SANDBOX_TEMPLATES.items()
         ]
+    }
+
+
+# ==================== BANK HEIST CAMPAIGN ====================
+# Rewards are deliberately server-owned, strictly increasing and one-shot.
+# The browser reports a completed round, but the server only accepts the next
+# sequential round and never trusts a client-supplied XP value.
+HEIST_ROUND_XP = (500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000)
+HEIST_RATINGS = {"S", "A", "B", "C"}
+
+
+def _heist_status(cursor, user_id: int) -> dict:
+    rows = cursor.execute(
+        """
+        SELECT round_number, rating, xp_earned, completed_at
+        FROM heist_round_completions
+        WHERE user_id = ?
+        ORDER BY round_number
+        """,
+        (user_id,),
+    ).fetchall()
+    completed = [dict(row) for row in rows]
+    max_completed = max((int(row["round_number"]) for row in rows), default=0)
+    return {
+        "completed_rounds": completed,
+        "max_round_completed": max_completed,
+        "next_round": min(max_completed + 1, len(HEIST_ROUND_XP)),
+        "campaign_complete": max_completed >= len(HEIST_ROUND_XP),
+        "total_heist_xp": sum(int(row["xp_earned"] or 0) for row in rows),
+        "round_rewards": list(HEIST_ROUND_XP),
+    }
+
+
+@app.get("/api/heist/status")
+def heist_status(user: dict = Depends(require_auth)):
+    with get_db() as conn:
+        return _heist_status(conn.cursor(), int(user["id"]))
+
+
+@app.post("/api/heist/complete")
+def heist_complete(data: HeistCompletionRequest, user: dict = Depends(require_auth)):
+    round_number = int(data.round_number)
+    if round_number < 1 or round_number > len(HEIST_ROUND_XP):
+        raise HTTPException(status_code=400, detail="Некорректный раунд")
+    rating = str(data.rating or "C").upper()
+    if rating not in HEIST_RATINGS:
+        rating = "C"
+
+    uid = int(user["id"])
+    with get_db() as conn:
+        # Serialise claims so two fast requests cannot award the same round.
+        conn.execute("BEGIN IMMEDIATE")
+        cursor = conn.cursor()
+        existing = cursor.execute(
+            """
+            SELECT xp_earned FROM heist_round_completions
+            WHERE user_id = ? AND round_number = ?
+            """,
+            (uid, round_number),
+        ).fetchone()
+        if existing:
+            status = _heist_status(cursor, uid)
+            conn.commit()
+            return {
+                "awarded": 0,
+                "already_completed": True,
+                "round_xp": int(existing["xp_earned"] or 0),
+                **status,
+            }
+
+        max_completed = cursor.execute(
+            """
+            SELECT COALESCE(MAX(round_number), 0) AS value
+            FROM heist_round_completions WHERE user_id = ?
+            """,
+            (uid,),
+        ).fetchone()["value"]
+        expected_round = int(max_completed or 0) + 1
+        if round_number != expected_round:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Сначала заверши раунд {expected_round}",
+            )
+
+        base_reward = HEIST_ROUND_XP[round_number - 1]
+        reason = f"bank_heist:round_{round_number}"
+        new_xp, new_level = apply_xp_change(cursor, uid, base_reward, reason)
+        awarded_row = cursor.execute(
+            """
+            SELECT xp_change FROM xp_log
+            WHERE user_id = ? AND reason = ?
+            ORDER BY id DESC LIMIT 1
+            """,
+            (uid, reason),
+        ).fetchone()
+        awarded = int(awarded_row["xp_change"] if awarded_row else base_reward)
+        cursor.execute(
+            """
+            INSERT INTO heist_round_completions
+                (user_id, round_number, rating, xp_earned)
+            VALUES (?, ?, ?, ?)
+            """,
+            (uid, round_number, rating, awarded),
+        )
+        status = _heist_status(cursor, uid)
+        conn.commit()
+
+    return {
+        "awarded": awarded,
+        "already_completed": False,
+        "new_total_xp": new_xp,
+        "new_level": new_level,
+        **status,
     }
 
 
