@@ -12,6 +12,8 @@ import main  # noqa: E402
 class HeistProgressTests(unittest.TestCase):
     def setUp(self):
         self._old_database = main.DATABASE
+        self._old_heist_enabled = main._HEIST_ENABLED
+        main._HEIST_ENABLED = True
         self._tempdir = tempfile.TemporaryDirectory()
         main.DATABASE = os.path.join(self._tempdir.name, "heist-test.db")
         with main.get_db() as conn:
@@ -48,7 +50,14 @@ class HeistProgressTests(unittest.TestCase):
 
     def tearDown(self):
         main.DATABASE = self._old_database
+        main._HEIST_ENABLED = self._old_heist_enabled
         self._tempdir.cleanup()
+
+    def test_feature_gate_blocks_the_hidden_mode(self):
+        main._HEIST_ENABLED = False
+        with self.assertRaises(main.HTTPException) as blocked:
+            main.heist_status(self.user)
+        self.assertEqual(blocked.exception.status_code, 404)
 
     def test_rewards_are_sequential_increasing_and_one_shot(self):
         with self.assertRaises(main.HTTPException) as skipped:

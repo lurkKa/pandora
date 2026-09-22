@@ -4005,10 +4005,14 @@ class ResetPasswordRequest(BaseModel):
         return value
 
 class ParentCreateRequest(RegisterRequest):
-    child_id: int
+    child_id: Optional[int] = None  # backwards-compatible single-child field
+    child_ids: Optional[List[int]] = None
 
 class ParentChildRequest(BaseModel):
     child_id: int
+
+class ParentChildrenRequest(BaseModel):
+    child_ids: List[int]
 
 class ParentXPActionRequest(BaseModel):
     delta_xp: int
@@ -4239,9 +4243,18 @@ def serve_alextype():
     """Serve Alextype JS trainer UI."""
     return FileResponse("alextype.html")
 
+_HEIST_ENABLED = (os.getenv("PANDORA_HEIST_ENABLED") or "0") == "1"
+
+
+def _require_heist_enabled():
+    if not _HEIST_ENABLED:
+        raise HTTPException(status_code=404, detail="Режим временно недоступен")
+
+
 @app.get("/heist", include_in_schema=False)
 def serve_heist():
     """Serve the Pandora Bank Heist coding campaign."""
+    _require_heist_enabled()
     return FileResponse("bank_heist_fp2 (8).html")
 
 # ==================== SERVER-VERIFIED TYPING TELEMETRY ====================
@@ -6975,6 +6988,18 @@ def _student_for_parent_link(cursor, child_id: int):
     return child
 
 
+def _normalize_parent_child_ids(child_ids, child_id=None) -> list[int]:
+    raw_ids = list(child_ids or [])
+    if child_id is not None:
+        raw_ids.append(child_id)
+    normalized = list(dict.fromkeys(int(value) for value in raw_ids if int(value) > 0))
+    if not normalized:
+        raise HTTPException(status_code=400, detail="Выберите хотя бы одного ребёнка")
+    if len(normalized) > 20:
+        raise HTTPException(status_code=400, detail="К одному родителю можно привязать не более 20 детей")
+    return normalized
+
+
 @app.get("/api/admin/parents")
 def admin_list_parents(admin: dict = Depends(require_admin)):
     """List parent accounts, their child link, and available students."""
@@ -7033,9 +7058,11 @@ def admin_create_parent(
     threats = detect_threats(data.username) + detect_threats(data.display_name)
     if threats:
         raise HTTPException(status_code=400, detail="Invalid input detected")
+    child_ids = _normalize_parent_child_ids(data.child_ids, data.child_id)
     with get_db() as conn:
         cursor = conn.cursor()
-        _student_for_parent_link(cursor, int(data.child_id))
+        for child_id in child_ids:
+            _student_for_parent_link(cursor, child_id)
         try:
             cursor.execute(
                 """
@@ -7045,9 +7072,9 @@ def admin_create_parent(
                 (data.username, hash_password(data.password), data.display_name),
             )
             parent_id = int(cursor.lastrowid)
-            cursor.execute(
+            cursor.executemany(
                 "INSERT INTO parent_child_links (parent_id, child_id) VALUES (?, ?)",
-                (parent_id, int(data.child_id)),
+                [(parent_id, child_id) for child_id in child_ids],
             )
             conn.commit()
         except sqlite3.IntegrityError:
@@ -7055,7 +7082,7 @@ def admin_create_parent(
     log_security(
         "PARENT_CREATED",
         user=admin["username"],
-        details=f"parent_id={parent_id}, child_id={data.child_id}",
+        details=f"parent_id={parent_id}, child_ids={child_ids}",
     )
     return {"message": "Родитель создан", "id": parent_id}
 
@@ -7066,7 +7093,22 @@ def admin_set_parent_child(
     data: ParentChildRequest,
     admin: dict = Depends(require_admin),
 ):
-    """Replace the student's assignment for a parent account."""
+    """Backwards-compatible single-child assignment."""
+    return admin_set_parent_children(
+        parent_id,
+        ParentChildrenRequest(child_ids=[int(data.child_id)]),
+        admin,
+    )
+
+
+@app.put("/api/admin/parents/{parent_id}/children")
+def admin_set_parent_children(
+    parent_id: int,
+    data: ParentChildrenRequest,
+    admin: dict = Depends(require_admin),
+):
+    """Replace all child assignments for a parent account."""
+    child_ids = _normalize_parent_child_ids(data.child_ids)
     with get_db() as conn:
         cursor = conn.cursor()
         parent = cursor.execute(
@@ -7075,17 +7117,18 @@ def admin_set_parent_child(
         ).fetchone()
         if not parent:
             raise HTTPException(status_code=404, detail="Родитель не найден")
-        _student_for_parent_link(cursor, int(data.child_id))
+        for child_id in child_ids:
+            _student_for_parent_link(cursor, child_id)
         cursor.execute("DELETE FROM parent_child_links WHERE parent_id = ?", (parent_id,))
-        cursor.execute(
+        cursor.executemany(
             "INSERT INTO parent_child_links (parent_id, child_id) VALUES (?, ?)",
-            (parent_id, int(data.child_id)),
+            [(parent_id, child_id) for child_id in child_ids],
         )
         conn.commit()
     log_security(
         "PARENT_CHILD_UPDATED",
         user=admin["username"],
-        details=f"parent_id={parent_id}, child_id={data.child_id}",
+        details=f"parent_id={parent_id}, child_ids={child_ids}",
     )
     return {"message": "Привязка обновлена"}
 
@@ -7138,6 +7181,19 @@ def _parent_child_row(cursor, parent_id: int, child_id: Optional[int] = None):
     return row
 
 
+def _parent_children(cursor, parent_id: int) -> list[dict]:
+    return [dict(row) for row in cursor.execute(
+        """
+        SELECT u.id, u.username, u.display_name, u.xp, u.level, u.avatar_key
+        FROM parent_child_links pcl
+        JOIN users u ON u.id = pcl.child_id
+        WHERE pcl.parent_id = ? AND u.role IN ('student', 'mini_admin')
+        ORDER BY u.display_name COLLATE NOCASE
+        """,
+        (int(parent_id),),
+    ).fetchall()]
+
+
 def _parent_task_catalog() -> tuple[dict[str, dict], dict[str, int]]:
     tasks = [
         task for task in load_tasks().get("tasks", [])
@@ -7160,6 +7216,7 @@ def parent_dashboard(
     task_map, category_totals = _parent_task_catalog()
     with get_db() as conn:
         cursor = conn.cursor()
+        children = _parent_children(cursor, int(parent["id"]))
         child_row = _parent_child_row(cursor, int(parent["id"]), child_id)
         child = dict(child_row)
         uid = int(child["id"])
@@ -7367,13 +7424,14 @@ def parent_dashboard(
             """
             SELECT COALESCE(SUM(ABS(delta_xp)), 0) AS used
             FROM parent_xp_actions
-            WHERE parent_id = ? AND date(created_at) = date('now')
+            WHERE parent_id = ? AND child_id = ? AND date(created_at) = date('now')
             """,
-            (int(parent["id"]),),
+            (int(parent["id"]), uid),
         ).fetchone()["used"] or 0)
 
     return {
         "child": child,
+        "children": children,
         "summary": {
             "completed_tasks": len(completed_ids),
             "total_tasks": len(task_map),
@@ -7496,9 +7554,9 @@ def parent_xp_action(
             """
             SELECT COALESCE(SUM(ABS(delta_xp)), 0) AS used
             FROM parent_xp_actions
-            WHERE parent_id = ? AND date(created_at) = date('now')
+            WHERE parent_id = ? AND child_id = ? AND date(created_at) = date('now')
             """,
-            (int(parent["id"]),),
+            (int(parent["id"]), uid),
         ).fetchone()["used"] or 0)
         if used_today + abs(delta) > PARENT_XP_DAILY_LIMIT:
             remaining = max(0, PARENT_XP_DAILY_LIMIT - used_today)
@@ -16649,12 +16707,14 @@ def _heist_status(cursor, user_id: int) -> dict:
 
 @app.get("/api/heist/status")
 def heist_status(user: dict = Depends(require_auth)):
+    _require_heist_enabled()
     with get_db() as conn:
         return _heist_status(conn.cursor(), int(user["id"]))
 
 
 @app.post("/api/heist/complete")
 def heist_complete(data: HeistCompletionRequest, user: dict = Depends(require_auth)):
+    _require_heist_enabled()
     round_number = int(data.round_number)
     if round_number < 1 or round_number > len(HEIST_ROUND_XP):
         raise HTTPException(status_code=400, detail="Некорректный раунд")

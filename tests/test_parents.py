@@ -157,6 +157,24 @@ class ParentPanelTests(unittest.TestCase):
         main.admin_delete_parent(parent_id, self.admin)
         self.assertEqual(main.admin_list_parents(self.admin)["parents"], [])
 
+    def test_one_parent_can_switch_between_multiple_children(self):
+        parent_id = self._create_parent()["id"]
+        parent = {"id": parent_id, "username": "parent_one", "role": "parent"}
+        main.admin_set_parent_children(
+            parent_id,
+            main.ParentChildrenRequest(child_ids=[2, 3]),
+            self.admin,
+        )
+        catalog = {"tasks": [{"id": "task-1", "title": "Задача", "category": "python", "xp": 100}]}
+        with patch.object(main, "load_tasks", return_value=catalog):
+            first = main.parent_dashboard(2, parent)
+            second = main.parent_dashboard(3, parent)
+        self.assertEqual({child["id"] for child in first["children"]}, {2, 3})
+        self.assertEqual(first["child"]["id"], 2)
+        self.assertEqual(second["child"]["id"], 3)
+        self.assertEqual(first["summary"]["completed_tasks"], 1)
+        self.assertEqual(second["summary"]["completed_tasks"], 0)
+
     def test_parent_dashboard_is_scoped_to_assigned_child(self):
         parent_id = self._create_parent()["id"]
         parent = {"id": parent_id, "username": "parent_one", "role": "parent"}

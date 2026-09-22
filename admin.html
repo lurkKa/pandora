@@ -1107,7 +1107,7 @@
                         <div class="form-group" style="margin:0"><label>Имя родителя</label><input id="parent-display-name" placeholder="Мария Иванова"></div>
                         <div class="form-group" style="margin:0"><label>Логин</label><input id="parent-username" placeholder="maria_parent"></div>
                         <div class="form-group" style="margin:0"><label>Пароль</label><input id="parent-password" type="password" minlength="6" placeholder="Минимум 6 символов"></div>
-                        <div class="form-group" style="margin:0"><label>Ребёнок</label><select id="parent-child-select"><option value="">Загрузка…</option></select></div>
+                        <div class="form-group" style="margin:0"><label>Дети</label><select id="parent-child-select" multiple size="4"><option value="">Загрузка…</option></select><small style="color:var(--text-secondary)">Можно выбрать несколько: Ctrl/Cmd + клик</small></div>
                         <button class="btn btn-primary" onclick="createParent()">➕ Создать</button>
                     </div>
                 </div>
@@ -2728,14 +2728,14 @@
                     return;
                 }
                 tbody.innerHTML = parentAccounts.map(parent => {
-                    const currentChild = parent.children?.[0];
+                    const currentIds = new Set((parent.children || []).map(child => child.id));
                     const options = students.map(s =>
-                        `<option value="${s.id}" ${currentChild?.id === s.id ? 'selected' : ''}>${escapeHtml(s.display_name)} (@${escapeHtml(s.username)})</option>`
+                        `<option value="${s.id}" ${currentIds.has(s.id) ? 'selected' : ''}>${escapeHtml(s.display_name)} (@${escapeHtml(s.username)})</option>`
                     ).join('');
                     return `<tr>
                         <td><strong>${escapeHtml(parent.display_name)}</strong></td>
                         <td><code>${escapeHtml(parent.username)}</code></td>
-                        <td><select id="parent-child-${parent.id}" style="min-width:220px;padding:8px;background:var(--bg-deep);border:1px solid var(--border);border-radius:7px;color:var(--text-primary)">${options}</select>
+                        <td><select id="parent-child-${parent.id}" multiple size="${Math.min(5, Math.max(2, students.length))}" style="min-width:240px;padding:8px;background:var(--bg-deep);border:1px solid var(--border);border-radius:7px;color:var(--text-primary)">${options}</select>
                             <button class="btn btn-small" onclick="saveParentChild(${parent.id})">Сохранить</button></td>
                         <td>${new Date(parent.created_at).toLocaleDateString('ru')}</td>
                         <td style="white-space:nowrap">
@@ -2753,13 +2753,13 @@
             const display_name = document.getElementById('parent-display-name').value.trim();
             const username = document.getElementById('parent-username').value.trim();
             const password = document.getElementById('parent-password').value;
-            const child_id = Number(document.getElementById('parent-child-select').value);
-            if (!display_name || !username || password.length < 6 || !child_id) {
+            const child_ids = Array.from(document.getElementById('parent-child-select').selectedOptions).map(option => Number(option.value)).filter(Boolean);
+            if (!display_name || !username || password.length < 6 || !child_ids.length) {
                 alert('Заполните все поля. Пароль — минимум 6 символов.');
                 return;
             }
             try {
-                await api('/api/admin/parents', 'POST', { display_name, username, password, child_id });
+                await api('/api/admin/parents', 'POST', { display_name, username, password, child_ids });
                 document.getElementById('parent-display-name').value = '';
                 document.getElementById('parent-username').value = '';
                 document.getElementById('parent-password').value = '';
@@ -2771,10 +2771,10 @@
         }
 
         async function saveParentChild(parentId) {
-            const child_id = Number(document.getElementById(`parent-child-${parentId}`).value);
-            if (!child_id) return;
+            const child_ids = Array.from(document.getElementById(`parent-child-${parentId}`).selectedOptions).map(option => Number(option.value)).filter(Boolean);
+            if (!child_ids.length) { alert('Выберите хотя бы одного ребёнка'); return; }
             try {
-                await api(`/api/admin/parents/${parentId}/child`, 'PUT', { child_id });
+                await api(`/api/admin/parents/${parentId}/children`, 'PUT', { child_ids });
                 alert('Привязка обновлена');
                 await loadParents();
             } catch (e) { alert('Ошибка: ' + (e.message || e)); }
