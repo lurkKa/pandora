@@ -3592,7 +3592,7 @@
             <div class="leaderboard-tabs">
                 <button class="lb-tab active" id="lb-tab-world" onclick="switchLeaderboardTab('world')">🏆
                     Мировой</button>
-                <button class="lb-tab" id="lb-tab-3days" onclick="switchLeaderboardTab('3days')">⭐ 3 дня</button>
+                <button class="lb-tab" id="lb-tab-week" onclick="switchLeaderboardTab('week')">⭐ Неделя</button>
             </div>
         </div>
         <div id="leaderboard-list">
@@ -4493,7 +4493,7 @@
             </div>
             <div class="stat-item">
                 <div class="value" id="profile-streak">0</div>
-                <div class="label" title="Дни подряд, когда вы завершали хотя бы 1 квест">Страйк квестов</div>
+                <div class="label" title="Серия дней с квестами; один пропущенный день не сбрасывает серию">Страйк квестов</div>
             </div>
             <div class="stat-item">
                 <div class="value" id="profile-position">#1</div>
@@ -4501,7 +4501,7 @@
             </div>
         </div>
         <div class="profile-help">
-            Для страйка: закрывайте минимум 1 квест в день.
+            Для страйка: закрывайте минимум 1 квест раз в 2 дня.
             Для достижений: выполняйте квесты в разных категориях и без длинных пауз.
         </div>
         <div class="rank-progress">
@@ -6990,7 +6990,7 @@
             widget.innerHTML = `
                 <span class="streak-fire">${streak > 0 ? '🔥' : '❄️'}</span>
                 <span class="streak-num">${streak}</span>
-                <span class="streak-label">дн. подряд${streak > 0 ? ' (+' + Math.min(streak * 2, 30) + '% XP)' : ''}</span>
+                <span class="streak-label">дней серии${streak > 0 ? ' (+' + Math.min(streak * 2, 30) + '% XP)' : ''}</span>
                 <span class="daily-goal">Решай задания каждый день!</span>
             `;
             grid.parentNode.insertBefore(widget, grid);
@@ -8434,6 +8434,9 @@
                 const data = await res.json();
                 const list = document.getElementById('leaderboard-list');
                 list.innerHTML = '';
+                if (data.mvp) {
+                    list.innerHTML = `<div class="most-active-badge" style="display:block;margin:10px 16px;padding:8px 10px;cursor:pointer;" onclick="openPublicProfile(${Number(data.mvp.id)})">🏅 MVP недели: ${escapeHtml(data.mvp.display_name)} · +5% XP</div>`;
+                }
 
                 data.leaderboard.forEach(user => {
                     const posClass = user.position === 1 ? 'gold' :
@@ -8501,75 +8504,51 @@
 
         // Current leaderboard tab
         let currentLbTab = 'world';
-        let lb3dSortBy = 'xp'; // 'xp' or 'stars'
 
         function switchLeaderboardTab(tab) {
             currentLbTab = tab;
             document.getElementById('lb-tab-world').classList.toggle('active', tab === 'world');
-            document.getElementById('lb-tab-3days').classList.toggle('active', tab === '3days');
-            if (tab === 'world') {
-                loadLeaderboard();
-            } else {
-                loadLeaderboard3Days();
-            }
+            document.getElementById('lb-tab-week').classList.toggle('active', tab === 'week');
+            if (tab === 'world') loadLeaderboard();
+            else loadLeaderboardWeek();
         }
 
-        function setLb3dSort(sortBy) {
-            lb3dSortBy = sortBy;
-            loadLeaderboard3Days();
-        }
-
-        async function loadLeaderboard3Days() {
+        async function loadLeaderboardWeek() {
             try {
-                const res = await fetch(`${API_URL}/api/leaderboard/3days?limit=20&sort_by=${lb3dSortBy}`);
+                const res = await fetch(`${API_URL}/api/leaderboard/week?limit=20`);
+                if (!res.ok) throw new Error(`Рейтинг: ${res.status}`);
                 const data = await res.json();
                 const list = document.getElementById('leaderboard-list');
                 list.innerHTML = '';
-
-                // Sort toggle buttons
-                const sortBar = document.createElement('div');
-                sortBar.style.cssText = 'display:flex;gap:6px;padding:8px 16px;';
-                sortBar.innerHTML = `
-                    <button onclick="setLb3dSort('xp')" style="flex:1;padding:5px 8px;border-radius:8px;border:1px solid ${lb3dSortBy === 'xp' ? 'rgba(139,92,246,0.4)' : 'rgba(255,255,255,0.1)'};background:${lb3dSortBy === 'xp' ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.04)'};color:${lb3dSortBy === 'xp' ? 'var(--text-bright)' : 'var(--text-secondary)'};font-size:12px;font-weight:600;cursor:pointer;">⚡ По XP</button>
-                    <button onclick="setLb3dSort('stars')" style="flex:1;padding:5px 8px;border-radius:8px;border:1px solid ${lb3dSortBy === 'stars' ? 'rgba(251,191,36,0.4)' : 'rgba(255,255,255,0.1)'};background:${lb3dSortBy === 'stars' ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.04)'};color:${lb3dSortBy === 'stars' ? '#fbbf24' : 'var(--text-secondary)'};font-size:12px;font-weight:600;cursor:pointer;">⭐ По звёздам</button>
-                `;
-                list.appendChild(sortBar);
-
-                if (!data.leaderboard || data.leaderboard.length === 0) {
-                    list.innerHTML += '<div style="color:var(--text-secondary); text-align:center; padding:40px 20px; font-size:14px;">Нет данных за последние 3 дня</div>';
+                const leaders = data.leaderboard || [];
+                if (!leaders.length) {
+                    list.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:40px 20px;">На этой неделе звёзд пока нет</div>';
                     return;
                 }
-
-                data.leaderboard.forEach(user => {
-                    const posClass = user.position === 1 ? 'gold' :
-                        user.position === 2 ? 'silver' :
-                            user.position === 3 ? 'bronze' : 'default';
+                const summary = document.createElement('div');
+                summary.style.cssText = 'padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.1);';
+                summary.innerHTML = `<div style="font-weight:700;color:#fbbf24;margin-bottom:6px;">⭐ Рекорд недели: ${data.max_stars_week} звёзд</div>
+                    <table style="width:100%;font-size:12px;border-collapse:collapse;color:var(--text-secondary);">
+                        <thead><tr><th style="text-align:left;">Место</th><th style="text-align:left;">Игрок</th><th style="text-align:right;">Звёзды</th></tr></thead>
+                        <tbody>${leaders.slice(0, 3).map(u => `<tr><td>${u.position}</td><td>${escapeHtml(u.display_name)}</td><td style="text-align:right;color:#fbbf24;">${u.stars_week}</td></tr>`).join('')}</tbody>
+                    </table>`;
+                list.appendChild(summary);
+                leaders.forEach(user => {
+                    const posClass = user.position === 1 ? 'gold' : user.position === 2 ? 'silver' : user.position === 3 ? 'bronze' : 'default';
                     const topClass = user.position === 1 ? 'leader-gold' : user.position === 2 ? 'leader-silver' : user.position === 3 ? 'leader-bronze' : '';
-                    const guildTag = user.guild_name
-                        ? `<span class="guild-tag guild-tag-${user.guild_role === 'president' ? 'president' : user.guild_role === 'chairman' ? 'chairman' : 'member'}">[${user.guild_name}]</span>`
-                        : '';
-                    const avatarId = `avatar-3d-${user.id}`;
+                    const avatarId = `avatar-week-${user.id}`;
+                    const guildTag = user.guild_name ? `<span class="guild-tag">[${escapeHtml(user.guild_name)}]</span>` : '';
                     list.innerHTML += `
                         <div class="leader-item ${topClass}" onclick="openPublicProfile(${user.id})" style="cursor:pointer;">
                             <div class="leader-position ${posClass}">${user.position}</div>
-                            <div id="${avatarId}" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;margin-right:8px;" data-user-id="${user.id}" data-has-avatar="${user.has_avatar}">
-                                <span style="font-size:24px;">🧙</span>
-                            </div>
-                            <div class="leader-info">
-                                <div class="leader-name">${user.display_name}${guildTag}</div>
-                                <div class="leader-rank">${user.rank_badge} ${user.rank_name}</div>
-                            </div>
-                            <div style="text-align:right;">
-                                <div class="leader-xp" style="font-size:13px;">+${user.xp_3d.toLocaleString()} XP</div>
-                                <div style="font-size:11px; color:#fbbf24;">⭐ ${user.stars_3d}</div>
-                            </div>
-                        </div>
-                    `;
+                            <div id="${avatarId}" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;margin-right:8px;" data-user-id="${user.id}" data-has-avatar="${user.has_avatar}"><span style="font-size:24px;">🧙</span></div>
+                            <div class="leader-info"><div class="leader-name">${escapeHtml(user.display_name)}${guildTag}</div><div class="leader-rank">${user.rank_badge} ${escapeHtml(user.rank_name || '')}</div></div>
+                            <div style="text-align:right;"><div class="leader-xp">⭐ ${user.stars_week}</div><div style="font-size:11px;color:var(--text-secondary);">+${Number(user.xp_week).toLocaleString()} XP</div></div>
+                        </div>`;
                 });
-
                 lazyLoadAvatars();
             } catch (e) {
-                console.error('Failed to load 3-day leaderboard:', e);
+                console.error('Failed to load weekly leaderboard:', e);
             }
         }
 
@@ -8697,8 +8676,8 @@
                 chatPanelRefreshInterval = null;
             }
             if (panel.classList.contains('open')) {
-                if (currentLbTab === '3days') {
-                    loadLeaderboard3Days();
+                if (currentLbTab === 'week') {
+                    loadLeaderboardWeek();
                 } else {
                     loadLeaderboard();
                 }
@@ -11185,7 +11164,7 @@
                         <td style="padding:6px 8px;font-size:12px;color:var(--text-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;">${m.display_name}</td>
                         <td style="padding:6px 8px;font-size:12px;color:${m.stars_1d > 0 ? '#fbbf24' : 'var(--text-secondary)'};text-align:center;font-weight:${m.stars_1d > 0 ? '700' : '400'};">⭐ ${m.stars_1d}</td>
                         <td style="padding:6px 8px;font-size:12px;color:${m.stars_2d > 0 ? '#fbbf24' : 'var(--text-secondary)'};text-align:center;font-weight:${m.stars_2d > 0 ? '700' : '400'};">⭐ ${m.stars_2d}</td>
-                        <td style="padding:6px 8px;font-size:12px;color:${m.stars_3d > 0 ? '#fbbf24' : 'var(--text-secondary)'};text-align:center;font-weight:${m.stars_3d > 0 ? '700' : '400'};">⭐ ${m.stars_3d}</td>
+                        <td style="padding:6px 8px;font-size:12px;color:${m.stars_week > 0 ? '#fbbf24' : 'var(--text-secondary)'};text-align:center;font-weight:${m.stars_week > 0 ? '700' : '400'};">⭐ ${m.stars_week}</td>
                     </tr>
                 `).join('');
 
@@ -11308,7 +11287,7 @@
                                             <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text-secondary);">Имя</th>
                                             <th style="text-align:center;padding:6px 8px;font-size:11px;color:#fbbf24;">1 день</th>
                                             <th style="text-align:center;padding:6px 8px;font-size:11px;color:#fbbf24;">2 дня</th>
-                                            <th style="text-align:center;padding:6px 8px;font-size:11px;color:#fbbf24;">3 дня</th>
+                                            <th style="text-align:center;padding:6px 8px;font-size:11px;color:#fbbf24;">Неделя</th>
                                         </tr>
                                     </thead>
                                     <tbody>${starsRows}</tbody>
@@ -11718,6 +11697,10 @@
             inspiration: { text: '🔥 Вдохновение (+10% XP, 12ч)', positive: true, icon: '🔥' },
             typing_master: { text: '⌨️ Мастер Набора (+8% XP, 12ч)', positive: true, icon: '⌨️' },
             quest_champion: { text: '🏆 Чемпион Квестов (+8% XP, 12ч)', positive: true, icon: '🏆' },
+            python_alchemist: { text: '🐍 Алхимик Python (+10% за Python, 3ч)', positive: true, icon: '🐍' },
+            python_archmage: { text: '🧙 Архимаг Python (+20% за Python, 3ч)', positive: true, icon: '🧙' },
+            js_spark: { text: '⚡ Искра JavaScript (+15% за JS, 3ч)', positive: true, icon: '⚡' },
+            js_phantom: { text: '👻 Фантом JavaScript (+20% за JS, 3ч)', positive: true, icon: '👻' },
         };
 
         async function loadTitleManagement(guildId) {
@@ -11837,26 +11820,54 @@
 
         // ==================== HEARTBEAT ====================
         let _currentPageContext = 'general';
-        function setPageContext(ctx) { _currentPageContext = ctx; }
+        let _lastHeartbeatInteraction = 0;
+        let _heartbeatStarted = false;
+        let _heartbeatIdleTimer = null;
+        let _heartbeatRequestQueue = Promise.resolve();
+        function setPageContext(ctx) {
+            if (_currentPageContext !== ctx) {
+                sendHeartbeat();
+                _currentPageContext = ctx;
+                sendHeartbeat();
+            }
+        }
+
+        function sendHeartbeat() {
+            if (!authToken) return;
+            const active = document.visibilityState === 'visible'
+                && Date.now() - _lastHeartbeatInteraction < 120000;
+            const context = _currentPageContext;
+            const token = authToken;
+            _heartbeatRequestQueue = _heartbeatRequestQueue.then(() => {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 10000);
+                return fetch(`${API_URL}/api/heartbeat`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ context, active }),
+                    keepalive: true,
+                    signal: controller.signal
+                }).catch(() => { }).finally(() => clearTimeout(timeout));
+            });
+            return _heartbeatRequestQueue;
+        }
 
         function startHeartbeat() {
-            // Send heartbeat every 30 seconds
-            setInterval(() => {
-                if (!authToken) return;
-                fetch(`${API_URL}/api/heartbeat`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ context: _currentPageContext })
-                }).catch(() => { });
-            }, 30000);
-            // Send initial heartbeat
-            if (authToken) {
-                fetch(`${API_URL}/api/heartbeat`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ context: _currentPageContext })
-                }).catch(() => { });
-            }
+            if (_heartbeatStarted) return;
+            _heartbeatStarted = true;
+            const recordInteraction = () => {
+                const wasIdle = Date.now() - _lastHeartbeatInteraction >= 120000;
+                _lastHeartbeatInteraction = Date.now();
+                if (wasIdle) sendHeartbeat();
+                if (_heartbeatIdleTimer) clearTimeout(_heartbeatIdleTimer);
+                _heartbeatIdleTimer = setTimeout(sendHeartbeat, 120000);
+            };
+            ['pointerdown', 'keydown', 'input', 'scroll'].forEach(eventName =>
+                document.addEventListener(eventName, recordInteraction, { passive: true })
+            );
+            document.addEventListener('visibilitychange', sendHeartbeat);
+            setInterval(sendHeartbeat, 30000);
+            sendHeartbeat();
         }
 
         // ==================== GUILD RANK RENAME ====================

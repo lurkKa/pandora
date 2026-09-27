@@ -1574,13 +1574,33 @@
     (function startAlexTypeHeartbeat() {
       const token = getAuthToken();
       if (!token) return;
+      let lastTypingAt = 0;
+      let typingIdleTimer = null;
+      let heartbeatQueue = Promise.resolve();
+      const TYPING_IDLE_MS = 10000;
+      inputEl.addEventListener('input', () => {
+        const wasIdle = Date.now() - lastTypingAt >= TYPING_IDLE_MS;
+        lastTypingAt = Date.now();
+        if (wasIdle) sendBeat();
+        if (typingIdleTimer) clearTimeout(typingIdleTimer);
+        typingIdleTimer = setTimeout(sendBeat, TYPING_IDLE_MS);
+      });
       const sendBeat = () => {
-        fetch(`${API_URL}/api/heartbeat`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ context: 'alextype' })
-        }).catch(() => { });
+        const active = document.visibilityState === 'visible' && Date.now() - lastTypingAt < TYPING_IDLE_MS;
+        heartbeatQueue = heartbeatQueue.then(() => {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 10000);
+          return fetch(`${API_URL}/api/heartbeat`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ context: 'alextype', active }),
+            keepalive: true,
+            signal: controller.signal
+          }).catch(() => { }).finally(() => clearTimeout(timeout));
+        });
+        return heartbeatQueue;
       };
+      document.addEventListener('visibilitychange', sendBeat);
       sendBeat();
       setInterval(sendBeat, 30000);
     })();

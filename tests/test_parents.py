@@ -65,14 +65,14 @@ class ParentPanelTests(unittest.TestCase):
                     result_json TEXT, passed INTEGER, runtime_ms INTEGER,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
-                CREATE TABLE time_tracking (
+                CREATE TABLE time_tracking_v2 (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER, date TEXT, total_seconds INTEGER DEFAULT 0,
                     task_seconds INTEGER DEFAULT 0, alextype_seconds INTEGER DEFAULT 0
                 );
                 CREATE TABLE user_stats (
                     user_id INTEGER PRIMARY KEY, streak_days INTEGER DEFAULT 0,
-                    best_streak INTEGER DEFAULT 0
+                    best_streak INTEGER DEFAULT 0, last_active DATE
                 );
                 CREATE TABLE submissions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -117,9 +117,9 @@ class ParentPanelTests(unittest.TestCase):
                 "INSERT INTO task_attempts (user_id, task_id, category, code, passed, runtime_ms) VALUES (2, 'task-1', 'python', 'print(1)', 1, 15)"
             )
             conn.execute(
-                "INSERT INTO time_tracking (user_id, date, total_seconds, task_seconds) VALUES (2, date('now'), 3600, 2400)"
+                "INSERT INTO time_tracking_v2 (user_id, date, total_seconds, task_seconds) VALUES (2, date('now'), 3600, 2400)"
             )
-            conn.execute("INSERT INTO user_stats VALUES (2, 3, 7)")
+            conn.execute("INSERT INTO user_stats VALUES (2, 3, 7, date('now'))")
             conn.execute("INSERT INTO xp_log (user_id, xp_change, reason) VALUES (2, 100, 'task')")
             conn.commit()
         self.admin = {"id": 1, "username": "admin", "role": "admin"}
@@ -203,7 +203,7 @@ class ParentPanelTests(unittest.TestCase):
         parent = {"id": parent_id, "username": "parent_one", "role": "parent"}
         with main.get_db() as conn:
             conn.execute(
-                "UPDATE time_tracking SET total_seconds = 5000, task_seconds = 500, alextype_seconds = 4000 WHERE user_id = 2"
+                "UPDATE time_tracking_v2 SET total_seconds = 5000, task_seconds = 500, alextype_seconds = 4000 WHERE user_id = 2"
             )
             conn.execute(
                 "INSERT INTO xp_log (user_id, xp_change, reason) VALUES (2, 240, 'AlexType C (180 символов, 96%)')"

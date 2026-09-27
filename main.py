@@ -32,7 +32,7 @@ from concurrent.futures import ThreadPoolExecutor
 import html
 import tempfile
 from collections import Counter, deque
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional, List
 from contextlib import contextmanager
 from logging.handlers import RotatingFileHandler
@@ -1830,6 +1830,24 @@ def init_db():
                 UNIQUE(user_id, date)
             )
         """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS heartbeat_state (
+                user_id INTEGER PRIMARY KEY,
+                last_seen_at REAL NOT NULL,
+                context TEXT NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS time_tracking_v2 (
+                user_id INTEGER NOT NULL,
+                date TEXT NOT NULL,
+                total_seconds INTEGER NOT NULL DEFAULT 0,
+                task_seconds INTEGER NOT NULL DEFAULT 0,
+                alextype_seconds INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (user_id, date)
+            )
+        """)
 
         # ========== COMPLAINTS ==========
         cursor.execute("""
@@ -1874,6 +1892,8 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_completed_tasks_valid ON completed_tasks(user_id, is_valid)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_completed_tasks_user_completed_at ON completed_tasks(user_id, completed_at)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_completed_tasks_week ON completed_tasks(completed_at, is_valid, user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_xp_log_task_week ON xp_log(logged_at, reason, user_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_solution_methods_simhash ON task_solution_methods(task_id, method_simhash)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_submissions_user_task_status ON submissions(user_id, task_id, status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_submissions_user_task_id_desc ON submissions(user_id, task_id, id DESC)")
@@ -2488,8 +2508,31 @@ def compute_level(total_xp: int) -> int:
         level -= 1
     return max(1, level)
 
+
+def _current_streak_days(streak_days: int, last_active: str | None) -> int:
+    """A quest streak survives one missed calendar day."""
+    if not last_active:
+        return 0
+    try:
+        days_since = (datetime.now().date() - date.fromisoformat(str(last_active)[:10])).days
+    except ValueError:
+        return 0
+    return max(0, int(streak_days or 0)) if 0 <= days_since <= 2 else 0
+
+
+def _next_streak_days(streak_days: int, last_active: str | None, today: date) -> int:
+    if not last_active:
+        return 1
+    try:
+        days_since = (today - date.fromisoformat(str(last_active)[:10])).days
+    except ValueError:
+        return 1
+    if days_since == 0:
+        return max(1, int(streak_days or 0))
+    return max(1, int(streak_days or 0) + 1) if 0 < days_since <= 2 else 1
+
 # Cached result for _get_most_active_student_id (avoids heavy SQL on every XP change).
-_most_active_cache: dict = {"user_id": None, "expires": 0.0}
+_most_active_cache: dict = {"user_id": None, "expires": 0.0, "database": None}
 _MOST_ACTIVE_TTL_S = 60.0
 
 def _get_most_active_student_id(cursor) -> int | None:
@@ -2501,7 +2544,7 @@ def _get_most_active_student_id(cursor) -> int | None:
     (Tasks are most valuable, AlexType mid, idle/blue time cheapest)
     """
     now = time.monotonic()
-    if _most_active_cache["expires"] > now:
+    if _most_active_cache["expires"] > now and _most_active_cache["database"] == DATABASE:
         return _most_active_cache["user_id"]
     try:
         cursor.execute("""
@@ -2511,17 +2554,18 @@ def _get_most_active_student_id(cursor) -> int | None:
                    SUM(CASE WHEN tt.total_seconds - tt.task_seconds - tt.alextype_seconds > 0
                         THEN tt.total_seconds - tt.task_seconds - tt.alextype_seconds ELSE 0 END) * 1.0
                    AS weighted_score
-            FROM time_tracking tt
+            FROM time_tracking_v2 tt
             JOIN users u ON u.id = tt.user_id
-            WHERE u.role = 'student' AND tt.date >= date('now', '-7 days')
+            WHERE u.role IN ('student', 'mini_admin') AND tt.date >= date('now', '-6 days')
             GROUP BY tt.user_id
-            ORDER BY weighted_score DESC
+            ORDER BY weighted_score DESC, SUM(tt.task_seconds) DESC, tt.user_id ASC
             LIMIT 1
         """)
         row = cursor.fetchone()
         result = row["user_id"] if row and row["weighted_score"] and row["weighted_score"] > 0 else None
         _most_active_cache["user_id"] = result
         _most_active_cache["expires"] = now + _MOST_ACTIVE_TTL_S
+        _most_active_cache["database"] = DATABASE
         return result
     except Exception:
         _most_active_cache["expires"] = now + _MOST_ACTIVE_TTL_S
@@ -2570,6 +2614,14 @@ def apply_xp_change(cursor, user_id: int, delta_xp: int, reason: str, task_id: s
                 etype = mt["effect_type"]
                 if etype == "xp_buff":
                     delta = int(delta * (1 + mt["effect_value"]))
+                elif etype == "category_xp_buff" and task_id and reason in ("task_completed", "task_method_completed"):
+                    try:
+                        title_category = json.loads(mt["effect_meta"] or "{}").get("category")
+                        task = get_task(task_id)
+                        if task and task.get("category") == title_category:
+                            delta = int(delta * (1 + mt["effect_value"]))
+                    except (ValueError, TypeError):
+                        pass
                 elif etype == "xp_debuff":
                     delta = int(delta * (1 + mt["effect_value"]))
                 elif etype == "xp_cooldown":
@@ -3553,9 +3605,9 @@ def process_task_completion(
             bonus_multiplier *= event["bonus_value"]
     
     # Streak Bonus — 2% per streak day, max 30% (reached at 15 days)
-    cursor.execute("SELECT streak_days FROM user_stats WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT streak_days, last_active FROM user_stats WHERE user_id = ?", (user_id,))
     streak_row = cursor.fetchone()
-    streak_days = streak_row["streak_days"] if streak_row else 0
+    streak_days = _current_streak_days(streak_row["streak_days"], streak_row["last_active"]) if streak_row else 0
     streak_boost_pct = min(streak_days * 2, 30)  # 2% per day, cap 30% at day 15
     bonus_multiplier += streak_boost_pct / 100.0
 
@@ -3598,7 +3650,7 @@ def process_task_completion(
     cursor.execute(
         """
         UPDATE completed_tasks
-        SET xp_earned = ?, solution = ?, code_simhash = ?, completed_at = CURRENT_TIMESTAMP
+        SET xp_earned = ?, solution = ?, code_simhash = ?
         WHERE user_id = ? AND task_id = ?
         """,
         (task_total_xp, solution, candidate_simhash, user_id, task_id),
@@ -3629,14 +3681,7 @@ def process_task_completion(
     
     prev_streak = int(stats["streak_days"] or 0)
     last_active = stats["last_active"]
-    if last_active == today:
-        new_streak = max(1, prev_streak)
-    else:
-        yesterday = (datetime.now().date() - timedelta(days=1)).isoformat()
-        if last_active == yesterday:
-            new_streak = max(1, prev_streak + 1)
-        else:
-            new_streak = 1
+    new_streak = _next_streak_days(prev_streak, last_active, datetime.now().date())
 
     new_total = int(stats["total_quests"] or 0) + (1 if is_first_completion else 0)
     best_streak = max(int(stats["best_streak"] or 0), new_streak)
@@ -5701,9 +5746,9 @@ def get_achievement_status(user: dict = Depends(require_auth)):
         cursor.execute("SELECT COUNT(*) FROM completed_tasks WHERE user_id = ? AND is_valid != 0", (user["id"],))
         total_quests = int(cursor.fetchone()[0])
 
-        cursor.execute("SELECT streak_days FROM user_stats WHERE user_id = ?", (user["id"],))
+        cursor.execute("SELECT streak_days, last_active FROM user_stats WHERE user_id = ?", (user["id"],))
         row = cursor.fetchone()
-        streak_days = int(row["streak_days"]) if row and row["streak_days"] is not None else 0
+        streak_days = _current_streak_days(row["streak_days"], row["last_active"]) if row else 0
 
         cursor.execute(
             "SELECT COUNT(*) FROM completed_tasks WHERE user_id = ? AND DATE(completed_at) = DATE('now') AND is_valid != 0",
@@ -5901,7 +5946,7 @@ def get_leaderboard(limit: int = Query(20, le=100)):
         cursor.execute("""
             SELECT mt.to_user_id, mt.title_text, mt.effect_type, mt.effect_value
             FROM guild_member_titles mt
-            WHERE mt.expires_at > CURRENT_TIMESTAMP AND mt.effect_type = 'xp_buff'
+            WHERE mt.expires_at > CURRENT_TIMESTAMP AND mt.effect_type IN ('xp_buff', 'category_xp_buff')
         """)
         user_titles = {}
         for t in cursor.fetchall():
@@ -5916,6 +5961,13 @@ def get_leaderboard(limit: int = Query(20, le=100)):
 
         # Get most active student
         most_active_id = _get_most_active_student_id(cursor)
+        mvp = None
+        if most_active_id is not None:
+            mvp_row = cursor.execute(
+                "SELECT id, display_name FROM users WHERE id = ?", (most_active_id,)
+            ).fetchone()
+            if mvp_row:
+                mvp = dict(mvp_row)
 
         # Get average review scores per user (from admin-scored submissions)
         cursor.execute("""
@@ -5957,61 +6009,48 @@ def get_leaderboard(limit: int = Query(20, le=100)):
                 "review_count": rs["review_count"],
             }
             leaders.append(entry)
-    return {"leaderboard": leaders}
+    return {"leaderboard": leaders, "mvp": mvp}
 
-@app.get("/api/leaderboard/3days")
-def get_leaderboard_3days(limit: int = Query(20, le=100), sort_by: str = Query("xp")):
-    """Leaderboard by XP and stars earned in the last 3 days."""
-    order_col = "stars_3d" if sort_by == "stars" else "xp_3d"
+@app.get("/api/leaderboard/week")
+def get_leaderboard_week(limit: int = Query(20, ge=1, le=100)):
+    """Current calendar week's top players by unique completed quests."""
+    week_start = (datetime.now(timezone.utc).date() - timedelta(days=datetime.now(timezone.utc).weekday())).isoformat()
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute(f"""
-            SELECT ct.user_id,
-                   u.display_name,
-                   COALESCE(SUM(ct.xp_earned), 0) as xp_3d,
-                   COUNT(*) as stars_3d,
-                   u.xp as total_xp,
-                   u.level,
-                   r.name_ru as rank_name,
-                   r.badge_emoji as rank_badge,
-                   CASE WHEN s.avatar_data IS NOT NULL AND s.avatar_data != '' THEN 1 ELSE 0 END as has_avatar,
-                   gm.guild_id,
-                   g.name as guild_name,
-                   gm.role as guild_role
-            FROM completed_tasks ct
-            JOIN users u ON u.id = ct.user_id
-            LEFT JOIN ranks r ON u.xp >= r.min_xp
-            LEFT JOIN user_stats s ON u.id = s.user_id
+        cursor.execute("""
+            WITH stars AS (
+                SELECT user_id, COUNT(*) AS stars_week
+                FROM completed_tasks
+                WHERE is_valid != 0 AND completed_at >= ?
+                GROUP BY user_id
+            ), earned AS (
+                SELECT user_id, SUM(xp_change) AS xp_week
+                FROM xp_log
+                WHERE reason IN ('task_completed', 'task_method_completed') AND logged_at >= ?
+                GROUP BY user_id
+            )
+            SELECT u.id AS id, u.display_name, u.level,
+                   s.stars_week, COALESCE(e.xp_week, 0) AS xp_week,
+                   r.name_ru AS rank_name, r.badge_emoji AS rank_badge,
+                   CASE WHEN us.avatar_data IS NOT NULL AND us.avatar_data != '' THEN 1 ELSE 0 END AS has_avatar,
+                   gm.guild_id, g.name AS guild_name, gm.role AS guild_role
+            FROM stars s
+            JOIN users u ON u.id = s.user_id
+            LEFT JOIN earned e ON e.user_id = u.id
+            LEFT JOIN ranks r ON r.min_xp = (SELECT MAX(min_xp) FROM ranks WHERE min_xp <= u.xp)
+            LEFT JOIN user_stats us ON us.user_id = u.id
             LEFT JOIN guild_members gm ON gm.user_id = u.id
             LEFT JOIN guilds g ON g.id = gm.guild_id AND g.disbanded_at IS NULL
             WHERE u.role IN ('student', 'mini_admin')
-              AND ct.is_valid != 0
-              AND ct.completed_at >= DATE('now', '-3 days')
-              AND r.min_xp = (SELECT MAX(min_xp) FROM ranks WHERE min_xp <= u.xp)
-            GROUP BY ct.user_id
-            ORDER BY {order_col} DESC
+            ORDER BY s.stars_week DESC, xp_week DESC, u.id ASC
             LIMIT ?
-        """, (limit,))
-        rows = cursor.fetchall()
-
-        leaders = []
-        for i, row in enumerate(rows, 1):
-            leaders.append({
-                "position": i,
-                "id": row["user_id"],
-                "display_name": row["display_name"],
-                "xp_3d": row["xp_3d"],
-                "stars_3d": row["stars_3d"],
-                "total_xp": row["total_xp"],
-                "level": row["level"],
-                "rank_name": row["rank_name"],
-                "rank_badge": row["rank_badge"],
-                "has_avatar": bool(row["has_avatar"]),
-                "guild_id": row["guild_id"],
-                "guild_name": row["guild_name"],
-                "guild_role": row["guild_role"],
-            })
-    return {"leaderboard": leaders}
+        """, (week_start, week_start, limit))
+        leaders = [dict(row) for row in cursor.fetchall()]
+    for position, leader in enumerate(leaders, 1):
+        leader["position"] = position
+        leader["has_avatar"] = bool(leader["has_avatar"])
+    return {"week_start": week_start, "max_stars_week": leaders[0]["stars_week"] if leaders else 0,
+            "leaderboard": leaders}
 
 @app.get("/api/avatar/{user_id}")
 def get_user_avatar(user_id: int):
@@ -6045,7 +6084,7 @@ def get_public_profile(user_id: int, current_user: dict = Depends(require_auth))
         
         # Get user stats
         cursor.execute("""
-            SELECT total_quests, streak_days, avatar_data
+            SELECT total_quests, streak_days, last_active, avatar_data
             FROM user_stats WHERE user_id = ?
         """, (user_id,))
         stats = cursor.fetchone()
@@ -6076,7 +6115,7 @@ def get_public_profile(user_id: int, current_user: dict = Depends(require_auth))
         # Get time tracking data (last 30 days)
         cursor.execute("""
             SELECT date, total_seconds, task_seconds, alextype_seconds
-            FROM time_tracking
+            FROM time_tracking_v2
             WHERE user_id = ? AND date >= date('now', '-30 days')
             ORDER BY date ASC
         """, (user_id,))
@@ -6086,7 +6125,7 @@ def get_public_profile(user_id: int, current_user: dict = Depends(require_auth))
             SELECT COALESCE(SUM(total_seconds), 0) as total_seconds,
                    COALESCE(SUM(task_seconds), 0) as task_seconds,
                    COALESCE(SUM(alextype_seconds), 0) as alextype_seconds
-            FROM time_tracking WHERE user_id = ?
+            FROM time_tracking_v2 WHERE user_id = ?
         """, (user_id,))
         time_totals = dict(cursor.fetchone())
 
@@ -6108,7 +6147,7 @@ def get_public_profile(user_id: int, current_user: dict = Depends(require_auth))
         },
         "stats": {
             "total_quests": stats["total_quests"] if stats else 0,
-            "streak_days": stats["streak_days"] if stats else 0,
+            "streak_days": _current_streak_days(stats["streak_days"], stats["last_active"]) if stats else 0,
             "completed_tasks": completed_count
         },
         "avatar_data": stats["avatar_data"] if stats else None,
@@ -6561,6 +6600,7 @@ def get_profile(user: dict = Depends(require_auth)):
             stats = dict(stats_row)
         else:
             stats = {"total_quests": 0, "streak_days": 0, "best_streak": 0, "avatar_data": ""}
+        stats["streak_days"] = _current_streak_days(stats["streak_days"], stats.get("last_active"))
         
         # Get completed tasks count
         cursor.execute("SELECT COUNT(*) FROM completed_tasks WHERE user_id = ? AND is_valid != 0", (user["id"],))
@@ -7262,12 +7302,12 @@ def parent_dashboard(
                    COALESCE(SUM(CASE WHEN date >= date('now', '-6 days') THEN total_seconds ELSE 0 END), 0) AS week_seconds,
                    COALESCE(SUM(CASE WHEN date >= date('now', '-29 days') THEN total_seconds ELSE 0 END), 0) AS month_seconds,
                    COUNT(CASE WHEN total_seconds > 0 THEN 1 END) AS active_days
-            FROM time_tracking WHERE user_id = ?
+            FROM time_tracking_v2 WHERE user_id = ?
             """,
             (uid,),
         ).fetchone()
         stats_row = cursor.execute(
-            "SELECT streak_days, best_streak FROM user_stats WHERE user_id = ?",
+            "SELECT streak_days, best_streak, last_active FROM user_stats WHERE user_id = ?",
             (uid,),
         ).fetchone()
         review_counts = cursor.execute(
@@ -7339,7 +7379,7 @@ def parent_dashboard(
         time_daily = [dict(row) for row in cursor.execute(
             """
             SELECT date, total_seconds, task_seconds, alextype_seconds
-            FROM time_tracking
+            FROM time_tracking_v2
             WHERE user_id = ? AND date >= date('now', '-29 days')
             ORDER BY date
             """,
@@ -7439,7 +7479,7 @@ def parent_dashboard(
             "attempts": int(attempts["total"] or 0),
             "successful_attempts": int(attempts["passed"] or 0),
             "avg_runtime_ms": round(float(attempts["avg_runtime_ms"] or 0), 1),
-            "streak_days": int(stats_row["streak_days"] or 0) if stats_row else 0,
+            "streak_days": _current_streak_days(stats_row["streak_days"], stats_row["last_active"]) if stats_row else 0,
             "best_streak": int(stats_row["best_streak"] or 0) if stats_row else 0,
             "reviews": dict(review_counts),
             "time": time_data,
@@ -11872,6 +11912,10 @@ _GUILD_MEMBER_TITLE_PRESETS = {
     "inspiration": {"title_text": "Вдохновение", "effect_type": "xp_buff", "effect_value": 0.10, "duration": "+12 hours", "positive": True, "icon": "🔥"},
     "typing_master": {"title_text": "Мастер Набора", "effect_type": "xp_buff", "effect_value": 0.08, "duration": "+12 hours", "positive": True, "icon": "⌨️"},
     "quest_champion": {"title_text": "Чемпион Квестов", "effect_type": "xp_buff", "effect_value": 0.08, "duration": "+12 hours", "positive": True, "icon": "🏆"},
+    "python_alchemist": {"title_text": "Алхимик Python", "effect_type": "category_xp_buff", "effect_value": 0.10, "category": "python", "duration": "+3 hours", "positive": True, "icon": "🐍"},
+    "python_archmage": {"title_text": "Архимаг Python", "effect_type": "category_xp_buff", "effect_value": 0.20, "category": "python", "duration": "+3 hours", "positive": True, "icon": "🧙"},
+    "js_spark": {"title_text": "Искра JavaScript", "effect_type": "category_xp_buff", "effect_value": 0.15, "category": "javascript", "duration": "+3 hours", "positive": True, "icon": "⚡"},
+    "js_phantom": {"title_text": "Фантом JavaScript", "effect_type": "category_xp_buff", "effect_value": 0.20, "category": "javascript", "duration": "+3 hours", "positive": True, "icon": "👻"},
 }
 
 _MAX_ACTIVE_MEMBER_TITLES = 5
@@ -12387,7 +12431,7 @@ def assign_member_title(guild_id: int, data: GuildMemberTitleRequest, user: dict
             raise HTTPException(400, "Титулы можно давать только своим участникам")
 
         # For category_block, require a category
-        effect_meta = None
+        effect_meta = json.dumps({"category": preset["category"]}) if preset.get("category") else None
         if data.preset == "category_block":
             if not data.category or data.category.lower() not in ("python", "javascript", "frontend", "scratch"):
                 raise HTTPException(400, "Укажите категорию: python, javascript, frontend, scratch")
@@ -12529,7 +12573,7 @@ def set_custom_role_name(guild_id: int, member_id: int, data: RoleNameRequest, u
 # ==================== ADMIN: TIME TRACKING ====================
 
 @app.get("/api/admin/time-tracking")
-def admin_time_tracking(days: int = Query(7, le=365), admin: dict = Depends(require_admin)):
+def admin_time_tracking(days: int = Query(7, ge=1, le=365), admin: dict = Depends(require_admin)):
     """Get time tracking data for all students."""
     with get_db() as conn:
         cursor = conn.cursor()
@@ -12539,21 +12583,21 @@ def admin_time_tracking(days: int = Query(7, le=365), admin: dict = Depends(requ
                    COALESCE(SUM(tt.task_seconds), 0) as task_seconds,
                    COALESCE(SUM(tt.alextype_seconds), 0) as alextype_seconds
             FROM users u
-            LEFT JOIN time_tracking tt ON tt.user_id = u.id
+            LEFT JOIN time_tracking_v2 tt ON tt.user_id = u.id AND tt.date >= date('now', ? || ' days')
             WHERE u.role = 'student'
             GROUP BY u.id
             ORDER BY total_seconds DESC
-        """)
+        """, (str(1 - days),))
         students = [dict(r) for r in cursor.fetchall()]
 
         # Daily breakdown for requested period
         cursor.execute("""
             SELECT tt.user_id, tt.date, tt.total_seconds, tt.task_seconds, tt.alextype_seconds
-            FROM time_tracking tt
+            FROM time_tracking_v2 tt
             JOIN users u ON u.id = tt.user_id AND u.role = 'student'
             WHERE tt.date >= date('now', ? || ' days')
             ORDER BY tt.date ASC
-        """, (str(-days),))
+        """, (str(1 - days),))
         daily_data = {}
         for r in cursor.fetchall():
             uid = r["user_id"]
@@ -12570,7 +12614,7 @@ def admin_time_tracking(days: int = Query(7, le=365), admin: dict = Depends(requ
 # ==================== GUILD: MEMBER TIME TRACKING ====================
 
 @app.get("/api/guilds/{guild_id}/members/{member_id}/time-tracking")
-def guild_member_time_tracking(guild_id: int, member_id: int, days: int = Query(7, le=365), user: dict = Depends(require_auth)):
+def guild_member_time_tracking(guild_id: int, member_id: int, days: int = Query(7, ge=1, le=365), user: dict = Depends(require_auth)):
     """Get time tracking for a guild member. President and the member themselves can view."""
     uid = user["id"]
     with get_db() as conn:
@@ -12602,17 +12646,17 @@ def guild_member_time_tracking(guild_id: int, member_id: int, days: int = Query(
             SELECT COALESCE(SUM(total_seconds), 0) as total_seconds,
                    COALESCE(SUM(task_seconds), 0) as task_seconds,
                    COALESCE(SUM(alextype_seconds), 0) as alextype_seconds
-            FROM time_tracking WHERE user_id = ?
-        """, (member_id,))
+            FROM time_tracking_v2 WHERE user_id = ? AND date >= date('now', ? || ' days')
+        """, (member_id, str(1 - days)))
         totals = dict(cursor.fetchone())
 
         # Daily breakdown for requested period
         cursor.execute("""
             SELECT date, total_seconds, task_seconds, alextype_seconds
-            FROM time_tracking
+            FROM time_tracking_v2
             WHERE user_id = ? AND date >= date('now', ? || ' days')
             ORDER BY date ASC
-        """, (member_id, str(-days)))
+        """, (member_id, str(1 - days)))
         daily = [dict(r) for r in cursor.fetchall()]
 
     return {"totals": totals, "daily": daily}
@@ -12683,41 +12727,51 @@ def admin_guild_rankings(admin: dict = Depends(require_admin)):
 
 class HeartbeatRequest(BaseModel):
     context: str = "general"  # "general", "tasks", "alextype"
+    active: bool = False
 
 _HEARTBEAT_INTERVAL_S = 30  # Expected heartbeat interval
 
 @app.post("/api/heartbeat")
 def heartbeat(body: HeartbeatRequest = HeartbeatRequest(), user: dict = Depends(require_auth)):
-    """Update user's last_seen_at and track time on platform."""
+    """Credit only server-observed, recently active time between heartbeats."""
     uid = user["id"]
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     ctx = body.context if body.context in ("general", "tasks", "alextype") else "general"
+    now = time.time()
 
     with get_db() as conn:
         cursor = conn.cursor()
+        cursor.execute("SELECT last_seen_at, context, is_active FROM heartbeat_state WHERE user_id = ?", (uid,))
+        previous = cursor.fetchone()
+        elapsed = max(0, now - float(previous["last_seen_at"])) if previous else 0
+        credited = min(_HEARTBEAT_INTERVAL_S, int(elapsed)) if previous and previous["is_active"] and elapsed <= 45 else 0
+        credited_context = previous["context"] if previous else "general"
         cursor.execute(
             "UPDATE users SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?",
             (uid,),
         )
-        # Upsert time tracking
+        if credited:
+            task_seconds = credited if credited_context == "tasks" else 0
+            alextype_seconds = credited if credited_context == "alextype" else 0
+            cursor.execute("""
+                INSERT INTO time_tracking_v2 (user_id, date, total_seconds, task_seconds, alextype_seconds)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, date) DO UPDATE SET
+                    total_seconds = total_seconds + excluded.total_seconds,
+                    task_seconds = task_seconds + excluded.task_seconds,
+                    alextype_seconds = alextype_seconds + excluded.alextype_seconds
+            """, (uid, today, credited, task_seconds, alextype_seconds))
+            _most_active_cache["expires"] = 0.0
         cursor.execute("""
-            INSERT INTO time_tracking (user_id, date, total_seconds, task_seconds, alextype_seconds)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(user_id, date) DO UPDATE SET
-                total_seconds = total_seconds + ?,
-                task_seconds = task_seconds + ?,
-                alextype_seconds = alextype_seconds + ?
-        """, (
-            uid, today,
-            _HEARTBEAT_INTERVAL_S,
-            _HEARTBEAT_INTERVAL_S if ctx == "tasks" else 0,
-            _HEARTBEAT_INTERVAL_S if ctx == "alextype" else 0,
-            _HEARTBEAT_INTERVAL_S,
-            _HEARTBEAT_INTERVAL_S if ctx == "tasks" else 0,
-            _HEARTBEAT_INTERVAL_S if ctx == "alextype" else 0,
-        ))
+            INSERT INTO heartbeat_state (user_id, last_seen_at, context, is_active)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                last_seen_at = excluded.last_seen_at,
+                context = excluded.context,
+                is_active = excluded.is_active
+        """, (uid, now, ctx, int(body.active)))
         conn.commit()
-    return {"ok": True}
+    return {"ok": True, "credited_seconds": credited}
 
 
 # ==================== GUILD: MEMBER DETAIL ====================
@@ -12754,6 +12808,7 @@ def get_guild_member_detail(guild_id: int, member_id: int, user: dict = Depends(
                    COALESCE(s.total_quests, 0) as total_quests,
                    COALESCE(s.streak_days, 0) as streak_days,
                    COALESCE(s.best_streak, 0) as best_streak,
+                   s.last_active as streak_last_active,
                    gm.role, gm.custom_role_name, gm.joined_at
             FROM users u
             LEFT JOIN user_stats s ON s.user_id = u.id
@@ -12765,6 +12820,7 @@ def get_guild_member_detail(guild_id: int, member_id: int, user: dict = Depends(
             raise HTTPException(404, "Пользователь не найден")
 
         detail = dict(row)
+        detail["streak_days"] = _current_streak_days(detail["streak_days"], detail.pop("streak_last_active"))
         detail["alex_boost"] = detail.get("username") == "Alex"
         detail.pop("username", None)  # Don't expose username
 
@@ -13349,18 +13405,18 @@ def get_guild_stats(guild_id: int, user: dict = Depends(require_auth)):
         """, member_ids)
         members_summary = [dict(r) for r in cursor.fetchall()]
 
-        # ── Per-member stars by period (1d / 2d / 3d) ──
+        # ── Per-member stars by period (today / 2 days / current week) ──
         cursor.execute(f"""
             SELECT u.id, u.display_name,
                    (SELECT COUNT(*) FROM completed_tasks WHERE user_id = u.id AND is_valid != 0
                     AND DATE(completed_at) = DATE('now')) as stars_1d,
                    (SELECT COUNT(*) FROM completed_tasks WHERE user_id = u.id AND is_valid != 0
-                    AND completed_at >= DATE('now', '-2 days')) as stars_2d,
+                    AND completed_at >= DATE('now', '-1 day')) as stars_2d,
                    (SELECT COUNT(*) FROM completed_tasks WHERE user_id = u.id AND is_valid != 0
-                    AND completed_at >= DATE('now', '-3 days')) as stars_3d
+                    AND completed_at >= DATE('now', 'weekday 0', '-6 days')) as stars_week
             FROM users u
             WHERE u.id IN ({placeholders})
-            ORDER BY stars_3d DESC, stars_1d DESC
+            ORDER BY stars_week DESC, stars_1d DESC
         """, member_ids)
         members_stars = [dict(r) for r in cursor.fetchall()]
 
@@ -13418,12 +13474,12 @@ def get_most_active_student(user: dict = Depends(require_auth)):
                    SUM(tt.total_seconds) as total_time,
                    SUM(tt.task_seconds) as task_time,
                    SUM(tt.alextype_seconds) as alextype_time
-            FROM time_tracking tt
+            FROM time_tracking_v2 tt
             JOIN users u ON u.id = tt.user_id
             LEFT JOIN ranks r ON r.min_xp = (SELECT MAX(min_xp) FROM ranks WHERE min_xp <= u.xp)
-            WHERE u.role = 'student' AND tt.date >= date('now', '-7 days')
+            WHERE u.role IN ('student', 'mini_admin') AND tt.date >= date('now', '-6 days')
             GROUP BY tt.user_id
-            ORDER BY weighted_score DESC
+            ORDER BY weighted_score DESC, SUM(tt.task_seconds) DESC, tt.user_id ASC
             LIMIT 1
         """)
         row = cursor.fetchone()
