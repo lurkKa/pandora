@@ -2653,11 +2653,11 @@
             transition: width 0.5s ease;
         }
 
-        /* Leaderboard Side Panel */
+        /* Leaderboard side panel */
         .leaderboard-sidebar {
             position: fixed;
             top: 0;
-            left: -420px;
+            left: -600px;
             width: 400px;
             min-width: 300px;
             max-width: 600px;
@@ -2685,8 +2685,11 @@
             background: rgba(251, 191, 36, 0.3);
         }
 
-        .leaderboard-sidebar.open {
-            left: 0;
+        .leaderboard-sidebar.open { left: 0; }
+
+        #leaderboard-panel {
+            background: linear-gradient(180deg, #181629 0%, var(--bg-surface) 230px);
+            border-right-color: rgba(167, 139, 250, 0.2);
         }
 
         .leaderboard-header {
@@ -2705,23 +2708,74 @@
             gap: 8px;
         }
 
-        /* Leaderboard Tabs */
+        #leaderboard-panel .leaderboard-header {
+            padding: 20px 18px 16px;
+            background: linear-gradient(145deg, rgba(92, 57, 165, 0.24), rgba(19, 19, 37, 0.96) 72%);
+            border-bottom: 1px solid rgba(167, 139, 250, 0.16);
+            z-index: 2;
+        }
+
+        .leaderboard-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 17px;
+        }
+
+        .leaderboard-heading-label {
+            color: #bba9e9;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+        }
+
+        #leaderboard-panel .leaderboard-heading h3 {
+            color: var(--text-bright);
+            font-size: 22px;
+            line-height: 1.25;
+            margin-top: 3px;
+        }
+
+        .leaderboard-close {
+            width: 34px;
+            height: 34px;
+            display: grid;
+            place-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+            font-size: 19px;
+            cursor: pointer;
+        }
+
+        .leaderboard-close:hover {
+            color: var(--text-bright);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
         .leaderboard-tabs {
             display: flex;
-            gap: 6px;
+            gap: 4px;
+            padding: 4px;
+            border-radius: 13px;
+            background: rgba(5, 7, 19, 0.48);
+            border: 1px solid rgba(255, 255, 255, 0.06);
         }
 
         .lb-tab {
             flex: 1;
-            padding: 8px 12px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.04);
+            padding: 9px 8px;
+            border: 1px solid transparent;
+            border-radius: 9px;
+            background: transparent;
             color: var(--text-secondary);
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
         }
 
         .lb-tab:hover {
@@ -2730,59 +2784,127 @@
         }
 
         .lb-tab.active {
-            background: linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(79, 172, 254, 0.15));
-            border-color: rgba(139, 92, 246, 0.4);
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.35), rgba(79, 172, 254, 0.17));
+            border-color: rgba(167, 139, 250, 0.3);
             color: var(--text-bright);
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.2);
         }
 
-        .leader-item {
+        #leaderboard-list { padding: 13px 10px 22px; }
+
+        .leaderboard-section-heading {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 3px 8px 12px;
+        }
+
+        .leaderboard-section-heading strong {
+            color: var(--text-bright);
+            font-size: 14px;
+        }
+
+        .leaderboard-section-heading span {
+            color: var(--text-muted);
+            font-size: 11px;
+        }
+
+        .leaderboard-weekly-summary {
+            margin: 2px 4px 16px;
+            padding: 16px;
+            border: 1px solid rgba(251, 191, 36, 0.25);
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(121, 83, 22, 0.23), rgba(39, 31, 47, 0.62));
+        }
+
+        .leaderboard-weekly-summary .summary-label {
+            color: #e9c984;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        .leaderboard-weekly-summary .summary-value {
+            color: #ffe29a;
+            font-size: 30px;
+            line-height: 1.2;
+            font-weight: 900;
+            margin-top: 4px;
+        }
+
+        .leaderboard-weekly-summary .summary-value small {
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .leaderboard-weekly-summary table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 14px;
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .leaderboard-weekly-summary th {
+            color: #d7c398;
+            font-weight: 600;
+            text-align: left;
+            padding-bottom: 6px;
+        }
+
+        .leaderboard-weekly-summary td {
+            padding: 7px 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .leaderboard-weekly-summary th:last-child,
+        .leaderboard-weekly-summary td:last-child { text-align: right; }
+        .leaderboard-weekly-summary td:last-child { color: #fbbf24; font-weight: 800; }
+
+        .leaderboard-empty {
+            margin: 18px 4px;
+            padding: 34px 20px;
+            border: 1px dashed rgba(167, 139, 250, 0.23);
+            border-radius: 15px;
+            color: var(--text-secondary);
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        #leaderboard-panel .leader-item {
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 14px 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-            transition: all 0.25s ease;
+            gap: 9px;
+            padding: 12px;
             border-radius: 12px;
-            margin: 2px 8px;
-            border: 2px solid transparent;
+            margin: 0 0 7px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.035);
+            transition: background 0.2s ease, border-color 0.2s ease;
         }
 
-        .leader-item:hover {
-            background: var(--bg-hover);
+        #leaderboard-panel .leader-item:hover,
+        #leaderboard-panel .leader-item:focus-visible {
+            background: rgba(139, 92, 246, 0.1);
+            border-color: rgba(167, 139, 250, 0.3);
+            outline: none;
         }
 
-        /* Top 3 glowing borders */
-        .leader-item.leader-gold {
-            background: rgba(251, 191, 36, 0.06);
-            border: 2px solid rgba(251, 191, 36, 0.5);
-            box-shadow: 0 0 16px rgba(251, 191, 36, 0.2), inset 0 0 12px rgba(251, 191, 36, 0.05);
+        #leaderboard-panel .leader-item.leader-gold {
+            background: linear-gradient(105deg, rgba(251, 191, 36, 0.13), rgba(251, 191, 36, 0.025));
+            border-color: rgba(251, 191, 36, 0.34);
         }
 
-        .leader-item.leader-gold:hover {
-            background: rgba(251, 191, 36, 0.12);
-            box-shadow: 0 0 24px rgba(251, 191, 36, 0.35), inset 0 0 16px rgba(251, 191, 36, 0.08);
+        #leaderboard-panel .leader-item.leader-silver {
+            background: linear-gradient(105deg, rgba(192, 192, 220, 0.11), rgba(192, 192, 220, 0.025));
+            border-color: rgba(192, 192, 220, 0.25);
         }
 
-        .leader-item.leader-silver {
-            background: rgba(192, 192, 220, 0.06);
-            border: 2px solid rgba(192, 192, 220, 0.4);
-            box-shadow: 0 0 14px rgba(192, 192, 220, 0.15), inset 0 0 10px rgba(192, 192, 220, 0.04);
-        }
-
-        .leader-item.leader-silver:hover {
-            background: rgba(192, 192, 220, 0.1);
-            box-shadow: 0 0 20px rgba(192, 192, 220, 0.3), inset 0 0 14px rgba(192, 192, 220, 0.06);
-        }
-
-        .leader-item.leader-bronze {
-            background: rgba(205, 127, 50, 0.06);
-            border: 2px solid rgba(205, 127, 50, 0.4);
-            box-shadow: 0 0 14px rgba(205, 127, 50, 0.15), inset 0 0 10px rgba(205, 127, 50, 0.04);
-        }
-
-        .leader-item.leader-bronze:hover {
-            background: rgba(205, 127, 50, 0.1);
-            box-shadow: 0 0 20px rgba(205, 127, 50, 0.3), inset 0 0 14px rgba(205, 127, 50, 0.06);
+        #leaderboard-panel .leader-item.leader-bronze {
+            background: linear-gradient(105deg, rgba(205, 127, 50, 0.12), rgba(205, 127, 50, 0.025));
+            border-color: rgba(205, 127, 50, 0.27);
         }
 
         .leader-position {
@@ -2816,13 +2938,19 @@
             box-shadow: 0 2px 8px rgba(205, 127, 50, 0.4);
         }
 
-        .leader-position.default {
-            background: var(--bg-deep);
-            color: var(--text-secondary);
-        }
+        .leader-position.default { background: var(--bg-deep); color: var(--text-secondary); }
+        #leaderboard-panel .leader-info { flex: 1; min-width: 0; }
+        #leaderboard-panel .leader-name { color: var(--text-bright); overflow-wrap: anywhere; }
+        .leaderboard-score { flex-shrink: 0; text-align: right; white-space: nowrap; }
+        .leaderboard-score .leader-xp { font-size: 13px; }
+        .leaderboard-score small { display: block; color: var(--text-muted); font-size: 10px; margin-top: 3px; }
+        .leaderboard-score--stars .leader-xp { color: #fbbf24; }
 
-        .leader-info {
-            flex: 1;
+        @media (max-width: 600px) {
+            .leaderboard-sidebar { width: 100vw; min-width: 0; max-width: 100vw; left: -100vw; }
+            .leaderboard-sidebar.open { left: 0; }
+            .leaderboard-resize-handle { display: none; }
+            #leaderboard-panel .leader-item { padding: 10px; }
         }
 
         /* Chat Panel Tweaks */
@@ -3589,10 +3717,16 @@
     <div class="leaderboard-sidebar" id="leaderboard-panel">
         <div class="leaderboard-resize-handle" id="leaderboard-resize"></div>
         <div class="leaderboard-header">
+            <div class="leaderboard-heading">
+                <div>
+                    <div class="leaderboard-heading-label">Пандора · Зал славы</div>
+                    <h3>Рейтинг игроков</h3>
+                </div>
+                <button class="leaderboard-close" onclick="toggleLeaderboard()" aria-label="Закрыть рейтинг">×</button>
+            </div>
             <div class="leaderboard-tabs">
-                <button class="lb-tab active" id="lb-tab-world" onclick="switchLeaderboardTab('world')">🏆
-                    Мировой</button>
-                <button class="lb-tab" id="lb-tab-week" onclick="switchLeaderboardTab('week')">⭐ Неделя</button>
+                <button class="lb-tab active" id="lb-tab-world" onclick="switchLeaderboardTab('world')">🏆 За всё время</button>
+                <button class="lb-tab" id="lb-tab-week" onclick="switchLeaderboardTab('week')">⭐ Эта неделя</button>
             </div>
         </div>
         <div id="leaderboard-list">
@@ -5797,7 +5931,7 @@
 
                 const jobs = [
                     loadProfile(),
-                    loadLeaderboard()
+                    currentLbTab === 'week' ? loadLeaderboardWeek() : loadLeaderboard()
                 ];
 
                 if (shouldRefreshRoadmap) jobs.push(loadRoadmap());
@@ -8429,16 +8563,21 @@
         }
 
         async function loadLeaderboard() {
+            const requestId = ++leaderboardRenderRequest;
             try {
                 const res = await fetch(`${API_URL}/api/leaderboard?limit=20`);
+                if (!res.ok) throw new Error(`Рейтинг: ${res.status}`);
                 const data = await res.json();
+                if (requestId !== leaderboardRenderRequest || currentLbTab !== 'world') return;
                 const list = document.getElementById('leaderboard-list');
-                list.innerHTML = '';
-                if (data.mvp) {
-                    list.innerHTML = `<div class="most-active-badge" style="display:block;margin:10px 16px;padding:8px 10px;cursor:pointer;" onclick="openPublicProfile(${Number(data.mvp.id)})">🏅 MVP недели: ${escapeHtml(data.mvp.display_name)} · +5% XP</div>`;
+                const leaders = data.leaderboard || [];
+                list.innerHTML = `<div class="leaderboard-section-heading"><strong>Общий зачёт</strong><span>Топ ${leaders.length} · по XP</span></div>`;
+                if (!leaders.length) {
+                    list.insertAdjacentHTML('beforeend', '<div class="leaderboard-empty">Пока нет игроков в рейтинге</div>');
+                    return;
                 }
 
-                data.leaderboard.forEach(user => {
+                leaders.forEach(user => {
                     const posClass = user.position === 1 ? 'gold' :
                         user.position === 2 ? 'silver' :
                             user.position === 3 ? 'bronze' : 'default';
@@ -8450,14 +8589,13 @@
                         && !user.guild_id
                         && user.id !== (currentUser ? currentUser.id : null);
                     const inviteBtn = canInvite
-                        ? `<button onclick="event.stopPropagation(); sendGuildInvite(${user.id}, '${user.display_name.replace(/'/g, "\\\'")}')" 
-                            class="guild-invite-btn" title="Пригласить в гильдию">📩</button>`
+                        ? `<button type="button" class="guild-invite-btn lb-invite" data-invite-user="${Number(user.id)}" title="Пригласить в гильдию" aria-label="Пригласить в гильдию">📩</button>`
                         : '';
                     const guildTag = user.guild_name
-                        ? `<span class="guild-tag guild-tag-${user.guild_role === 'president' ? 'president' : user.guild_role === 'chairman' ? 'chairman' : 'member'}">${user.guild_role === 'president' ? '👑' : ''} [${user.guild_name}]</span>`
+                        ? `<span class="guild-tag guild-tag-${user.guild_role === 'president' ? 'president' : user.guild_role === 'chairman' ? 'chairman' : 'member'}">${user.guild_role === 'president' ? '👑' : ''} [${escapeHtml(user.guild_name)}]</span>`
                         : '';
                     const titleBadges = (user.active_titles || []).map(t =>
-                        `<span style="display:inline-block;background:rgba(34,197,94,0.15);color:#22c55e;font-size:10px;font-weight:600;padding:1px 6px;border-radius:6px;vertical-align:middle;">✨ ${t.title_text}</span>`
+                        `<span style="display:inline-block;background:rgba(34,197,94,0.15);color:#22c55e;font-size:10px;font-weight:600;padding:1px 6px;border-radius:6px;vertical-align:middle;">✨ ${escapeHtml(t.title_text)}</span>`
                     ).join('');
                     const mvpBadge = user.is_most_active ? '<span class="most-active-badge">🏅 MVP +5%</span>' : '';
                     const allBadges = [mvpBadge, titleBadges].filter(b => b).join('');
@@ -8477,33 +8615,45 @@
                         </div>`;
                     }
 
-                    list.innerHTML += `
-                        <div class="leader-item ${topClass}" onclick="openPublicProfile(${user.id})" style="cursor:pointer;">
+                    list.insertAdjacentHTML('beforeend', `
+                        <div class="leader-item ${topClass}" role="button" tabindex="0" onclick="openPublicProfile(${Number(user.id)})" onkeydown="if(event.target===event.currentTarget&&(event.key==='Enter'||event.key===' ')){event.preventDefault();openPublicProfile(${Number(user.id)})}" style="cursor:pointer;">
                             <div class="leader-position ${posClass}">${user.position}</div>
                             <div id="${avatarId}" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;margin-right:8px;" data-user-id="${user.id}" data-has-avatar="${user.has_avatar}">
                                 <span style="font-size:24px;">🧙</span>
                             </div>
                             <div class="leader-info">
-                                <div class="leader-name">${user.display_name}${guildTag}</div>
+                                <div class="leader-name">${escapeHtml(user.display_name)}${guildTag}</div>
                                 ${allBadges ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:2px;">${allBadges}</div>` : ''}
-                                <div class="leader-rank">${user.rank_badge} ${user.rank_name}</div>
+                                <div class="leader-rank">${escapeHtml(user.rank_badge || '')} ${escapeHtml(user.rank_name || '')}</div>
                                 ${starHtml}
                             </div>
-                            <div class="leader-xp">${user.xp.toLocaleString()} XP</div>
+                            <div class="leaderboard-score"><div class="leader-xp">${Number(user.xp || 0).toLocaleString('ru-RU')} XP</div><small>всё время</small></div>
                             ${inviteBtn}
                         </div>
-                    `;
+                    `);
+                });
+
+                list.querySelectorAll('.lb-invite').forEach(button => {
+                    button.addEventListener('click', event => {
+                        event.stopPropagation();
+                        const target = leaders.find(user => Number(user.id) === Number(button.dataset.inviteUser));
+                        if (target) sendGuildInvite(target.id, target.display_name);
+                    });
                 });
 
                 // Lazy load avatars
                 lazyLoadAvatars();
             } catch (e) {
                 console.error('Failed to load leaderboard:', e);
+                if (requestId === leaderboardRenderRequest) {
+                    document.getElementById('leaderboard-list').innerHTML = '<div class="leaderboard-empty">Не удалось загрузить рейтинг</div>';
+                }
             }
         }
 
         // Current leaderboard tab
         let currentLbTab = 'world';
+        let leaderboardRenderRequest = 0;
 
         function switchLeaderboardTab(tab) {
             currentLbTab = tab;
@@ -8514,41 +8664,49 @@
         }
 
         async function loadLeaderboardWeek() {
+            const requestId = ++leaderboardRenderRequest;
             try {
                 const res = await fetch(`${API_URL}/api/leaderboard/week?limit=20`);
                 if (!res.ok) throw new Error(`Рейтинг: ${res.status}`);
                 const data = await res.json();
+                if (requestId !== leaderboardRenderRequest || currentLbTab !== 'week') return;
                 const list = document.getElementById('leaderboard-list');
-                list.innerHTML = '';
                 const leaders = data.leaderboard || [];
+                const weekStart = String(data.week_start || '').split('-');
+                const weekLabel = weekStart.length === 3 ? `с ${weekStart[2]}.${weekStart[1]}` : 'с понедельника';
                 if (!leaders.length) {
-                    list.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:40px 20px;">На этой неделе звёзд пока нет</div>';
+                    list.innerHTML = `<div class="leaderboard-section-heading"><strong>Звёзды недели</strong><span>${weekLabel}</span></div><div class="leaderboard-empty">⭐<br>На этой неделе звёзд пока нет</div>`;
                     return;
                 }
-                const summary = document.createElement('div');
-                summary.style.cssText = 'padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.1);';
-                summary.innerHTML = `<div style="font-weight:700;color:#fbbf24;margin-bottom:6px;">⭐ Рекорд недели: ${data.max_stars_week} звёзд</div>
-                    <table style="width:100%;font-size:12px;border-collapse:collapse;color:var(--text-secondary);">
-                        <thead><tr><th style="text-align:left;">Место</th><th style="text-align:left;">Игрок</th><th style="text-align:right;">Звёзды</th></tr></thead>
-                        <tbody>${leaders.slice(0, 3).map(u => `<tr><td>${u.position}</td><td>${escapeHtml(u.display_name)}</td><td style="text-align:right;color:#fbbf24;">${u.stars_week}</td></tr>`).join('')}</tbody>
-                    </table>`;
-                list.appendChild(summary);
+                list.innerHTML = `
+                    <section class="leaderboard-weekly-summary" aria-label="Рекорд и лидеры недели">
+                        <div class="summary-label">⭐ Рекорд недели</div>
+                        <div class="summary-value">${Number(data.max_stars_week || 0).toLocaleString('ru-RU')} <small>звёзд</small></div>
+                        <table>
+                            <thead><tr><th>Место</th><th>Игрок</th><th>Звёзды</th></tr></thead>
+                            <tbody>${leaders.slice(0, 3).map(u => `<tr><td>${Number(u.position)}</td><td>${escapeHtml(u.display_name)}</td><td>${Number(u.stars_week)}</td></tr>`).join('')}</tbody>
+                        </table>
+                    </section>
+                    <div class="leaderboard-section-heading"><strong>Звёзды недели</strong><span>${weekLabel}</span></div>`;
                 leaders.forEach(user => {
                     const posClass = user.position === 1 ? 'gold' : user.position === 2 ? 'silver' : user.position === 3 ? 'bronze' : 'default';
                     const topClass = user.position === 1 ? 'leader-gold' : user.position === 2 ? 'leader-silver' : user.position === 3 ? 'leader-bronze' : '';
                     const avatarId = `avatar-week-${user.id}`;
                     const guildTag = user.guild_name ? `<span class="guild-tag">[${escapeHtml(user.guild_name)}]</span>` : '';
-                    list.innerHTML += `
-                        <div class="leader-item ${topClass}" onclick="openPublicProfile(${user.id})" style="cursor:pointer;">
+                    list.insertAdjacentHTML('beforeend', `
+                        <div class="leader-item ${topClass}" role="button" tabindex="0" onclick="openPublicProfile(${Number(user.id)})" onkeydown="if(event.target===event.currentTarget&&(event.key==='Enter'||event.key===' ')){event.preventDefault();openPublicProfile(${Number(user.id)})}" style="cursor:pointer;">
                             <div class="leader-position ${posClass}">${user.position}</div>
                             <div id="${avatarId}" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;margin-right:8px;" data-user-id="${user.id}" data-has-avatar="${user.has_avatar}"><span style="font-size:24px;">🧙</span></div>
-                            <div class="leader-info"><div class="leader-name">${escapeHtml(user.display_name)}${guildTag}</div><div class="leader-rank">${user.rank_badge} ${escapeHtml(user.rank_name || '')}</div></div>
-                            <div style="text-align:right;"><div class="leader-xp">⭐ ${user.stars_week}</div><div style="font-size:11px;color:var(--text-secondary);">+${Number(user.xp_week).toLocaleString()} XP</div></div>
-                        </div>`;
+                            <div class="leader-info"><div class="leader-name">${escapeHtml(user.display_name)}${guildTag}</div><div class="leader-rank">${escapeHtml(user.rank_badge || '')} ${escapeHtml(user.rank_name || '')}</div></div>
+                            <div class="leaderboard-score leaderboard-score--stars"><div class="leader-xp">⭐ ${Number(user.stars_week)}</div><small>+${Number(user.xp_week || 0).toLocaleString('ru-RU')} XP</small></div>
+                        </div>`);
                 });
                 lazyLoadAvatars();
             } catch (e) {
                 console.error('Failed to load weekly leaderboard:', e);
+                if (requestId === leaderboardRenderRequest) {
+                    document.getElementById('leaderboard-list').innerHTML = '<div class="leaderboard-empty">Не удалось загрузить рейтинг недели</div>';
+                }
             }
         }
 
