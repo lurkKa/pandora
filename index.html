@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 
 <head>
     <meta charset="UTF-8">
@@ -12,28 +12,32 @@
     <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
     <style>
         /* ========================================
-           CODE ADVENTURES - WCAG AAA DESIGN
+           PANDORA — NIGHT DESIGN SYSTEM
            Post-anime aesthetic: Dark fantasy, 
            refined gradients, subtle mystique
            ======================================== */
 
         :root {
-            /* Core palette - WCAG AAA contrast ratios */
+            /* Shared night surfaces */
             --bg-void: #08080c;
             --bg-deep: #0e0e14;
             --bg-surface: #14141c;
             --bg-elevated: #1a1a24;
             --bg-hover: #222230;
 
-            /* Text - all meet 7:1 contrast on backgrounds */
+            /* Readable text on the shared night surfaces */
             --text-bright: #f5f5f7;
             --text-primary: #e0e0e5;
-            --text-secondary: #9898a8;
-            --text-muted: #6a6a78;
+            --text-secondary: #b7b7c8;
+            --text-muted: #a2a2b3;
 
             /* Accent - mystical purple/violet */
             --accent: #8b5cf6;
-            --accent-soft: #a78bfa;
+            --accent-soft: #c4b5fd;
+            --accent-solid: #7440c8;
+            --accent-solid-hover: #6534b5;
+            --border-subtle: #353543;
+            --border-control: #727285;
             --accent-glow: rgba(139, 92, 246, 0.3);
 
             /* Status colors */
@@ -3524,10 +3528,11 @@
             color: #e94560;
         }
     </style>
+    <link rel="stylesheet" href="static/pandora-ui.css?v=20260928">
 </head>
 
 <body>
-    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <a href="#login-user" id="skip-to-content" class="skip-link">Перейти к входу</a>
     <!-- Ambient bg disabled for performance -->
     <div class="ambient-bg" aria-hidden="true"></div>
 
@@ -3535,19 +3540,20 @@
     <div id="login-screen">
         <div class="login-card">
             <div class="login-logo">
-                <span class="icon" role="img" aria-label="Crystal">💎</span>
-                <h1>Академия Pandora</h1>
-                <p>Begin your programming journey</p>
+                <span class="icon" aria-hidden="true">💎</span>
+                <span class="ui-eyebrow">Академия программирования</span>
+                <h1>Твоя история<br>начинается с кода.</h1>
+                <p>Квесты, новые навыки и команда.<br>Продолжи свой путь в Пандоре.</p>
             </div>
 
             <form id="login-form">
                 <div class="form-group">
-                    <label for="login-user" class="form-label">Username</label>
-                    <input type="text" id="login-user" class="form-input" placeholder="Enter your username" required
+                    <label for="login-user" class="form-label">Логин</label>
+                    <input type="text" id="login-user" class="form-input" placeholder="Твой логин в академии" required
                         autocomplete="username">
                 </div>
                 <div class="form-group">
-                    <label for="login-pass" class="form-label">Password</label>
+                    <label for="login-pass" class="form-label">Пароль</label>
                     <input type="password" id="login-pass" class="form-input" placeholder="••••••••" required
                         autocomplete="current-password">
                 </div>
@@ -3557,12 +3563,12 @@
             <div style="margin-top: 12px; text-align: center;">
                 <a href="/admin" target="_blank" rel="noopener"
                     style="font-size: 12px; color: var(--text-secondary); text-decoration: underline;">
-                    Admin panel
+                    Вход для преподавателя
                 </a>
             </div>
 
-            <div class="login-status connected" id="login-status">
-                Server ready
+            <div class="login-status connected" id="login-status" role="status" aria-live="polite">
+                Подключение к академии…
             </div>
         </div>
     </div>
@@ -3605,28 +3611,30 @@
             <h2>Академия Pandora</h2>
         </div>
 
-        <header>
-            <div class="logo">
-                <button class="header-btn" onclick="toggleLeaderboard()" title="Рейтинг">🏆</button>
-                <button class="header-btn" onclick="toggleGuildPanel()" title="Гильдия"
-                    style="position:relative;">🛡️<span id="guild-invite-badge" class="guild-invite-badge-count"
-                        style="display:none;">0</span></button>
-                <button class="header-btn" onclick="toggleGuildRankings()" title="Рейтинг гильдий">⚔️</button>
-                <button class="header-btn" onclick="toggleChatPanel()" title="Чат">💬</button>
-                <button class="header-btn" id="kahoot-btn" onclick="tryOpenQuiz()" title="Квиз">🧠</button>
-                <button class="header-btn boss-btn" onclick="window.open('/boss','_blank')"
-                    title="Boss-режим — арена печати">👹</button>
+        <header class="app-header">
+            <a class="app-brand" href="#main-content" aria-label="Пандора — к заданиям">
                 <span class="logo-icon" aria-hidden="true">💎</span>
-                <span class="logo-text">Академия Pandora</span>
-            </div>
+                <span><strong>Пандора</strong><small>Академия кода</small></span>
+            </a>
+            <nav class="header-tools" aria-label="Сообщество и игровые режимы">
+                <button class="header-btn" onclick="toggleLeaderboard()" title="Рейтинг" aria-label="Рейтинг игроков">🏆</button>
+                <button class="header-btn" onclick="toggleGuildPanel()" title="Гильдия"
+                    aria-label="Моя гильдия" style="position:relative;">🛡️<span id="guild-invite-badge" class="guild-invite-badge-count"
+                        style="display:none;">0</span></button>
+                <button class="header-btn" onclick="toggleGuildRankings()" title="Рейтинг гильдий" aria-label="Рейтинг гильдий">⚔️</button>
+                <button class="header-btn" onclick="toggleChatPanel()" title="Чат" aria-label="Общий чат">💬</button>
+                <button class="header-btn" id="kahoot-btn" onclick="tryOpenQuiz()" title="Квиз" aria-label="Учебный квиз">🧠</button>
+                <button class="header-btn boss-btn" onclick="window.open('/boss','_blank')"
+                    title="Boss-режим — арена печати" aria-label="Арена печати — откроется новая вкладка">👹</button>
+            </nav>
             <div class="player-stats">
                 <div class="xp-container">
                     <span class="rank-badge" id="rank-badge">🌱 Новичок</span>
                     <span class="level-badge" id="level-badge">LV 1</span>
-                    <div class="xp-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                    <div class="xp-bar" role="progressbar" aria-label="Прогресс до следующего уровня" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
                         <div class="xp-fill" id="xp-fill"></div>
                     </div>
-                    <span class="xp-text"><span id="xp-current">0</span>/100 XP</span>
+                    <span class="xp-text"><span id="xp-current">0/100</span> XP</span>
                 </div>
                 <button class="header-btn" onclick="toggleProfile()" title="Профиль" id="profile-btn"
                     aria-haspopup="dialog" aria-controls="profile-panel">
@@ -3637,37 +3645,37 @@
             </div>
         </header>
 
-        <nav class="category-nav" aria-label="Quest categories">
-            <div class="category-tabs" role="tablist">
-                <button class="tab-btn" role="tab" aria-selected="false" onclick="filterCategory('python', this)">
+        <nav class="category-nav" aria-label="Направления обучения">
+            <div class="category-tabs" role="group" aria-label="Направление практики">
+                <button class="tab-btn" aria-pressed="false" onclick="filterCategory('python', this)">
                     <span class="tab-icon">🐍</span> Python
                 </button>
-                <button class="tab-btn" role="tab" aria-selected="false" onclick="filterCategory('javascript', this)">
+                <button class="tab-btn" aria-pressed="false" onclick="filterCategory('javascript', this)">
                     <span class="tab-icon">⚡</span> JavaScript
                 </button>
-                <button class="tab-btn" role="tab" aria-selected="false" onclick="filterCategory('frontend', this)">
+                <button class="tab-btn" aria-pressed="false" onclick="filterCategory('frontend', this)">
                     <span class="tab-icon">🎨</span> Frontend
                 </button>
-                <button class="tab-btn active" role="tab" aria-selected="true"
+                <button class="tab-btn active" aria-pressed="true"
                     onclick="filterCategory('scratch', this)">
                     <span class="tab-icon">🐱</span> Scratch
                 </button>
-                <button class="tab-btn codewars-tab" role="tab" aria-selected="false"
+                <button class="tab-btn codewars-tab" aria-pressed="false"
                     onclick="filterCategory('codewars', this)">
                     <span class="tab-icon">🏆</span> Codewars
                 </button>
-                <button class="tab-btn leetcode-tab" role="tab" aria-selected="false"
+                <button class="tab-btn leetcode-tab" aria-pressed="false"
                     onclick="filterCategory('leetcode', this)">
                     <span class="tab-icon">💻</span> LeetCode
                 </button>
-                <button class="tab-btn homework-tab" role="tab" aria-selected="false"
+                <button class="tab-btn homework-tab" aria-pressed="false"
                     onclick="filterCategory('homework', this)">
                     <span class="tab-icon">📌</span> ДЗ
                 </button>
-                <button class="tab-btn lextype-tab" role="tab" aria-selected="false" onclick="openAlextype()">
+                <button class="tab-btn lextype-tab" onclick="openAlextype()">
                     <span class="tab-icon">⌨️</span> AlexType
                 </button>
-                <button class="tab-btn heist-tab" type="button" disabled aria-disabled="true" title="Скоро"
+                <button class="tab-btn heist-tab" type="button" aria-label="Новое приключение — скоро" disabled aria-disabled="true" title="Скоро"
                     style="opacity:.45;cursor:not-allowed;background:rgba(255,255,255,.035);border-color:rgba(255,255,255,.1)">
                     <span class="tab-icon">❔</span>
                 </button>
@@ -3675,8 +3683,25 @@
             </div>
         </nav>
 
-        <main id="main-content">
-            <div class="quest-grid" id="quest-grid" role="list">
+        <main id="main-content" tabindex="-1">
+            <section class="learning-overview" aria-labelledby="learning-title">
+                <div class="learning-intro">
+                    <span class="ui-eyebrow">Твоя практика</span>
+                    <h1 id="learning-title">Ещё один шаг к мастерству.</h1>
+                    <p id="learning-description">Выбери направление и продолжи с доступного квеста.</p>
+                    <div class="learning-next">
+                        <div><span class="learning-next-label">Следующий квест</span><strong id="learning-next-title">Загружаем твой маршрут…</strong></div>
+                        <button type="button" class="btn learning-continue" id="learning-continue" hidden>Продолжить <span aria-hidden="true">→</span></button>
+                    </div>
+                </div>
+                <div class="learning-progress-card">
+                    <span class="learning-next-label">Прогресс направления</span>
+                    <div class="learning-progress-value"><strong id="learning-completed">0</strong><span> / <span id="learning-total">0</span> квестов</span></div>
+                    <progress id="learning-progress" max="100" value="0" aria-label="Выполненные квесты направления"></progress>
+                    <p id="learning-progress-note">Каждый решённый квест — новый навык.</p>
+                </div>
+            </section>
+            <div class="quest-grid" id="quest-grid" role="region" aria-label="Доступные задания">
                 <!-- Quests loaded by JS -->
             </div>
         </main>
@@ -3686,7 +3711,7 @@
     <div class="panel-overlay" id="panel-overlay" onclick="closePanels()"></div>
 
     <!-- Achievement Notification Popup -->
-    <div class="achievement-notification" id="ach-notification">
+    <div class="achievement-notification" id="ach-notification" role="status" aria-live="polite">
         <div class="ach-icon">🏆</div>
         <div class="ach-text">
             <div class="ach-label">Достижение разблокировано!</div>
@@ -3724,9 +3749,9 @@
                 </div>
                 <button class="leaderboard-close" onclick="toggleLeaderboard()" aria-label="Закрыть рейтинг">×</button>
             </div>
-            <div class="leaderboard-tabs">
-                <button class="lb-tab active" id="lb-tab-world" onclick="switchLeaderboardTab('world')">🏆 За всё время</button>
-                <button class="lb-tab" id="lb-tab-week" onclick="switchLeaderboardTab('week')">⭐ Эта неделя</button>
+            <div class="leaderboard-tabs" role="group" aria-label="Период рейтинга">
+                <button class="lb-tab active" id="lb-tab-world" aria-pressed="true" onclick="switchLeaderboardTab('world')">🏆 За всё время</button>
+                <button class="lb-tab" id="lb-tab-week" aria-pressed="false" onclick="switchLeaderboardTab('week')">⭐ Эта неделя</button>
             </div>
         </div>
         <div id="leaderboard-list">
@@ -3737,7 +3762,7 @@
     <!-- Chat Panel -->
     <div class="leaderboard-sidebar chat-panel" id="chat-panel">
         <div class="leaderboard-header" style="display:flex; justify-content:space-between; align-items:center;">
-            <h3>💬 Общий Чат</h3>
+            <h3>💬 Общий чат</h3><button type="button" class="leaderboard-close" onclick="closePanels()" aria-label="Закрыть чат">×</button>
             <span id="chat-online" style="font-size:12px; color:var(--success);">● онлайн</span>
         </div>
         <div id="chat-list"
@@ -3746,10 +3771,10 @@
         </div>
         <div style="padding:12px; border-top:1px solid rgba(255,255,255,0.05);">
             <div style="display:flex; gap:10px; align-items:flex-end;">
-                <textarea id="chat-panel-input" class="chat-textarea" placeholder="Напишите сообщение..."
+                <textarea aria-label="Сообщение в общий чат" id="chat-panel-input" class="chat-textarea" placeholder="Напишите сообщение..."
                     maxlength="500" rows="2" oninput="autoResizeTextarea(this)"
                     onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); sendChatFromPanel(); }"></textarea>
-                <button class="chat-send-btn" onclick="sendChatFromPanel()" title="Отправить">➤</button>
+                <button class="chat-send-btn" aria-label="Отправить сообщение" onclick="sendChatFromPanel()" title="Отправить">➤</button>
             </div>
         </div>
     </div>
@@ -3758,7 +3783,7 @@
     <div class="guild-sidebar guild-sidebar-left" id="guild-panel">
         <div class="guild-panel-header">
             <h3>🛡️ Моя Гильдия</h3>
-            <button class="guild-close-btn" onclick="toggleGuildPanel()">✕</button>
+            <button class="guild-close-btn" aria-label="Закрыть" onclick="toggleGuildPanel()">✕</button>
         </div>
         <div id="guild-content" class="guild-panel-body">
             <div style="color:var(--text-secondary); text-align:center; padding:40px 0; font-size:14px;">Загрузка...
@@ -3770,7 +3795,7 @@
     <div class="guild-sidebar guild-sidebar-right" id="guild-rankings-panel">
         <div class="guild-panel-header">
             <h3>⚔️ Рейтинг Гильдий</h3>
-            <button class="guild-close-btn" onclick="toggleGuildRankings()">✕</button>
+            <button class="guild-close-btn" aria-label="Закрыть" onclick="toggleGuildRankings()">✕</button>
         </div>
         <div id="guild-rankings-content" class="guild-panel-body">
             <div style="color:var(--text-secondary); text-align:center; padding:40px 0; font-size:14px;">Загрузка...
@@ -3783,22 +3808,22 @@
         <div class="guild-create-dialog">
             <div class="guild-create-header">
                 <h2>🛡️ Создать Гильдию</h2>
-                <button class="guild-close-btn" onclick="closeGuildCreateModal()">✕</button>
+                <button class="guild-close-btn" aria-label="Закрыть" onclick="closeGuildCreateModal()">✕</button>
             </div>
             <div class="guild-create-body">
                 <div class="guild-form-group">
-                    <label class="guild-form-label">Название гильдии</label>
+                    <label class="guild-form-label" for="guild-name-input">Название гильдии</label>
                     <input type="text" id="guild-name-input" class="guild-form-input" placeholder="2–30 символов"
                         maxlength="30">
                 </div>
                 <div class="guild-form-group">
-                    <label class="guild-form-label">Описание</label>
+                    <label class="guild-form-label" for="guild-desc-input">Описание</label>
                     <textarea id="guild-desc-input" class="guild-form-input" placeholder="О чём ваша гильдия..."
                         maxlength="200" rows="3" style="resize:vertical;"></textarea>
                 </div>
                 <div class="guild-form-group">
-                    <label class="guild-form-label">Символ гильдии</label>
-                    <div id="guild-avatar-grid" style="display:grid; grid-template-columns:repeat(8,1fr); gap:8px;">
+                    <span class="guild-form-label" id="guild-symbol-label">Символ гильдии</span>
+                    <div id="guild-avatar-grid" role="group" aria-labelledby="guild-symbol-label" style="display:grid; grid-template-columns:repeat(8,1fr); gap:8px;">
                     </div>
                 </div>
                 <button class="btn btn-primary guild-create-submit" onclick="createGuild()">
@@ -4601,10 +4626,11 @@
     <!-- Profile Panel -->
     <div class="profile-panel" id="profile-panel">
         <div class="profile-header">
-            <div class="avatar-wrapper" onclick="toggleAvatarGallery()" style="cursor:pointer;">
-                <div class="avatar-img" id="profile-avatar">🧙</div>
-                <div class="avatar-edit">✏️</div>
-            </div>
+            <button type="button" class="leaderboard-close profile-close" onclick="closePanels()" aria-label="Закрыть профиль">×</button>
+            <button type="button" class="avatar-wrapper" onclick="toggleAvatarGallery()" aria-label="Изменить аватар">
+                <span class="avatar-img" id="profile-avatar">🧙</span>
+                <span class="avatar-edit" aria-hidden="true">✏️</span>
+            </button>
             <!-- Avatar Gallery -->
             <div id="avatar-gallery" class="avatar-gallery hidden">
                 <div class="avatar-gallery-title">Выберите аватарку или загрузите фото</div>
@@ -4760,7 +4786,7 @@
                 <textarea id="chat-input" class="chat-textarea" placeholder="Напишите сообщение..." maxlength="500"
                     rows="2" oninput="autoResizeTextarea(this)"
                     onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); sendChatMessage(); }"></textarea>
-                <button class="chat-send-btn" onclick="sendChatMessage()">Отправить</button>
+                <button class="chat-send-btn" aria-label="Отправить сообщение" onclick="sendChatMessage()">Отправить</button>
             </div>
         </div>
 
@@ -4782,17 +4808,17 @@
         <div style="padding:16px; border-bottom:1px solid rgba(255,255,255,0.05);">
             <h4 style="margin-bottom:12px; color:var(--text-bright);">🔑 Смена пароля</h4>
             <div class="form-group" style="margin-bottom:10px;">
-                <label class="form-label" style="font-size:12px; color:var(--text-secondary);">Текущий пароль</label>
+                <label for="pwd-current" class="form-label" style="font-size:12px; color:var(--text-secondary);">Текущий пароль</label>
                 <input type="password" id="pwd-current" class="form-input" placeholder="••••••••"
                     style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px 12px; color:var(--text-bright); font-size:14px; width:100%; box-sizing:border-box;">
             </div>
             <div class="form-group" style="margin-bottom:10px;">
-                <label class="form-label" style="font-size:12px; color:var(--text-secondary);">Новый пароль</label>
+                <label for="pwd-new" class="form-label" style="font-size:12px; color:var(--text-secondary);">Новый пароль</label>
                 <input type="password" id="pwd-new" class="form-input" placeholder="••••••••"
                     style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px 12px; color:var(--text-bright); font-size:14px; width:100%; box-sizing:border-box;">
             </div>
             <div class="form-group" style="margin-bottom:10px;">
-                <label class="form-label" style="font-size:12px; color:var(--text-secondary);">Подтвердите
+                <label for="pwd-confirm" class="form-label" style="font-size:12px; color:var(--text-secondary);">Подтвердите
                     пароль</label>
                 <input type="password" id="pwd-confirm" class="form-input" placeholder="••••••••"
                     style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px 12px; color:var(--text-bright); font-size:14px; width:100%; box-sizing:border-box;">
@@ -4806,7 +4832,7 @@
 
         <div class="profile-bottom-actions">
             <div class="form-group">
-                <label class="form-label">✏️ Изменить имя</label>
+                <label for="edit-display-name" class="form-label">✏️ Изменить имя</label>
                 <input type="text" id="edit-display-name" class="form-input" placeholder="Новое имя" maxlength="50">
             </div>
             <button class="profile-save-btn" onclick="saveProfile()">💾 Сохранить</button>
@@ -4815,7 +4841,7 @@
     </div>
 
     <!-- Student Code Viewer Modal -->
-    <div id="my-code-modal"
+    <div id="my-code-modal" role="dialog" aria-modal="true" aria-labelledby="my-code-title"
         style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:10000; justify-content:center; align-items:center; padding:20px; box-sizing:border-box;">
         <div
             style="background:var(--bg-card, #1e1e2e); border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:28px; width:100%; max-width:700px; max-height:85vh; overflow-y:auto; color:#fff;">
@@ -4858,14 +4884,14 @@
     <div class="modal-overlay" id="quest-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 id="modal-title">Quest Title</h2>
-                <button class="btn-close" onclick="closeModal()">✕ Close</button>
+                <h2 id="modal-title" tabindex="-1">Задание</h2>
+                <button class="btn-close" onclick="closeModal()">✕ Закрыть</button>
             </div>
             <div class="modal-body">
                 <aside class="quest-sidebar">
-                    <h3>📖 Story</h3>
+                    <h3>📖 История</h3>
                     <p class="story" id="modal-story"></p>
-                    <h3>📋 Task</h3>
+                    <h3>📋 Задание</h3>
                     <div class="task-box">
                         <p id="modal-task"></p>
                         <div id="modal-resources" class="task-resources" style="display:none;"></div>
@@ -4898,6 +4924,7 @@
                     </div>
                     <div class="tutorial-video-wrap">
                         <iframe id="tutorial-video-frame" class="tutorial-video-frame"
+                            title="Видеоурок к заданию"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                             allowfullscreen></iframe>
                     </div>
@@ -4917,9 +4944,10 @@
                             📋 Вставка
                         </button>
                     </div>
-                    <textarea class="code-editor" id="code-editor" placeholder="Write your code here..."
-                        aria-label="Code editor" onpaste="return handlePaste(event)"
+                    <textarea class="code-editor" id="code-editor" placeholder="Напиши своё решение здесь…"
+                        aria-label="Редактор кода" aria-describedby="editor-keyboard-help" onpaste="return handlePaste(event)"
                         onkeydown="handleEditorKeydown(event)"></textarea>
+                    <p id="editor-keyboard-help" class="editor-keyboard-help">Tab — отступ. Esc, затем Tab — выйти из редактора. Shift+Tab — назад.</p>
 
                     <div id="frontend-preview-wrap" class="frontend-preview-wrap hidden">
                         <div class="preview-toolbar">
@@ -4941,7 +4969,7 @@
                                 <span id="frontend-preview-address"
                                     class="mini-browser-address">quest://frontend-preview</span>
                             </div>
-                            <iframe id="frontend-preview-frame" class="mini-browser-frame"
+                            <iframe title="Предпросмотр результата задания" id="frontend-preview-frame" class="mini-browser-frame"
                                 sandbox="allow-scripts allow-same-origin"></iframe>
                         </div>
                     </div>
@@ -4949,8 +4977,7 @@
                     <div id="scratch-upload-container" style="display: none;">
                         <div style="border: 2px dashed rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; text-align: center; background: rgba(0,0,0,0.2); transition: all 0.3s; cursor: pointer; margin-bottom: 16px;"
                             onmouseover="this.style.borderColor='var(--accent)'; this.style.background='rgba(124, 58, 237, 0.1)'"
-                            onmouseout="this.style.borderColor='rgba(255,255,255,0.1)'; this.style.background='rgba(0,0,0,0.2)'"
-                            onclick="document.getElementById('scratch-file').click()">
+                            onmouseout="this.style.borderColor='rgba(255,255,255,0.1)'; this.style.background='rgba(0,0,0,0.2)'">
 
                             <div style="font-size: 32px; margin-bottom: 12px;">😺</div>
                             <h3 style="color: var(--text-bright); font-size: 16px; margin-bottom: 8px;">Загрузка Проекта
@@ -4960,9 +4987,7 @@
                                 Загрузите файл <code>.sb3</code> для проверки.<br>Мастер оценит ваш код вручную.
                             </p>
 
-                            <span class="btn btn-primary" style="display: inline-block; pointer-events: none;">📂
-                                Выбрать
-                                файл</span>
+                            <button type="button" class="btn btn-primary" onclick="document.getElementById('scratch-file').click()">📂 Выбрать файл</button>
 
                             <input type="file" id="scratch-file" accept=".sb3" style="display: none;"
                                 onchange="handleScratchFileSelected(this)">
@@ -4972,11 +4997,11 @@
                         </div>
                     </div>
 
-                    <div class="output-console" id="output-console" role="log" aria-live="polite">Ready to run...</div>
+                    <div class="output-console" id="output-console" role="log" aria-live="polite">Готово к проверке…</div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-run" id="run-btn" onclick="runCode()">▶ Run Code</button>
+                <button class="btn btn-run" id="run-btn" onclick="runCode()">▶ Проверить решение</button>
             </div>
         </div>
     </div>
@@ -4987,7 +5012,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="achievements-title">🏆 Достижения</h2>
-                <button class="btn-close" onclick="closeAchievementsModal()">✕ Close</button>
+                <button class="btn-close" onclick="closeAchievementsModal()">✕ Закрыть</button>
             </div>
             <div style="display:flex; gap:6px; padding:0 20px 8px; border-bottom:1px solid rgba(255,255,255,0.06);">
                 <button class="btn" id="ach-tab-personal" onclick="switchAchTab('personal')"
@@ -5021,7 +5046,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="paste-title">Вставить большой фрагмент?</h2>
-                <button class="btn-close" onclick="cancelPaste()">✕ Close</button>
+                <button class="btn-close" onclick="cancelPaste()">✕ Закрыть</button>
             </div>
             <div class="modal-body">
                 <p style="color:var(--text-secondary); font-size:13px; margin-bottom:12px;">
@@ -5454,9 +5479,9 @@
             border-color: rgba(239, 68, 68, 0.4);
         }
     </style>
-    <div class="profile-modal-overlay" id="public-profile-modal" onclick="closePublicProfile(event)">
+    <div class="profile-modal-overlay" id="public-profile-modal" role="dialog" aria-modal="true" aria-labelledby="public-profile-name" onclick="closePublicProfile(event)">
         <div class="profile-modal" onclick="event.stopPropagation()" style="max-height:85vh;overflow-y:auto;">
-            <button class="profile-modal-close" onclick="closePublicProfile()">&times;</button>
+            <button class="profile-modal-close" onclick="closePublicProfile()" aria-label="Закрыть профиль">&times;</button>
             <div class="profile-modal-header">
                 <div class="profile-modal-avatar" id="public-profile-avatar">🧙</div>
                 <div class="profile-modal-info">
@@ -5721,7 +5746,7 @@
             buttons.forEach(button => {
                 const isActive = button === activeButton;
                 button.classList.toggle('active', isActive);
-                button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                if (!button.classList.contains('lextype-tab')) button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
             });
         }
 
@@ -5764,7 +5789,7 @@
             const savedToken = localStorage.getItem('auth_token');
             API_URL = getDefaultApiUrl();
             localStorage.setItem('api_url', API_URL);
-            setLoginStatus(`Server: ${describeServer(API_URL)}`, 'connected');
+            setLoginStatus(`Сервер: ${describeServer(API_URL)}`, 'connected');
 
             if (savedToken) {
                 authToken = savedToken;
@@ -5868,7 +5893,7 @@
                     localStorage.removeItem('auth_token');
                     authToken = null;
                     currentUser = null;
-                    setLoginStatus(`Server: ${describeServer(API_URL)} • Войдите снова`, 'connected');
+                    setLoginStatus(`Сервер: ${describeServer(API_URL)} • Войдите снова`, 'connected');
                 }
             } catch (e) {
                 localStorage.removeItem('auth_token');
@@ -6346,10 +6371,10 @@
             return `
                 <article class="quest-card ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${isPending ? 'pending' : ''} ${isHomework ? 'homework' : ''} ${isTutorial ? 'tutorial-card' : ''}" 
                          ${methodsAttr}
-                         role="listitem" 
+                         role="button"
                          tabindex="0"
                          onclick="openQuest('${task.id}')"
-                         onkeydown="if(event.key==='Enter') openQuest('${task.id}')">
+                         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openQuest('${task.id}')}">
                     <div class="tier-indicator tier-${task.tier}">${task.tier}-Rank</div>
                     ${isLocked ? `<div class="quest-lock" aria-hidden="true">🔒</div>` : ``}
                     ${isCompleted ? `<div class="quest-complete-badge" aria-label="Выполнено">✓</div>` : ``}
@@ -6362,6 +6387,7 @@
                         <p class="quest-story">${task.story || ''}</p>
                         ${isHomework ? `<div class="quest-homework-note">📌 ДЗ • ${hwDeadline}</div>` : ``}
                         <div class="quest-reward">${featuredReward}${isPending ? ' (на проверке)' : ''}</div>
+                        ${isLocked ? '<span class="learning-next-label">🔒 Нужны предыдущие квесты</span>' : ''}
                     </div>
                     ${methodsBadge}
                 </article>
@@ -6403,6 +6429,17 @@
         }
 
         function renderQuestBoard(grid, displayTasks, completedIds, icons, chipsHtml = '') {
+            const focused = document.activeElement;
+            const focusedAction = grid.contains(focused) ? focused.getAttribute('onclick') : null;
+            const topicScroll = grid.querySelector('.topic-chips-bar')?.scrollLeft || 0;
+            const restoreBoardFocus = () => {
+                if (!focusedAction || focused.isConnected) return;
+                const replacement = [...grid.querySelectorAll('.topic-chip, .quest-card')]
+                    .find(element => element.getAttribute('onclick') === focusedAction);
+                replacement?.focus({ preventScroll: true });
+                const bar = grid.querySelector('.topic-chips-bar');
+                if (bar) bar.scrollLeft = topicScroll;
+            };
             const layoutKey = [
                 chipsHtml ? 'topics' : 'flat',
                 currentFilter,
@@ -6426,6 +6463,7 @@
                 questBoardLayoutKey = layoutKey;
                 questBoardChipsHtml = chipsHtml;
                 questCardSignatures = cardSignatures;
+                restoreBoardFocus();
                 return;
             }
 
@@ -6451,6 +6489,7 @@
                     questBoardLayoutKey = layoutKey;
                     questBoardChipsHtml = chipsHtml;
                     questCardSignatures = cardSignatures;
+                    restoreBoardFocus();
                     return;
                 }
                 cards[i].replaceWith(nextCard);
@@ -6458,6 +6497,27 @@
 
             questBoardLayoutKey = layoutKey;
             questCardSignatures = cardSignatures;
+            restoreBoardFocus();
+        }
+
+        function updateLearningOverview(categoryTasks) {
+            const completedIds = new Set((currentUser?.completed_tasks || []).map(String));
+            const isDone = task => task.completed || completedIds.has(String(task.id));
+            const done = categoryTasks.filter(isDone).length;
+            const total = categoryTasks.length;
+            const next = categoryTasks.find(task => !isDone(task) && !task.locked && !task.pending_review);
+            const names = { python: 'Python', javascript: 'JavaScript', frontend: 'Frontend', scratch: 'Scratch', codewars: 'Codewars', leetcode: 'LeetCode', homework: 'Домашние задания', all: 'Все направления' };
+            document.getElementById('learning-description').textContent = `${names[currentFilter] || 'Твои задания'} · практика в твоём темпе.`;
+            document.getElementById('learning-completed').textContent = done;
+            document.getElementById('learning-total').textContent = total;
+            document.getElementById('learning-progress').value = total ? Math.round(done / total * 100) : 0;
+            document.getElementById('learning-progress-note').textContent = total && done === total
+                ? 'Все доступные квесты пройдены. Можно выбрать новое направление.'
+                : 'Прогресс по заданиям выбранного направления.';
+            document.getElementById('learning-next-title').textContent = next?.title || (total ? 'Выбери квест для повторения или другое направление' : 'Здесь пока нет доступных квестов');
+            const button = document.getElementById('learning-continue');
+            button.hidden = !next;
+            button.onclick = next ? () => openQuest(next.id) : null;
         }
 
         function renderQuests() {
@@ -6518,13 +6578,15 @@
                 return (tierOrder[a.tier] || 0) - (tierOrder[b.tier] || 0);
             });
 
+            updateLearningOverview(filtered);
+
             if (filtered.length === 0) {
                 resetQuestBoardRenderCache();
                 grid.innerHTML = `
                     <div class="empty-state">
                         <div class="icon">🔍</div>
-                        <h3>No quests found</h3>
-                        <p>Try a different category or check back later</p>
+                        <h3>В этом направлении пока нет квестов</h3>
+                        <p>Выбери другое направление или загляни сюда позже.</p>
                     </div>
                 `;
                 return;
@@ -6566,7 +6628,7 @@
             // Build chip bar HTML
             const allActive = !selectedTopicFilter ? 'active' : '';
             let chipsHtml = `<div class="topic-chips-bar">`;
-            chipsHtml += `<div class="topic-chip ${allActive}" onclick="selectTopicChip(null)">Все</div>`;
+            chipsHtml += `<button type="button" class="topic-chip ${allActive}" aria-pressed="${!selectedTopicFilter}" onclick="selectTopicChip(null)">Все темы</button>`;
             for (const [topic, stats] of sortedTopics) {
                 if (!topic) continue;
                 const displayName = getTopicDisplayName(topic);
@@ -6575,12 +6637,12 @@
                 const isActive = selectedTopicFilter === topic ? 'active' : '';
                 const completeClass = isComplete ? 'complete' : '';
                 const pctClass = pct >= 100 ? 'pct-done' : pct >= 60 ? 'pct-high' : pct >= 30 ? 'pct-mid' : 'pct-low';
-                chipsHtml += `<div class="topic-chip ${isActive} ${completeClass}" onclick="selectTopicChip('${topic.replace(/'/g, "\\'")}')">
+                chipsHtml += `<button type="button" class="topic-chip ${isActive} ${completeClass}" aria-pressed="${selectedTopicFilter === topic}" onclick="selectTopicChip('${topic.replace(/'/g, "\\'")}')">
                     ${displayName}
                     <span class="chip-count">${stats.completed}/${stats.total}</span>
                     <span class="chip-pct">${pct}%</span>
-                    <div class="chip-progress"><div class="chip-progress-fill ${pctClass}" style="width:${pct}%"></div></div>
-                </div>`;
+                    <span class="chip-progress"><span class="chip-progress-fill ${pctClass}" style="width:${pct}%"></span></span>
+                </button>`;
             }
             chipsHtml += `</div>`;
 
@@ -6873,7 +6935,7 @@
             // Fetch heavy task details (initial_code, resources, video_url) and apply immediately
             const detail = await _fetchTaskDetail(taskId);
             // Guard: user may have closed modal or switched task while awaiting
-            if (!currentTask || currentTask.id !== taskId) return;
+            if (!currentTask || currentTask.id !== taskId || !isQuestModalOpen()) return;
 
             if (detail) {
                 currentTask.initial_code = detail.initial_code;
@@ -6937,7 +6999,7 @@
                     runBtn.textContent = '📨 Отправить на проверку';
                 } else {
                     runBtn.onclick = runCode;
-                    runBtn.textContent = '▶ Run Code';
+                    runBtn.textContent = '▶ Проверить решение';
                 }
             }
             if (previewWrap) {
@@ -6952,7 +7014,6 @@
 
             if (!isTutorial && currentTask.category !== 'scratch' && !currentTask.locked) {
                 startTaskTypingTelemetry(currentTask.id, editor.value);
-                editor.focus();
             } else {
                 taskTypingLastValue = editor.value || '';
             }
@@ -7125,7 +7186,7 @@
                 <span class="streak-fire">${streak > 0 ? '🔥' : '❄️'}</span>
                 <span class="streak-num">${streak}</span>
                 <span class="streak-label">дней серии${streak > 0 ? ' (+' + Math.min(streak * 2, 30) + '% XP)' : ''}</span>
-                <span class="daily-goal">Решай задания каждый день!</span>
+                <span class="daily-goal">Один день перерыва сохраняет серию</span>
             `;
             grid.parentNode.insertBefore(widget, grid);
         }
@@ -7552,9 +7613,20 @@
             }
         }
 
+        let editorTabNavigation = false;
         function handleEditorKeydown(event) {
             taskTypingLastKeydownAt = performance.now();
             taskTypingLastKeydownTrusted = Boolean(event.isTrusted);
+
+            if (event.key === 'Escape') {
+                editorTabNavigation = true;
+                event.stopPropagation();
+                return;
+            }
+            if (event.key === 'Tab' && (event.shiftKey || editorTabNavigation)) {
+                editorTabNavigation = false;
+                return;
+            }
 
             if (event.key === 'Enter') {
                 event.preventDefault();
@@ -8398,15 +8470,10 @@
             document.getElementById('level-badge').innerText = 'LV ' + lvl;
             document.getElementById('xp-current').innerText = `${xpInLevel}/${xpNeededForNext}`;
             document.getElementById('xp-fill').style.width = pct + '%';
+            document.querySelector('.xp-bar').setAttribute('aria-valuenow', String(Math.round(pct)));
         }
 
-        // ==================== KEYBOARD NAVIGATION ====================
-        document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') {
-                closeModal();
-                closePanels();
-            }
-        });
+        // Dialog keyboard navigation is managed by static/pandora-ui.js.
 
         // ==================== GAMIFICATION ====================
 
@@ -8657,6 +8724,8 @@
 
         function switchLeaderboardTab(tab) {
             currentLbTab = tab;
+            document.getElementById('lb-tab-world').setAttribute('aria-pressed', String(tab === 'world'));
+            document.getElementById('lb-tab-week').setAttribute('aria-pressed', String(tab === 'week'));
             document.getElementById('lb-tab-world').classList.toggle('active', tab === 'world');
             document.getElementById('lb-tab-week').classList.toggle('active', tab === 'week');
             if (tab === 'world') loadLeaderboard();
@@ -8931,6 +9000,12 @@
             document.getElementById('profile-panel').classList.remove('open');
             document.getElementById('chat-panel').classList.remove('open');
             document.getElementById('panel-overlay').classList.remove('visible');
+            document.getElementById('guild-panel').classList.remove('open');
+            document.getElementById('guild-rankings-panel').classList.remove('open');
+            if (window._guildChatInterval) {
+                clearInterval(window._guildChatInterval);
+                window._guildChatInterval = null;
+            }
             if (chatRefreshInterval) {
                 clearInterval(chatRefreshInterval);
                 chatRefreshInterval = null;
@@ -9792,10 +9867,10 @@
             // Update tab states
             document.querySelectorAll('.tab-btn').forEach(t => {
                 t.classList.remove('active');
-                t.setAttribute('aria-selected', 'false');
+                t.setAttribute('aria-pressed', 'false');
             });
             document.getElementById('campaign-tab').classList.add('active');
-            document.getElementById('campaign-tab').setAttribute('aria-selected', 'true');
+            document.getElementById('campaign-tab').setAttribute('aria-pressed', 'true');
 
             // Toggle panels
             document.getElementById('quest-grid').style.display = 'none';
@@ -9883,10 +9958,10 @@
                 currentFilter = category;
                 document.querySelectorAll('.tab-btn').forEach(t => {
                     t.classList.remove('active');
-                    t.setAttribute('aria-selected', 'false');
+                    t.setAttribute('aria-pressed', 'false');
                 });
                 btn.classList.add('active');
-                btn.setAttribute('aria-selected', 'true');
+                btn.setAttribute('aria-pressed', 'true');
                 refreshQuestBoard();
             };
             window.filterCategory = function (category, btn) {
@@ -10102,7 +10177,7 @@
                 <div class="guild-create-dialog" style="max-width:520px; max-height:90vh; display:flex; flex-direction:column;">
                     <div class="guild-create-header" style="flex-shrink:0;">
                         <h2>📨 Новый репорт</h2>
-                        <button class="guild-close-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+                        <button class="guild-close-btn" aria-label="Закрыть" onclick="this.closest('.modal-overlay').remove()">✕</button>
                     </div>
                     <div class="guild-create-body" style="padding:20px; overflow-y:auto; flex:1;">
                         <!-- Type selector -->
@@ -10526,7 +10601,7 @@
             }
 
             // Y-axis labels
-            ctx.fillStyle = '#6a6a78';
+            ctx.fillStyle = '#a2a2b3';
             ctx.font = '10px Inter, sans-serif';
             ctx.textAlign = 'right';
             const ySteps = 4;
@@ -10541,7 +10616,7 @@
             }
 
             // X-axis date labels
-            ctx.fillStyle = '#6a6a78';
+            ctx.fillStyle = '#a2a2b3';
             ctx.font = '9px Inter, sans-serif';
             ctx.textAlign = 'center';
             const maxLabels = Math.min(history.length, 7);
@@ -10841,9 +10916,9 @@
                 <div class="guild-chat-container">
                     <div class="guild-chat-messages" id="guild-chat-messages"></div>
                     <div class="guild-chat-input-row">
-                        <input class="guild-chat-input" id="guild-chat-input" placeholder="Сообщение..." maxlength="500"
+                        <input aria-label="Сообщение гильдии" class="guild-chat-input" id="guild-chat-input" placeholder="Сообщение..." maxlength="500"
                             onkeydown="if(event.key==='Enter'){sendGuildChatMsg(${guild.id})}">
-                        <button class="guild-chat-send" onclick="sendGuildChatMsg(${guild.id})">➤</button>
+                        <button class="guild-chat-send" aria-label="Отправить сообщение" onclick="sendGuildChatMsg(${guild.id})">➤</button>
                     </div>
                 </div>
                 <div class="guild-section-title">👥 Участники (${guild.members.length})</div>
@@ -10908,7 +10983,7 @@
             selectedGuildAvatar = '🛡️';
             const grid = document.getElementById('guild-avatar-grid');
             grid.innerHTML = GUILD_AVATARS.map(a =>
-                `<div class="guild-avatar-pick ${a === selectedGuildAvatar ? 'selected' : ''}" onclick="selectGuildAvatar(this, '${a}')">${a}</div>`
+                `<button type="button" class="guild-avatar-pick ${a === selectedGuildAvatar ? 'selected' : ''}" aria-pressed="${a === selectedGuildAvatar}" aria-label="Символ ${a}" onclick="selectGuildAvatar(this, '${a}')">${a}</button>`
             ).join('');
         }
 
@@ -10917,7 +10992,8 @@
         }
 
         function selectGuildAvatar(el, emoji) {
-            document.querySelectorAll('.guild-avatar-pick').forEach(e => e.classList.remove('selected'));
+            document.querySelectorAll('.guild-avatar-pick').forEach(e => { e.classList.remove('selected'); e.setAttribute('aria-pressed', 'false'); });
+            el.setAttribute('aria-pressed', 'true');
             el.classList.add('selected');
             selectedGuildAvatar = emoji;
         }
@@ -11177,7 +11253,7 @@
                     <div class="guild-create-dialog" style="max-width:500px;">
                         <div class="guild-create-header">
                             <h2>📊 ${g.name}</h2>
-                            <button class="guild-close-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+                            <button class="guild-close-btn" aria-label="Закрыть" onclick="this.closest('.modal-overlay').remove()">✕</button>
                         </div>
                         <div class="guild-create-body" style="padding:24px;">
                             <div class="guild-card" style="margin-bottom:20px;">
@@ -11245,7 +11321,7 @@
                 <div class="guild-create-dialog" style="max-width:680px; max-height:90vh; display:flex; flex-direction:column;">
                     <div class="guild-create-header" style="flex-shrink:0;">
                         <h2>📊 Статистика гильдии</h2>
-                        <button class="guild-close-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+                        <button class="guild-close-btn" aria-label="Закрыть" onclick="this.closest('.modal-overlay').remove()">✕</button>
                     </div>
                     <div class="guild-create-body" style="padding:24px; text-align:center; overflow-y:auto; flex:1;">
                         <div style="color:var(--text-secondary);font-size:14px;">Загрузка...</div>
@@ -11591,7 +11667,7 @@
                     <div class="guild-create-dialog" style="max-width:480px;">
                         <div class="guild-create-header">
                             <h2>${d.display_name}</h2>
-                            <button class="guild-close-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+                            <button class="guild-close-btn" aria-label="Закрыть" onclick="this.closest('.modal-overlay').remove()">✕</button>
                         </div>
                         <div class="guild-create-body" style="padding:20px;max-height:70vh;overflow-y:auto;">
                             <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
@@ -12271,6 +12347,7 @@
         // ==================== START ====================
         window.addEventListener('load', init);
     </script>
+    <script src="static/pandora-ui.js?v=20260928"></script>
 </body>
 
 </html>
