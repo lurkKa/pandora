@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-ui-theme="modern">
 
 <head>
     <meta charset="UTF-8">
@@ -3528,7 +3528,10 @@
             color: #e94560;
         }
     </style>
-    <link rel="stylesheet" href="static/pandora-ui.css?v=20260928">
+    <link id="pandora-modern-styles" rel="stylesheet" href="static/pandora-ui.css?v=20260928">
+    <link rel="stylesheet" href="static/pandora-theme-common.css?v=20260928-theme1">
+    <link rel="stylesheet" href="static/pandora-classic.css?v=20260928-theme1">
+    <script src="static/pandora-theme.js?v=20260928-theme1"></script>
 </head>
 
 <body>
@@ -3541,9 +3544,11 @@
         <div class="login-card">
             <div class="login-logo">
                 <span class="icon" aria-hidden="true">💎</span>
-                <span class="ui-eyebrow">Академия программирования</span>
-                <h1>Твоя история<br>начинается с кода.</h1>
-                <p>Квесты, новые навыки и команда.<br>Продолжи свой путь в Пандоре.</p>
+                <span class="ui-eyebrow modern-only">Академия программирования</span>
+                <h1 class="modern-only">Твоя история<br>начинается с кода.</h1>
+                <p class="modern-only">Квесты, новые навыки и команда.<br>Продолжи свой путь в Пандоре.</p>
+                <h1 class="classic-only">Академия Pandora</h1>
+                <p class="classic-only">Твоё приключение в программировании</p>
             </div>
 
             <form id="login-form">
@@ -3612,9 +3617,11 @@
         </div>
 
         <header class="app-header">
+            <div class="app-identity">
             <a class="app-brand" href="#main-content" aria-label="Пандора — к заданиям">
                 <span class="logo-icon" aria-hidden="true">💎</span>
-                <span><strong>Пандора</strong><small>Академия кода</small></span>
+                <span class="modern-only"><strong>Пандора</strong><small>Академия кода</small></span>
+                <span class="classic-only logo-text">Академия Pandora</span>
             </a>
             <nav class="header-tools" aria-label="Сообщество и игровые режимы">
                 <button class="header-btn" onclick="toggleLeaderboard()" title="Рейтинг" aria-label="Рейтинг игроков">🏆</button>
@@ -3627,6 +3634,7 @@
                 <button class="header-btn boss-btn" onclick="window.open('/boss','_blank')"
                     title="Boss-режим — арена печати" aria-label="Арена печати — откроется новая вкладка">👹</button>
             </nav>
+            </div>
             <div class="player-stats">
                 <div class="xp-container">
                     <span class="rank-badge" id="rank-badge">🌱 Новичок</span>
@@ -4646,6 +4654,16 @@
             <h3 id="profile-display-name">Adventurer</h3>
             <div class="rank-badge" id="profile-rank">🌱 Новичок</div>
         </div>
+        <section class="profile-theme-setting" aria-labelledby="profile-theme-heading">
+            <h4 id="profile-theme-heading">🎨 Оформление</h4>
+            <label for="profile-ui-theme">Тема интерфейса</label>
+            <select id="profile-ui-theme" class="form-input" aria-describedby="profile-theme-note profile-theme-status">
+                <option value="modern">Новая тема</option>
+                <option value="classic">Классическая тема</option>
+            </select>
+            <p class="profile-theme-note" id="profile-theme-note">Сохраняется автоматически для этого профиля. Все игровые возможности доступны в обеих темах.</p>
+            <p id="profile-theme-status" role="status" aria-live="polite"></p>
+        </section>
         <div class="profile-stats">
             <div class="stat-item">
                 <div class="value" id="profile-quests">0</div>
@@ -4948,6 +4966,11 @@
                         aria-label="Редактор кода" aria-describedby="editor-keyboard-help" onpaste="return handlePaste(event)"
                         onkeydown="handleEditorKeydown(event)"></textarea>
                     <p id="editor-keyboard-help" class="editor-keyboard-help">Tab — отступ. Esc, затем Tab — выйти из редактора. Shift+Tab — назад.</p>
+                    <details class="typing-policy">
+                        <summary>Правила самостоятельной печати</summary>
+                        <p>За выявленную автоматическую печать скриптом: 5 000 → 20 000 → 70 000 → 200 000 XP за повторные нарушения. Дальше — по 200 000 XP. Списывается не больше текущего баланса. Счётчик общий для заданий и AlexType, в обеих темах.</p>
+                        <p>Высокая скорость сама по себе не вызывает штраф. Если считаешь списание ошибочным, обратись к преподавателю.</p>
+                    </details>
 
                     <div id="frontend-preview-wrap" class="frontend-preview-wrap hidden">
                         <div class="preview-toolbar">
@@ -5539,6 +5562,7 @@
         let taskTypingBeforeInput = null;
         let taskTypingLastKeydownAt = 0;
         let taskTypingLastKeydownTrusted = false;
+        let taskTypingLastKeydownRepeat = false;
         const SCRATCH_CLIENT_MAX_MB = 10;
         const DASHBOARD_SYNC_MS = 90000;
         const REQUEST_TIMEOUT_MS = 45000;
@@ -5654,6 +5678,7 @@
             taskTypingBeforeInput = null;
             taskTypingLastKeydownAt = 0;
             taskTypingLastKeydownTrusted = false;
+            taskTypingLastKeydownRepeat = false;
             taskTypingTelemetry = createTaskTypingTelemetry(taskId);
         }
 
@@ -5853,6 +5878,7 @@
                     return;
                 }
 
+                window.PandoraTheme?.reset();
                 authToken = data.token;
                 currentUser = data.user;
 
@@ -5893,12 +5919,14 @@
                     localStorage.removeItem('auth_token');
                     authToken = null;
                     currentUser = null;
+                    window.PandoraTheme?.reset();
                     setLoginStatus(`Сервер: ${describeServer(API_URL)} • Войдите снова`, 'connected');
                 }
             } catch (e) {
                 localStorage.removeItem('auth_token');
                 authToken = null;
                 currentUser = null;
+                window.PandoraTheme?.reset();
                 setLoginStatus(`Ошибка связи с сервером: ${e.message}`, 'error');
             }
         }
@@ -5910,10 +5938,12 @@
             localStorage.removeItem('auth_token');
             authToken = null;
             currentUser = null;
+            window.PandoraTheme?.reset();
             location.reload();
         }
 
         function enterApp() {
+            window.PandoraTheme?.acceptProfile(currentUser);
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('app').style.display = 'flex';
             const fabReport = document.getElementById('fab-report');
@@ -7617,6 +7647,7 @@
         function handleEditorKeydown(event) {
             taskTypingLastKeydownAt = performance.now();
             taskTypingLastKeydownTrusted = Boolean(event.isTrusted);
+            taskTypingLastKeydownRepeat = Boolean(event.isTrusted && event.repeat);
 
             if (event.key === 'Escape') {
                 editorTabNavigation = true;
@@ -7873,6 +7904,7 @@
 
         function captureTaskEditorBeforeInput(event) {
             if (!taskTypingTelemetry) return;
+            taskTypingBeforeInput = null;
             const inputType = String(event.inputType || '');
             if (inputType === 'insertFromPaste') {
                 // consumeApprovedPaste records the server-authorized insertion.
@@ -7896,8 +7928,12 @@
                 return;
             }
             if (inputType.startsWith('insert')) {
+                const isComposition = inputType.includes('Composition') || event.isComposing;
+                const isKeyRepeat = event.isTrusted && taskTypingLastKeydownTrusted
+                    && taskTypingLastKeydownRepeat
+                    && performance.now() - taskTypingLastKeydownAt <= 300;
                 taskTypingBeforeInput = {
-                    kind: inputType.includes('Composition') ? 'composition' : 'insert',
+                    kind: isComposition ? 'composition' : isKeyRepeat ? 'auto' : 'insert',
                     chars: Math.max(1, String(event.data || '').length),
                     trusted: Boolean(event.isTrusted)
                 };
@@ -7910,11 +7946,20 @@
             const delta = value.length - taskTypingLastValue.length;
             const meta = taskTypingBeforeInput;
             if (taskTypingTelemetry && meta) {
+                const trusted = Boolean(meta.trusted && event.isTrusted);
                 if (meta.kind === 'restore') {
                     taskTypingTelemetry.record(
-                        'restore',
+                        trusted ? 'restore' : 'programmatic',
                         taskEditorChangedChars(taskTypingLastValue, value),
-                        Boolean(meta.trusted && event.isTrusted)
+                        trusted
+                    );
+                } else if (meta.kind === 'composition' && trusted) {
+                    // IME data contains the entire composition buffer on each
+                    // update; only its actual growth represents new characters.
+                    taskTypingTelemetry.record(
+                        delta < 0 ? 'delete' : 'composition',
+                        Math.abs(delta),
+                        true
                     );
                 } else {
                     const observedChars = meta.kind === 'delete'
@@ -7923,7 +7968,7 @@
                     taskTypingTelemetry.record(
                         meta.kind,
                         observedChars,
-                        Boolean(meta.trusted && event.isTrusted)
+                        trusted
                     );
                 }
             } else if (taskTypingTelemetry && value !== taskTypingLastValue) {
@@ -8233,11 +8278,16 @@
                     if (typeof data.xp === 'number') currentUser.xp = data.xp;
                     if (typeof data.level === 'number') currentUser.level = data.level;
                     updateXPDisplay();
-                    const penalty = Number(data.penalty_xp || 0);
+                    const penalty = Number(data.applied_penalty_xp ?? data.penalty_xp ?? 0);
+                    const offense = Number(data.offense_count || 0);
+                    const debitMessage = penalty > 0
+                        ? `Списано: ${penalty.toLocaleString('ru-RU')} XP.`
+                        : 'Баланс равен нулю — XP не списаны.';
                     output.innerText =
                         `⛔ Обнаружена автоматическая печать.\n` +
-                        `Штраф: ${penalty} XP.\n` +
-                        `Решение не засчитано. Печатай код самостоятельно.`;
+                        (offense ? `Нарушение №${offense}. ` : '') + debitMessage + '\n' +
+                        `Решение не засчитано. Печатай код самостоятельно.\n` +
+                        `Если считаешь списание ошибочным, обратись к преподавателю.`;
                     if (currentTask.category === 'frontend') setFrontendPreviewStatus('FAILED');
                     return;
                 }
@@ -8809,12 +8859,18 @@
         }
 
         async function loadProfile() {
+            const requestedUserId = currentUser?.id;
+            const requestedToken = authToken;
+            const themeRevision = window.PandoraTheme?.revision;
             try {
                 const res = await fetch(`${API_URL}/api/profile`, {
                     headers: { 'Authorization': `Bearer ${authToken}` }
                 });
+                if (!res.ok) return;
                 const profile = await res.json();
                 if (!profile || typeof profile !== 'object') return;
+                if (currentUser?.id !== requestedUserId || authToken !== requestedToken || String(profile.id) !== String(requestedUserId)) return;
+                if (window.PandoraTheme?.acceptProfile(profile, themeRevision)) currentUser.ui_theme = profile.ui_theme;
 
                 // Keep local user snapshot in sync for live UI updates.
                 if (currentUser) {

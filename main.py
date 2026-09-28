@@ -33,7 +33,7 @@ import html
 import tempfile
 from collections import Counter, deque
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional, List
+from typing import Optional, List, Literal
 from contextlib import contextmanager
 from logging.handlers import RotatingFileHandler
 
@@ -1187,6 +1187,26 @@ def _sync_ranks(cursor):
     )
 
 
+def _migrate_typing_integrity_state(cursor) -> None:
+    """Keep confirmed lifetime strikes even if incident logs are later pruned."""
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS typing_integrity_state (
+            user_id INTEGER PRIMARY KEY,
+            offense_count INTEGER NOT NULL DEFAULT 0 CHECK (offense_count >= 0),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    """)
+    # Existing high-confidence incidents count towards the same progression.
+    # Never replace a live counter with a possibly pruned incident count.
+    cursor.execute("""
+        INSERT OR IGNORE INTO typing_integrity_state (user_id, offense_count)
+        SELECT i.user_id, COUNT(*)
+        FROM typing_integrity_incidents i
+        JOIN users u ON u.id = i.user_id
+        GROUP BY i.user_id
+    """)
+
+
 def init_db():
     """Initialize database tables."""
     with get_db() as conn:
@@ -1213,9 +1233,23 @@ def init_db():
                 xp INTEGER DEFAULT 0,
                 level INTEGER DEFAULT 1,
                 avatar_key TEXT,
+                ui_theme TEXT NOT NULL DEFAULT 'modern' CHECK (ui_theme IN ('modern', 'classic')),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # Persist appearance per account, including existing installations.
+        user_columns = {row[1] for row in cursor.execute("PRAGMA table_info(users)")}
+        if "ui_theme" not in user_columns:
+            try:
+                cursor.execute(
+                    "ALTER TABLE users ADD COLUMN ui_theme TEXT NOT NULL "
+                    "DEFAULT 'modern' CHECK (ui_theme IN ('modern', 'classic'))"
+                )
+            except sqlite3.OperationalError as exc:
+                # A second startup worker may have already added the column.
+                if "duplicate column" not in str(exc).lower():
+                    raise
 
         # Parent accounts are regular authenticated users with role='parent'.
         # Access to student analytics is granted only through this mapping.
@@ -1613,6 +1647,7 @@ def init_db():
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )
         """)
+        _migrate_typing_integrity_state(cursor)
 
         # Security-grade audit log for XP-affecting and review actions
         cursor.execute("""
@@ -4067,6 +4102,14 @@ class ProfileUpdateRequest(BaseModel):
     display_name: Optional[str] = None
     avatar_data: Optional[str] = None  # Emoji or base64 data URL (legacy/custom)
     avatar_key: Optional[str] = None   # Built-in avatar id (preferred)
+    ui_theme: Optional[Literal["modern", "classic"]] = None
+
+    @validator('ui_theme')
+    def ui_theme_valid(cls, value):
+        # Omission leaves the preference unchanged; explicit null is invalid.
+        if value is None:
+            raise ValueError('ui_theme must be modern or classic')
+        return value
 
     @validator('display_name')
     def display_name_valid(cls, v):
@@ -4576,16 +4619,12 @@ def _score_typing_integrity(
 
     risk = max(0, min(100, int(risk)))
     high_confidence = risk >= 70 and len(groups) >= 2
-    penalty = 0
-    if high_confidence:
-        penalty = int(round(50 + ((risk - 70) / 30.0) * 450))
-        penalty = max(50, min(500, penalty))
-
     return {
         "risk_score": risk,
         "confidence": round(risk / 100.0, 3),
         "high_confidence": high_confidence,
-        "penalty_xp": penalty,
+        # The detector has no account history; finalization assigns the ladder.
+        "penalty_xp": 0,
         "signals": signals,
         "evidence": {
             "scope": scope,
@@ -4612,6 +4651,13 @@ def _score_typing_integrity(
     }
 
 
+TYPING_PENALTY_LADDER = (5_000, 20_000, 70_000, 200_000)
+
+
+def _typing_penalty_for_offense(offense_count: int) -> int:
+    return TYPING_PENALTY_LADDER[min(max(1, offense_count), len(TYPING_PENALTY_LADDER)) - 1]
+
+
 def _typing_unavailable(status: str, detail: str = "") -> dict:
     return {
         "verified": False,
@@ -4622,7 +4668,9 @@ def _typing_unavailable(status: str, detail: str = "") -> dict:
         "confidence": 0.0,
         "high_confidence": False,
         "penalty_xp": 0,
+        "scheduled_penalty_xp": 0,
         "applied_xp": 0,
+        "offense_count": 0,
         "signals": [],
         "evidence": {},
     }
@@ -4649,6 +4697,11 @@ def _finalize_typing_session(
     if len(session_id) > 100 or len(receipt) > 200:
         return _typing_unavailable("invalid", "invalid telemetry credentials")
 
+    # Take SQLite's write reservation before reading session/balance/counter.
+    # Parallel attempts serialize here; caller commits all ledger changes in
+    # one transaction. An existing write transaction already holds the lock.
+    if not cursor.connection.in_transaction:
+        cursor.execute("BEGIN IMMEDIATE")
     cursor.execute("SELECT * FROM typing_sessions WHERE id = ?", (session_id,))
     row = cursor.fetchone()
     if not row:
@@ -4750,11 +4803,28 @@ def _finalize_typing_session(
         return _typing_unavailable("already_finalized", "typing session is single-use")
 
     applied_xp = 0
+    nominal_penalty = 0
+    offense_count = 0
     if score["high_confidence"]:
-        nominal_penalty = int(score["penalty_xp"])
+        cursor.execute(
+            """
+            INSERT INTO typing_integrity_state (user_id, offense_count)
+            VALUES (?, 1)
+            ON CONFLICT(user_id) DO UPDATE SET offense_count = offense_count + 1
+            """,
+            (uid,),
+        )
+        cursor.execute("SELECT offense_count FROM typing_integrity_state WHERE user_id = ?", (uid,))
+        offense_count = int(cursor.fetchone()["offense_count"])
+        nominal_penalty = _typing_penalty_for_offense(offense_count)
+        score["penalty_xp"] = nominal_penalty
+        cursor.execute(
+            "UPDATE typing_sessions SET penalty_xp = ? WHERE id = ?",
+            (nominal_penalty, session_id),
+        )
         cursor.execute("SELECT xp FROM users WHERE id = ?", (uid,))
         xp_row = cursor.fetchone()
-        before_xp = int(xp_row["xp"] or 0) if xp_row else 0
+        before_xp = max(0, int(xp_row["xp"] or 0)) if xp_row else 0
         actual_to_apply = min(before_xp, nominal_penalty)
         if actual_to_apply > 0:
             new_xp, _new_level = apply_xp_change(
@@ -4767,9 +4837,10 @@ def _finalize_typing_session(
         else:
             new_xp = before_xp
         applied_xp = max(0, before_xp - int(new_xp))
+        score["evidence"]["offense_count"] = offense_count
         cursor.execute(
             """
-            INSERT OR IGNORE INTO typing_integrity_incidents (
+            INSERT INTO typing_integrity_incidents (
                 session_id, user_id, scope, task_id, confidence, risk_score,
                 signals_json, evidence_json, penalty_xp, applied_xp
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -4809,6 +4880,7 @@ def _finalize_typing_session(
                         "confidence": score["confidence"],
                         "signals": score["signals"],
                         "nominal_penalty_xp": nominal_penalty,
+                        "offense_count": offense_count,
                         "ip": ip,
                     },
                     ensure_ascii=False,
@@ -4832,6 +4904,9 @@ def _finalize_typing_session(
         "usable": int(row["event_count"] or 0) > 0,
         "status": status,
         "applied_xp": applied_xp,
+        "scheduled_penalty_xp": nominal_penalty,
+        "offense_count": offense_count,
+        "next_penalty_xp": _typing_penalty_for_offense(offense_count + 1),
         "session_id": session_id,
     })
     return score
@@ -5198,13 +5273,17 @@ def alextype_complete(
                 "xp_awarded": 0,
                 "penalty_xp": int(integrity.get("penalty_xp") or 0),
                 "applied_penalty_xp": int(integrity.get("applied_xp") or 0),
+                "scheduled_penalty_xp": int(integrity.get("scheduled_penalty_xp") or 0),
+                "offense_count": int(integrity.get("offense_count") or 0),
+                "next_penalty_xp": int(integrity.get("next_penalty_xp") or 0),
                 "integrity_risk": int(integrity.get("risk_score") or 0),
                 "integrity_signals": integrity.get("signals") or [],
                 "new_total_xp": int(current["xp"] or 0) if current else 0,
                 "new_level": int(current["level"] or 1) if current else 1,
                 "message": (
                     f"Обнаружена автоматическая печать. "
-                    f"Штраф: {int(integrity.get('penalty_xp') or 0)} XP."
+                    f"Нарушение №{int(integrity.get('offense_count') or 0)}. "
+                    f"Списано: {int(integrity.get('applied_xp') or 0)} XP."
                 ),
             }
 
@@ -5447,6 +5526,7 @@ async def login(request: Request, data: LoginRequest):
                     "xp": user["xp"],
                     "level": user["level"],
                     "avatar_key": user["avatar_key"] if "avatar_key" in user.keys() else None,
+                    "ui_theme": user["ui_theme"] if "ui_theme" in user.keys() else "modern",
                     "completed_tasks": completed,
                     "achievements": achievements
                 }
@@ -5498,6 +5578,7 @@ def get_current_user(user: dict = Depends(require_auth)):
         "xp": user.get("xp", 0),
         "level": user.get("level", 1),
         "avatar_key": user.get("avatar_key"),
+        "ui_theme": user.get("ui_theme", "modern"),
         "completed_tasks": completed
     }
 
@@ -6651,6 +6732,7 @@ def get_profile(user: dict = Depends(require_auth)):
         "level": user["level"],
         "avatar_key": avatar_key,
         "avatar_url": avatar_url,
+        "ui_theme": user.get("ui_theme", "modern"),
         "current_rank": current_rank,
         "next_rank": next_rank,
         "stats": stats,
@@ -6660,7 +6742,7 @@ def get_profile(user: dict = Depends(require_auth)):
 
 @app.put("/api/profile")
 def update_profile(data: ProfileUpdateRequest, user: dict = Depends(require_auth)):
-    """Update user profile (display name, avatar)."""
+    """Update only the supplied profile fields (name, avatar, appearance)."""
     with get_db() as conn:
         cursor = conn.cursor()
         
@@ -6668,6 +6750,12 @@ def update_profile(data: ProfileUpdateRequest, user: dict = Depends(require_auth
             cursor.execute(
                 "UPDATE users SET display_name = ? WHERE id = ?",
                 (data.display_name, user["id"])
+            )
+
+        if data.ui_theme is not None:
+            cursor.execute(
+                "UPDATE users SET ui_theme = ? WHERE id = ?",
+                (data.ui_theme, user["id"]),
             )
         
         if data.avatar_data is not None:
@@ -10515,13 +10603,17 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
                 "verification": verification,
                 "penalty_xp": int(typing_integrity.get("penalty_xp") or 0),
                 "applied_penalty_xp": int(typing_integrity.get("applied_xp") or 0),
+                "scheduled_penalty_xp": int(typing_integrity.get("scheduled_penalty_xp") or 0),
+                "offense_count": int(typing_integrity.get("offense_count") or 0),
+                "next_penalty_xp": int(typing_integrity.get("next_penalty_xp") or 0),
                 "integrity_risk": int(typing_integrity.get("risk_score") or 0),
                 "integrity_signals": typing_integrity.get("signals") or [],
                 "xp": int(current["xp"] or 0) if current else 0,
                 "level": int(current["level"] or 1) if current else 1,
                 "message": (
                     "Сервер обнаружил признаки автоматической печати. "
-                    f"Штраф: {int(typing_integrity.get('penalty_xp') or 0)} XP."
+                    f"Нарушение №{int(typing_integrity.get('offense_count') or 0)}. "
+                    f"Списано: {int(typing_integrity.get('applied_xp') or 0)} XP."
                 ),
             }
 

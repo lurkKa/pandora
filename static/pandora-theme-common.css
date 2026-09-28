@@ -1,0 +1,32 @@
+/* Layout and keyboard fixes shared by both visual themes. */
+[hidden] { display: none !important; }
+.app-identity { display: contents; }
+.classic-only { display: none; }
+body :focus-visible { outline: 3px solid var(--accent-soft) !important; outline-offset: 3px !important; }
+body .topic-chips-bar { grid-column: 1 / -1; }
+body .modal-overlay { content-visibility: visible; }
+body.ui-dialog-open { overflow: hidden; }
+body.ui-dialog-open #fab-report { display: none !important; }
+body .modal-overlay.active, body .profile-modal-overlay.active,
+body .leaderboard-sidebar.open, body .profile-panel.open, body .guild-sidebar.open,
+body #my-code-modal { z-index: calc(1000 + var(--ui-layer-order, 0)) !important; }
+body .leaderboard-sidebar:not(.open), body .profile-panel:not(.open), body .guild-sidebar:not(.open) { visibility: hidden; }
+body .leaderboard-sidebar.open, body .profile-panel.open, body .guild-sidebar.open { visibility: visible; }
+body #guild-avatar-grid { grid-template-columns: repeat(auto-fit, minmax(40px, 1fr)) !important; }
+body .profile-header { position: relative; }
+body .profile-close { position: absolute; right: 12px; top: 12px; }
+body .avatar-wrapper { display: inline-block; padding: 0; background: transparent; border: 0; color: inherit; cursor: pointer; }
+body .avatar-img { display: grid; place-items: center; }
+.editor-keyboard-help { color: var(--text-secondary); font-size: 12px; margin: 8px 0; }
+.profile-theme-setting { padding: 18px 16px; border-bottom: 1px solid var(--border-subtle); }
+.profile-theme-setting h4 { margin: 0 0 12px; color: var(--text-bright); }
+.profile-theme-setting label { display: block; margin-bottom: 8px; color: var(--text-primary); font-size: 13px; }
+.profile-theme-setting select { width: 100%; min-height: 44px; font: inherit; font-size: 14px; }
+.profile-theme-note, #profile-theme-status { margin: 8px 0 0; color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
+#profile-theme-status { min-height: 1.6em; }
+.typing-policy { color: #b7b7c8; font-size: 12px; line-height: 1.6; margin: 8px 0; }
+.typing-policy summary { cursor: pointer; padding: 5px 0; }
+.typing-policy p { margin: 8px 0; }
+@media (prefers-reduced-motion: reduce) {
+    html, body, *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

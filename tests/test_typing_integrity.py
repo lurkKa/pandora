@@ -2,8 +2,11 @@ import json
 import os
 import sqlite3
 import tempfile
+import threading
 import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import patch
 
 
 os.environ.setdefault("PANDORA_SKIP_STARTUP", "1")
@@ -91,10 +94,9 @@ class TypingRiskScoreTests(unittest.TestCase):
         self.assertTrue(score["high_confidence"])
         self.assertIn("machine_uniform_intervals", score["signals"])
         self.assertIn("uniform_server_batch_cadence", score["signals"])
-        self.assertGreaterEqual(score["penalty_xp"], 50)
-        self.assertLessEqual(score["penalty_xp"], 500)
+        self.assertEqual(score["penalty_xp"], 0)  # ledger assigns the per-user ladder
 
-    def test_extreme_uniform_typer_gets_max_bounded_penalty(self):
+    def test_extreme_uniform_typer_is_confirmed_before_account_penalty_is_chosen(self):
         score = main._score_typing_integrity(
             "alextype",
             _fixed_typer_metrics(dt_ms=5),
@@ -105,7 +107,7 @@ class TypingRiskScoreTests(unittest.TestCase):
             claimed_keystrokes=100,
         )
         self.assertTrue(score["high_confidence"])
-        self.assertEqual(score["penalty_xp"], 500)
+        self.assertEqual(score["penalty_xp"], 0)
         self.assertIn("extreme_server_speed", score["signals"])
         self.assertIn("machine_uniform_intervals", score["signals"])
 
@@ -161,6 +163,46 @@ class TypingRiskScoreTests(unittest.TestCase):
         self.assertEqual(metrics["inserted_chars"], 4)
         self.assertEqual(metrics["trusted_inserted_chars"], 0)
         self.assertEqual(metrics["programmatic_chars"], 4)
+
+    def test_very_fast_varied_human_rhythm_alone_cannot_trigger_penalty(self):
+        events = [
+            {"kind": "insert", "dt_ms": [37, 55, 42, 76, 46, 61, 40, 71, 49, 54][i % 10],
+             "chars": 1, "trusted": True}
+            for i in range(100)
+        ]
+        metrics = main._aggregate_typing_events(main._typing_empty_metrics(), events)
+        for scope in ("task", "alextype"):
+            with self.subTest(scope=scope):
+                score = main._score_typing_integrity(
+                    scope, metrics, server_active_s=5.4, server_session_s=6,
+                    content_chars=100, expected_insertions=100, batch_count=6,
+                )
+                self.assertGreater(score["evidence"]["server_cpm"], 1100)
+                self.assertIn("extreme_server_speed", score["signals"])
+                self.assertFalse(score["high_confidence"])
+
+    def test_uniform_client_intervals_without_corroboration_are_not_penalized(self):
+        metrics = _fixed_typer_metrics(dt_ms=80)
+        metrics.update(server_gap_count=0, server_gap_sum_ms=0, server_gap_sq_sum_ms=0)
+        score = main._score_typing_integrity(
+            "task", metrics, server_active_s=10, server_session_s=11,
+            content_chars=100, expected_insertions=100, batch_count=7,
+        )
+        self.assertIn("machine_uniform_intervals", score["signals"])
+        self.assertFalse(score["high_confidence"])
+
+    def test_trusted_key_repeat_is_not_a_bot_timing_signal(self):
+        metrics = main._aggregate_typing_events(
+            main._typing_empty_metrics(),
+            [{"kind": "auto", "dt_ms": 33, "chars": 1, "trusted": True} for _ in range(100)],
+        )
+        score = main._score_typing_integrity(
+            "task", metrics, server_active_s=3.3, server_session_s=4,
+            content_chars=100, expected_insertions=100, batch_count=7,
+        )
+        self.assertEqual(metrics["interval_count"], 0)
+        self.assertEqual(metrics["programmatic_chars"], 0)
+        self.assertFalse(score["high_confidence"])
 
 
 class TypingPenaltyLedgerTests(unittest.TestCase):
@@ -252,12 +294,162 @@ class TypingPenaltyLedgerTests(unittest.TestCase):
         conn.execute(
             "INSERT INTO users (id, username, display_name, role, xp, level) VALUES (2, 'other', 'Other', 'student', 1000, 5)"
         )
+        main._migrate_typing_integrity_state(conn.cursor())
         conn.commit()
         conn.close()
 
     def tearDown(self):
         main.DATABASE = self._old_database
         self._tempdir.cleanup()
+
+    def _add_confirmed_session(self, session_id, scope="task", user_id=1):
+        now = time.time()
+        receipt = f"receipt-{session_id}"
+        with main.get_db() as conn:
+            conn.execute(
+                """
+                INSERT INTO typing_sessions (
+                    id, user_id, scope, task_id, expected_length, receipt_hash,
+                    batch_count, event_count, metrics_json, started_at,
+                    first_event_at, last_event_at, expires_at
+                ) VALUES (?, ?, ?, ?, 100, ?, 7, 100, ?, ?, ?, ?, ?)
+                """,
+                (session_id, user_id, scope, "task-a" if scope == "task" else None,
+                 main._typing_receipt_hash(receipt), json.dumps(_fixed_typer_metrics(dt_ms=5)),
+                 now - 1, now - 0.55, now - 0.05, now + 600),
+            )
+            conn.commit()
+        return receipt
+
+    def _finalize(self, conn, session_id, scope="task", user_id=1):
+        return main._finalize_typing_session(
+            conn.cursor(), user={"id": user_id, "username": "student", "role": "student"},
+            scope=scope, session_id=session_id, receipt=f"receipt-{session_id}",
+            task_id="task-a" if scope == "task" else None,
+            content_chars=100, expected_length=100, expected_insertions=100,
+            claimed_keystrokes=100,
+        )
+
+    def test_progressive_ladder_is_shared_across_scopes_and_stops_at_200000(self):
+        with main.get_db() as conn:
+            conn.execute("UPDATE users SET xp=1000000 WHERE id=1")
+            conn.commit()
+        scheduled = [5000, 20000, 70000, 200000, 200000]
+        for index, penalty in enumerate(scheduled, 1):
+            scope = "task" if index % 2 else "alextype"
+            session_id = f"ladder-{index}"
+            self._add_confirmed_session(session_id, scope)
+            with main.get_db() as conn:
+                result = self._finalize(conn, session_id, scope)
+                conn.commit()
+                self.assertTrue(result["high_confidence"])
+                self.assertEqual(result["offense_count"], index)
+                self.assertEqual(result["penalty_xp"], penalty)
+                self.assertEqual(result["scheduled_penalty_xp"], penalty)
+                self.assertEqual(result["applied_xp"], penalty)
+                self.assertEqual(result["next_penalty_xp"], scheduled[min(index, 4)])
+                self.assertEqual(conn.execute("SELECT xp FROM users WHERE id=1").fetchone()[0],
+                                 1000000 - sum(scheduled[:index]))
+        self._add_confirmed_session("other-user", user_id=2)
+        with main.get_db() as conn:
+            other = self._finalize(conn, "other-user", user_id=2)
+            conn.commit()
+            self.assertEqual(other["offense_count"], 1)
+            self.assertEqual(other["penalty_xp"], 5000)
+            self.assertEqual(other["applied_xp"], 1000)
+
+    def test_zero_balance_still_advances_one_stage_and_repeat_has_no_effect(self):
+        with main.get_db() as conn:
+            conn.execute("UPDATE users SET xp=0 WHERE id=1")
+            conn.commit()
+        self._add_confirmed_session("empty-wallet")
+        with main.get_db() as conn:
+            first = self._finalize(conn, "empty-wallet")
+            again = self._finalize(conn, "empty-wallet")
+            conn.commit()
+            self.assertEqual(first["offense_count"], 1)
+            self.assertEqual(first["applied_xp"], 0)
+            self.assertEqual(again["status"], "already_finalized")
+            self.assertEqual(conn.execute("SELECT offense_count FROM typing_integrity_state WHERE user_id=1").fetchone()[0], 1)
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM xp_log").fetchone()[0], 0)
+            conn.execute("UPDATE users SET xp=12000 WHERE id=1")
+            conn.commit()
+        self._add_confirmed_session("funded-wallet", "alextype")
+        with main.get_db() as conn:
+            second = self._finalize(conn, "funded-wallet", "alextype")
+            conn.commit()
+            self.assertEqual(second["offense_count"], 2)
+            self.assertEqual(second["penalty_xp"], 20000)
+            self.assertEqual(second["applied_xp"], 12000)
+            self.assertEqual(conn.execute("SELECT xp FROM users WHERE id=1").fetchone()[0], 0)
+            audit = conn.execute("SELECT delta_xp FROM audit_log ORDER BY id").fetchall()
+            self.assertEqual([row[0] for row in audit], [0, -12000])
+
+    def test_migration_counts_existing_incidents_once_and_survives_log_pruning(self):
+        for session_id in ("past-task", "past-alextype"):
+            self._add_confirmed_session(session_id)
+            with main.get_db() as conn:
+                self._finalize(conn, session_id)
+                conn.commit()
+        with main.get_db() as conn:
+            # Models upgrading an installation with incidents but no counter.
+            conn.execute("DROP TABLE typing_integrity_state")
+            main._migrate_typing_integrity_state(conn.cursor())
+            main._migrate_typing_integrity_state(conn.cursor())
+            self.assertEqual(conn.execute("SELECT offense_count FROM typing_integrity_state WHERE user_id=1").fetchone()[0], 2)
+            conn.execute("DELETE FROM typing_integrity_incidents")
+            main._migrate_typing_integrity_state(conn.cursor())
+            self.assertEqual(conn.execute("SELECT offense_count FROM typing_integrity_state WHERE user_id=1").fetchone()[0], 2)
+            conn.commit()
+        self._add_confirmed_session("after-cleanup")
+        with main.get_db() as conn:
+            result = self._finalize(conn, "after-cleanup")
+            conn.commit()
+            self.assertEqual(result["offense_count"], 3)
+            self.assertEqual(result["penalty_xp"], 70000)
+
+    def test_parallel_finalization_applies_each_confirmed_session_exactly_once(self):
+        with main.get_db() as conn:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("UPDATE users SET xp=100000 WHERE id=1")
+            conn.commit()
+        self._add_confirmed_session("parallel-task")
+        self._add_confirmed_session("parallel-type", "alextype")
+        barrier = threading.Barrier(3)
+
+        def finish(session_id, scope):
+            with main.get_db() as conn:
+                barrier.wait(timeout=5)
+                result = self._finalize(conn, session_id, scope)
+                conn.commit()
+                return result
+
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            futures = [pool.submit(finish, "parallel-task", "task"),
+                       pool.submit(finish, "parallel-task", "task"),
+                       pool.submit(finish, "parallel-type", "alextype")]
+            results = [future.result(timeout=10) for future in futures]
+        confirmed = [result for result in results if result["high_confidence"]]
+        self.assertEqual(sorted(result["offense_count"] for result in confirmed), [1, 2])
+        self.assertEqual(sum(result["status"] == "already_finalized" for result in results), 1)
+        with main.get_db() as conn:
+            self.assertEqual(conn.execute("SELECT xp FROM users WHERE id=1").fetchone()[0], 75000)
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM typing_integrity_incidents").fetchone()[0], 2)
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM xp_log").fetchone()[0], 2)
+
+    def test_failed_transaction_rolls_back_session_counter_and_debit(self):
+        self._add_confirmed_session("rollback")
+        with main.get_db() as conn:
+            with patch.object(main, "apply_xp_change", side_effect=RuntimeError("simulated write failure")):
+                with self.assertRaises(RuntimeError):
+                    self._finalize(conn, "rollback")
+            conn.rollback()
+            self.assertIsNone(conn.execute("SELECT finalized_at FROM typing_sessions WHERE id='rollback'").fetchone()[0])
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM typing_integrity_state").fetchone()[0], 0)
+            self.assertEqual(conn.execute("SELECT xp FROM users WHERE id=1").fetchone()[0], 1000)
+            result = self._finalize(conn, "rollback")
+            conn.commit()
+            self.assertEqual(result["offense_count"], 1)
 
     def test_finalize_is_single_use_and_penalty_is_applied_once(self):
         receipt = "server-one-time-receipt"
@@ -300,8 +492,9 @@ class TypingPenaltyLedgerTests(unittest.TestCase):
             conn.commit()
 
         self.assertTrue(first["high_confidence"])
-        self.assertEqual(first["penalty_xp"], 500)
-        self.assertEqual(first["applied_xp"], 500)
+        self.assertEqual(first["penalty_xp"], 5000)
+        self.assertEqual(first["applied_xp"], 1000)
+        self.assertEqual(first["offense_count"], 1)
 
         with main.get_db() as conn:
             cursor = conn.cursor()
@@ -326,7 +519,7 @@ class TypingPenaltyLedgerTests(unittest.TestCase):
 
         self.assertFalse(second["verified"])
         self.assertEqual(second["status"], "already_finalized")
-        self.assertEqual(xp, 500)
+        self.assertEqual(xp, 0)
         self.assertEqual(incidents, 1)
         self.assertEqual(penalties, 1)
 
@@ -381,11 +574,11 @@ class TypingPenaltyLedgerTests(unittest.TestCase):
                 """
             ).fetchone()
 
-        self.assertEqual(result["penalty_xp"], 500)
+        self.assertEqual(result["penalty_xp"], 5000)
         self.assertEqual(result["applied_xp"], 35)
         self.assertEqual(xp, 0)
         self.assertEqual(log_delta, -35)
-        self.assertEqual(incident["penalty_xp"], 500)
+        self.assertEqual(incident["penalty_xp"], 5000)
         self.assertEqual(incident["applied_xp"], 35)
 
     def test_session_is_bound_to_user_scope_and_task(self):

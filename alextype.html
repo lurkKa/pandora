@@ -1,10 +1,11 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-ui-theme="modern">
 
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AlexType — Тренажёр печати</title>
+  <script src="static/pandora-theme.js?v=20260928-theme1"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -155,6 +156,8 @@
       font-size: 14px;
       line-height: 1.8;
     }
+
+    .classic-logo-icon { display: none; }
 
     .keyboard-mark {
       display: flex;
@@ -400,6 +403,10 @@
       line-height: 1.7;
     }
 
+    .typing-policy { color: #b7b7c8; font-size: 12px; line-height: 1.6; margin-top: 12px; }
+    .typing-policy summary { cursor: pointer; padding: 5px 0; }
+    .typing-policy p { margin-top: 8px; }
+
     .stats {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -528,6 +535,7 @@
       .level-badge, button, select, textarea { border-color: ButtonText; }
     }
   </style>
+  <link rel="stylesheet" href="static/alextype-classic.css?v=20260928-theme1">
 </head>
 
 <body>
@@ -538,7 +546,7 @@
     <header class="header-card">
       <div>
         <p class="eyebrow">Pandora <span aria-hidden="true">/</span> <span>Тренажёр печати</span></p>
-        <h1>AlexType</h1>
+        <div class="logo"><span class="logo-icon classic-logo-icon" aria-hidden="true">⌨️</span><h1>AlexType</h1></div>
         <p class="logo-sub">Развивай скорость и точность печати. Выбирай уровень, набирай текст и получай XP за практику.</p>
       </div>
       <div class="keyboard-mark" aria-hidden="true"><span>A</span><span>↵</span></div>
@@ -592,6 +600,11 @@
         <label for="input">Твой текст</label>
         <textarea id="input" placeholder="Начни печатать здесь…" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="input-hint"></textarea>
         <p id="input-hint" class="input-hint">Таймер начнётся с первого символа. Ошибки можно исправлять клавишей Backspace.</p>
+        <details class="typing-policy">
+          <summary>Правила самостоятельной печати</summary>
+          <p>За выявленную автоматическую печать скриптом: 5 000 → 20 000 → 70 000 → 200 000 XP за повторные нарушения. Дальше — по 200 000 XP. Списывается не больше текущего баланса. Счётчик общий для заданий и AlexType, в обеих темах.</p>
+          <p>Высокая скорость сама по себе не вызывает штраф. Если считаешь списание ошибочным, обратись к преподавателю.</p>
+        </details>
       </section>
 
       <section class="stats" aria-label="Показатели текущей попытки">
@@ -919,6 +932,7 @@
       _voiceBlockCount = 0;
       _lastKeydownTime = 0;
       _lastKeydownTrusted = false;
+      _lastKeydownRepeat = false;
       _recentInsertTimes.length = 0;
       startedAt = 0;
       clearInterval(timer);
@@ -1057,8 +1071,10 @@
         });
         const data = await resp.json();
         if (data.status === "integrity_penalty") {
-          const penalty = Number(data.penalty_xp || 0);
-          setStatus(`⛔ АВТОПЕЧАТЬ — штраф ${penalty} XP`, "status-bad");
+          const penalty = Number(data.applied_penalty_xp ?? data.penalty_xp ?? 0);
+          const offense = Number(data.offense_count || 0);
+          const debit = penalty > 0 ? `списано ${penalty.toLocaleString('ru-RU')} XP` : 'XP не списаны: баланс равен нулю';
+          setStatus(`⛔ Автоматическая печать${offense ? `, нарушение №${offense}` : ''}: ${debit}. Результат не засчитан. Если это ошибка, обратись к преподавателю.`, "status-bad");
         } else if (data.xp_awarded > 0) {
           showXPToast(data.xp_awarded, data.message || 'За набор текста');
           setStatus(`✅ PASSED +${data.xp_awarded} XP`, "status-ok");
@@ -1091,6 +1107,7 @@
     let _keystrokeCount = 0;            // Real keydown events (sent to server)
     let _lastKeydownTime = 0;           // Timestamp of last keydown (Layer 1)
     let _lastKeydownTrusted = false;     // Browser-generated (not dispatchEvent)
+    let _lastKeydownRepeat = false;      // Native repeat while a key is held
     let _inComposition = false;         // True during IME composition
     let _voiceBlockCount = 0;           // How many voice inserts were blocked
     const _recentInsertTimes = [];      // Timestamps of recent insertText events (Layer 2)
@@ -1107,7 +1124,7 @@
       if (window.speechSynthesis) window.speechSynthesis.cancel();
     } catch (e) { }
 
-    // IME composition tracking — composition input is always trusted (real keyboard)
+    // Track composition boundaries; individual events still need isTrusted.
     inputEl.addEventListener("compositionstart", () => { _inComposition = true; });
     inputEl.addEventListener("compositionend", () => {
       // Delay clearing _inComposition to handle all browser orderings:
@@ -1118,6 +1135,7 @@
 
     // ===== CORE: beforeinput — block ALL non-keyboard inserts =====
     inputEl.addEventListener("beforeinput", (e) => {
+      _pendingInputMeta = null;
       // Always block: paste, drop, yank, replacement, link, autocomplete
       const alwaysBlocked = [
         "insertFromPaste", "insertFromDrop", "insertFromYank",
@@ -1131,7 +1149,12 @@
         return;
       }
 
-      // Skip ALL checks during active composition (IME input is trusted)
+      if (e.inputType === "historyUndo" || e.inputType === "historyRedo") {
+        _pendingInputMeta = { kind: "restore", chars: 0, trusted: Boolean(e.isTrusted) };
+        return;
+      }
+
+      // Composition may contain several characters; its trust is still checked.
       if (_inComposition) {
         _pendingInputMeta = {
           kind: "composition",
@@ -1178,7 +1201,7 @@
         // All checks passed — accept this character
         _recentInsertTimes.push(now);
         _pendingInputMeta = {
-          kind: "insert",
+          kind: e.isTrusted && _lastKeydownTrusted && _lastKeydownRepeat ? "auto" : "insert",
           chars: Math.max(1, (e.data || "").length),
           trusted: Boolean(e.isTrusted && _lastKeydownTrusted),
         };
@@ -1213,6 +1236,7 @@
       _keystrokeCount++;
       _lastKeydownTime = Date.now();
       _lastKeydownTrusted = Boolean(e.isTrusted);
+      _lastKeydownRepeat = Boolean(e.isTrusted && e.repeat);
     });
 
     inputEl.addEventListener("paste", (e) => {
@@ -1232,19 +1256,42 @@
       setStatus("⛔ Перетаскивание запрещено!", "status-bad");
     });
 
+    function alexTypeChangedChars(before, after) {
+      if (before === after) return 0;
+      const shared = Math.min(before.length, after.length);
+      let prefix = 0;
+      while (prefix < shared && before[prefix] === after[prefix]) prefix++;
+      let suffix = 0;
+      while (suffix < shared - prefix
+        && before[before.length - 1 - suffix] === after[after.length - 1 - suffix]) suffix++;
+      return Math.max(1, after.length - prefix - suffix);
+    }
+
     inputEl.addEventListener("input", (event) => {
       const currentValue = inputEl.value;
       const delta = currentValue.length - _lastInputValue.length;
       const meta = _pendingInputMeta;
       if (meta) {
-        const observedChars = meta.kind === "delete"
-          ? Math.max(1, -delta, meta.chars || 0)
-          : Math.max(1, delta, meta.chars || 0);
+        const trusted = Boolean(meta.trusted && event.isTrusted);
+        let kind = meta.kind;
+        let observedChars;
+        if (kind === "restore") {
+          kind = trusted ? "restore" : "programmatic";
+          observedChars = alexTypeChangedChars(_lastInputValue, currentValue);
+        } else if (kind === "composition" && trusted) {
+          // IME reports the whole buffer repeatedly; count only the real delta.
+          kind = delta < 0 ? "delete" : "composition";
+          observedChars = Math.abs(delta);
+        } else {
+          observedChars = kind === "delete"
+            ? Math.max(1, -delta, meta.chars || 0)
+            : Math.max(1, delta, meta.chars || 0);
+        }
         if (typingTelemetry) {
           typingTelemetry.record(
-            meta.kind,
+            kind,
             observedChars,
-            Boolean(meta.trusted && event.isTrusted),
+            trusted,
           );
         }
       } else if (delta > 0) {
@@ -1253,6 +1300,9 @@
         if (typingTelemetry) typingTelemetry.record("programmatic", delta, false);
       } else if (delta < 0) {
         if (typingTelemetry) typingTelemetry.record("delete", -delta, Boolean(event.isTrusted));
+      } else if (currentValue !== _lastInputValue) {
+        // A script may replace the text without changing its length.
+        if (typingTelemetry) typingTelemetry.record("programmatic", alexTypeChangedChars(_lastInputValue, currentValue), false);
       }
       _pendingInputMeta = null;
       _lastInputValue = currentValue;
@@ -1318,6 +1368,7 @@
 
     pickText({ focusInput: false });
   </script>
+  <script>window.PandoraTheme?.syncAuthenticatedProfile();</script>
 </body>
 
 </html>
