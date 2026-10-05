@@ -5007,7 +5007,7 @@
                             </h3>
                             <p
                                 style="color: var(--text-secondary); font-size: 13px; margin-bottom: 16px; line-height: 1.5;">
-                                Загрузите файл <code>.sb3</code> для проверки.<br>Мастер оценит ваш код вручную.
+                                Загрузите файл <code>.sb3</code> для проверки.<br>Мастер оценит ваш код вручную.<br><span data-scratch-upload-limit>Максимальный размер: 100 МБ</span>
                             </p>
 
                             <button type="button" class="btn btn-primary" onclick="document.getElementById('scratch-file').click()">📂 Выбрать файл</button>
@@ -5537,6 +5537,7 @@
         </div>
     </div>
 
+    <script src="static/scratch-upload.js?v=20261005"></script>
     <script>
         // ==================== STATE ====================
         let API_URL = null;
@@ -5563,7 +5564,6 @@
         let taskTypingLastKeydownAt = 0;
         let taskTypingLastKeydownTrusted = false;
         let taskTypingLastKeydownRepeat = false;
-        const SCRATCH_CLIENT_MAX_MB = 10;
         const DASHBOARD_SYNC_MS = 90000;
         const REQUEST_TIMEOUT_MS = 45000;
         const AUTH_REQUEST_TIMEOUT_MS = 60000;
@@ -5813,6 +5813,7 @@
             // Try to restore session
             const savedToken = localStorage.getItem('auth_token');
             API_URL = getDefaultApiUrl();
+            void PandoraScratchUpload.load(API_URL);
             localStorage.setItem('api_url', API_URL);
             setLoginStatus(`Сервер: ${describeServer(API_URL)}`, 'connected');
 
@@ -8045,10 +8046,6 @@
             return `${(value / (1024 * 1024)).toFixed(2)} MB`;
         }
 
-        function getScratchUploadMaxBytes() {
-            return Math.max(1, SCRATCH_CLIENT_MAX_MB) * 1024 * 1024;
-        }
-
         function getSelectedScratchFile() {
             const fileInput = document.getElementById('scratch-file');
             if (!fileInput || !fileInput.files || fileInput.files.length === 0) return null;
@@ -8056,13 +8053,7 @@
         }
 
         function validateScratchUploadFile(file) {
-            if (!file) return `Пожалуйста, загрузите файл .sb3`;
-            const name = String(file.name || '').toLowerCase();
-            if (!name.endsWith('.sb3')) return 'Поддерживается только формат .sb3';
-            if (Number(file.size || 0) > getScratchUploadMaxBytes()) {
-                return `Файл слишком большой (макс ${SCRATCH_CLIENT_MAX_MB} MB)`;
-            }
-            return null;
+            return PandoraScratchUpload.validate(file);
         }
 
         function handleScratchFileSelected(input) {
@@ -8194,6 +8185,7 @@
 
             // Scratch: submit file for manual review
             if (currentTask.category === 'scratch') {
+                await PandoraScratchUpload.load(API_URL);
                 const file = getSelectedScratchFile();
                 const validationError = validateScratchUploadFile(file);
                 if (validationError) {
@@ -8213,12 +8205,22 @@
                         const pct = Math.max(1, Math.min(100, Math.round((loaded / total) * 100)));
                         if (pct === lastProgress) return;
                         lastProgress = pct;
-                        output.innerText = `⏳ Загрузка проекта: ${pct}% (${formatBytes(loaded)} / ${formatBytes(total)})`;
+                        output.innerText = pct === 100
+                            ? '⏳ Файл передан. Сервер сохраняет проект...'
+                            : `⏳ Загрузка проекта: ${pct}% (${formatBytes(loaded)} / ${formatBytes(total)})`;
                     });
 
                     if (sub && sub.detail) {
                         output.innerText = '❌ Ошибка отправки: ' + (typeof sub.detail === 'string' ? sub.detail : safeJson(sub.detail));
                         return;
+                    }
+
+                    if (sub?.status === 'already_completed') {
+                        output.innerText = 'Этот квест уже завершён. Сервер не принял повторную отправку.';
+                        return;
+                    }
+                    if (sub?.status !== 'pending_review') {
+                        throw new Error('Сервер не подтвердил сохранение проекта. Попробуйте отправить файл ещё раз.');
                     }
 
                     if (sub?.status === 'pending_review' && sub?.message === 'Submission already pending review') {
@@ -8800,6 +8802,7 @@
                 list.innerHTML = `
                     <section class="leaderboard-weekly-summary" aria-label="Рекорд и лидеры недели">
                         <div class="summary-label">⭐ Рекорд недели</div>
+                        <div class="summary-label">За квест: S — 4 ⭐ · A — 3 · B — 2 · C/D — 1</div>
                         <div class="summary-value">${Number(data.max_stars_week || 0).toLocaleString('ru-RU')} <small>звёзд</small></div>
                         <table>
                             <thead><tr><th>Место</th><th>Игрок</th><th>Звёзды</th></tr></thead>
@@ -11570,6 +11573,7 @@
                         <!-- Stars by period table -->
                         <div style="background:linear-gradient(135deg, rgba(251,191,36,0.08), rgba(139,92,246,0.06)); border:1px solid rgba(251,191,36,0.15); border-radius:12px; padding:14px;">
                             <div style="font-size:13px; font-weight:600; color:#fbbf24; margin-bottom:10px;">⭐ Звёзды участников (по дням)</div>
+                            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:10px;">За квест: S — 4 ⭐ · A — 3 · B — 2 · C/D — 1</div>
                             <div style="overflow-x:auto;">
                                 <table style="width:100%; border-collapse:collapse;">
                                     <thead>

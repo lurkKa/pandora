@@ -87,11 +87,59 @@ class ProgressTrackingTests(unittest.TestCase):
                  (1, 500, "admin_bonus", monday.isoformat())],
             )
             conn.commit()
-        result = main.get_leaderboard_week(20)
+        with patch.object(main, "_tasks_by_id", return_value={}):
+            result = main.get_leaderboard_week(20)
         self.assertEqual(result["week_start"], monday.isoformat())
         self.assertEqual(result["max_stars_week"], 2)
         self.assertEqual([row["id"] for row in result["leaderboard"]], [1, 2])
         self.assertEqual(result["leaderboard"][0]["xp_week"], 20)
+
+    def test_weekly_stars_weight_tiers_before_ranking_and_limit(self):
+        today = datetime.now(timezone.utc).date()
+        monday = today - timedelta(days=today.weekday())
+        tasks = {tier: {"id": tier, "tier": tier} for tier in ("S", "A", "B", "C", "D")}
+        tasks["invalid"] = {"tier": "S"}
+        tasks["old"] = {"tier": "S"}
+        with main.get_db() as conn:
+            conn.executemany("INSERT INTO completed_tasks VALUES (?, ?, ?, ?)", [
+                (1, "C", 1, today.isoformat()),
+                (1, "D", 1, today.isoformat()),
+                (1, "removed-task", 1, today.isoformat()),
+                (1, "invalid", 0, today.isoformat()),
+                (1, "old", 1, (monday - timedelta(days=1)).isoformat()),
+                (2, "S", 1, today.isoformat()),
+            ])
+            conn.commit()
+        with patch.object(main, "_tasks_by_id", return_value=tasks):
+            result = main.get_leaderboard_week(1)
+            self.assertEqual(result["max_stars_week"], 4)
+            self.assertEqual([row["id"] for row in result["leaderboard"]], [2])
+            with main.get_db() as conn:
+                conn.executemany("INSERT INTO completed_tasks VALUES (2, ?, 1, ?)", [("A", today.isoformat()), ("B", today.isoformat())])
+                conn.commit()
+            result = main.get_leaderboard_week(20)
+        self.assertEqual([row["stars_week"] for row in result["leaderboard"]], [9, 3])
+
+    def test_guild_stars_use_same_weights_and_keep_task_counts(self):
+        today = datetime.now(timezone.utc).date().isoformat()
+        tasks = [{"id": tier, "tier": tier, "category": "scratch"} for tier in ("S", "A", "B", "C", "D")]
+        with main.get_db() as conn:
+            conn.executescript("""
+                ALTER TABLE completed_tasks ADD COLUMN xp_earned INTEGER DEFAULT 0;
+                ALTER TABLE guilds ADD COLUMN created_at TEXT;
+                ALTER TABLE user_stats ADD COLUMN streak_days INTEGER DEFAULT 0;
+                ALTER TABLE user_stats ADD COLUMN best_streak INTEGER DEFAULT 0;
+                INSERT INTO guilds (id, name) VALUES (1, 'Test');
+                INSERT INTO guild_members VALUES (1, 1, 'leader'), (1, 2, 'member');
+            """)
+            conn.executemany("INSERT INTO completed_tasks (user_id, task_id, is_valid, completed_at) VALUES (1, ?, 1, ?)", [(task["id"], today) for task in tasks])
+            conn.commit()
+        with patch.object(main, "load_tasks", return_value={"tasks": tasks}):
+            result = main.get_guild_stats(1, {"id": 1})
+        self.assertEqual(result["overview"]["total_tasks"], 5)
+        first, second = result["members_stars"]
+        self.assertEqual((first["stars_1d"], first["stars_2d"], first["stars_week"]), (11, 11, 11))
+        self.assertEqual((second["stars_1d"], second["stars_2d"], second["stars_week"]), (0, 0, 0))
 
     def test_heartbeat_credits_only_elapsed_active_time_and_mvp(self):
         with patch.object(main.time, "time", side_effect=[1000, 1030, 1060, 1090, 1200, 1300]):

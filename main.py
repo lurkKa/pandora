@@ -106,6 +106,22 @@ _FLOOD_GLOBAL_PER_SECOND = int(os.getenv("PANDORA_FLOOD_GLOBAL_PER_SECOND", "500
 _FLOOD_IP_TABLE_MAX = 2048
 _MAX_REQUEST_BODY_BYTES = int(os.getenv("PANDORA_MAX_REQUEST_BODY_BYTES", str(1 * 1024 * 1024)))  # 1MB
 
+
+def _scratch_upload_max_mb() -> int:
+    try:
+        value = int(os.getenv("PANDORA_MAX_UPLOAD_MB", "100"))
+    except (TypeError, ValueError):
+        value = 100
+    return value if value > 0 else 100
+
+
+_SCRATCH_UPLOAD_PATHS = {
+    "/api/tasks/attempt-scratch-fast",
+    "/api/tasks/attempt-scratch",
+    "/api/progress/submit",
+    "/api/exam/submit-scratch",
+}
+
 # --- Global state ---
 _memory_shed_active = False  # When True, all new requests get 503
 _memory_last_rss_mb: float = 0.0
@@ -516,7 +532,7 @@ class FloodShieldMiddleware:
 
 
 class RequestBodyLimitMiddleware:
-    """ASGI middleware: reject requests with Content-Length > _MAX_REQUEST_BODY_BYTES.
+    """Bound request bodies, with a separate budget for Scratch uploads.
 
     GET/HEAD/OPTIONS are exempt (no body expected).
     Prevents memory bombs from huge POST payloads.
@@ -544,14 +560,24 @@ class RequestBodyLimitMiddleware:
         except (ValueError, TypeError):
             length = 0
 
-        if length > _MAX_REQUEST_BODY_BYTES:
-            await _send_error_response(send, 413, b'{"detail":"Request body too large."}')
+        limit = _MAX_REQUEST_BODY_BYTES
+        detail = "Request body too large."
+        path = scope.get("path", "").rstrip("/")
+        if method == "POST" and path in _SCRATCH_UPLOAD_PATHS:
+            max_mb = _scratch_upload_max_mb()
+            limit = max_mb * 1024 * 1024
+            # Multipart envelopes and text fields have their own small budget.
+            if path != "/api/tasks/attempt-scratch-fast":
+                limit += 1024 * 1024
+            detail = f"Файл слишком большой (макс {max_mb} МБ)"
+
+        if length > limit:
+            await _send_error_response(send, 413, json.dumps({"detail": detail}).encode())
             return
 
         # Also guard against chunked transfer with no Content-Length:
         # wrap the receive callable to count bytes
         total_received = 0
-        limit = _MAX_REQUEST_BODY_BYTES
 
         async def _guarded_receive():
             nonlocal total_received
@@ -560,7 +586,7 @@ class RequestBodyLimitMiddleware:
                 body = msg.get("body", b"")
                 total_received += len(body)
                 if total_received > limit:
-                    raise HTTPException(status_code=413, detail="Request body too large.")
+                    raise HTTPException(status_code=413, detail=detail)
             return msg
 
         await self.app(scope, _guarded_receive, send)
@@ -6092,15 +6118,30 @@ def get_leaderboard(limit: int = Query(20, le=100)):
             leaders.append(entry)
     return {"leaderboard": leaders, "mvp": mvp}
 
+TASK_STARS_BY_TIER = {"D": 1, "C": 1, "B": 2, "A": 3, "S": 4}
+
+
+def _register_task_stars(conn, tasks_by_id=None):
+    """Weight existing completions too; retries still occupy a single row."""
+    tasks = _tasks_by_id() if tasks_by_id is None else tasks_by_id
+
+    def task_stars(task_id):
+        tier = str((tasks.get(task_id) or {}).get("tier") or "D").strip().upper()
+        return TASK_STARS_BY_TIER.get(tier, 1)
+
+    conn.create_function("task_stars", 1, task_stars, deterministic=True)
+
+
 @app.get("/api/leaderboard/week")
 def get_leaderboard_week(limit: int = Query(20, ge=1, le=100)):
-    """Current calendar week's top players by unique completed quests."""
+    """Current calendar week's top players by tier-weighted quest stars."""
     week_start = (datetime.now(timezone.utc).date() - timedelta(days=datetime.now(timezone.utc).weekday())).isoformat()
     with get_db() as conn:
+        _register_task_stars(conn)
         cursor = conn.cursor()
         cursor.execute("""
             WITH stars AS (
-                SELECT user_id, COUNT(*) AS stars_week
+                SELECT user_id, SUM(task_stars(task_id)) AS stars_week
                 FROM completed_tasks
                 WHERE is_valid != 0 AND completed_at >= ?
                 GROUP BY user_id
@@ -10793,6 +10834,34 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
             "is_retry": is_retry,
         }
 
+@app.get("/api/scratch/upload-config")
+def scratch_upload_config():
+    max_mb = _scratch_upload_max_mb()
+    return {"max_mb": max_mb, "max_bytes": max_mb * 1024 * 1024}
+
+
+def _save_scratch_upload(file: UploadFile):
+    """Copy the spooled upload in bounded chunks; discard incomplete files."""
+    max_mb = _scratch_upload_max_mb()
+    max_bytes = max_mb * 1024 * 1024
+    filename = f"{uuid.uuid4()}.sb3"
+    file_path = Path("uploads") / filename
+    written = 0
+    try:
+        with file_path.open("wb") as buffer:
+            while chunk := file.file.read(1024 * 1024):
+                written += len(chunk)
+                if written > max_bytes:
+                    raise HTTPException(413, f"Файл слишком большой (макс {max_mb} МБ)")
+                buffer.write(chunk)
+        if written == 0:
+            raise HTTPException(400, "Файл пустой. Выберите сохранённый проект .sb3")
+    except Exception:
+        file_path.unlink(missing_ok=True)
+        raise
+    return filename, file_path, written
+
+
 @app.post("/api/tasks/attempt-scratch")
 def attempt_scratch_task(
     request: Request,
@@ -10828,7 +10897,6 @@ def attempt_scratch_task(
                 "submission_id": existing_pending["id"],
                 "message": "Submission already pending review",
             }
-        is_retry_scratch = task_id in completed_ids
         if not unlocked:
             raise HTTPException(status_code=403, detail={"status": "locked", "unlock": unlock_info})
 
@@ -10841,33 +10909,7 @@ def attempt_scratch_task(
         if original_filename and not original_filename.lower().endswith(".sb3"):
             raise HTTPException(status_code=400, detail="Only .sb3 files are supported")
 
-        max_mb = int(os.getenv("PANDORA_MAX_UPLOAD_MB", "10"))
-        max_bytes = max_mb * 1024 * 1024
-        try:
-            upload_chunk_kb = int(os.getenv("PANDORA_UPLOAD_CHUNK_KB", "4096"))
-        except (TypeError, ValueError):
-            upload_chunk_kb = 4096
-        upload_chunk_kb = max(256, upload_chunk_kb)
-        upload_chunk_bytes = upload_chunk_kb * 1024
-        filename = f"{uuid.uuid4()}.sb3"
-        file_path = Path("uploads") / filename
-
-        written = 0
-        with open(file_path, "wb") as buffer:
-            while True:
-                chunk = file.file.read(upload_chunk_bytes)
-                if not chunk:
-                    break
-                written += len(chunk)
-                if written > max_bytes:
-                    try:
-                        file_path.unlink(missing_ok=True)
-                    except Exception:
-                        pass
-                    raise HTTPException(status_code=413, detail=f"File too large (max {max_mb} MB)")
-                buffer.write(chunk)
-
-        uploaded_size_bytes = written
+        filename, file_path, uploaded_size_bytes = _save_scratch_upload(file)
         link = f"/uploads/{filename}"
 
         # Optional opcode auto-check (helps reviewer; does not auto-award XP)
@@ -10957,8 +10999,6 @@ async def attempt_scratch_task_fast(
                 "submission_id": existing_pending["id"],
                 "message": "Submission already pending review",
             }
-        if task_id in completed_ids:
-            return {"status": "already_completed"}
         if not unlocked:
             raise HTTPException(status_code=403, detail={"status": "locked", "unlock": unlock_info})
 
@@ -10966,7 +11006,7 @@ async def attempt_scratch_task_fast(
     if not clean_name.lower().endswith(".sb3"):
         raise HTTPException(status_code=400, detail="Only .sb3 files are supported")
 
-    max_mb = int(os.getenv("PANDORA_MAX_UPLOAD_MB", "10"))
+    max_mb = _scratch_upload_max_mb()
     max_bytes = max_mb * 1024 * 1024
     try:
         server_chunk_bytes = int(os.getenv("PANDORA_FAST_UPLOAD_CHUNK_BYTES", str(4 * 1024 * 1024)))
@@ -10988,20 +11028,20 @@ async def attempt_scratch_task_fast(
                         file_path.unlink(missing_ok=True)
                     except Exception:
                         pass
-                    raise HTTPException(status_code=413, detail=f"File too large (max {max_mb} MB)")
+                    raise HTTPException(status_code=413, detail=f"Файл слишком большой (макс {max_mb} МБ)")
                 # Defensive split for very large ASGI chunks.
                 if len(chunk) <= server_chunk_bytes:
                     buffer.write(chunk)
                 else:
                     for i in range(0, len(chunk), server_chunk_bytes):
                         buffer.write(chunk[i : i + server_chunk_bytes])
-    except HTTPException:
-        raise
     except Exception as e:  # noqa: BLE001
         try:
             file_path.unlink(missing_ok=True)
         except Exception:
             pass
+        if isinstance(e, HTTPException):
+            raise
         raise HTTPException(status_code=400, detail=f"Upload failed: {type(e).__name__}")
 
     if written <= 0:
@@ -13498,14 +13538,15 @@ def get_guild_stats(guild_id: int, user: dict = Depends(require_auth)):
         members_summary = [dict(r) for r in cursor.fetchall()]
 
         # ── Per-member stars by period (today / 2 days / current week) ──
+        _register_task_stars(conn, tasks_map)
         cursor.execute(f"""
             SELECT u.id, u.display_name,
-                   (SELECT COUNT(*) FROM completed_tasks WHERE user_id = u.id AND is_valid != 0
+                   (SELECT COALESCE(SUM(task_stars(task_id)), 0) FROM completed_tasks WHERE user_id = u.id AND is_valid != 0
                     AND DATE(completed_at) = DATE('now')) as stars_1d,
-                   (SELECT COUNT(*) FROM completed_tasks WHERE user_id = u.id AND is_valid != 0
+                   (SELECT COALESCE(SUM(task_stars(task_id)), 0) FROM completed_tasks WHERE user_id = u.id AND is_valid != 0
                     AND completed_at >= DATE('now', '-1 day')) as stars_2d,
-                   (SELECT COUNT(*) FROM completed_tasks WHERE user_id = u.id AND is_valid != 0
-                    AND completed_at >= DATE('now', 'weekday 0', '-6 days')) as stars_week
+                   (SELECT COALESCE(SUM(task_stars(task_id)), 0) FROM completed_tasks WHERE user_id = u.id AND is_valid != 0
+                    AND completed_at >= DATE('now', '-6 days', 'weekday 1')) as stars_week
             FROM users u
             WHERE u.id IN ({placeholders})
             ORDER BY stars_week DESC, stars_1d DESC
@@ -14205,37 +14246,7 @@ def exam_submit_scratch(
         if original_filename and not original_filename.lower().endswith(".sb3"):
             raise HTTPException(status_code=400, detail="Only .sb3 files are supported")
 
-        max_mb = int(os.getenv("PANDORA_MAX_UPLOAD_MB", "10"))
-        max_bytes = max_mb * 1024 * 1024
-        try:
-            upload_chunk_kb = int(os.getenv("PANDORA_UPLOAD_CHUNK_KB", "4096"))
-        except (TypeError, ValueError):
-            upload_chunk_kb = 4096
-        upload_chunk_kb = max(256, upload_chunk_kb)
-        upload_chunk_bytes = upload_chunk_kb * 1024
-
-        stored_name = f"{uuid.uuid4()}.sb3"
-        file_path = Path("uploads") / stored_name
-        written = 0
-        with open(file_path, "wb") as buffer:
-            while True:
-                chunk = file.file.read(upload_chunk_bytes)
-                if not chunk:
-                    break
-                written += len(chunk)
-                if written > max_bytes:
-                    try:
-                        file_path.unlink(missing_ok=True)
-                    except Exception:
-                        pass
-                    raise HTTPException(status_code=413, detail=f"File too large (max {max_mb} MB)")
-                buffer.write(chunk)
-        if written <= 0:
-            try:
-                file_path.unlink(missing_ok=True)
-            except Exception:
-                pass
-            raise HTTPException(status_code=400, detail="Empty upload")
+        stored_name, file_path, written = _save_scratch_upload(file)
 
         submission_link = f"/uploads/{stored_name}"
         submission_filename = original_filename or "project.sb3"

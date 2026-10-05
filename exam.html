@@ -658,7 +658,7 @@
                     <div class="scratch-file-name" id="exam-scratch-file-name"></div>
                     <div class="locked-hint" style="max-width:none; margin-top:8px;">
                         В Scratch-заданиях можно открыть вкладку <code>scratch.mit.edu</code>, скачать старый
-                        <code>.sb3</code> из журнала и загрузить файл сюда.
+                        <code>.sb3</code> из журнала и загрузить файл сюда.<br><span data-scratch-upload-limit>Максимальный размер: 100 МБ</span>
                     </div>
                 </div>
                 <div class="code-editor-wrap" id="editor-wrap">
@@ -738,8 +738,10 @@
         </div>
     </div>
 
+    <script src="static/scratch-upload.js?v=20261005"></script>
     <script>
         const API_URL = location.origin;
+        void PandoraScratchUpload.load(API_URL);
         let authToken = null;
         let currentTask = null;
         let timerInterval = null;
@@ -755,7 +757,6 @@
         let antiCheatAwaySources = {};
         let antiCheatAwaitRefocus = false;
         let lastLangSwitchAt = 0;
-        const EXAM_SCRATCH_MAX_MB = 10;
         const ANTI_CHEAT_MIN_HIDDEN_MS = 550;
         const ANTI_CHEAT_COOLDOWN_MS = 4000;
         const ANTI_CHEAT_WATCHDOG_MS = 250;
@@ -944,12 +945,7 @@
         }
 
         function validateExamScratchFile(file) {
-            if (!file) return 'Пожалуйста, выберите файл .sb3';
-            const name = String(file.name || '').toLowerCase();
-            if (!name.endsWith('.sb3')) return 'Поддерживается только формат .sb3';
-            const maxBytes = EXAM_SCRATCH_MAX_MB * 1024 * 1024;
-            if (Number(file.size || 0) > maxBytes) return `Файл слишком большой (макс ${EXAM_SCRATCH_MAX_MB} MB)`;
-            return null;
+            return PandoraScratchUpload.validate(file);
         }
 
         function handleExamScratchFileSelected(input) {
@@ -1178,6 +1174,7 @@
         }
 
         async function submitScratchSolution(msg) {
+            await PandoraScratchUpload.load(API_URL);
             const fileInput = document.getElementById('exam-scratch-file');
             const file = fileInput && fileInput.files && fileInput.files.length > 0 ? fileInput.files[0] : null;
             const fileError = validateExamScratchFile(file);
