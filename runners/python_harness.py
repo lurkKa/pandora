@@ -30,11 +30,13 @@ from __future__ import annotations
 
 import io
 import json
+import math
 import random
 import resource
 import signal
 import sys
 import traceback
+from pathlib import Path
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 
 # ── Resource limits (protection when running without Docker) ──
@@ -51,6 +53,48 @@ try:
 except (ValueError, OSError):
     pass
 from typing import Any
+
+# -I excludes the script directory from sys.path in Docker. Load only the
+# bundled, trusted validator module; submitted code still runs in its own env.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from output_validators import validate_output
+
+
+def _matches(actual: Any, expected: Any, comparison: Any = None) -> bool:
+    if not comparison:
+        return actual == expected
+    mode = comparison.get("mode", "json")
+    if isinstance(actual, (list, tuple)) and isinstance(expected, (list, tuple)):
+        if len(actual) != len(expected):
+            return False
+        child = dict(comparison, mode="json")
+        if mode in {"unordered", "unordered_rows"}:
+            remaining = list(expected)
+            for value in actual:
+                row_comparison = dict(child, mode="unordered") if mode == "unordered_rows" else child
+                for i, target in enumerate(remaining):
+                    if _matches(value, target, row_comparison):
+                        remaining.pop(i)
+                        break
+                else:
+                    return False
+            return True
+        return all(_matches(a, b, child) for a, b in zip(actual, expected))
+    if isinstance(actual, dict) and isinstance(expected, dict):
+        return actual.keys() == expected.keys() and all(
+            _matches(actual[key], expected[key], dict(comparison, mode="json")) for key in expected
+        )
+    if isinstance(actual, bool) or isinstance(expected, bool):
+        return type(actual) is type(expected) and actual == expected
+    if isinstance(actual, int) and isinstance(expected, int):
+        return actual == expected
+    if isinstance(actual, (int, float)) and isinstance(expected, (int, float)):
+        if not math.isfinite(actual) or not math.isfinite(expected):
+            return False
+        return math.isclose(actual, expected,
+                            rel_tol=float(comparison.get("rel_tol", 0)),
+                            abs_tol=float(comparison.get("abs_tol", 0)))
+    return type(actual) is type(expected) and actual == expected
 
 
 def _json_safe(value: Any) -> Any:
@@ -134,14 +178,15 @@ def main() -> int:
                     if name not in env:
                         raise NameError(f"Variable '{name}' is not defined")
                     actual = env.get(name)
-                    passed = actual == expected
+                    passed = validate_output(actual, case["validate"]) is True if case.get("validate") else _matches(actual, expected, case.get("compare"))
                 else:
                     expr = (case or {}).get("code")
                     if not expr:
                         raise ValueError("Missing 'code' expression for case")
                     with _time_limit(case_timeout_s):
                         actual = eval(expr, env, env)  # noqa: S307 - trusted expressions from tasks.json
-                    passed = actual == expected
+                    with _time_limit(case_timeout_s):
+                        passed = validate_output(actual, case["validate"]) is True if case.get("validate") else _matches(actual, expected, case.get("compare"))
             except Exception as e:  # noqa: BLE001 - intentional
                 error = f"{type(e).__name__}: {e}"
                 passed = False

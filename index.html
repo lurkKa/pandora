@@ -3528,7 +3528,8 @@
             color: #e94560;
         }
     </style>
-    <link id="pandora-modern-styles" rel="stylesheet" href="static/pandora-ui.css?v=20260928">
+    <link id="pandora-modern-styles" rel="stylesheet" href="static/pandora-ui.css?v=20261015">
+    <link rel="stylesheet" href="static/quest-completion.css?v=20261015">
     <link rel="stylesheet" href="static/pandora-theme-common.css?v=20260928-theme1">
     <link rel="stylesheet" href="static/pandora-classic.css?v=20260928-theme1">
     <script src="static/pandora-theme.js?v=20260928-theme1"></script>
@@ -3633,6 +3634,7 @@
                 <button class="header-btn" id="kahoot-btn" onclick="tryOpenQuiz()" title="Квиз" aria-label="Учебный квиз">🧠</button>
                 <button class="header-btn boss-btn" onclick="window.open('/boss','_blank')"
                     title="Boss-режим — арена печати" aria-label="Арена печати — откроется новая вкладка">👹</button>
+                <a class="header-btn" href="/survival" title="Backend Survival — учебный сервер" aria-label="Backend Survival — учебный сервер" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">🖥️</a>
             </nav>
             </div>
             <div class="player-stats">
@@ -4966,6 +4968,13 @@
                         aria-label="Редактор кода" aria-describedby="editor-keyboard-help" onpaste="return handlePaste(event)"
                         onkeydown="handleEditorKeydown(event)"></textarea>
                     <p id="editor-keyboard-help" class="editor-keyboard-help">Tab — отступ. Esc, затем Tab — выйти из редактора. Shift+Tab — назад.</p>
+                    <section id="solution-explanation-wrap" class="solution-explanation hidden">
+                        <label for="solution-explanation">💬 Как работает твоё решение · необязательно</label>
+                        <p id="solution-explanation-help">Напиши своими словами: какие данные получает код, какие шаги выполняет и что возвращает. Упомяни функцию, переменную или элемент страницы. Можно отправить только код: 50% XP и звёзд, половинная галочка. С объяснением — 100%; оставшаяся награда придёт после дополнения. Для объяснения — 60–6000 символов. Вставка и перетаскивание текста запрещены.</p>
+                        <textarea id="solution-explanation" rows="5" minlength="60" maxlength="6000"
+                            aria-describedby="solution-explanation-help" placeholder="Моя функция … принимает … Затем … В результате возвращает …"></textarea>
+                        <button type="button" id="save-explanation-btn" class="next-task-btn hidden" onclick="saveTaskExplanation()">✓ Дополнить сохранённое решение до 100%</button>
+                    </section>
                     <details class="typing-policy">
                         <summary>Правила самостоятельной печати</summary>
                         <p>За выявленную автоматическую печать скриптом: 5 000 → 20 000 → 70 000 → 200 000 XP за повторные нарушения. Дальше — по 200 000 XP. Списывается не больше текущего баланса. Счётчик общий для заданий и AlexType, в обеих темах.</p>
@@ -6233,6 +6242,7 @@
 
             const completedIds = new Set((statusData.completed_ids || []).map(id => String(id)));
             const pendingIds = new Set((statusData.pending_ids || []).map(id => String(id)));
+            const partialIds = new Set((statusData.partial_ids || []).map(String));
             const methods = statusData.methods || {};
 
             let changed = false;
@@ -6241,6 +6251,10 @@
                 const id = String(task.id || '');
                 const nextCompleted = completedIds.has(id);
                 const nextPending = pendingIds.has(id);
+                if (Boolean(task.explanation_required) !== partialIds.has(id)) {
+                    task.explanation_required = partialIds.has(id);
+                    changed = true;
+                }
                 const nextMethods = Number(methods[id] || 0);
 
                 if (Boolean(task.completed) !== nextCompleted) {
@@ -6261,6 +6275,7 @@
             if (currentTask) {
                 const id = String(currentTask.id || '');
                 currentTask.completed = completedIds.has(id);
+                currentTask.explanation_required = partialIds.has(id);
                 currentTask.pending_review = pendingIds.has(id);
                 currentTask.methods_count = Number(methods[id] || currentTask.methods_count || 0);
             }
@@ -6374,6 +6389,7 @@
         function renderQuestCard(task, completedIds, icons) {
             const taskId = String(task.id || '');
             const isCompleted = task.completed || completedIds.has(task.id) || completedIds.has(taskId);
+            const isPartial = Boolean(isCompleted && task.explanation_required);
             const isLocked = Boolean(task.locked) && !isCompleted;
             const isPending = Boolean(task.pending_review) && !isCompleted;
             const isTutorial = task.task_type === 'tutorial';
@@ -6400,7 +6416,7 @@
                 ? `⭐ ${task.xp} × ${featuredTask.multiplier} = ${task.xp * featuredTask.multiplier} XP`
                 : `⭐ ${task.xp} XP`;
             return `
-                <article class="quest-card ${isCompleted ? 'completed' : ''} ${isLocked ? 'locked' : ''} ${isPending ? 'pending' : ''} ${isHomework ? 'homework' : ''} ${isTutorial ? 'tutorial-card' : ''}" 
+                <article class="quest-card ${isCompleted ? 'completed' : ''} ${isPartial ? 'partially-completed' : ''} ${isLocked ? 'locked' : ''} ${isPending ? 'pending' : ''} ${isHomework ? 'homework' : ''} ${isTutorial ? 'tutorial-card' : ''}"
                          ${methodsAttr}
                          role="button"
                          tabindex="0"
@@ -6408,13 +6424,14 @@
                          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openQuest('${task.id}')}">
                     <div class="tier-indicator tier-${task.tier}">${task.tier}-Rank</div>
                     ${isLocked ? `<div class="quest-lock" aria-hidden="true">🔒</div>` : ``}
-                    ${isCompleted ? `<div class="quest-complete-badge" aria-label="Выполнено">✓</div>` : ``}
+                    ${isCompleted ? `<div class="quest-complete-badge" aria-label="${isPartial ? 'Выполнено наполовину' : 'Выполнено'}">${isPartial ? '◐' : '✓'}</div>` : ``}
                     ${tutorialBadge}
                     ${platformBadge}
                     ${featuredBadge}
                     <div class="quest-card-content">
                         <div class="quest-icon">${isTutorial ? '🎓' : (icons[task.category] || '📜')}</div>
                         <h3 class="quest-title">${task.title}</h3>
+                        ${isCompleted ? `<div class="quest-completion-label">${isPartial ? '◐ 50% · Добавь объяснение' : '✓ 100% · Выполнено'}</div><div class="quest-completion-track" aria-hidden="true"><span style="width:${isPartial ? 50 : 100}%"></span></div>` : ''}
                         <p class="quest-story">${task.story || ''}</p>
                         ${isHomework ? `<div class="quest-homework-note">📌 ДЗ • ${hwDeadline}</div>` : ``}
                         <div class="quest-reward">${featuredReward}${isPending ? ' (на проверке)' : ''}</div>
@@ -6428,6 +6445,7 @@
         function getQuestCardSignature(task, completedIds) {
             const id = String(task.id || '');
             const isCompleted = Boolean(task.completed || completedIds.has(task.id) || completedIds.has(id));
+            const isPartial = Boolean(isCompleted && task.explanation_required);
             const isLocked = Boolean(task.locked) && !isCompleted;
             const isPending = Boolean(task.pending_review) && !isCompleted;
             const rawMethodsCount = Number(task.methods_count || 0);
@@ -6442,6 +6460,7 @@
                 task.task_type || 'code',
                 task.source_platform || '',
                 isCompleted,
+                isPartial,
                 isLocked,
                 isPending,
                 methodsCount,
@@ -6950,6 +6969,7 @@
             previewWrap.classList.add('hidden');
             if (previewFrame) previewFrame.srcdoc = '';
             editor.value = '';
+            resetExplanationEditor();
             editor.disabled = true;
             if (runBtn) runBtn.disabled = true;
 
@@ -7020,6 +7040,23 @@
                     if (previewFrame) previewFrame.srcdoc = '';
                 }
             }
+
+            const needsExplanation = ['python', 'javascript', 'frontend'].includes(currentTask.category) && !isTutorial;
+            document.getElementById('solution-explanation-wrap').classList.toggle('hidden', !needsExplanation);
+            if (needsExplanation && currentTask.completed) {
+                try {
+                    const response = await fetch(`${API_URL}/api/tasks/${encodeURIComponent(taskId)}/work`, {
+                        headers: { 'Authorization': `Bearer ${authToken}` }, cache: 'no-store'
+                    });
+                    const work = response.ok ? await response.json() : {};
+                    if (!currentTask || currentTask.id !== taskId || !isQuestModalOpen()) return;
+                    if (work.solution) editor.value = work.solution;
+                    document.getElementById('solution-explanation').value = work.explanation || '';
+                    explanationLastValue = work.explanation || '';
+                } catch (error) { console.warn('Saved work unavailable:', error); }
+            }
+            document.getElementById('solution-explanation').disabled = Boolean(currentTask.locked);
+            document.getElementById('save-explanation-btn').classList.toggle('hidden', !currentTask.explanation_required);
 
             editor.disabled = Boolean(currentTask.locked);
             if (runBtn) {
@@ -7993,6 +8030,104 @@
             codeEditorEl.addEventListener('input', captureTaskEditorInput);
         }
 
+        let explanationLastValue = '';
+        let explanationBeforeInput = null;
+        const explanationEditor = document.getElementById('solution-explanation');
+
+        function resetExplanationEditor() {
+            explanationEditor.value = '';
+            explanationLastValue = '';
+            explanationBeforeInput = null;
+            document.getElementById('solution-explanation-wrap').classList.add('hidden');
+            document.getElementById('save-explanation-btn').classList.add('hidden');
+        }
+
+        function blockExplanationTransfer(event) {
+            event.preventDefault();
+            taskTypingTelemetry?.record('blocked', 0, Boolean(event.isTrusted));
+            document.getElementById('output-console').innerText = '💬 Объяснение нужно напечатать самостоятельно. Вставка и перенос текста запрещены.';
+        }
+        explanationEditor.addEventListener('paste', blockExplanationTransfer);
+        explanationEditor.addEventListener('drop', blockExplanationTransfer);
+        explanationEditor.addEventListener('beforeinput', event => {
+            explanationBeforeInput = null;
+            if (['insertFromPaste', 'insertFromDrop', 'insertReplacementText'].includes(event.inputType)) {
+                blockExplanationTransfer(event);
+                return;
+            }
+            explanationBeforeInput = {
+                kind: event.inputType.startsWith('delete') ? 'delete'
+                    : event.inputType.startsWith('history') ? 'restore'
+                    : (event.isComposing || event.inputType.includes('Composition')) ? 'composition' : 'insert',
+                trusted: Boolean(event.isTrusted)
+            };
+        });
+        explanationEditor.addEventListener('input', event => {
+            const value = explanationEditor.value;
+            const meta = explanationBeforeInput;
+            const delta = value.length - explanationLastValue.length;
+            taskTypingTelemetry?.record(meta?.kind || 'programmatic',
+                Math.max(1, Math.abs(delta), taskEditorChangedChars(explanationLastValue, value)),
+                Boolean(meta?.trusted && event.isTrusted));
+            explanationLastValue = value;
+            explanationBeforeInput = null;
+        });
+
+        function reconcileExplanationTelemetry() {
+            if (explanationEditor.value === explanationLastValue) return;
+            taskTypingTelemetry?.record('programmatic', taskEditorChangedChars(explanationLastValue, explanationEditor.value), false);
+            explanationLastValue = explanationEditor.value;
+        }
+
+        function markExplanationComplete(data = {}) {
+            if (!currentTask) return;
+            const partial = Boolean(data.explanation_required);
+            currentTask.explanation_required = partial;
+            currentTask.completion_percent = partial ? 50 : 100;
+            const task = tasks.find(t => t.id === currentTask.id);
+            if (task) { task.explanation_required = partial; task.completion_percent = partial ? 50 : 100; }
+            document.getElementById('save-explanation-btn').classList.toggle('hidden', !partial);
+        }
+
+        async function saveTaskExplanation() {
+            if (!currentTask || !currentTask.explanation_required || runCodeInFlight) return;
+            const taskId = currentTask.id;
+            const button = document.getElementById('save-explanation-btn');
+            const output = document.getElementById('output-console');
+            if (explanationEditor.value.trim().length < 60) {
+                output.innerText = '💬 Добавь объяснение от 60 символов: входные данные, шаги и результат.';
+                explanationEditor.focus();
+                return;
+            }
+            runCodeInFlight = true;
+            button.disabled = true;
+            try {
+                reconcileExplanationTelemetry();
+                const credentials = await finalizeTaskTypingTelemetry(document.getElementById('code-editor').value);
+                const response = await fetch(`${API_URL}/api/tasks/${encodeURIComponent(taskId)}/explanation`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ explanation: explanationEditor.value.trim(), ...credentials })
+                });
+                const data = await response.json();
+                if (!currentTask || currentTask.id !== taskId) return;
+                if (!response.ok) { output.innerText = '❌ ' + safeJson(data.detail || data); return; }
+                markExplanationComplete(data);
+                if (typeof data.xp === 'number') currentUser.xp = data.xp;
+                if (typeof data.level === 'number') currentUser.level = data.level;
+                updateXPDisplay();
+                refreshQuestBoard();
+                output.innerText = '✓ Задача выполнена на 100%: код и объяснение сохранены.' +
+                    (data.xp_earned > 0 ? `\nНачислена оставшаяся награда: +${data.xp_earned} XP и +${Number(data.stars_earned || 0).toLocaleString('ru-RU')} звёзд.` : '\nЗаработанная награда сохранена.');
+                await loadTaskStatus();
+            } catch (error) {
+                if (currentTask?.id === taskId) output.innerText = '❌ Не удалось сохранить объяснение: ' + error.message;
+            } finally {
+                runCodeInFlight = false;
+                button.disabled = false;
+            }
+        }
+
         // ==================== CODE EXECUTION (SERVER-VERIFIED) ====================
         function safeJson(value) {
             try {
@@ -8239,6 +8374,8 @@
             }
 
             const code = document.getElementById('code-editor').value || '';
+            const explanation = document.getElementById('solution-explanation').value.trim();
+            reconcileExplanationTelemetry();
             const typingCredentials = await finalizeTaskTypingTelemetry(code);
             if (currentTask.category === 'frontend') {
                 renderFrontendPreview(true);
@@ -8256,6 +8393,7 @@
                     body: JSON.stringify({
                         task_id: currentTask.id,
                         code,
+                        explanation,
                         ...typingCredentials
                     })
                 });
@@ -8332,6 +8470,10 @@
                 }
 
                 if (data.status === 'same_method') {
+                    markExplanationComplete(data);
+                    if (typeof data.xp === 'number') currentUser.xp = data.xp;
+                    if (typeof data.level === 'number') currentUser.level = data.level;
+                    updateXPDisplay();
                     const methodsCount = Math.max(1, Number(data.methods_count || 1));
                     const methodIndex = Math.max(1, Number(data.method_index || methodsCount));
                     const roadmapTask = tasks.find(t => t.id === currentTask.id);
@@ -8349,11 +8491,13 @@
                         `\n\n♻️ Способ #${methodIndex} уже засчитан.` +
                         `\n🧠 Попробуй другой алгоритм для нового XP.` +
                         `\n✅ Засчитано способов: ${methodsCount}`;
+                    output.innerText += data.explanation_required ? '\n◐ Выполнено на 50%. Добавь объяснение для оставшейся награды.' : (data.xp_earned > 0 ? `\n💬 За объяснение: +${data.xp_earned} XP.` : '');
                     if (currentTask.category === 'frontend') setFrontendPreviewStatus('PASSED');
                     return;
                 }
 
                 if (data.status === 'completed') {
+                    markExplanationComplete(data);
                     // Update user state from server-truth
                     if (typeof data.xp === 'number') currentUser.xp = data.xp;
                     if (typeof data.level === 'number') currentUser.level = data.level;
@@ -8379,6 +8523,11 @@
                     output.innerText =
                         renderVerificationText(data.verification) +
                         `\n\n🎉 СПОСОБ #${methodIndex} ЗАСЧИТАН! +${data.xp_earned || 0} XP`;
+
+                    output.innerText += data.explanation_required
+                        ? '\n◐ Выполнено на 50%: начислена половина XP и звёзд. Объяснение можно добавить позже.'
+                        : '\n✓ Выполнено на 100%.';
+                    if (data.stars_earned > 0) output.innerText += `\n⭐ Начислено звёзд: ${Number(data.stars_earned).toLocaleString('ru-RU')}`;
 
                     // Show streak boost info if any
                     if (data.streak_boost_pct && data.streak_boost_pct > 0) {

@@ -864,6 +864,7 @@
                         </div>
                         ${taskDesc ? `<div style="margin-top:6px;font-size:13px;color:var(--text-secondary);line-height:1.5;">${escapeHtml(taskDesc)}</div>` : ''}
                         ${codePreview}
+                        ${r.explanation ? `<div style="margin-top:10px;white-space:pre-wrap;overflow-wrap:anywhere;"><strong>💬 Объяснение решения</strong><p>${escapeHtml(r.explanation)}</p></div>` : ''}
                         ${linkInfo}
                         ${scoreForm}
                     </div>`;

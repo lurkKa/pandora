@@ -1986,6 +1986,10 @@
             </div>
             <pre id="code-content"
                 style="background: #1a1a25; border: 1px solid var(--border); border-radius: 8px; padding: 16px; overflow: auto; max-height: 400px; font-family: 'Consolas', 'Monaco', monospace; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word;"></pre>
+            <section id="code-explanation-wrap" style="display:none;margin-top:16px;padding:14px;border:1px solid var(--border);border-radius:8px;">
+                <h4 style="margin:0 0 10px;">💬 Объяснение ученика</h4>
+                <div id="code-explanation" style="white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;"></div>
+            </section>
             <div style="margin-top: 16px; display: flex; gap: 12px;">
                 <a id="code-download-link" class="btn btn-primary" download
                     style="text-decoration: none; display: none;">📥 Скачать файл</a>
@@ -2030,7 +2034,7 @@
 
     <!-- Review Modal (enhanced) -->
     <div class="modal-overlay" id="review-modal">
-        <div class="modal" role="dialog" style="max-width: 600px;">
+        <div class="modal" role="dialog" style="max-width: 850px;max-height:85vh;overflow:auto;">
             <h3>Оценка работы</h3>
             <input type="hidden" id="review-submission-id">
             <div class="form-group">
@@ -2046,6 +2050,12 @@
                     -
                 </div>
             </div>
+            <section id="review-work-wrap" class="form-group" style="display:none;">
+                <label>Код ученика</label>
+                <pre id="review-work-code" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:220px;overflow:auto;background:var(--bg-deep);padding:12px;border-radius:8px;"></pre>
+                <label>💬 Объяснение ученика</label>
+                <div id="review-work-explanation" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:200px;overflow:auto;padding:12px;border:1px solid var(--border);border-radius:8px;"></div>
+            </section>
             <div class="form-group">
                 <label>Оценка (0-10)</label>
                 <input type="range" id="review-score" min="0" max="10" value="10" oninput="updateReviewPreview()">
@@ -2057,7 +2067,7 @@
                 </div>
             </div>
             <div class="form-group">
-                <label>Начислится XP: <span id="review-calculated-xp" style="color: var(--success);">-</span></label>
+                <label>Базовый XP по оценке, без бонусов: <span id="review-calculated-xp" style="color: var(--success);">-</span></label>
             </div>
             <div class="form-group">
                 <label>Комментарий</label>
@@ -2560,7 +2570,7 @@
 
             tr.innerHTML = `
                 <td>${sub.display_name}</td>
-                <td title="${sub.task_id}">${taskName}${examBadge}${tutorialBadge}${videoLink}${dupeInfo}</td>
+                <td title="${sub.task_id}">${taskName}${examBadge}${tutorialBadge}${videoLink}${dupeInfo}${sub.category !== 'scratch' && !isTutorial ? `<div style="font-size:11px;margin-top:4px;color:var(--text-secondary);">${sub.explanation ? '💬 Объяснение приложено' : '◐ Только код · 50% награды'}</div>` : ''}</td>
                 <td>
                     ${sub.link ? `<a href="${sub.link.startsWith('http') ? sub.link : API_URL + sub.link}" target="_blank" style="color: var(--accent-light);">🔗</a>` : '-'}
                     ${downloadLink}
@@ -4074,6 +4084,7 @@
 
             const code = c.solution || c.submission_content || '(нет кода)';
             document.getElementById('code-content').textContent = code;
+            showReviewExplanation(c.explanation, c.task_category);
 
             const downloadLink = document.getElementById('code-download-link');
             if (c.link && c.link.includes('/uploads/')) {
@@ -4084,6 +4095,12 @@
             }
 
             document.getElementById('code-modal').classList.add('active');
+        }
+
+        function showReviewExplanation(text, category) {
+            const wrap = document.getElementById('code-explanation-wrap');
+            wrap.style.display = category === 'scratch' ? 'none' : 'block';
+            document.getElementById('code-explanation').textContent = text || 'Отправлен только код. До добавления объяснения — 50% XP и звёзд.';
         }
 
         function closeCodeModal() {
@@ -4104,6 +4121,7 @@
 
             const code = sub.code || sub.content || '(нет кода)';
             document.getElementById('code-content').textContent = code;
+            showReviewExplanation(sub.explanation, sub.category);
 
             const downloadLink = document.getElementById('code-download-link');
             if (sub.link && sub.link.includes('/uploads/')) {
@@ -4401,6 +4419,7 @@
 
         // ==================== ENHANCED REVIEW ====================
         let currentReviewMaxXP = 0;
+        let currentReviewRewardFraction = 1;
 
         function openReviewModalById(submissionId) {
             const sub = currentSubmissions.find(s => Number(s.id) === Number(submissionId));
@@ -4426,11 +4445,16 @@
                     : '',
             ].filter(Boolean).join('\n\n') || 'Описание задачи отсутствует.';
 
-            openReviewModal(submissionId, taskName, maxXP, sub.link || '', taskDesc);
+            openReviewModal(submissionId, taskName, maxXP, sub.link || '', taskDesc, {...sub, task_type: task.task_type});
         }
 
-        function openReviewModal(submissionId, taskName, maxXP, link, taskDescription = 'Описание задачи отсутствует.') {
+        function openReviewModal(submissionId, taskName, maxXP, link, taskDescription = 'Описание задачи отсутствует.', submission = null) {
             currentReviewMaxXP = maxXP;
+            const codeTask = submission && submission.category !== 'scratch' && submission.task_type !== 'tutorial';
+            currentReviewRewardFraction = codeTask && !submission.explanation ? 0.5 : 1;
+            document.getElementById('review-work-wrap').style.display = codeTask ? 'block' : 'none';
+            document.getElementById('review-work-code').textContent = submission?.code || submission?.content || '';
+            document.getElementById('review-work-explanation').textContent = submission?.explanation || 'Отправлен только код: половинная галочка и 50% XP и звёзд. Объяснение можно добавить позже.';
             document.getElementById('review-submission-id').value = submissionId;
             document.getElementById('review-task-name').innerText = taskName;
             document.getElementById('review-max-xp').innerText = maxXP;
@@ -4448,7 +4472,7 @@
         function updateReviewPreview() {
             const score = parseInt(document.getElementById('review-score').value);
             document.getElementById('review-score-value').innerText = score;
-            const xp = Math.round((currentReviewMaxXP || 0) * score / 10);
+            const xp = Math.floor(Math.floor((currentReviewMaxXP || 0) * score / 10) * currentReviewRewardFraction);
             document.getElementById('review-calculated-xp').innerText = xp;
         }
 

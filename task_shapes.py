@@ -87,6 +87,11 @@ def resources_for_task(task: dict) -> dict:
     explicit_docs = explicit.get("docs") if isinstance(explicit.get("docs"), list) else []
     explicit_videos = explicit.get("videos") if isinstance(explicit.get("videos"), list) else []
 
+    # External exercises carry links to their own statement. A generic language
+    # video is not a replacement for that source; an empty video list is valid.
+    if task.get("source_platform") in {"leetcode", "codewars"} and explicit_docs:
+        return {"docs": _dedupe_resources(explicit_docs), "videos": _dedupe_resources(explicit_videos)}
+
     # If tasks.json provides resources explicitly (and both groups are non-empty),
     # treat them as authoritative.
     if explicit_docs and explicit_videos:

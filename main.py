@@ -56,6 +56,7 @@ import zlib
 import uuid
 import hashlib
 from pathlib import Path
+from backend_survival import ensure_schema as ensure_survival_schema, install as install_survival
 
 # orjson is ~10x faster than stdlib json for large payloads (38MB roadmap).
 # Falls back to stdlib json if not installed.
@@ -74,6 +75,7 @@ except ImportError:
 # tasks.json (40MB) is parsed once at BUILD time (task_store.py --build), never
 # in the serving process — see task_store.py for the memory rationale.
 import task_store
+from solution_explanations import explanation_error
 from task_shapes import (
     ARCHIVED_TASK_ID_PREFIXES,
     _DEFAULT_RESOURCES,
@@ -1185,6 +1187,21 @@ def _sync_ranks(cursor):
         ("World Eater",       "Пожиратель Миров",       15980000,  "🌠",   "#b91c1c"),   # Level 800
         ("Creator Genesis",   "Создатель-Генезис",      20247500,  "💎",   "#991b1b"),   # Level 900
         ("Pandora Architect", "Архитектор Пандоры",      24975000,  "🌟",   "#fef08a"),   # Level 1000
+        # Beyond Pandora: ascending XP milestones through one trillion.
+        ("Star Forger",       "Кузнец Звёзд",            50000000, "🌞", "#fde68a"),
+        ("Galaxy Keeper",     "Хранитель Галактик",     100000000, "🌌", "#c4b5fd"),
+        ("Reality Weaver",    "Ткач Реальности",        250000000, "🪡", "#a5b4fc"),
+        ("Time Sovereign",    "Властелин Времени",      500000000, "⌛", "#93c5fd"),
+        ("Infinity Herald",   "Вестник Бесконечности", 1000000000, "☄️", "#67e8f9"),
+        ("Multiverse Guardian", "Страж Мультивселенной", 2500000000, "🛡️", "#5eead4"),
+        ("Eternity Architect", "Архитектор Вечности",   5000000000, "💠", "#6ee7b7"),
+        ("Cosmic Demiurge",   "Космический Демиург",   10000000000, "🪐", "#bef264"),
+        ("Causality Master",  "Мастер Причинности",    25000000000, "🔗", "#fef08a"),
+        ("Genesis Sovereign", "Владыка Начал",         50000000000, "🌅", "#fed7aa"),
+        ("Infinity Creator",  "Творец Бесконечности", 100000000000, "♾️", "#fda4af"),
+        ("Omniverse Architect", "Зодчий Вселенных",   250000000000, "🔮", "#f0abfc"),
+        ("Absolute Origin",   "Абсолютный Исток",     500000000000, "✴️", "#e9d5ff"),
+        ("Pandora Eternal",   "Вечность Пандоры",    1000000000000, "👑", "#fef3c7"),
     ]
 
     for name, name_ru, min_xp, badge_emoji, color in ranks_data:
@@ -2094,6 +2111,11 @@ def init_db():
                     logger.warning("Migration column add failed: %s — %s", col_stmt, _col_err)
 
         for stmt in [
+            "ALTER TABLE completed_tasks ADD COLUMN explanation TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE completed_tasks ADD COLUMN explanation_xp_pending INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE completed_tasks ADD COLUMN star_fraction REAL NOT NULL DEFAULT 1",
+            "ALTER TABLE task_solution_methods ADD COLUMN explanation_xp_pending INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE submissions ADD COLUMN explanation TEXT NOT NULL DEFAULT ''",
             "ALTER TABLE completed_tasks ADD COLUMN code_simhash TEXT",
             "ALTER TABLE completed_tasks ADD COLUMN comment_bonus_status TEXT DEFAULT 'none'",
             "ALTER TABLE completed_tasks ADD COLUMN comment_bonus_proposed INTEGER DEFAULT 0",
@@ -2411,6 +2433,7 @@ def init_db():
             )
         """)
 
+        ensure_survival_schema(cursor)
         conn.commit()
 
         # Bounded startup maintenance reuses freed pages and prevents expired
@@ -3528,6 +3551,37 @@ def _ensure_legacy_method_seeded(cursor, user_id: int, task_id: str, completion_
         pass
 
 
+def _settle_explanation_reward(cursor, user_id: int, task_id: str, text: str) -> int:
+    """Pay the captured remainder once, without re-solving or re-running boosts."""
+    if not text:
+        return 0
+    row = cursor.execute(
+        "SELECT explanation_xp_pending, solution FROM completed_tasks WHERE user_id = ? AND task_id = ? AND is_valid != 0",
+        (user_id, task_id),
+    ).fetchone()
+    if not row:
+        return 0
+    pending = max(0, int(row["explanation_xp_pending"] or 0))
+    cursor.execute(
+        "UPDATE completed_tasks SET explanation = ?, star_fraction = 1, "
+        "xp_earned = xp_earned + ?, explanation_xp_pending = 0 WHERE user_id = ? AND task_id = ?",
+        (text, pending, user_id, task_id),
+    )
+    cursor.execute(
+        "UPDATE submissions SET explanation = ? WHERE user_id = ? AND task_id = ? "
+        "AND COALESCE(code, content) = ? AND status IN ('pending', 'approved')",
+        (text, user_id, task_id, row["solution"]),
+    )
+    if pending:
+        cursor.execute(
+            "UPDATE task_solution_methods SET xp_earned = xp_earned + explanation_xp_pending, "
+            "explanation_xp_pending = 0 WHERE user_id = ? AND task_id = ?",
+            (user_id, task_id),
+        )
+        apply_xp_change(cursor, user_id, pending, "task_explanation_completed", task_id)
+    return pending
+
+
 def process_task_completion(
     cursor,
     user_id: int,
@@ -3538,6 +3592,7 @@ def process_task_completion(
     is_retry: bool = False,
     code_language: str = None,
     allow_multiple_methods: bool = True,
+    explanation: Optional[str] = None,
 ) -> dict:
     """
     Centralized logic to award XP/level updates on task completion.
@@ -3553,7 +3608,7 @@ def process_task_completion(
 
     cursor.execute(
         """
-        SELECT id, xp_earned, solution, code_simhash
+        SELECT id, xp_earned, solution, code_simhash, explanation, star_fraction
         FROM completed_tasks
         WHERE user_id = ? AND task_id = ?
         """,
@@ -3561,6 +3616,11 @@ def process_task_completion(
     )
     completion_row = cursor.fetchone()
     is_first_completion = completion_row is None
+    previous_star_fraction = float(completion_row["star_fraction"]) if completion_row else 0
+    full_stars = TASK_STARS_BY_TIER.get(str((_tasks_by_id().get(task_id) or {}).get("tier") or "D"), 1)
+    # An accepted task explanation stays valid on later re-solves.
+    effective_explanation = str(explanation or "").strip() or (str(completion_row["explanation"] or "").strip() if completion_row else "")
+    half_reward = code_language in {"python", "javascript", "frontend"} and explanation is not None and not effective_explanation
 
     if not is_first_completion and not allow_multiple_methods:
         return {"status": "already_completed", "xp_earned": 0}
@@ -3611,11 +3671,16 @@ def process_task_completion(
                     break
 
         if matched_method_index is not None:
+            restored = _settle_explanation_reward(cursor, user_id, task_id, effective_explanation) if effective_explanation else 0
             cursor.execute("SELECT xp, level FROM users WHERE id = ?", (user_id,))
             user_row = cursor.fetchone() or {"xp": 0, "level": 1}
             return {
                 "status": "same_method",
-                "xp_earned": 0,
+                "xp_earned": restored,
+                "explanation_xp_earned": restored,
+                "stars_earned": full_stars * max(0, 1 - previous_star_fraction) if effective_explanation else 0,
+                "explanation_required": half_reward,
+                "completion_percent": 50 if half_reward else 100,
                 "new_xp": int(user_row["xp"] or 0),
                 "new_level": int(user_row["level"] or 1),
                 "method_new": False,
@@ -3695,6 +3760,9 @@ def process_task_completion(
     
     final_xp = int(task_base_xp * method_multiplier * bonus_multiplier * featured_multiplier * (1.0 - attempt_penalty))
     final_xp = max(1, final_xp)  # Minimum 1 XP
+    full_xp = final_xp
+    final_xp = full_xp // 2 if half_reward else full_xp
+    pending_xp = full_xp - final_xp
 
     # Apply XP (keeps level consistent) + audit log
     reason = "task_completed" if is_first_completion else "task_method_completed"
@@ -3711,10 +3779,12 @@ def process_task_completion(
     cursor.execute(
         """
         UPDATE completed_tasks
-        SET xp_earned = ?, solution = ?, code_simhash = ?
+        SET xp_earned = ?, solution = ?, code_simhash = ?,
+            explanation_xp_pending = explanation_xp_pending + ?,
+            star_fraction = ?
         WHERE user_id = ? AND task_id = ?
         """,
-        (task_total_xp, solution, candidate_simhash, user_id, task_id),
+        (task_total_xp, solution, candidate_simhash, pending_xp, 0.5 if half_reward else 1.0, user_id, task_id),
     )
 
     try:
@@ -3727,6 +3797,18 @@ def process_task_completion(
         )
     except sqlite3.IntegrityError:
         pass
+
+    cursor.execute(
+        "UPDATE task_solution_methods SET explanation_xp_pending = ? WHERE user_id = ? AND task_id = ? AND method_index = ?",
+        (pending_xp, user_id, task_id, method_index),
+    )
+    restored = _settle_explanation_reward(cursor, user_id, task_id, effective_explanation) if effective_explanation else 0
+    if restored:
+        final_xp += restored
+        task_total_xp += restored
+        cursor.execute("SELECT xp, level FROM users WHERE id = ?", (user_id,))
+        balances = cursor.fetchone()
+        new_xp, new_level = balances["xp"], balances["level"]
 
     # Update streak + stats (task count only increments on first completion)
     today = datetime.now().date().isoformat()
@@ -3796,6 +3878,10 @@ def process_task_completion(
         "method_multiplier": round(method_multiplier, 4),
         "is_first_completion": is_first_completion,
         "task_total_xp": task_total_xp,
+        "explanation_required": half_reward,
+        "completion_percent": 50 if half_reward else 100,
+        "explanation_xp_earned": restored,
+        "stars_earned": full_stars * max(0, (0.5 if half_reward else 1) - previous_star_fraction),
         "event_progress": event_progress,
     }
 
@@ -4057,8 +4143,15 @@ class HeistCompletionRequest(BaseModel):
 class TaskAttemptRequest(BaseModel):
     task_id: str
     code: str
+    explanation: str = ""
     typing_session_id: Optional[str] = None
     typing_receipt: Optional[str] = None
+
+class TaskExplanationRequest(BaseModel):
+    explanation: str
+    typing_session_id: Optional[str] = None
+    typing_receipt: Optional[str] = None
+
 
 class TypingSessionStartRequest(BaseModel):
     scope: str  # 'alextype' | 'task'
@@ -6125,11 +6218,11 @@ def _register_task_stars(conn, tasks_by_id=None):
     """Weight existing completions too; retries still occupy a single row."""
     tasks = _tasks_by_id() if tasks_by_id is None else tasks_by_id
 
-    def task_stars(task_id):
+    def task_stars(task_id, fraction):
         tier = str((tasks.get(task_id) or {}).get("tier") or "D").strip().upper()
-        return TASK_STARS_BY_TIER.get(tier, 1)
+        return TASK_STARS_BY_TIER.get(tier, 1) * (0.5 if fraction == 0.5 else 1)
 
-    conn.create_function("task_stars", 1, task_stars, deterministic=True)
+    conn.create_function("task_stars", 2, task_stars, deterministic=True)
 
 
 @app.get("/api/leaderboard/week")
@@ -6141,14 +6234,14 @@ def get_leaderboard_week(limit: int = Query(20, ge=1, le=100)):
         cursor = conn.cursor()
         cursor.execute("""
             WITH stars AS (
-                SELECT user_id, SUM(task_stars(task_id)) AS stars_week
+                SELECT user_id, SUM(task_stars(task_id, star_fraction)) AS stars_week
                 FROM completed_tasks
                 WHERE is_valid != 0 AND completed_at >= ?
                 GROUP BY user_id
             ), earned AS (
                 SELECT user_id, SUM(xp_change) AS xp_week
                 FROM xp_log
-                WHERE reason IN ('task_completed', 'task_method_completed') AND logged_at >= ?
+                WHERE reason IN ('task_completed', 'task_method_completed', 'task_explanation_completed') AND logged_at >= ?
                 GROUP BY user_id
             )
             SELECT u.id AS id, u.display_name, u.level,
@@ -7946,7 +8039,7 @@ def review_submission(
         cursor.execute(
             """
             SELECT id, user_id, task_id, category, code_language, status, review_reason,
-                   COALESCE(code, content) as solution, code_simhash
+                   COALESCE(code, content) as solution, code_simhash, explanation
             FROM submissions
             WHERE id = ?
             """,
@@ -8029,6 +8122,9 @@ def review_submission(
             max_xp = int(task.get("xp", 0)) if task else 0
             base_xp = int(max_xp * score / 10)
 
+            accepted_explanation = str(sub["explanation"] or "").strip()
+            if task and accepted_explanation and explanation_error(accepted_explanation, sub["solution"], task.get("category")):
+                accepted_explanation = ""
             allow_multiple_methods = (sub["category"] or "").lower() != "scratch"
             res = process_task_completion(
                 cursor,
@@ -8039,8 +8135,14 @@ def review_submission(
                 sub["code_simhash"],
                 code_language=sub["code_language"],
                 allow_multiple_methods=allow_multiple_methods,
+                explanation=accepted_explanation if task and _requires_solution_explanation(task) else None,
             )
-            if res["status"] == "success":
+            if task and _requires_solution_explanation(task) and sub["explanation"] and not explanation_error(sub["explanation"], sub["solution"], task.get("category")):
+                cursor.execute(
+                    "UPDATE completed_tasks SET explanation = ? WHERE user_id = ? AND task_id = ?",
+                    (sub["explanation"], sub["user_id"], sub["task_id"]),
+                )
+            if res["status"] in {"success", "same_method"}:
                 xp_awarded = int(res.get("xp_earned") or 0)
                 log_security(
                     "SUBMISSION_APPROVED",
@@ -8371,6 +8473,21 @@ EXTERNAL_PLATFORM_REQUIREMENTS = {"A": 2, "S": 2}
 def _completed_task_ids(cursor, user_id: int) -> set:
     cursor.execute("SELECT task_id FROM completed_tasks WHERE user_id = ? AND is_valid != 0", (user_id,))
     return {row["task_id"] for row in cursor.fetchall()}
+
+
+def _requires_solution_explanation(task: dict) -> bool:
+    return task.get("category") in {"python", "javascript", "frontend"} and task.get("task_type") != "tutorial"
+
+
+def _partial_completion_ids(cursor, user_id: int) -> set:
+    """Historical code stays credited; missing explanations are a separate half-step."""
+    tasks = _tasks_by_id()
+    cursor.execute(
+        "SELECT task_id FROM completed_tasks WHERE user_id = ? AND is_valid != 0 "
+        "AND TRIM(COALESCE(explanation, '')) = ''", (user_id,),
+    )
+    return {str(row["task_id"]) for row in cursor.fetchall()
+            if _requires_solution_explanation(tasks.get(row["task_id"], {}))}
 
 def _completed_task_ids_today(cursor, user_id: int) -> set:
     cursor.execute(
@@ -9119,7 +9236,8 @@ def _roadmap_state_etag(user_id: int) -> str:
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT COUNT(*), COALESCE(SUM(id),0), COALESCE(MAX(completed_at),'') "
+            "SELECT COUNT(*), COALESCE(SUM(id),0), COALESCE(MAX(completed_at),''), "
+            "COALESCE(SUM(LENGTH(explanation)),0) "
             "FROM completed_tasks WHERE user_id = ? AND is_valid != 0",
             (user_id,),
         )
@@ -9155,7 +9273,7 @@ def _roadmap_state_etag(user_id: int) -> str:
         )
         hw = cursor.fetchone()[0]
     data_ver = _TASKS_CACHE.get("store_version") or _TASKS_CACHE.get("mtime") or 0
-    sig = f"{user_id}|{data_ver}|{datetime.now().date()}|{comp}|{today}|{pend}|{methods}|{hw}"
+    sig = f"explanations-v1|{user_id}|{data_ver}|{datetime.now().date()}|{comp}|{today}|{pend}|{methods}|{hw}"
     return hashlib.md5(sig.encode("utf-8")).hexdigest()[:16]
 
 
@@ -9200,6 +9318,7 @@ def _build_roadmap_response(request: Request, user: dict, etag: str):
         cursor = conn.cursor()
         completed_ids = _completed_task_ids(cursor, user["id"])
         completed_today_ids = _completed_task_ids_today(cursor, user["id"])
+        partial_ids = _partial_completion_ids(cursor, user["id"])
         method_counts = _methods_count_by_task(cursor, user["id"], completed_ids)
         
         # Get pending review task IDs
@@ -9238,6 +9357,8 @@ def _build_roadmap_response(request: Request, user: dict, etag: str):
         # 11733 public_task_lite dicts per request).
         pt = {k: v for k, v in pt_base.items() if k[0] != '_'}
         pt["completed"] = pt["id"] in completed_ids
+        pt["explanation_required"] = pt["id"] in partial_ids
+        pt["completion_percent"] = 50 if pt["explanation_required"] else (100 if pt["completed"] else 0)
         pt["locked"] = not unlocked and not pt["completed"]
         pt["pending_review"] = pt["id"] in pending_ids
         pt["methods_count"] = int(method_counts.get(pt["id"], 0))
@@ -9289,6 +9410,7 @@ def get_roadmap_status(request: Request, user: dict = Depends(require_auth)):
     with get_db() as conn:
         cursor = conn.cursor()
         completed_ids = {str(tid) for tid in _completed_task_ids(cursor, user["id"])}
+        partial_ids = _partial_completion_ids(cursor, user["id"])
         method_counts = _methods_count_by_task(cursor, user["id"], completed_ids)
         cursor.execute(
             "SELECT task_id FROM submissions WHERE user_id = ? AND status = 'pending'",
@@ -9298,11 +9420,12 @@ def get_roadmap_status(request: Request, user: dict = Depends(require_auth)):
 
     payload = {
         "completed_ids": sorted(completed_ids),
+        "partial_ids": sorted(partial_ids),
         "pending_ids": sorted(pending_ids),
         "methods": {str(k): int(v or 0) for k, v in method_counts.items()},
     }
     json_bytes = _fast_json_bytes(payload)
-    etag = '"' + hashlib.md5(json_bytes[:2048] + len(json_bytes).to_bytes(8, 'little')).hexdigest()[:16] + '"'
+    etag = '"' + hashlib.md5(json_bytes).hexdigest()[:16] + '"'
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers={"ETag": etag})
     return Response(content=json_bytes, media_type="application/json", headers={"ETag": etag})
@@ -9320,6 +9443,59 @@ def get_task_detail(task_id: str, user: dict = Depends(require_auth)):
     if not lite:
         raise HTTPException(status_code=404, detail="Task not found")
     return public_task(lite)
+
+
+@app.get("/api/tasks/{task_id}/work")
+def get_task_work(task_id: str, user: dict = Depends(require_auth)):
+    """Private saved work; never put student solutions into the public task cache."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT solution, explanation FROM completed_tasks "
+            "WHERE user_id = ? AND task_id = ? AND is_valid != 0",
+            (user["id"], task_id),
+        ).fetchone()
+    return {"solution": row["solution"] if row else None,
+            "explanation": row["explanation"] if row else ""}
+
+
+@app.post("/api/tasks/{task_id}/explanation")
+def complete_task_explanation(request: Request, task_id: str, data: TaskExplanationRequest,
+                              user: dict = Depends(require_auth)):
+    """Finish a half-completion and pay only its outstanding reward."""
+    task = get_task(task_id)
+    if not task or not _requires_solution_explanation(task):
+        raise HTTPException(400, "Отдельное объяснение не требуется для Scratch")
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("BEGIN IMMEDIATE")
+        row = cursor.execute(
+            "SELECT solution, explanation, star_fraction FROM completed_tasks "
+            "WHERE user_id = ? AND task_id = ? AND is_valid != 0", (user["id"], task_id),
+        ).fetchone()
+        if not row:
+            raise HTTPException(409, "Сначала реши задачу")
+        if (row["explanation"] or "").strip():
+            return {"status": "explanation_completed", "xp_earned": 0}
+        text = (data.explanation or "").strip()
+        error = explanation_error(text, row["solution"] or "", task.get("category"))
+        if error:
+            raise HTTPException(422, error)
+        integrity = _finalize_typing_session(
+            cursor, user=user, scope="task", session_id=data.typing_session_id,
+            receipt=data.typing_receipt, task_id=task_id,
+            content_chars=len(text), expected_insertions=len(text), ip=get_client_ip(request),
+        )
+        if not integrity.get("verified") or not integrity.get("usable") or integrity.get("high_confidence"):
+            # Persist telemetry consumption/any existing integrity policy action.
+            conn.commit()
+            raise HTTPException(422, "Не удалось подтвердить самостоятельную печать объяснения. Открой задачу заново и напечатай текст вручную.")
+        earned = _settle_explanation_reward(cursor, user["id"], task_id, text)
+        balances = cursor.execute("SELECT xp, level FROM users WHERE id = ?", (user["id"],)).fetchone()
+        conn.commit()
+    return {"status": "explanation_completed", "xp_earned": earned,
+            "stars_earned": TASK_STARS_BY_TIER.get(task.get("tier") or "D", 1) * (1 - float(row["star_fraction"])),
+            "xp": balances["xp"], "level": balances["level"],
+            "completion_percent": 100, "explanation_required": False}
 
 
 @app.get("/api/user/homework")
@@ -10451,6 +10627,12 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
     if len(code) > MAX_CODE_CHARS:
         raise HTTPException(status_code=413, detail=f"Code too large (max {MAX_CODE_CHARS} chars)")
 
+    explanation = (data.explanation or "").strip()
+    if _requires_solution_explanation(task) and explanation:
+        error = explanation_error(explanation, code, category)
+        if error:
+            raise HTTPException(status_code=422, detail=error)
+
     # Unlock enforcement + already-completed check
     tasks_by_id = _tasks_by_id()
     with get_db() as conn:
@@ -10579,7 +10761,7 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
             initial_code = str(task.get("initial_code") or "")
             # Net growth is intentionally conservative: replacements and edits
             # within a template are not treated as untyped content.
-            expected_insertions = max(0, len(code) - len(initial_code))
+            expected_insertions = max(0, len(code) - len(initial_code)) + (len(explanation) if _requires_solution_explanation(task) else 0)
             typing_integrity = _finalize_typing_session(
                 cursor,
                 user=user,
@@ -10587,7 +10769,7 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
                 session_id=data.typing_session_id,
                 receipt=data.typing_receipt,
                 task_id=data.task_id,
-                content_chars=len(code),
+                content_chars=len(code) + (len(explanation) if _requires_solution_explanation(task) else 0),
                 expected_insertions=expected_insertions,
                 ip=get_client_ip(request),
             )
@@ -10698,6 +10880,11 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
             )
             existing_pending = _pending_submission_for_task(cursor, user["id"], data.task_id)
             if existing_pending:
+                if explanation:
+                    cursor.execute(
+                        "UPDATE submissions SET explanation = ? WHERE id = ? AND code_hash = ? AND status = 'pending'",
+                        (explanation, existing_pending["id"], code_hash),
+                    )
                 conn.commit()
                 return {
                     "status": "pending_review",
@@ -10732,6 +10919,7 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
                 ),
             )
             submission_id = cursor.lastrowid
+            cursor.execute("UPDATE submissions SET explanation = ? WHERE id = ?", (explanation, submission_id))
             _maybe_assign_mini_admin_review(cursor, submission_id)
             conn.commit()
             return {
@@ -10754,6 +10942,7 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
             is_retry=is_retry,
             code_language=code_language,
             allow_multiple_methods=True,
+            explanation=explanation if _requires_solution_explanation(task) else None,
         )
         if result["status"] == "already_completed":
             conn.commit()
@@ -10762,6 +10951,10 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
             conn.commit()
             return {
                 "status": "same_method",
+                "xp_earned": result.get("xp_earned", 0),
+                "stars_earned": result.get("stars_earned", 0),
+                "explanation_required": result.get("explanation_required", False),
+                "completion_percent": result.get("completion_percent", 100),
                 "attempt_id": attempt_id,
                 "verification": verification,
                 "xp": result.get("new_xp", 0),
@@ -10815,6 +11008,9 @@ def attempt_task(request: Request, data: TaskAttemptRequest, user: dict = Depend
 
         return {
             "status": "completed",
+            "stars_earned": result.get("stars_earned", 0),
+            "explanation_required": result.get("explanation_required", False),
+            "completion_percent": result.get("completion_percent", 100),
             "attempt_id": attempt_id,
             "verification": verification,
             "xp": result["new_xp"],
@@ -13541,11 +13737,11 @@ def get_guild_stats(guild_id: int, user: dict = Depends(require_auth)):
         _register_task_stars(conn, tasks_map)
         cursor.execute(f"""
             SELECT u.id, u.display_name,
-                   (SELECT COALESCE(SUM(task_stars(task_id)), 0) FROM completed_tasks WHERE user_id = u.id AND is_valid != 0
+                   (SELECT COALESCE(SUM(task_stars(task_id, star_fraction)), 0) FROM completed_tasks WHERE user_id = u.id AND is_valid != 0
                     AND DATE(completed_at) = DATE('now')) as stars_1d,
-                   (SELECT COALESCE(SUM(task_stars(task_id)), 0) FROM completed_tasks WHERE user_id = u.id AND is_valid != 0
+                   (SELECT COALESCE(SUM(task_stars(task_id, star_fraction)), 0) FROM completed_tasks WHERE user_id = u.id AND is_valid != 0
                     AND completed_at >= DATE('now', '-1 day')) as stars_2d,
-                   (SELECT COALESCE(SUM(task_stars(task_id)), 0) FROM completed_tasks WHERE user_id = u.id AND is_valid != 0
+                   (SELECT COALESCE(SUM(task_stars(task_id, star_fraction)), 0) FROM completed_tasks WHERE user_id = u.id AND is_valid != 0
                     AND completed_at >= DATE('now', '-6 days', 'weekday 1')) as stars_week
             FROM users u
             WHERE u.id IN ({placeholders})
@@ -14848,7 +15044,7 @@ def mini_admin_pending_reviews(user: dict = Depends(require_mini_admin)):
         cursor = conn.cursor()
         cursor.execute("""
             SELECT mar.id as review_id, mar.submission_id, mar.score, mar.reviewed_at,
-                   s.task_id, s.category, s.tier, s.code, s.content, s.link,
+                   s.task_id, s.category, s.tier, s.code, s.content, s.link, s.explanation,
                    s.status as submission_status,
                    u.display_name as student_name, u.username as student_username
             FROM mini_admin_reviews mar
@@ -17061,6 +17257,22 @@ def boss_death(user: dict = Depends(require_auth)):
         conn.commit()
     return {"penalty_until": until, "now": now}
 
+
+def _award_survival_xp(cursor, user_id, reward, reason, task_id):
+    """The advertised 10K–150K Survival prize is exact, with no XP multipliers."""
+    cursor.execute("SELECT xp FROM users WHERE id = ?", (user_id,))
+    row = cursor.fetchone()
+    if row is None:
+        raise HTTPException(404, "User not found")
+    total = int(row["xp"] or 0) + reward
+    level = compute_level(total)
+    cursor.execute("UPDATE users SET xp = ?, level = ? WHERE id = ?", (total, level, user_id))
+    cursor.execute("INSERT INTO xp_log(user_id,xp_change,reason,task_id) VALUES (?,?,?,?)",
+                   (user_id, reward, reason, task_id))
+    return total, level
+
+
+SURVIVAL_SERVICE = install_survival(app, get_db, require_auth, _award_survival_xp)
 
 # ==================== STARTUP ====================
 

@@ -33,7 +33,7 @@ class ProgressTrackingTests(unittest.TestCase):
                 );
                 CREATE TABLE completed_tasks (
                     user_id INTEGER, task_id TEXT, is_valid INTEGER DEFAULT 1,
-                    completed_at TIMESTAMP, PRIMARY KEY (user_id, task_id)
+                    completed_at TIMESTAMP, star_fraction REAL NOT NULL DEFAULT 1, PRIMARY KEY (user_id, task_id)
                 );
                 CREATE TABLE xp_log (
                     user_id INTEGER, xp_change INTEGER, reason TEXT,
@@ -71,7 +71,7 @@ class ProgressTrackingTests(unittest.TestCase):
         monday = (datetime.now(timezone.utc).date() - timedelta(days=datetime.now(timezone.utc).weekday()))
         with main.get_db() as conn:
             conn.executemany(
-                "INSERT INTO completed_tasks VALUES (?, ?, ?, ?)",
+                "INSERT INTO completed_tasks(user_id, task_id, is_valid, completed_at) VALUES (?, ?, ?, ?)",
                 [
                     (1, "old", 1, (monday - timedelta(days=1)).isoformat()),
                     (1, "a", 1, monday.isoformat()),
@@ -101,7 +101,7 @@ class ProgressTrackingTests(unittest.TestCase):
         tasks["invalid"] = {"tier": "S"}
         tasks["old"] = {"tier": "S"}
         with main.get_db() as conn:
-            conn.executemany("INSERT INTO completed_tasks VALUES (?, ?, ?, ?)", [
+            conn.executemany("INSERT INTO completed_tasks(user_id, task_id, is_valid, completed_at) VALUES (?, ?, ?, ?)", [
                 (1, "C", 1, today.isoformat()),
                 (1, "D", 1, today.isoformat()),
                 (1, "removed-task", 1, today.isoformat()),
@@ -115,7 +115,7 @@ class ProgressTrackingTests(unittest.TestCase):
             self.assertEqual(result["max_stars_week"], 4)
             self.assertEqual([row["id"] for row in result["leaderboard"]], [2])
             with main.get_db() as conn:
-                conn.executemany("INSERT INTO completed_tasks VALUES (2, ?, 1, ?)", [("A", today.isoformat()), ("B", today.isoformat())])
+                conn.executemany("INSERT INTO completed_tasks(user_id, task_id, is_valid, completed_at) VALUES (2, ?, 1, ?)", [("A", today.isoformat()), ("B", today.isoformat())])
                 conn.commit()
             result = main.get_leaderboard_week(20)
         self.assertEqual([row["stars_week"] for row in result["leaderboard"]], [9, 3])

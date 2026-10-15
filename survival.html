@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="theme-color" content="#0d171d">
+    <title>Backend Survival · PANDORA</title>
+    <link rel="stylesheet" href="/static/survival.css?v=1">
+    <script defer src="/static/survival.js?v=1"></script>
+</head>
+<body>
+    <header class="topbar">
+        <a href="/" class="brand" aria-label="Вернуться в PANDORA"><span class="brand-icon">P<span>_</span></span> PANDORA <span class="brand-slash">/</span> <strong>SURVIVAL</strong></a>
+        <div class="topbar-right"><span class="chip hard">EXTRA HARD</span><span id="profile-xp" class="xp-total">— XP</span><a href="/" class="back-link">В академию ↗</a></div>
+    </header>
+    <div id="notice" class="notice" role="status" hidden></div>
+    <div id="login" class="login" hidden><h1>Подключись к академии</h1><p>Для сохранения стенда и получения XP войди в свой аккаунт PANDORA.</p><a href="/" class="button accent">Открыть вход →</a></div>
+    <main id="lab" class="lab" aria-busy="true">
+        <aside class="sidebar">
+            <div class="sidebar-intro"><span class="eyebrow">ОТ ЛОКАЛЬНОГО ЗАПРОСА ДО ОТКАЗА БД</span><h1>Backend<br>Survival<span class="accent-dot">.</span></h1><p>Напиши сервис.<br>Сохрани его живым.</p></div>
+            <label for="variant" class="small-label">ТВОЙ СЦЕНАРИЙ</label>
+            <select id="variant" disabled aria-label="Вариант сервера"><option>Загрузка…</option></select>
+            <div class="campaign-progress"><span id="campaign-count">0 / 11 ЭТАПОВ</span><span>01 — 11</span></div>
+            <div class="progress-track"><div id="progress-fill"></div></div>
+            <nav id="levels" class="levels" aria-label="Этапы испытания"></nav>
+            <div class="sidebar-foot"><span class="signal-dot"></span><div>Учебное окружение<span>Python · SQLite · HTTP · services</span></div></div>
+        </aside>
+        <section class="workbench">
+            <section class="mission" aria-labelledby="mission-title">
+                <div class="mission-heading"><div><span class="eyebrow" id="mission-number">ИСПЫТАНИЕ / 01</span><h2 id="mission-title">Подготовка стенда…</h2></div><div class="reward"><strong id="mission-xp">10 000</strong><span>XP ЗА ПЕРВОЕ ПРОХОЖДЕНИЕ</span></div></div>
+                <p id="mission-contract" class="mission-contract"></p>
+                <div id="variant-contract" class="variant-contract"></div>
+                <div class="mission-details"><details><summary>Предыдущие требования</summary><div id="previous-contracts"></div></details><details id="guide-details"><summary>Гайд и команды</summary><pre id="guide"></pre><div class="guide-actions"><button id="schema-example" class="button subtle">Показать схему БД</button><button id="unit-example" class="button subtle">Показать конфигурацию службы</button></div><pre id="example" hidden></pre></details></div>
+            </section>
+            <section class="ide" aria-label="Редактор проекта">
+                <div class="ide-toolbar"><div class="work-status"><span id="process-dot" class="signal-dot offline"></span><strong id="process-state">OFFLINE</strong><span class="divider">/</span><span id="save-state">Сохранено</span></div><div class="toolbar-actions"><button id="save" class="button subtle" title="Ctrl+S">Сохранить</button><button id="run" class="button subtle">↻ Запустить</button><button id="grade" class="button accent">Проверить этап →</button></div></div>
+                <div class="editor-layout"><aside class="explorer"><div class="section-label">▾ /srv/app</div><div id="files"></div><div class="explorer-note">server.py и manage.py — готовый HTTP-адаптер.<br>Логика сервиса — твоя.</div></aside><div class="editor-area"><div class="file-tab"><span id="file-name">app.py</span><span id="file-mode">PYTHON</span></div><div class="code-wrap"><pre id="line-numbers" aria-hidden="true">1</pre><textarea id="editor" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Содержимое файла app.py" wrap="off" disabled></textarea></div><div class="editor-status"><span id="cursor-position">Строка 1, столбец 1</span><span id="editor-hint">Tab: 4 пробела · Ctrl+S: сохранить</span></div></div></div>
+            </section>
+            <section class="terminal" aria-labelledby="terminal-title"><div class="panel-heading"><h3 id="terminal-title">TERMINAL <span>учебная консоль</span></h3><span id="connection-state">SSH DISCONNECTED</span></div><div id="terminal-output" class="terminal-output" role="log" aria-live="polite"><div class="terminal-welcome">PANDORA LAB / изолированная модель сервера<br><span>Начни с <b>ssh trainee@lab</b>. Команда <b>help</b> покажет гайд.</span></div></div><form id="terminal-form" class="terminal-input"><label id="prompt" for="command">guest@local:~$</label><input id="command" autocomplete="off" spellcheck="false" aria-label="Команда учебной консоли" placeholder="ssh trainee@lab" maxlength="5000" disabled><button class="terminal-submit" aria-label="Выполнить команду" type="submit">↵</button></form></section>
+            <section id="results" class="results" hidden aria-labelledby="results-title"><div class="panel-heading"><h3 id="results-title">ПРОВЕРКА СЕРВЕРА</h3><span id="result-summary"></span></div><div id="result-stats" class="result-stats"></div><div id="checks" class="checks"></div></section>
+            <footer class="workbench-foot"><span>Учебная эмуляция. Настоящая логика Python, модель SSH и управления сервером.</span><div><button id="export" class="text-button">↓ Скачать проект</button><button id="reset" class="text-button muted">Сбросить стенд</button></div></footer>
+        </section>
+    </main>
+</body>
+</html>

@@ -30,9 +30,14 @@ function safeJson(value) {
   }
 }
 
-function deepEqual(a, b) {
+function deepEqual(a, b, comparison = null) {
   if (Object.is(a, b)) return true;
   if (typeof a !== typeof b) return false;
+  if (typeof a === 'number' && comparison) {
+    return Number.isFinite(a) && Number.isFinite(b) &&
+      Math.abs(a - b) <= Math.max(Number(comparison.abs_tol || 0),
+        Number(comparison.rel_tol || 0) * Math.max(Math.abs(a), Math.abs(b)));
+  }
   if (a === null || b === null) return a === b;
   if (typeof a !== 'object') return a === b;
 
@@ -40,8 +45,19 @@ function deepEqual(a, b) {
   if (Array.isArray(a) || Array.isArray(b)) {
     if (!Array.isArray(a) || !Array.isArray(b)) return false;
     if (a.length !== b.length) return false;
+    const child = comparison ? { ...comparison, mode: 'json' } : null;
+    if (comparison && ['unordered', 'unordered_rows'].includes(comparison.mode)) {
+      const remaining = [...b];
+      const rowComparison = comparison.mode === 'unordered_rows' ? { ...child, mode: 'unordered' } : child;
+      for (const value of a) {
+        const index = remaining.findIndex(target => deepEqual(value, target, rowComparison));
+        if (index === -1) return false;
+        remaining.splice(index, 1);
+      }
+      return true;
+    }
     for (let i = 0; i < a.length; i++) {
-      if (!deepEqual(a[i], b[i])) return false;
+      if (!deepEqual(a[i], b[i], child)) return false;
     }
     return true;
   }
@@ -53,7 +69,7 @@ function deepEqual(a, b) {
     if (aKeys[i] !== bKeys[i]) return false;
   }
   for (const k of aKeys) {
-    if (!deepEqual(a[k], b[k])) return false;
+    if (!deepEqual(a[k], b[k], comparison ? { ...comparison, mode: 'json' } : null)) return false;
   }
   return true;
 }
@@ -136,12 +152,12 @@ async function main() {
           if (!name) throw new Error("Missing 'name' for variable_value case");
           actual = sandbox[name];
           if (typeof actual === 'undefined') throw new Error(`Variable '${name}' is not defined`);
-          passed = deepEqual(actual, expected);
+          passed = deepEqual(actual, expected, c.compare);
         } else {
           const expr = c?.code;
           if (!expr) throw new Error("Missing 'code' expression for case");
           actual = vm.runInContext(expr, sandbox, { timeout: timeoutMs });
-          passed = deepEqual(actual, expected);
+          passed = deepEqual(actual, expected, c.compare);
         }
       } catch (e) {
         passed = false;

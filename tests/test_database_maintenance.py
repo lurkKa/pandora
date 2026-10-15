@@ -268,7 +268,7 @@ class DatabaseMaintenanceTests(unittest.TestCase):
         self.assertEqual(shadow["id"], 7)
         self.assertEqual(shadow["name_ru"], "Тень-Посвящённый")
         self.assertEqual(shadow["min_xp"], 0)
-        self.assertEqual(len(first_ids), 27)
+        self.assertEqual(len(first_ids), 41)
         self.assertEqual(first_ids, second_ids)
         self.assertNotIn("Retired Rank", first_ids)
 
