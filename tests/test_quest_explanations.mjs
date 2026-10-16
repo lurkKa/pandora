@@ -33,16 +33,16 @@ function harness() {
     return {context,element,events,requests};
 }
 
-test('half and full cards have separate text, icon, track and patch signatures',()=>{
+test('half and full cards retain distinct states without a progress bar',()=>{
     const {context}=harness();
     const task={id:'py-old',category:'python',title:'Сумма',tier:'D',completed:true,explanation_required:true};
     context.task=task;context.ids=new Set(['py-old']);
     const half=vm.runInContext('renderQuestCard(task,ids,{python:"🐍"})',context);
     const halfSignature=vm.runInContext('getQuestCardSignature(task,ids)',context);
-    assert.match(half,/partially-completed/);assert.match(half,/50% · Добавь объяснение/);assert.match(half,/width:50%/);
+    assert.match(half,/partially-completed/);assert.match(half,/50% · Добавь объяснение/);assert.doesNotMatch(half,/quest-completion-track/);
     task.explanation_required=false;
     const full=vm.runInContext('renderQuestCard(task,ids,{python:"🐍"})',context);
-    assert.doesNotMatch(full,/partially-completed/);assert.match(full,/100% · Выполнено/);assert.match(full,/width:100%/);
+    assert.doesNotMatch(full,/partially-completed/);assert.match(full,/100% · Выполнено/);assert.doesNotMatch(full,/quest-completion-track/);
     assert.notEqual(vm.runInContext('getQuestCardSignature(task,ids)',context),halfSignature);
 });
 

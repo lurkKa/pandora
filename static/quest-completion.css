@@ -14,8 +14,6 @@ html[data-ui-theme="modern"] .quest-card.completed.partially-completed[data-meth
 }
 body .quest-completion-label { color: #a7f3c5; font-size: 12px; font-weight: 650; letter-spacing: .02em; }
 body .partially-completed .quest-completion-label { color: #c9e3d2; }
-body .quest-completion-track { height: 4px; width: 100%; background: rgba(115, 148, 128, .24); border-radius: 8px; overflow: hidden; }
-body .quest-completion-track span { display: block; height: 100%; background: #4ade80; border-radius: inherit; }
 body .quest-card.partially-completed .quest-complete-badge { background: linear-gradient(90deg, #23794b 50%, #202e27 50%) !important; color: #d6f5df; }
 html[data-ui-theme="classic"] .quest-card.partially-completed::before {
     background: linear-gradient(90deg, rgba(52, 211, 153, .16) 50%, transparent 50%);

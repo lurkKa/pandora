@@ -3529,10 +3529,10 @@
         }
     </style>
     <link id="pandora-modern-styles" rel="stylesheet" href="static/pandora-ui.css?v=20261015">
-    <link rel="stylesheet" href="static/quest-completion.css?v=20261016">
+    <link rel="stylesheet" href="static/quest-completion.css?v=20261016-no-track">
     <link rel="stylesheet" href="static/pandora-theme-common.css?v=20261016">
     <link rel="stylesheet" href="static/pandora-classic.css?v=20261016">
-    <link rel="stylesheet" href="static/quest-layout.css?v=20261016-fullscreen">
+    <link rel="stylesheet" href="static/quest-layout.css?v=20261016-modal-only">
     <script src="static/pandora-theme.js?v=20260928-theme1"></script>
 </head>
 
@@ -6434,7 +6434,7 @@
                     <div class="quest-card-content">
                         <div class="quest-icon">${isTutorial ? '🎓' : (icons[task.category] || '📜')}</div>
                         <h3 class="quest-title">${task.title}</h3>
-                        ${isCompleted ? `<div class="quest-completion-label">${isPartial ? '◐ 50% · Добавь объяснение' : '✓ 100% · Выполнено'}</div><div class="quest-completion-track" aria-hidden="true"><span style="width:${isPartial ? 50 : 100}%"></span></div>` : ''}
+                        ${isCompleted ? `<div class="quest-completion-label">${isPartial ? '◐ 50% · Добавь объяснение' : '✓ 100% · Выполнено'}</div>` : ''}
                         <p class="quest-story">${task.story || ''}</p>
                         ${isHomework ? `<div class="quest-homework-note">📌 ДЗ • ${hwDeadline}</div>` : ``}
                         <div class="quest-reward">${featuredReward}${isPending ? ' (на проверке)' : ''}</div>
