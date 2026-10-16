@@ -38,6 +38,12 @@ def ensure_schema(cursor):
         code_hash TEXT NOT NULL, base_xp INTEGER NOT NULL, xp_earned INTEGER NOT NULL,
         completed_at TEXT DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY(user_id, variant, version, level))""")
+    if "ui_json" not in {row[1] for row in cursor.execute("PRAGMA table_info(survival_workspaces)").fetchall()}:
+        cursor.execute("ALTER TABLE survival_workspaces ADD COLUMN ui_json TEXT NOT NULL DEFAULT '{}'")
+    cursor.execute("""CREATE TABLE IF NOT EXISTS survival_preferences (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        version TEXT NOT NULL, active_variant TEXT NOT NULL,
+        PRIMARY KEY(user_id, version))""")
 
 
 def fresh_shell():
@@ -90,6 +96,31 @@ class Input(BaseModel):
 
 class SaveInput(Input):
     files: dict[StrictStr, StrictStr]
+    ui: dict | None = None
+
+
+class SessionInput(Input):
+    ui: dict
+
+
+def validate_ui(ui, files):
+    allowed = {"selected_file", "selected_level", "cursor", "scroll", "terminal", "history", "command", "guide_open", "previous_open"}
+    if set(ui) - allowed or len(json.dumps(ui, ensure_ascii=False).encode()) > 100000:
+        raise HTTPException(422, "Состояние редактора слишком большое или имеет неизвестные поля")
+    for key, value in ui.items():
+        if key == "selected_file" and (not isinstance(value, str) or value not in files):
+            raise HTTPException(422, "Неизвестный открытый файл")
+        if key in {"selected_level", "cursor", "scroll"} and (type(value) is not int or not 0 <= value <= 1000000 or key == "selected_level" and not 1 <= value <= len(LEVELS)):
+            raise HTTPException(422, "Неверная позиция редактора или этап")
+        if key in {"guide_open", "previous_open"} and type(value) is not bool:
+            raise HTTPException(422, "Неверное состояние панели")
+        if key == "command" and (not isinstance(value, str) or len(value) > 5000):
+            raise HTTPException(422, "Команда слишком длинная")
+        if key == "history" and (not isinstance(value, list) or len(value) > 50 or any(not isinstance(text, str) or len(text) > 5000 for text in value)):
+            raise HTTPException(422, "Неверная история команд")
+        if key == "terminal" and (not isinstance(value, list) or len(value) > 80 or any(not isinstance(entry, dict) or set(entry) != {"text", "kind"} or not isinstance(entry["text"], str) or len(entry["text"]) > 4000 or not isinstance(entry["kind"], str) or entry["kind"] not in {"", "command", "error", "success"} for entry in value)):
+            raise HTTPException(422, "Неверная история терминала")
+    return ui
 
 
 class CommandInput(Input):
@@ -128,16 +159,24 @@ class SurvivalService:
         passed = {c["level"] for c in progress[variant]}
         next_level = next((n for n in range(1, len(LEVELS)+1) if n not in passed), len(LEVELS))
         xp = conn.execute("SELECT xp,level FROM users WHERE id=?", (uid,)).fetchone()
-        return {"variant": variant, "variants": VARIANTS, "revision": row["revision"], "files": files, "readonly": sorted(READONLY),
+        return {"owner_id": uid, "ui": json.loads(row["ui_json"]), "variant": variant, "variants": VARIANTS, "revision": row["revision"], "files": files, "readonly": sorted(READONLY),
                 "shell": {k: shell.get(k) for k in ("connected", "venv", "active", "dependencies", "migrated", "enabled", "running", "logs")},
                 "needs_restart": shell.get("running_hash") != fingerprint(files), "progress": progress,
                 "next_level": next_level, "campaign_complete": len(passed) == len(LEVELS),
                 "levels": [{"id": n, "title": title, "xp": xp, "contract": contract, "unlocked": n == 1 or n-1 in passed, "completed": n in passed} for n, (title,xp,contract) in enumerate(LEVELS,1)],
                 "xp": xp["xp"], "user_level": xp["level"], "guide": GUIDE, "schema_example": SCHEMA, "unit_example": UNIT}
 
-    def state(self, uid, variant):
+    def remember_variant(self, conn, uid, variant):
+        conn.execute("INSERT INTO survival_preferences(user_id,version,active_variant) VALUES (?,?,?) ON CONFLICT(user_id,version) DO UPDATE SET active_variant=excluded.active_variant", (uid,VERSION,variant))
+
+    def state(self, uid, variant=None):
         with self.db() as conn:
+            if variant is None:
+                preference = conn.execute("SELECT active_variant FROM survival_preferences WHERE user_id=? AND version=?", (uid,VERSION)).fetchone()
+                latest = conn.execute("SELECT variant FROM survival_workspaces WHERE user_id=? AND version=? ORDER BY updated_at DESC, rowid DESC LIMIT 1", (uid,VERSION)).fetchone()
+                variant = preference[0] if preference else latest[0] if latest else "inventory"
             self.row(conn, uid, variant, create=True)
+            self.remember_variant(conn, uid, variant)
             result = self.view(conn, uid, variant)
             conn.commit()
             return result
@@ -163,9 +202,25 @@ class SurvivalService:
             row = self.row(conn, uid, data.variant)
             self.check_revision(row, data.revision)
             self.persist(conn, uid, data.variant, data.files, json.loads(row["shell_json"]))
+            if data.ui is not None:
+                self.persist_ui(conn, uid, data.variant, validate_ui(data.ui, data.files))
             result = self.view(conn, uid, data.variant)
             conn.commit()
             return result
+
+    def persist_ui(self, conn, uid, variant, ui):
+        # Viewing another file must not invalidate an in-flight code check.
+        conn.execute("UPDATE survival_workspaces SET ui_json=? WHERE user_id=? AND variant=? AND version=?", (json.dumps(ui, ensure_ascii=False),uid,variant,VERSION))
+        self.remember_variant(conn, uid, variant)
+
+    def session(self, uid, data):
+        with self.db() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = self.row(conn, uid, data.variant)
+            self.check_revision(row, data.revision)
+            self.persist_ui(conn, uid, data.variant, validate_ui(data.ui, json.loads(row["files_json"])))
+            conn.commit()
+            return {"revision": row["revision"]}
 
     def reset(self, uid, data):
         with self.db() as conn:
@@ -173,6 +228,7 @@ class SurvivalService:
             row = self.row(conn, uid, data.variant)
             self.check_revision(row, data.revision)
             self.persist(conn, uid, data.variant, initial_files(data.variant), fresh_shell())
+            self.persist_ui(conn, uid, data.variant, {})
             result = self.view(conn, uid, data.variant)
             conn.commit()
             return result
@@ -382,7 +438,7 @@ def install(app, db, auth, award):
         return FileResponse(Path(__file__).with_name("survival.html"))
 
     @router.get("/state")
-    def state(variant: str = "inventory", user: dict = Depends(auth)):
+    def state(variant: str | None = None, user: dict = Depends(auth)):
         return service.state(int(user["id"]), variant)
 
     @router.post("/save")
@@ -392,6 +448,10 @@ def install(app, db, auth, award):
     @router.post("/command")
     def command(data: CommandInput, user: dict = Depends(auth)):
         return service.command(int(user["id"]), data)
+
+    @router.post("/session")
+    def session(data: SessionInput, user: dict = Depends(auth)):
+        return service.session(int(user["id"]), data)
 
     @router.post("/grade")
     def check(data: GradeInput, user: dict = Depends(auth)):

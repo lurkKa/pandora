@@ -19,6 +19,15 @@ html[data-ui-theme="classic"] .profile-theme-setting select { border-color: #727
 html[data-ui-theme="classic"] .profile-theme-note,
 html[data-ui-theme="classic"] #profile-theme-status { color: #b7b7c8; }
 html[data-ui-theme="classic"] .guild-avatar-pick { color: var(--text-bright); }
+/* Keep the classic rank ribbons and method glows, with separate space for source labels. */
+html[data-ui-theme="classic"] .quest-card .platform-badge,
+html[data-ui-theme="classic"] .quest-card .tutorial-card-badge,
+html[data-ui-theme="classic"] .quest-card .quest-featured-badge {
+    top: auto; bottom: 12px; right: 12px;
+}
+html[data-ui-theme="classic"] .quest-card .platform-badge ~ .quest-featured-badge { right: 54px; }
+html[data-ui-theme="classic"] .quest-card.pending::after { top: auto; bottom: 8px; right: 12px; }
+html[data-ui-theme="classic"] .quest-card.pending .platform-badge { right: 46px; }
 html[data-ui-theme="classic"] .learning-overview {
     max-width: 1400px; margin: 0 auto 24px; padding: 20px 24px;
     display: grid; grid-template-columns: 1fr 220px; gap: 24px; align-items: center;
@@ -55,4 +64,8 @@ html[data-ui-theme="classic"] .learning-progress-card p { font-size: 12px; margi
     html[data-ui-theme="classic"] .profile-panel,
     html[data-ui-theme="classic"] .leaderboard-sidebar,
     html[data-ui-theme="classic"] .guild-sidebar { width: 100vw !important; max-width: 100vw; min-width: 0; height: 100dvh; }
+}
+@media (max-width: 480px) {
+    html[data-ui-theme="classic"] .quest-grid { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+    html[data-ui-theme="classic"] .quest-card { padding: 22px 22px 44px; min-width: 0; }
 }

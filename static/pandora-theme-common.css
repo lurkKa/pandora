@@ -27,6 +27,8 @@ body .avatar-img { display: grid; place-items: center; }
 .typing-policy { color: #b7b7c8; font-size: 12px; line-height: 1.6; margin: 8px 0; }
 .typing-policy summary { cursor: pointer; padding: 5px 0; }
 .typing-policy p { margin: 8px 0; }
+/* Task conditions are plain text; preserve their paragraphs and examples. */
+body #modal-task { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; }
 @media (prefers-reduced-motion: reduce) {
     html, body, *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }

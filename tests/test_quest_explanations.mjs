@@ -81,6 +81,17 @@ test('restoring a half completion uses the explanation endpoint and changes only
     assert.match(element('output-console').innerText,/100%/);
 });
 
+test('short explanations accept ten characters while shorter text stays in the editor',async()=>{
+    const {context,element,requests}=harness();
+    element('solution-explanation').value='Сумма a+b';
+    await vm.runInContext('saveTaskExplanation()',context);
+    assert.equal(requests.length,0);
+    assert.match(element('output-console').innerText,/от 10 символов/);
+    element('solution-explanation').value='Суммирую a';
+    await vm.runInContext('saveTaskExplanation()',context);
+    assert.equal(requests.length,1);
+});
+
 test('accepted code-only response preserves the half badge and offers explanation later',()=>{
     const {context,element}=harness();
     vm.runInContext('markExplanationComplete({explanation_required:true,completion_percent:50})',context);

@@ -1,13 +1,13 @@
 /* Completion is encoded in text, icon and fill, in both appearance themes. */
-body .quest-card.completed,
-body .quest-card.completed[data-methods] {
+html[data-ui-theme="modern"] .quest-card.completed,
+html[data-ui-theme="modern"] .quest-card.completed[data-methods] {
     background: linear-gradient(135deg, rgba(34, 197, 94, .13), transparent 70%), var(--bg-surface, #14221e);
     border: 1px solid #429768;
     box-shadow: inset 4px 0 0 #4ade80;
 }
-body .quest-card.completed:hover { border-color: #86efac; box-shadow: inset 4px 0 0 #86efac; }
-body .quest-card.completed.partially-completed,
-body .quest-card.completed.partially-completed[data-methods] {
+html[data-ui-theme="modern"] .quest-card.completed:hover { border-color: #86efac; box-shadow: inset 4px 0 0 #86efac; }
+html[data-ui-theme="modern"] .quest-card.completed.partially-completed,
+html[data-ui-theme="modern"] .quest-card.completed.partially-completed[data-methods] {
     background: linear-gradient(90deg, rgba(34, 197, 94, .12) 0%, rgba(34, 197, 94, .12) 50%, transparent 50%), var(--bg-surface, #14221e);
     border-color: #6b9278;
     box-shadow: inset 4px 0 0 #6b9278;
@@ -17,6 +17,36 @@ body .partially-completed .quest-completion-label { color: #c9e3d2; }
 body .quest-completion-track { height: 4px; width: 100%; background: rgba(115, 148, 128, .24); border-radius: 8px; overflow: hidden; }
 body .quest-completion-track span { display: block; height: 100%; background: #4ade80; border-radius: inherit; }
 body .quest-card.partially-completed .quest-complete-badge { background: linear-gradient(90deg, #23794b 50%, #202e27 50%) !important; color: #d6f5df; }
+html[data-ui-theme="classic"] .quest-card.partially-completed::before {
+    background: linear-gradient(90deg, rgba(52, 211, 153, .16) 50%, transparent 50%);
+}
+/* Metadata occupies a real row in modern cards; classic keeps its original badges. */
+.quest-card-meta { display: contents; }
+html[data-ui-theme="modern"] .quest-grid { gap: 24px; align-items: stretch; }
+html[data-ui-theme="modern"] .quest-card { min-width: 0; padding: 24px; gap: 20px; }
+html[data-ui-theme="modern"] .quest-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 26px; }
+html[data-ui-theme="modern"] .quest-card-meta > .tier-indicator,
+html[data-ui-theme="modern"] .quest-card-meta > .quest-complete-badge,
+html[data-ui-theme="modern"] .quest-card-meta > .quest-lock,
+html[data-ui-theme="modern"] .quest-card-meta > .tutorial-card-badge,
+html[data-ui-theme="modern"] .quest-card-meta > .platform-badge,
+html[data-ui-theme="modern"] .quest-card-meta > .quest-featured-badge {
+    position: static; inset: auto; flex-shrink: 0; margin: 0;
+}
+html[data-ui-theme="modern"] .quest-card-meta > .tier-indicator { margin-right: auto; }
+html[data-ui-theme="modern"] .quest-card-meta > .quest-lock { width: 26px; height: 26px; font-size: 13px; }
+html[data-ui-theme="modern"] .quest-card-content { height: auto; flex: 1; gap: 14px; min-width: 0; }
+html[data-ui-theme="modern"] .quest-title,
+html[data-ui-theme="modern"] .quest-story { margin: 0; }
+html[data-ui-theme="modern"] .quest-title { line-height: 1.5; }
+html[data-ui-theme="modern"] .quest-story { -webkit-line-clamp: 3; line-clamp: 3; }
+html[data-ui-theme="modern"] .quest-reward { padding-top: 6px; flex-wrap: wrap; }
+html[data-ui-theme="modern"] .quest-methods { position: static; align-self: flex-start; margin-top: 0; max-width: 100%; flex-wrap: wrap; }
+html[data-ui-theme="modern"] .quest-card.pending::after { position: static; align-self: flex-end; }
+@media (max-width: 600px) {
+    html[data-ui-theme="modern"] .quest-grid { gap: 18px; }
+    html[data-ui-theme="modern"] .quest-card { padding: 20px; gap: 16px; }
+}
 .solution-explanation { margin: 12px 0; padding: 16px; border: 1px solid var(--border-subtle, #456555); border-radius: 12px; background: var(--bg-deep, #11231c); }
 .solution-explanation label { color: var(--text-bright, #e5f5ec); font-weight: 650; font-size: 14px; }
 .solution-explanation p { margin: 8px 0 12px; font-size: 12px; line-height: 1.65; color: var(--text-secondary, #bdcfc3); }

@@ -3529,9 +3529,9 @@
         }
     </style>
     <link id="pandora-modern-styles" rel="stylesheet" href="static/pandora-ui.css?v=20261015">
-    <link rel="stylesheet" href="static/quest-completion.css?v=20261015">
-    <link rel="stylesheet" href="static/pandora-theme-common.css?v=20260928-theme1">
-    <link rel="stylesheet" href="static/pandora-classic.css?v=20260928-theme1">
+    <link rel="stylesheet" href="static/quest-completion.css?v=20261016">
+    <link rel="stylesheet" href="static/pandora-theme-common.css?v=20261016">
+    <link rel="stylesheet" href="static/pandora-classic.css?v=20261016">
     <script src="static/pandora-theme.js?v=20260928-theme1"></script>
 </head>
 
@@ -4970,8 +4970,8 @@
                     <p id="editor-keyboard-help" class="editor-keyboard-help">Tab — отступ. Esc, затем Tab — выйти из редактора. Shift+Tab — назад.</p>
                     <section id="solution-explanation-wrap" class="solution-explanation hidden">
                         <label for="solution-explanation">💬 Как работает твоё решение · необязательно</label>
-                        <p id="solution-explanation-help">Напиши своими словами: какие данные получает код, какие шаги выполняет и что возвращает. Упомяни функцию, переменную или элемент страницы. Можно отправить только код: 50% XP и звёзд, половинная галочка. С объяснением — 100%; оставшаяся награда придёт после дополнения. Для объяснения — 60–6000 символов. Вставка и перетаскивание текста запрещены.</p>
-                        <textarea id="solution-explanation" rows="5" minlength="60" maxlength="6000"
+                        <p id="solution-explanation-help">Кратко объясни действие или результат своего кода — от 10 до 6000 символов. Можно отправить только код: 50% XP и звёзд, половинная галочка. С объяснением — 100%; оставшаяся награда придёт после дополнения. Вставка и перетаскивание текста запрещены.</p>
+                        <textarea id="solution-explanation" rows="5" minlength="10" maxlength="6000"
                             aria-describedby="solution-explanation-help" placeholder="Моя функция … принимает … Затем … В результате возвращает …"></textarea>
                         <button type="button" id="save-explanation-btn" class="next-task-btn hidden" onclick="saveTaskExplanation()">✓ Дополнить сохранённое решение до 100%</button>
                     </section>
@@ -6422,12 +6422,14 @@
                          tabindex="0"
                          onclick="openQuest('${task.id}')"
                          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openQuest('${task.id}')}">
+                    <div class="quest-card-meta">
                     <div class="tier-indicator tier-${task.tier}">${task.tier}-Rank</div>
                     ${isLocked ? `<div class="quest-lock" aria-hidden="true">🔒</div>` : ``}
                     ${isCompleted ? `<div class="quest-complete-badge" aria-label="${isPartial ? 'Выполнено наполовину' : 'Выполнено'}">${isPartial ? '◐' : '✓'}</div>` : ``}
                     ${tutorialBadge}
                     ${platformBadge}
                     ${featuredBadge}
+                    </div>
                     <div class="quest-card-content">
                         <div class="quest-icon">${isTutorial ? '🎓' : (icons[task.category] || '📜')}</div>
                         <h3 class="quest-title">${task.title}</h3>
@@ -8094,8 +8096,8 @@
             const taskId = currentTask.id;
             const button = document.getElementById('save-explanation-btn');
             const output = document.getElementById('output-console');
-            if (explanationEditor.value.trim().length < 60) {
-                output.innerText = '💬 Добавь объяснение от 60 символов: входные данные, шаги и результат.';
+            if (explanationEditor.value.trim().length < 10) {
+                output.innerText = '💬 Добавь объяснение от 10 символов: кратко опиши действие или результат кода.';
                 explanationEditor.focus();
                 return;
             }

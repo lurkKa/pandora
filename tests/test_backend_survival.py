@@ -254,6 +254,47 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(self.service.state(1,'inventory')['xp'],0)
         self.assertFalse(self.service.state(1,'inventory')['levels'][0]['completed'])
 
+    def test_files_editor_console_and_active_scenario_survive_new_service(self):
+        self.state = self.service.state(1,'telemetry')
+        files = dict(self.state['files'])
+        files['app.py'] += '\n# мой сохранённый код'
+        ui = {'selected_file':'.env','selected_level':4,'cursor':12,'scroll':20,
+              'terminal':[{'text':'HTTP 200','kind':'success'}], 'history':['ls','curl http://localhost:8080/health'],
+              'command':'cat app.py', 'guide_open':True,'previous_open':False}
+        self.state = self.service.save(1,api.SaveInput(variant='telemetry',revision=self.state['revision'],files=files,ui=ui))
+        restored = api.SurvivalService(self.db,self.service.award).state(1)
+        self.assertEqual(restored['variant'],'telemetry')
+        self.assertEqual(restored['files'],files)
+        self.assertEqual(restored['ui'],ui)
+        self.assertEqual(self.service.state(2)['variant'],'inventory')
+        self.assertEqual(self.service.state(2)['ui'],{})
+
+    def test_session_saves_do_not_change_code_revision_or_allow_rewards(self):
+        self.prepare()
+        revision = self.state['revision']
+        self.service.session(1,api.SessionInput(variant='inventory',revision=revision,ui={'selected_file':'schema.sql','selected_level':11}))
+        self.assertEqual(self.service.state(1)['revision'],revision)
+        with self.assertRaises(HTTPException): self.service.run_grade(1,self.request(11))
+        self.assertEqual(self.service.run_grade(1,self.request())['awarded'],10000)
+        for ui in ({'xp':150000},{'selected_file':'../../etc/passwd'},{'selected_level':True},{'terminal':[{'text':'a','kind':[]}]}):
+            response=self.client.post('/api/survival/session',headers=self.headers,json={'variant':'inventory','revision':revision,'ui':ui})
+            self.assertEqual(response.status_code,422)
+
+    def test_migration_preserves_existing_workspaces_and_completions(self):
+        self.prepare()
+        self.service.run_grade(1,self.request())
+        with self.db() as conn:
+            conn.execute('ALTER TABLE survival_workspaces DROP COLUMN ui_json')
+            api.ensure_schema(conn.cursor())
+            api.ensure_schema(conn.cursor())
+            conn.commit()
+        restored=self.service.state(1)
+        self.assertEqual(restored['files']['app.py'],self.state['files']['app.py'])
+        self.assertTrue(restored['shell']['running'])
+        self.assertEqual(restored['ui'],{})
+        self.assertTrue(restored['levels'][0]['completed'])
+        self.assertEqual(restored['xp'],10000)
+
 
 if __name__ == '__main__':
     unittest.main()

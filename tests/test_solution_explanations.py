@@ -24,6 +24,15 @@ class ExplanationQualityTests(unittest.TestCase):
         self.assertIsNone(explanation_error(TEXT, CODE))
         self.assertIsNone(explanation_error(JS_TEXT, JS_CODE))
 
+    def test_short_explanations_start_at_ten_characters(self):
+        self.assertEqual(len('Суммирую a'),10)
+        self.assertIsNone(explanation_error('Суммирую a',CODE))
+        self.assertIsNone(explanation_error('Сумма чисел',CODE))
+        self.assertIsNone(explanation_error('Returns sum',JS_CODE))
+        self.assertIsNone(explanation_error('Цвет текста', '<p>Текст</p>', 'frontend'))
+        for text in ('Сумма a+b','          ','qwertyasdf','фывафывафыва','xyz abcdef'):
+            with self.subTest(text=text): self.assertIsNotNone(explanation_error(text,CODE))
+
     def test_empty_noise_repeats_and_unrelated_text_rejected(self):
         for text in ('', 'решение', 'фыва '*100, 'qwerty '*100,
                      ' '.join(['hjkdfshjkf']*40),
